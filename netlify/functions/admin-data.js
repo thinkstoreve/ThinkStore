@@ -11,8 +11,8 @@ exports.handler = async function(event) {
 
   // Compatibilidad: el panel usa el código corto THINK2026 y Netlify guarda la clave privada.
   // Si en Netlify agregas THINKSTORE_ADMIN_CODE, también será aceptada.
-  const expectedSecret = process.env.THINKSTORE_ADMIN_SECRET || 'THINK2026';
-  const expectedCode = process.env.THINKSTORE_ADMIN_CODE || 'THINK2026';
+  const expectedSecret = process.env.THINKSTORE_ADMIN_SECRET;
+  const expectedCode = process.env.THINKSTORE_ADMIN_CODE;
   const provided = event.headers['x-admin-secret'] || event.headers['X-Admin-Secret'] || '';
   if (![String(expectedSecret), String(expectedCode)].includes(String(provided))) {
     return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'Acceso administrador no autorizado' }) };
