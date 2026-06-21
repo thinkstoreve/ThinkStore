@@ -150,59 +150,164 @@ exports.handler = async function(event) {
   };
 
   const allStatuses = ['Pedido recibido','Pago por verificar','Pago verificado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado'];
+
   function progressHtml(current) {
     const pos = Math.max(0, allStatuses.indexOf(current));
-    return allStatuses.map((s, i) => {
-      const done = i <= pos;
-      return `<tr><td style="width:28px;padding:5px 0;color:${done ? '#111111' : '#b5b5b5'};font-weight:bold;">${done ? '●' : '○'}</td><td style="padding:5px 0;color:${done ? '#111111' : '#8a8a8a'};font-size:15px;">${esc(s)}</td></tr>`;
-    }).join('');
-  }
-
-  function normalizePedido(p) {
-    const customer = p.clientes || p.customer || {};
-    const items = p.pedido_items || p.items || [];
-    return {
-      id: p.id,
-      code: p.codigo || p.code || code || 'TS-000',
-      customerName: customer.nombre || customer.name || p.customer_name || p.nombre || 'cliente',
-      customerEmail: customer.correo || customer.email || p.customer_email || p.correo || '',
-      status: p.estado || p.status || status,
-      guide: p.numero_guia || p.guideNumber || guide || '',
-      total: p.total || p.total_usd || p.monto || '',
-      shippingCompany: p.empresa_envio || p.shipping_company || p.shippingCompany || '',
-      items: Array.isArray(items) ? items : []
-    };
+    return `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0;">
+        <tr>
+          ${allStatuses.map((s, i) => {
+            const done = i <= pos;
+            const active = i === pos;
+            return `
+              <td align="center" style="padding:0 2px;vertical-align:top;">
+                <div style="height:6px;border-radius:999px;background:${done ? '#ffffff' : 'rgba(255,255,255,.20)'};box-shadow:${active ? '0 0 0 1px rgba(255,255,255,.45)' : 'none'};"></div>
+                <div style="font-size:10px;line-height:1.25;color:${done ? '#ffffff' : 'rgba(255,255,255,.45)'};padding-top:9px;min-height:34px;">${esc(s)}</div>
+              </td>`;
+          }).join('')}
+        </tr>
+      </table>`;
   }
 
   function buildEmail(pedido) {
     const meta = statusMeta[pedido.status] || { icon: '📦', title: 'Actualización de tu pedido', department: 'pedidos' };
+    const logoUrl = 'https://thinkstore.com.ve/assets/thinkstore-email-logo.jpg';
+    const trackingUrl = `https://thinkstore.com.ve/?tracking=${encodeURIComponent(pedido.code)}#estatus`;
+    const whatsappUrl = 'https://wa.me/584242142262';
     const itemLines = (pedido.items || []).map(i => {
       return `${i.producto || i.product_name || i.product || i.nombre || 'Producto'}${i.color ? ' · ' + i.color : ''}${(i.capacidad || i.capacity) ? ' · ' + (i.capacidad || i.capacity) : ''}`;
     });
-    const guideLine = pedido.guide ? `<p style="font-size:16px;line-height:1.7;margin:0 0 18px;"><strong>Número de guía:</strong> ${esc(pedido.guide)}</p>` : '';
-    const shippingLine = pedido.shippingCompany ? `<p style="font-size:16px;line-height:1.7;margin:0 0 18px;"><strong>Empresa de envío:</strong> ${esc(pedido.shippingCompany)}</p>` : '';
-    const text = `Hola ${pedido.customerName},\n\n${meta.title}.\n\nPedido: ${pedido.code}\nEstado actual: ${pedido.status}\n${pedido.guide ? `Guía: ${pedido.guide}\n` : ''}\nGracias por confiar en ThinkStore.`;
+    const itemsHtml = itemLines.length
+      ? itemLines.map(x => `<tr><td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.10);font-size:15px;line-height:1.45;color:#f5f5f7;">${esc(x)}</td></tr>`).join('')
+      : `<tr><td style="padding:12px 0;font-size:15px;line-height:1.45;color:#f5f5f7;">Producto por confirmar</td></tr>`;
+
+    const guideBox = pedido.guide ? `
+      <tr>
+        <td style="padding:14px 0 0;">
+          <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:15px 16px;">
+            <div style="font-size:12px;text-transform:uppercase;letter-spacing:.10em;color:rgba(255,255,255,.55);margin-bottom:5px;">Número de guía</div>
+            <div style="font-size:18px;color:#ffffff;font-weight:700;">${esc(pedido.guide)}</div>
+          </div>
+        </td>
+      </tr>` : '';
+
+    const shippingBox = pedido.shippingCompany ? `
+      <tr>
+        <td style="padding:14px 0 0;">
+          <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:15px 16px;">
+            <div style="font-size:12px;text-transform:uppercase;letter-spacing:.10em;color:rgba(255,255,255,.55);margin-bottom:5px;">Empresa de envío</div>
+            <div style="font-size:18px;color:#ffffff;font-weight:700;">${esc(pedido.shippingCompany)}</div>
+          </div>
+        </td>
+      </tr>` : '';
+
+    const text = `Hola ${pedido.customerName},
+
+${meta.title}.
+
+Pedido: ${pedido.code}
+Estado actual: ${pedido.status}
+${pedido.guide ? `Guía: ${pedido.guide}\n` : ''}${pedido.shippingCompany ? `Empresa de envío: ${pedido.shippingCompany}\n` : ''}
+Producto(s):
+${itemLines.length ? itemLines.map(x => `- ${x}`).join('\n') : '- Producto por confirmar'}
+
+Puedes revisar el estado de tu pedido en ${trackingUrl}
+
+Gracias por confiar en ThinkStore.`;
 
     const html = `
-    <div style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:24px 0;"><tr><td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;max-width:600px;width:100%;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111;">
-          <tr><td style="padding:24px 32px;border-bottom:1px solid #eeeeee;"><img src="https://thinkstore.com.ve/assets/logo-thinkstore.PNG" alt="ThinkStore" width="140" style="display:block;height:auto;max-width:140px;"></td></tr>
-          <tr><td style="padding:38px 36px;">
-            <h1 style="font-size:30px;line-height:1.25;margin:0 0 26px;color:#111111;">${esc(meta.icon)} ${esc(meta.title)}</h1>
-            <p style="font-size:17px;line-height:1.7;margin:0 0 18px;">Hola <strong>${esc(pedido.customerName)}</strong>,</p>
-            <p style="font-size:17px;line-height:1.7;margin:0 0 24px;">Tu pedido <strong>${esc(pedido.code)}</strong> fue actualizado a:</p>
-            <div style="background:#f7f7f7;border:1px solid #eeeeee;padding:18px 20px;margin:0 0 26px;"><strong style="font-size:20px;">${esc(pedido.status)}</strong></div>
-            ${shippingLine}${guideLine}
-            ${itemLines.length ? `<p style="font-size:16px;line-height:1.7;margin:0 0 10px;"><strong>Productos:</strong></p><ul style="font-size:15px;line-height:1.7;margin-top:0;">${itemLines.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-            <table cellpadding="0" cellspacing="0" width="100%" style="margin:26px 0;border-top:1px solid #eeeeee;border-bottom:1px solid #eeeeee;padding:14px 0;">${progressHtml(pedido.status)}</table>
-            <div style="text-align:center;margin:34px 0 8px;"><a href="https://thinkstore.com.ve/?tracking=${encodeURIComponent(pedido.code)}#estatus" style="background:#000000;color:#ffffff;text-decoration:none;padding:16px 34px;border-radius:8px;font-size:16px;font-weight:bold;display:inline-block;">Ver mi pedido</a></div>
-          </td></tr>
-          <tr><td style="background:#f7f7f7;padding:24px 36px;border-top:1px solid #eeeeee;font-size:14px;line-height:23px;color:#555555;"><strong style="color:#111111;">ThinkStore</strong><br>Altamira, Caracas - Venezuela<br><a href="https://thinkstore.com.ve" style="color:#111111;text-decoration:underline;">www.thinkstore.com.ve</a></td></tr>
-        </table>
-      </td></tr></table>
+    <div style="margin:0;padding:0;background:#050505;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:28px 12px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;border-collapse:separate;border-spacing:0;background:#111114;border:1px solid rgba(255,255,255,.12);border-radius:28px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45);">
+              <tr>
+                <td style="background:linear-gradient(145deg,#050505 0%,#17171b 48%,#2a2a31 100%);padding:34px 34px 28px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="left" style="padding-bottom:28px;">
+                        <div style="background:#ffffff;border-radius:22px;padding:18px 22px;display:inline-block;">
+                          <img src="${esc(logoUrl)}" alt="ThinkStore" width="260" style="display:block;width:260px;max-width:100%;height:auto;border:0;">
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div style="font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:rgba(255,255,255,.58);margin-bottom:12px;">Estado de pedido</div>
+                        <h1 style="font-size:36px;line-height:1.12;margin:0;color:#ffffff;font-weight:800;">${esc(meta.title)}</h1>
+                        <p style="font-size:17px;line-height:1.65;margin:18px 0 0;color:rgba(255,255,255,.76);">Hola <strong style="color:#ffffff;">${esc(pedido.customerName)}</strong>, tu pedido <strong style="color:#ffffff;">${esc(pedido.code)}</strong> fue actualizado.</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding-top:24px;">
+                        <div style="display:inline-block;background:#ffffff;color:#000000;border-radius:999px;padding:11px 18px;font-size:15px;font-weight:800;">${esc(meta.icon)} ${esc(pedido.status)}</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding-top:30px;">
+                        ${progressHtml(pedido.status)}
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding:30px 34px 8px;background:#111114;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:0 0 14px;">
+                        <div style="background:#1b1b20;border:1px solid rgba(255,255,255,.10);border-radius:20px;padding:20px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.50);padding-bottom:8px;">Resumen</td>
+                            </tr>
+                            <tr>
+                              <td style="font-size:16px;line-height:1.75;color:#f5f5f7;">
+                                <strong>Pedido:</strong> ${esc(pedido.code)}<br>
+                                <strong>Estado actual:</strong> ${esc(pedido.status)}<br>
+                                ${pedido.total ? `<strong>Total:</strong> $${esc(pedido.total)}<br>` : ''}
+                              </td>
+                            </tr>
+                            ${shippingBox}
+                            ${guideBox}
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td style="padding:0 0 18px;">
+                        <div style="background:#1b1b20;border:1px solid rgba(255,255,255,.10);border-radius:20px;padding:20px;">
+                          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.50);margin-bottom:10px;">Producto(s)</div>
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemsHtml}</table>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td align="center" style="padding:8px 0 30px;">
+                        <a href="${esc(trackingUrl)}" style="display:inline-block;background:#ffffff;color:#000000;text-decoration:none;border-radius:999px;padding:15px 24px;font-size:15px;font-weight:800;margin:4px 6px;">Ver estado del pedido</a>
+                        <a href="${esc(whatsappUrl)}" style="display:inline-block;background:#25D366;color:#05130a;text-decoration:none;border-radius:999px;padding:15px 24px;font-size:15px;font-weight:800;margin:4px 6px;">Contactar por WhatsApp</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="background:#0b0b0d;border-top:1px solid rgba(255,255,255,.10);padding:24px 34px;font-size:13px;line-height:1.7;color:rgba(255,255,255,.58);">
+                  <strong style="color:#ffffff;">ThinkStore</strong><br>
+                  Altamira, Caracas · Venezuela<br>
+                  <a href="https://thinkstore.com.ve" style="color:#ffffff;text-decoration:underline;">www.thinkstore.com.ve</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </div>`;
-    return { subject: `${pedido.status} | Pedido ${pedido.code} | ThinkStore`, text, html, department: meta.department };
+    return { subject: `ThinkStore — ${pedido.status} | ${pedido.code}`, text, html, department: meta.department };
   }
 
   function fromForDepartment(department) {
