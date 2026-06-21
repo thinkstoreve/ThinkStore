@@ -2005,8 +2005,24 @@ async function loginClient(){
 
 const tsLocalLogoutClient = typeof logoutClient === 'function' ? logoutClient : null;
 async function logoutClient(){
-  if(window.tsSupabaseReady){ await window.tsSupabase.auth.signOut(); }
-  if(tsLocalLogoutClient) return tsLocalLogoutClient();
+  try {
+    if (window.tsSupabaseReady && window.tsSupabase?.auth) {
+      await Promise.race([
+        window.tsSupabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 1500))
+      ]);
+    }
+  } catch (err) {
+    console.warn('No se pudo cerrar sesión en Supabase:', err);
+  }
+
+  try {
+    localStorage.removeItem('ts_current_user');
+    localStorage.removeItem('thinkstore_current_user');
+    sessionStorage.clear();
+  } catch (err) {}
+
+  window.location.href = '/';
 }
 
 async function saveOrderToSupabase(order){
