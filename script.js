@@ -994,7 +994,12 @@ window.addEventListener('load', ()=>{
     const code = params.get('tracking');
     const token = params.get('token');
 
-    if(code && typeof trackOrder === 'function'){
+    if(code && !token){
+  alert('Enlace de seguimiento no válido o incompleto.');
+  return;
+}
+
+if(code && token && typeof trackOrder === 'function'){
       setTimeout(()=>{
         if($('trackCode')) $('trackCode').value = code;
         window.tsTrackingToken = token || '';
