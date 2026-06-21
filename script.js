@@ -1516,7 +1516,7 @@ function saveAdminState(){
   localStorage.setItem('ts_admin_inventory', JSON.stringify(adminInventory));
   localStorage.setItem('ts_admin_settings', JSON.stringify(adminSettings));
 }
-const TS_ADMIN_SECRET_CODE = 'THINK2026';
+const TS_ADMIN_SECRET_CODE = 'ADMIN';
 let tsAdminTapCount = 0;
 let tsAdminTapTimer = null;
 let tsAdminKeyBuffer = '';
@@ -1550,7 +1550,7 @@ document.addEventListener('keydown', (event)=>{
   const key = event.key || '';
   if(key.length !== 1) return;
   tsAdminKeyBuffer = (tsAdminKeyBuffer + key).toUpperCase().slice(-9);
-  if(tsAdminKeyBuffer === 'THINK2026'){
+  if(tsAdminKeyBuffer === 'ADMIN'){
     tsAdminKeyBuffer = '';
     openAdminSuite();
   }
@@ -3111,7 +3111,7 @@ window.addEventListener('load', ()=>{
 
 /* ===== ThinkStore V50 Dashboard Seguro - Netlify Functions + Supabase Service Role ===== */
 (function(){
-  const ADMIN_CODE = 'THINK2026';
+  const ADMIN_CODE = 'ADMIN';
   const adminSecret = () => sessionStorage.getItem('thinkstore_admin_secret') || '';
 
   const oldMapOrder = window.tsMapOrder || ((x)=>x);
