@@ -874,8 +874,13 @@ async function openEmail(to, subject, body, department='pedidos'){
 }
 
 function findOrderByCode(code){
+  const token = window.tsTrackingToken || '';
   const all = tsOrders ? tsOrders() : orders;
-  return (all || []).find(o => String(o.code) === String(code));
+
+  return (all || []).find(o =>
+    String(o.code || '').trim().toUpperCase() === String(code || '').trim().toUpperCase() &&
+    String(o.tracking_token || '').trim() === String(token || '').trim()
+  );
 }
 
 function sendOrderEmail(iOrCode){
@@ -983,8 +988,25 @@ function checkStatus(){
 
 count(); drawCustomerSummary();
 
-window.addEventListener('load',()=>{
-  try{ const code=new URLSearchParams(location.search).get('tracking'); if(code && typeof trackOrder==='function'){ setTimeout(()=>{ if($('trackCode')) $('trackCode').value=code; trackOrder(); },500); } }catch(e){}
+window.addEventListener('load', ()=>{
+  try{
+    const params = new URLSearchParams(location.search);
+    const code = params.get('tracking');
+    const token = params.get('token');
+
+    if(code && !token){
+  alert('Enlace de seguimiento no válido o incompleto.');
+  return;
+}
+
+if(code && token && typeof trackOrder === 'function'){
+      setTimeout(()=>{
+        if($('trackCode')) $('trackCode').value = code;
+        window.tsTrackingToken = token || '';
+        trackOrder();
+      }, 500);
+    }
+  }catch(e){}
 });
 
 
@@ -2005,8 +2027,24 @@ async function loginClient(){
 
 const tsLocalLogoutClient = typeof logoutClient === 'function' ? logoutClient : null;
 async function logoutClient(){
-  if(window.tsSupabaseReady){ await window.tsSupabase.auth.signOut(); }
-  if(tsLocalLogoutClient) return tsLocalLogoutClient();
+  try {
+    if (window.tsSupabaseReady && window.tsSupabase?.auth) {
+      await Promise.race([
+        window.tsSupabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 1500))
+      ]);
+    }
+  } catch (err) {
+    console.warn('No se pudo cerrar sesión en Supabase:', err);
+  }
+
+  try {
+    localStorage.removeItem('ts_current_user');
+    localStorage.removeItem('thinkstore_current_user');
+    sessionStorage.clear();
+  } catch (err) {}
+
+  window.location.href = '/';
 }
 
 async function saveOrderToSupabase(order){
@@ -3285,7 +3323,11 @@ window.addEventListener('load', ()=>{
     const current = Math.max(0, allStatuses.indexOf(active));
     return `<div class="ts-enterprise-progress">${allStatuses.map((s,i)=>`<div class="ts-step ${i<current?'done':i===current?'active':''}"><span>${i<current?'✓':i===current?'●':'○'}</span><b>${esc(s)}</b></div>`).join('')}</div>`;
   };
-  window.tsOrderTrackingUrl = function(code){ return `https://thinkstore.com.ve/seguimiento/${encodeURIComponent(code||'')}`; };
+  window.tsOrderTrackingUrl = function(code, token){
+  const c = encodeURIComponent(code || '');
+  const t = encodeURIComponent(token || '');
+  return `https://thinkstore.com.ve/?tracking=${c}&token=${t}#status`;
+};
   window.tsEnterpriseNotificationItems = function(){
     const orders = (window.tsOrders ? window.tsOrders() : []);
     const customers = (window.tsCustomers ? window.tsCustomers() : []);
@@ -3342,7 +3384,7 @@ window.addEventListener('load', ()=>{
     const out=document.getElementById('statusResult');
     if(!out) return oldCheckStatus && oldCheckStatus();
     if(!o){ out.innerHTML='<p class="muted">No encontré esa orden. Revisa el código o inicia sesión.</p>'; return; }
-    out.innerHTML=`<div class="ts-public-track"><h3>${esc(o.code)}</h3><p>${statusIcon(o.status)} <b>${esc(o.status||'Pedido recibido')}</b></p>${window.tsEnterpriseTimeline(o)}<small>QR / enlace: ${esc(window.tsOrderTrackingUrl(o.code))}</small><div class="admin-row-actions"><button class="btn ghost" onclick="showPremiumNoteByCode('${esc(o.code)}')">Ver nota de entrega</button></div></div>`;
+    out.innerHTML=`<div class="ts-public-track"><h3>${esc(o.code)}</h3><p>${statusIcon(o.status)} <b>${esc(o.status||'Pedido recibido')}</b></p>${window.tsEnterpriseTimeline(o)}<small>QR / enlace: ${esc(window.tsOrderTrackingUrl(o.code, o.tracking_token))}</small><div class="admin-row-actions"><button class="btn ghost" onclick="showPremiumNoteByCode('${esc(o.code)}')">Ver nota de entrega</button></div></div>`;
   };
   const oldAdminOrders = window.renderAdminOrders;
   window.renderAdminOrders = function(){
