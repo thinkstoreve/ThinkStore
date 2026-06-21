@@ -3111,15 +3111,7 @@ window.addEventListener('load', ()=>{
 /* ===== ThinkStore V50 Dashboard Seguro - Netlify Functions + Supabase Service Role ===== */
 (function(){
   // La clave real NO vive en el código. Se escribe al abrir el panel y Netlify la valida.
-  const adminSecret = () => sessionStorage.getItem('thinkstore_admin_secret') || localStorage.getItem('thinkstore_admin_secret') || '';
-  const saveAdminSecret = (secret) => {
-    const value = String(secret || '').trim();
-    if(value){
-      sessionStorage.setItem('thinkstore_admin_secret', value);
-      localStorage.setItem('thinkstore_admin_secret', value);
-    }
-    return value;
-  };
+  const adminSecret = () => sessionStorage.getItem('thinkstore_admin_secret') || '';
 
   const oldMapOrder = window.tsMapOrder || ((x)=>x);
   const oldRefresh = window.tsRefreshAdminData;
@@ -3127,8 +3119,9 @@ window.addEventListener('load', ()=>{
 
   window.openAdminSuite = function(){
     const pass = prompt('Código especial de administrador');
-    const secret = saveAdminSecret(pass);
+    const secret = String(pass || '').trim();
     if(!secret){ alert('Ingresa la clave de administrador'); return; }
+    sessionStorage.setItem('thinkstore_admin_secret', secret);
     const modal = document.getElementById('adminSuiteModal');
     if(modal) modal.classList.add('open');
     window.tsRefreshAdminData({silent:false}).then(()=>window.renderAdminSuite && window.renderAdminSuite());
@@ -3168,51 +3161,25 @@ window.addEventListener('load', ()=>{
 
   window.changeStoredOrderStatus = async function(code,status){
     const before = (window.tsOrders ? window.tsOrders() : []).find(o=>String(o.code)===String(code));
-    const secret = adminSecret() || saveAdminSecret(prompt('Código especial de administrador para sincronizar Supabase'));
     let changedSecurely = false;
-    let result = null;
-    let secureError = '';
-
     if(before?.db_id || before?.code){
       try{
         const res = await fetch('/.netlify/functions/admin-update-order', {
           method:'POST',
-          headers:{ 'Content-Type':'application/json', 'x-admin-secret': secret },
+          headers:{ 'Content-Type':'application/json', 'x-admin-secret': adminSecret() },
           body: JSON.stringify({ id: before.db_id, code: before.code, status, note:'Actualizado desde dashboard ThinkStore' })
         });
-        result = await res.json().catch(()=>({}));
-        if(!res.ok || !result.ok) throw new Error(result.error || 'No actualizado');
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok || !data.ok) throw new Error(data.error || 'No actualizado');
         changedSecurely = true;
-      }catch(e){
-        secureError = e.message || String(e);
-        console.warn('Actualización segura falló:', secureError);
-      }
+      }catch(e){ console.warn('Actualización segura falló:', e.message || e); }
     }
-
-    if(!changedSecurely){
-      // Actualización visual local sin disparar el flujo antiguo, para mostrar el error real de Supabase/Resend.
-      for(const key of ['ts_orders','thinkstore_orders']){
-        const arr = JSON.parse(localStorage.getItem(key)||'[]');
-        const idx = arr.findIndex(o=>String(o.code)===String(code));
-        if(idx >= 0){
-          arr[idx].status = status;
-          arr[idx].updatedAt = new Date().toLocaleString('es-VE');
-          localStorage.setItem(key, JSON.stringify(arr));
-        }
-      }
-      alert('Estado actualizado localmente, pero Supabase no confirmó el cambio: ' + (secureError || 'Error desconocido'));
-    }else if(result?.email?.sent){
-      alert('Estado actualizado en Supabase y correo enviado al cliente.');
-    }else if(result?.email?.skipped){
-      const reason = result.email.reason === 'missing_customer_email' ? 'el cliente no tiene correo registrado' : 'falta RESEND_API_KEY';
-      alert('Estado actualizado en Supabase. No se envió correo porque ' + reason + '.');
-    }else if(result?.email?.error){
-      alert('Estado actualizado en Supabase, pero Resend no envió el correo: ' + result.email.error);
-    }else{
-      alert('Estado actualizado en Supabase.');
-    }
-
+    if(!changedSecurely && typeof oldChange === 'function') oldChange(code,status);
     await window.tsRefreshAdminData({silent:true});
+    const updated = (window.tsOrders ? window.tsOrders() : []).find(o=>String(o.code)===String(code)) || {...before,status};
+    // Si el cambio fue seguro, la función Netlify ya envió el correo automático.
+    // Solo enviamos desde el frontend cuando cayó al modo local para evitar correos duplicados.
+    if(!changedSecurely && typeof window.tsSendOrderStatusEmail === 'function' && before && String(before.status)!==String(status)) window.tsSendOrderStatusEmail(updated,{manual:false});
     if(typeof window.renderAdminSuite === 'function') window.renderAdminSuite();
     if(typeof window.renderAccount === 'function') window.renderAccount();
   };
