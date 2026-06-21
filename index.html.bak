@@ -10,7 +10,7 @@
     <div class="ts-v2-hero-actions">
       <button class="btn ts-v2-primary" onclick="openCategoryModalV2('iPhone')">Comprar ahora</button>
       <button class="btn ghost ts-v2-secondary" onclick="scrollToCatalogV2()">Ver catálogo</button>
-      <button class="btn ghost ts-v2-secondary" onclick="tsOpenSmartWhatsApp()">WhatsApp</button>
+      <button class="btn ghost ts-v2-secondary" onclick="openWhatsApp()">WhatsApp</button>
     </div>
   </div>
   <div class="ts-v2-hero-device">
@@ -68,7 +68,7 @@
     <h1>Tecnología Premium al Mejor Precio</h1>
     <p>MacBook, iPhone, iPad, AirPods, accesorios Apple y soporte técnico especializado en Altamira, Caracas.</p>
     <a class="btn" href="#catalogo">Comprar ahora</a>
-    <button class="btn wa" type="button" onclick="tsOpenSmartWhatsApp('general')">WhatsApp</button>
+    <a class="btn wa" href="https://wa.me/584141032030" target="_blank">WhatsApp</a>
   </div>
 </section>
 <section class="cats"><button type="button" onclick="openCategoryWindow('Mac')">💻<b>Mac</b></button><button type="button" onclick="openCategoryWindow('iPhone')">📱<b>iPhone</b></button><button type="button" onclick="openCategoryWindow('iPad')">▣<b>iPad</b></button><button type="button" onclick="openCategoryWindow('Audio','AirPods')">🎧<b>AirPods</b></button><button type="button" onclick="openCategoryWindow('Accesorios')">✏️<b>Accesorios</b></button></section>
@@ -77,8 +77,8 @@
 <section id="mac" class="banner dark"><h2>MacBook Air y MacBook Pro</h2><p>M3, M4, M4 Pro y M4 Max.</p></section><section id="iphone" class="banner"><h2>iPhone desde gama 15 en adelante</h2><p>Colores, capacidades y preórdenes.</p></section><section id="ipad" class="banner dark"><h2>iPad A16 y Apple Pencil</h2></section><section id="audio" class="banner"><h2>AirPods 4, AirPods Pro y AirPods Max</h2></section><section id="accesorios" class="banner dark"><h2>Magic Mouse, Magic Keyboard, AirTag, cables y Pencil</h2></section>
 <section class="section service"><p class="eyebrow">Soporte técnico</p><h2>Servicio técnico Apple</h2><div class="servgrid"><div>🔍 Diagnóstico</div><div>🔋 Baterías</div><div>🖥️ Pantallas</div><div>💾 Datos</div><div>🍎 macOS</div><div>🧼 Mantenimiento</div></div></section>
 <section id="envios" class="section"><p class="eyebrow">Confianza ThinkStore</p><h2>Envíos y pagos</h2><div class="panels"><div><h3>🚚 Envíos nacionales</h3><div class="logos"><img loading="lazy" decoding="async" src="assets/mrw.svg"><img loading="lazy" decoding="async" src="assets/zoom.svg"><img loading="lazy" decoding="async" src="assets/tealca.svg"></div><p>MRW, Zoom y TEALCA a toda Venezuela.</p></div><div><h3>💳 Métodos de pago</h3><div class="logos pay"><img loading="lazy" decoding="async" src="assets/zelle.svg"><img loading="lazy" decoding="async" src="assets/pago-movil.svg"><img loading="lazy" decoding="async" src="assets/efectivo.svg"><img loading="lazy" decoding="async" src="assets/binance.svg"><img loading="lazy" decoding="async" src="assets/usdt.svg"></div><p>Zelle, Pago Móvil Bancamiga, efectivo y USDT.</p></div></div></section>
-<section class="location"><div><p class="eyebrow">Tienda física</p><h2>Altamira, Caracas, Venezuela</h2><p>Delivery gratis en algunos sectores y atención por WhatsApp.</p></div><button class="btn" type="button" onclick="tsOpenSmartWhatsApp('ubicacion')">Pedir ubicación</button></section></main>
-<footer><div><img loading="eager" decoding="async" src="assets/2D678121-65A3-4A35-91B7-D248AE166B74.jpeg"><b>ThinkStore</b><p>Tu tienda de confianza para productos Apple y tecnología premium.</p></div><p>WhatsApp: 0414-1032030<br>Instagram: @thinkstore_ve<br>Correo: Thinkstore.ve@gmail.com</p></footer><button class="float ts-smart-wa-float" onclick="tsOpenSmartWhatsApp('general')">💬 WhatsApp</button>
+<section class="location"><div><p class="eyebrow">Tienda física</p><h2>Altamira, Caracas, Venezuela</h2><p>Delivery gratis en algunos sectores y atención por WhatsApp.</p></div><a class="btn" href="https://wa.me/584141032030?text=Hola%20ThinkStore,%20quiero%20la%20ubicación" target="_blank">Pedir ubicación</a></section></main>
+<footer><div><img loading="eager" decoding="async" src="assets/2D678121-65A3-4A35-91B7-D248AE166B74.jpeg"><b>ThinkStore</b><p>Tu tienda de confianza para productos Apple y tecnología premium.</p></div><p>WhatsApp: 0414-1032030<br>Instagram: @thinkstore_ve<br>Correo: Thinkstore.ve@gmail.com</p></footer><button class="float" onclick="window.open('https://wa.me/584141032030','_blank')">WhatsApp</button>
 
 
 <div id="categoryModal" class="modal category-modal">
@@ -806,50 +806,5 @@
     <div style="background:#fff;padding:20px;border-radius:20px;border:1px solid #eee;">🧠 Recomendaciones inteligentes<br><small>Accesorios y productos complementarios.</small></div>
   </div>
 </section>
-
-
-
-<div id="tsSmartWhatsappModal" class="modal ts-smart-wa-modal" aria-hidden="true">
-  <div class="card ts-smart-wa-card">
-    <button class="close" onclick="tsCloseSmartWhatsApp()">×</button>
-    <div class="ts-smart-wa-head">
-      <span class="ts-smart-wa-icon">💬</span>
-      <div>
-        <p class="eyebrow">WhatsApp inteligente</p>
-        <h2>¿Cómo quieres contactar a ThinkStore?</h2>
-        <p class="muted">El sistema preparará el mensaje automáticamente según tu consulta.</p>
-      </div>
-    </div>
-    <div class="ts-smart-wa-options">
-      <button type="button" onclick="tsSendSmartWhatsApp('general')"><b>🛍️ Asesoría de compra</b><small>Te ayudamos a elegir el equipo ideal.</small></button>
-      <button type="button" onclick="tsSendSmartWhatsApp('producto')"><b>📱 Producto actual</b><small>Consulta disponibilidad, color y precio.</small></button>
-      <button type="button" onclick="tsSendSmartWhatsApp('carrito')"><b>🛒 Enviar carrito</b><small>Envía tu carrito para confirmar la compra.</small></button>
-      <button type="button" onclick="tsSendSmartWhatsApp('preorden')"><b>⏳ Preorden</b><small>Pregunta tiempos y condiciones de preorden.</small></button>
-      <button type="button" onclick="tsSendSmartWhatsApp('soporte')"><b>🛠️ Soporte técnico</b><small>Reporta una falla o solicita diagnóstico.</small></button>
-      <button type="button" onclick="tsSendSmartWhatsApp('ubicacion')"><b>📍 Ubicación</b><small>Solicita dirección y horario de atención.</small></button>
-    </div>
-    <div class="ts-smart-wa-custom">
-      <label>Mensaje adicional opcional</label>
-      <textarea id="tsSmartWaExtra" rows="3" placeholder="Ejemplo: Quiero retirar en tienda / Tengo presupuesto de... / Necesito envío nacional..."></textarea>
-    </div>
-  </div>
-</div>
-
-
-
-<div id="tsFeatureModal" class="modal ts-feature-modal" aria-hidden="true">
-  <div class="card ts-feature-card">
-    <button class="close" onclick="tsCloseFeatureModal()">×</button>
-    <div class="ts-feature-head">
-      <span id="tsFeatureIcon" class="ts-feature-icon">✨</span>
-      <div>
-        <p class="eyebrow" id="tsFeatureKicker">ThinkStore Pro</p>
-        <h2 id="tsFeatureTitle">Herramienta ThinkStore</h2>
-        <p class="muted" id="tsFeatureSubtitle">Función premium activa.</p>
-      </div>
-    </div>
-    <div id="tsFeatureBody" class="ts-feature-body"></div>
-  </div>
-</div>
 
 </body></html>
