@@ -874,8 +874,13 @@ async function openEmail(to, subject, body, department='pedidos'){
 }
 
 function findOrderByCode(code){
+  const token = window.tsTrackingToken || '';
   const all = tsOrders ? tsOrders() : orders;
-  return (all || []).find(o => String(o.code) === String(code));
+
+  return (all || []).find(o =>
+    String(o.code) === String(code) &&
+    (!token || String(o.tracking_token || '') === String(token))
+  );
 }
 
 function sendOrderEmail(iOrCode){
