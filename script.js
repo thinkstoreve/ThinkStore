@@ -983,8 +983,20 @@ function checkStatus(){
 
 count(); drawCustomerSummary();
 
-window.addEventListener('load',()=>{
-  try{ const code=new URLSearchParams(location.search).get('tracking'); if(code && typeof trackOrder==='function'){ setTimeout(()=>{ if($('trackCode')) $('trackCode').value=code; trackOrder(); },500); } }catch(e){}
+window.addEventListener('load', ()=>{
+  try{
+    const params = new URLSearchParams(location.search);
+    const code = params.get('tracking');
+    const token = params.get('token');
+
+    if(code && typeof trackOrder === 'function'){
+      setTimeout(()=>{
+        if($('trackCode')) $('trackCode').value = code;
+        window.tsTrackingToken = token || '';
+        trackOrder();
+      }, 500);
+    }
+  }catch(e){}
 });
 
 
