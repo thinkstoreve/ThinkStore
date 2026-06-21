@@ -9,9 +9,9 @@ exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
 
-  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.RESEND_APY_KEY;
   if (!RESEND_API_KEY) {
-    return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Falta configurar RESEND_API_KEY en Netlify.' }) };
+    return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Falta configurar RESEND_API_KEY o RESEND_APY_KEY en Netlify.' }) };
   }
 
   let data;

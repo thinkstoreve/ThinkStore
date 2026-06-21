@@ -9,17 +9,16 @@ exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
 
-  // Acepta la clave privada de Netlify y el código corto del panel.
-  // Esto evita que el dashboard pueda leer datos pero falle al cambiar estados.
-  const expectedSecret = process.env.THINKSTORE_ADMIN_SECRET;
-  const expectedCode = process.env.THINKSTORE_ADMIN_CODE;
-  const provided = event.headers['x-admin-secret'] || event.headers['X-Admin-Secret'] || '';
-  if (![String(expectedSecret), String(expectedCode)].includes(String(provided))) {
+  const clean = (v) => String(v || '').trim();
+  const expectedSecret = clean(process.env.THINKSTORE_ADMIN_SECRET);
+  const expectedCode = clean(process.env.THINKSTORE_ADMIN_CODE);
+  const provided = clean(event.headers['x-admin-secret'] || event.headers['X-Admin-Secret'] || '');
+  if (!provided || ![expectedSecret, expectedCode].filter(Boolean).includes(provided)) {
     return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'Acceso administrador no autorizado' }) };
   }
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const SUPABASE_URL = clean(process.env.SUPABASE_URL);
+  const SUPABASE_SERVICE_ROLE_KEY = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Netlify.' }) };
   }
@@ -28,10 +27,10 @@ exports.handler = async function(event) {
   try { body = JSON.parse(event.body || '{}'); }
   catch { return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'JSON inválido' }) }; }
 
-  const id = String(body.id || body.db_id || '').trim();
-  const code = String(body.code || body.codigo || '').trim();
-  const status = String(body.status || body.estado || '').trim();
-  const guide = String(body.guideNumber || body.numero_guia || '').trim();
+  const id = clean(body.id || body.db_id);
+  const code = clean(body.code || body.codigo);
+  const status = clean(body.status || body.estado);
+  const guide = clean(body.guideNumber || body.numero_guia);
   if (!status) return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Estatus requerido' }) };
   if (!id && !code) return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'ID o código de pedido requerido' }) };
 
@@ -47,6 +46,96 @@ exports.handler = async function(event) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+  async function sb(path, options={}) {
+    const res = await fetch(api + path, { headers: baseHeaders, ...options, headers: { ...baseHeaders, ...(options.headers || {}) } });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = (data && (data.message || data.error || data.details)) || `Error Supabase ${res.status}`;
+      const err = new Error(msg);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  async function patchPedido() {
+    const query = id ? `id=eq.${encodeURIComponent(id)}` : `codigo=eq.${encodeURIComponent(code)}`;
+
+    // Algunas tablas no tienen updated_at. Primero intentamos con updated_at y si falla, repetimos sin esa columna.
+    const payloadA = { estado: status, updated_at: new Date().toISOString() };
+    if (guide) payloadA.numero_guia = guide;
+
+    try {
+      const data = await sb('pedidos?' + query, { method: 'PATCH', body: JSON.stringify(payloadA) });
+      return Array.isArray(data) ? data[0] : data;
+    } catch (e) {
+      const payloadB = { estado: status };
+      if (guide) payloadB.numero_guia = guide;
+      const data = await sb('pedidos?' + query, { method: 'PATCH', body: JSON.stringify(payloadB) });
+      return Array.isArray(data) ? data[0] : data;
+    }
+  }
+
+  async function readPedido(updated) {
+    const updatedId = updated?.id || id;
+    const updatedCode = updated?.codigo || code;
+    const q = updatedId ? `id=eq.${encodeURIComponent(updatedId)}` : `codigo=eq.${encodeURIComponent(updatedCode)}`;
+
+    // Intento completo con relaciones.
+    try {
+      const data = await sb(`pedidos?select=*,clientes(*),pedido_items(*)&${q}`);
+      if (Array.isArray(data) && data[0]) return data[0];
+    } catch (_) {}
+
+    // Fallback simple.
+    try {
+      const data = await sb(`pedidos?select=*&${q}`);
+      if (Array.isArray(data) && data[0]) return data[0];
+    } catch (_) {}
+
+    return updated || {};
+  }
+
+  async function enrichCliente(pedido) {
+    if (pedido.clientes || pedido.customer || !pedido.cliente_id) return pedido;
+    try {
+      const data = await sb(`clientes?select=*&id=eq.${encodeURIComponent(pedido.cliente_id)}`);
+      if (Array.isArray(data) && data[0]) return { ...pedido, clientes: data[0] };
+    } catch (_) {}
+    return pedido;
+  }
+
+  async function readItems(pedido) {
+    const pedidoId = pedido?.id || id;
+    if (!pedidoId || pedido.pedido_items || pedido.items) return pedido;
+    try {
+      const data = await sb(`pedido_items?select=*&pedido_id=eq.${encodeURIComponent(pedidoId)}`);
+      return { ...pedido, pedido_items: Array.isArray(data) ? data : [] };
+    } catch (_) {
+      try {
+        const data = await sb(`order_items?select=*&pedido_id=eq.${encodeURIComponent(pedidoId)}`);
+        return { ...pedido, pedido_items: Array.isArray(data) ? data : [] };
+      } catch (_) {}
+    }
+    return pedido;
+  }
+
+  async function insertHistory(updatedId) {
+    if (!updatedId) return;
+    const candidates = [
+      { pedido_id: updatedId, status, note: body.note || 'Actualizado desde dashboard administrador' },
+      { order_id: updatedId, status, note: body.note || 'Actualizado desde dashboard administrador' },
+      { pedido_id: updatedId, estado: status, nota: body.note || 'Actualizado desde dashboard administrador' }
+    ];
+    for (const payload of candidates) {
+      try {
+        await sb('order_status_history', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify(payload) });
+        return;
+      } catch (_) {}
+    }
+  }
+
   const statusMeta = {
     'Pedido recibido': { icon: '🟡', title: 'Hemos recibido tu pedido', department: 'pedidos' },
     'Pago por verificar': { icon: '🟠', title: 'Tu pago está en verificación', department: 'pedidos' },
@@ -60,7 +149,7 @@ exports.handler = async function(event) {
     'Cancelado': { icon: '⚫', title: 'Tu pedido fue cancelado', department: 'soporte' }
   };
 
-  const allStatuses = ['Pedido recibido','Pago verificado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado'];
+  const allStatuses = ['Pedido recibido','Pago por verificar','Pago verificado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado'];
   function progressHtml(current) {
     const pos = Math.max(0, allStatuses.indexOf(current));
     return allStatuses.map((s, i) => {
@@ -92,7 +181,6 @@ exports.handler = async function(event) {
     });
     const guideLine = pedido.guide ? `<p style="font-size:16px;line-height:1.7;margin:0 0 18px;"><strong>Número de guía:</strong> ${esc(pedido.guide)}</p>` : '';
     const shippingLine = pedido.shippingCompany ? `<p style="font-size:16px;line-height:1.7;margin:0 0 18px;"><strong>Empresa de envío:</strong> ${esc(pedido.shippingCompany)}</p>` : '';
-
     const text = `Hola ${pedido.customerName},\n\n${meta.title}.\n\nPedido: ${pedido.code}\nEstado actual: ${pedido.status}\n${pedido.guide ? `Guía: ${pedido.guide}\n` : ''}\nGracias por confiar en ThinkStore.`;
 
     const html = `
@@ -118,17 +206,18 @@ exports.handler = async function(event) {
   }
 
   function fromForDepartment(department) {
+    const fallbackFrom = process.env.FROM_EMAIL || 'ThinkStore <onboarding@resend.dev>';
     const map = {
-      pedidos: process.env.FROM_PEDIDOS_EMAIL || 'ThinkStore Pedidos <pedidos@thinkstore.com.ve>',
-      preordenes: process.env.FROM_PREORDENES_EMAIL || 'ThinkStore Preórdenes <preordenes@thinkstore.com.ve>',
-      soporte: process.env.FROM_SOPORTE_EMAIL || 'ThinkStore Soporte <soporte@thinkstore.com.ve>',
-      ventas: process.env.FROM_VENTAS_EMAIL || 'ThinkStore Ventas <ventas@thinkstore.com.ve>'
+      pedidos: process.env.FROM_PEDIDOS_EMAIL || fallbackFrom,
+      preordenes: process.env.FROM_PREORDENES_EMAIL || fallbackFrom,
+      soporte: process.env.FROM_SOPORTE_EMAIL || fallbackFrom,
+      ventas: process.env.FROM_VENTAS_EMAIL || fallbackFrom
     };
     return map[department] || map.pedidos;
   }
 
   async function sendStatusEmail(pedido) {
-    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    const RESEND_API_KEY = clean(process.env.RESEND_API_KEY || process.env.RESEND_APY_KEY);
     if (!RESEND_API_KEY || !pedido.customerEmail) return { skipped: true, reason: !RESEND_API_KEY ? 'missing_resend_key' : 'missing_customer_email' };
     const email = buildEmail(pedido);
     const response = await fetch('https://api.resend.com/emails', {
@@ -137,51 +226,40 @@ exports.handler = async function(event) {
       body: JSON.stringify({
         from: fromForDepartment(email.department),
         to: pedido.customerEmail,
-        reply_to: email.department === 'preordenes' ? 'preordenes@thinkstore.com.ve' : (email.department === 'soporte' ? 'soporte@thinkstore.com.ve' : 'pedidos@thinkstore.com.ve'),
+        reply_to: process.env.REPLY_TO_EMAIL || 'pedidos@thinkstore.com.ve',
         subject: email.subject,
         text: email.text,
         html: email.html
       })
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.message || 'Pedido actualizado, pero Resend no pudo enviar el correo.');
+    if (!response.ok) return { sent: false, error: result.message || result.error || 'Resend no pudo enviar el correo.' };
     return { sent: true, id: result.id || null, department: email.department };
   }
 
   try {
-    const query = id ? `id=eq.${encodeURIComponent(id)}` : `codigo=eq.${encodeURIComponent(code)}`;
-    const payload = { estado: status, updated_at: new Date().toISOString() };
-    if (guide) payload.numero_guia = guide;
+    const updated = await patchPedido();
+    if (!updated) throw new Error('No se encontró el pedido para actualizar.');
 
-    const res = await fetch(api + 'pedidos?' + query, { method: 'PATCH', headers: baseHeaders, body: JSON.stringify(payload) });
-    const data = await res.json().catch(() => []);
-    if (!res.ok) throw new Error(data.message || data.error || 'No se pudo actualizar el pedido');
+    await insertHistory(updated.id || id);
 
-    const updated = Array.isArray(data) ? data[0] : data;
-    const updatedId = updated?.id || id;
-
-    if (updatedId) {
-      await fetch(api + 'order_status_history', {
-        method: 'POST',
-        headers: { ...baseHeaders, Prefer: 'return=minimal' },
-        body: JSON.stringify({ order_id: updatedId, status, note: body.note || 'Actualizado desde dashboard administrador' })
-      }).catch(() => null);
-    }
-
-    let fullPedido = updated || {};
-    if (updatedId) {
-      const read = await fetch(api + `pedidos?select=*,clientes(*),pedido_items(*)&id=eq.${encodeURIComponent(updatedId)}`, { headers: baseHeaders });
-      const readData = await read.json().catch(() => []);
-      if (read.ok && Array.isArray(readData) && readData[0]) fullPedido = readData[0];
-    }
+    let fullPedido = await readPedido(updated);
+    fullPedido = await enrichCliente(fullPedido);
+    fullPedido = await readItems(fullPedido);
 
     const normalized = normalizePedido(fullPedido);
-    let emailResult = { skipped: true };
-    try { emailResult = await sendStatusEmail(normalized); }
-    catch (emailError) { emailResult = { sent: false, error: emailError.message || 'No se pudo enviar correo' }; }
+    const emailResult = await sendStatusEmail(normalized);
+
+    console.log('ThinkStore update-order ok', JSON.stringify({
+      code: normalized.code,
+      status: normalized.status,
+      hasEmail: Boolean(normalized.customerEmail),
+      email: emailResult
+    }));
 
     return { statusCode: 200, headers, body: JSON.stringify({ ok: true, pedido: fullPedido || null, normalized, email: emailResult }) };
   } catch (error) {
+    console.error('ThinkStore update-order error', error.message || error);
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: error.message || 'Error interno' }) };
   }
 };
