@@ -2,7 +2,7 @@ ThinkStore V7 - Panel administrativo y clientes
 
 Incluye:
 - Registro de clientes.
-- Panel privado demo: botón Admin, clave thinkstore2026.
+- Panel privado demo: botón Admin, clave [CODIGO_ADMIN].
 - Control de clientes registrados.
 - Control de pedidos y preórdenes.
 - Cambio de estatus del pedido.

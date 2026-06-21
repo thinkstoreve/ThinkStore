@@ -485,7 +485,7 @@ drawCustomerSummary();
 /* ===== ThinkStore Final: clientes, pedidos, estatus y panel privado demo ===== */
 let orders = JSON.parse(localStorage.getItem('ts_orders') || '[]');
 let customers = JSON.parse(localStorage.getItem('ts_customers') || '[]');
-const ADMIN_KEY = 'thinkstore2026';
+const ADMIN_KEY = null; // La clave real se escribe manualmente y se valida en Netlify
 
 function saveAll(){
   localStorage.setItem('ts_orders', JSON.stringify(orders));
@@ -915,7 +915,9 @@ function sendMassEmail(){
 function openAdmin(){ $('adminModal').classList.add('open'); renderAdmin(); }
 function closeAdmin(){ $('adminModal').classList.remove('open'); }
 function loginAdmin(){
-  if(($('adminPass').value||'')!==ADMIN_KEY){alert('Clave incorrecta');return;}
+  const pass = String(($('adminPass').value||'')).trim();
+  if(!pass){alert('Ingresa la clave de administrador');return;}
+  sessionStorage.setItem('thinkstore_admin_secret', pass);
   $('adminLogin').style.display='none';
   $('adminContent').style.display='block';
   renderAdmin();
@@ -948,7 +950,7 @@ function renderAdmin(){
         <option ${o.status==='Recibido'?'selected':''}>Recibido</option>
         <option ${o.status==='Preorden recibida'?'selected':''}>Preorden recibida</option>
         <option ${o.status==='En preparación'?'selected':''}>En preparación</option>
-        <option ${o.status==='Pago verificado'?'selected':''}>Pago verificado</option>
+        <option ${o.status==='Pago recibido'?'selected':''}>Pago recibido</option><option ${o.status==='Pago verificado'?'selected':''}>Pago verificado</option>
         <option ${o.status==='Enviado'?'selected':''}>Enviado</option>
         <option ${o.status==='Entregado'?'selected':''}>Entregado</option>
       </select><br>
@@ -1516,19 +1518,16 @@ function saveAdminState(){
   localStorage.setItem('ts_admin_inventory', JSON.stringify(adminInventory));
   localStorage.setItem('ts_admin_settings', JSON.stringify(adminSettings));
 }
-const TS_ADMIN_SECRET_CODE = 'THINK2026';
+const TS_ADMIN_SECRET_CODE = null; // Sin clave fija en el frontend
 let tsAdminTapCount = 0;
 let tsAdminTapTimer = null;
 let tsAdminKeyBuffer = '';
 
 function openAdminSuite(){
   const pass = prompt('Código especial de administrador');
-  if(!pass) return;
-  const normalized = String(pass).trim().toUpperCase();
-  if(normalized !== TS_ADMIN_SECRET_CODE){
-    alert('Código incorrecto.');
-    return;
-  }
+  const secret = String(pass || '').trim();
+  if(!secret){ alert('Ingresa la clave de administrador.'); return; }
+  sessionStorage.setItem('thinkstore_admin_secret', secret);
   document.getElementById('adminSuiteModal').classList.add('open');
   loadAdminSettings();
   renderAdminSuite();
@@ -1549,8 +1548,8 @@ function hiddenAdminTap(event){
 document.addEventListener('keydown', (event)=>{
   const key = event.key || '';
   if(key.length !== 1) return;
-  tsAdminKeyBuffer = (tsAdminKeyBuffer + key).toUpperCase().slice(-9);
-  if(tsAdminKeyBuffer === 'THINK2026'){
+  tsAdminKeyBuffer = (tsAdminKeyBuffer + key).toUpperCase().slice(-7);
+  if(tsAdminKeyBuffer === 'PANELTS'){
     tsAdminKeyBuffer = '';
     openAdminSuite();
   }
@@ -1696,7 +1695,7 @@ function renderAdminOrders(){
     box.innerHTML='<div class="admin-order-empty"><b>Sin pedidos todavía.</b><small>Cuando un cliente genere una nota o confirme un pedido, aparecerá aquí.</small></div>';
     return;
   }
-  const statuses=['Pedido recibido','Pago por verificar','Pago verificado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado','Cancelado'];
+  const statuses=['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado','Cancelado'];
   const statusIcon=(st)=>({
     'Pedido recibido':'🟡','Pago por verificar':'🟠','Pago verificado':'🟢','Preparando pedido':'🔵','Comprando proveedor':'🛒','En tránsito':'🚚','Disponible para entrega':'🏪','Enviado':'📦','Entregado':'✅','Cancelado':'⚫'
   }[st]||'🟡');
@@ -1743,7 +1742,20 @@ async function changeStoredOrderStatus(code,status){
 function renderAdminPayments(){
   const box=document.getElementById('adminPaymentsList'); if(!box) return;
   const orders=tsOrders();
-  box.innerHTML=orders.map(o=>`<div class="admin-order-card"><div><b>${o.code}</b><small>${o.customer?.name||''}</small></div><div><b>${o.payment||'Pago no indicado'}</b><small>Ref: ${o.paymentRef||'Pendiente'} · Monto: ${o.paymentAmount||'A confirmar'}</small></div><div><span class="status-chip">${o.status||'Recibido'}</span></div><div class="admin-row-actions"><button onclick="changeStoredOrderStatus('${o.code}','Pago verificado')">Aprobar</button><button onclick="changeStoredOrderStatus('${o.code}','Pago por verificar')">Pendiente</button></div></div>`).join('\n') || '<p class="muted">Sin pagos registrados.</p>';
+  if(!orders.length){ box.innerHTML='<div class="admin-empty"><b>Sin pagos registrados.</b><small>Cuando existan pedidos con método de pago, aparecerán aquí.</small></div>'; return; }
+  const chip=(status)=>`<span class="pay-status ${String(status||'').toLowerCase().includes('verificado')?'ok':'wait'}">${status||'Recibido'}</span>`;
+  box.innerHTML=`<div class="pay-grid-head"><span>Orden / Cliente</span><span>Método</span><span>Referencia</span><span>Monto</span><span>Estado</span><span>Acciones</span></div>`+
+    orders.map(o=>{
+      const customer=o.customer||{};
+      return `<div class="pay-card">
+        <div class="pay-main"><b>${o.code||'TS-000'}</b><small>${customer.name||'Cliente'}</small><small>${customer.email||''}</small></div>
+        <div><small>Método</small><b>${o.payment||o.paymentMethod||'Por confirmar'}</b></div>
+        <div><small>Referencia</small><b>${o.paymentRef||o.reference||'Pendiente'}</b></div>
+        <div><small>Monto</small><b>${o.paymentAmount||o.total||'Por confirmar'}</b></div>
+        <div>${chip(o.status)}</div>
+        <div class="pay-actions"><button onclick="changeStoredOrderStatus('${o.code}','Pago verificado')">Aprobar pago</button><button class="ghost" onclick="changeStoredOrderStatus('${o.code}','Pago por verificar')">Pendiente</button></div>
+      </div>`;
+    }).join('');
 }
 function renderAdminCustomers(){
   const box=document.getElementById('adminCustomersList'); if(!box) return;
@@ -1820,8 +1832,22 @@ function sendPreorderStatus(code){
 }
 function renderAdminShipping(){
   const box=document.getElementById('adminShippingList'); if(!box) return;
-  const orders=tsOrders().filter(o=>['Preparando pedido','Enviado','Disponible para entrega','En tránsito'].includes(o.status));
-  box.innerHTML=orders.map(o=>`<div class="admin-order-card"><div><b>${o.code}</b><small>${o.customer?.shipping||'Envío'}</small></div><div>${o.customer?.name||''}<small>${o.customer?.address||''}</small></div><div><input placeholder="N° de guía" value="${o.guideNumber||''}" onchange="updateGuide('${o.code}',this.value)"></div><div><button onclick="changeStoredOrderStatus('${o.code}','Enviado')">Marcar enviado</button></div></div>`).join('\n') || '<p class="muted">Sin envíos pendientes.</p>';
+  const orders=tsOrders().filter(o=>['Preparando pedido','Enviado','Disponible para entrega','Disponible para retiro','En tránsito','Pago verificado','Pago recibido'].includes(o.status));
+  if(!orders.length){ box.innerHTML='<div class="admin-empty"><b>Sin envíos pendientes.</b><small>Los pedidos listos para preparar, enviar o retirar aparecerán aquí.</small></div>'; return; }
+  box.innerHTML=`<div class="ship-grid-head"><span>Orden / Cliente</span><span>Destino</span><span>Empresa</span><span>Guía</span><span>Estado</span><span>Acciones</span></div>`+
+    orders.map(o=>{
+      const c=o.customer||{};
+      const company=o.shippingCompany||c.shipping||o.shipping||'Por definir';
+      const address=[c.address,c.city,c.state].filter(Boolean).join(', ') || 'Dirección por confirmar';
+      return `<div class="ship-card">
+        <div class="ship-main"><b>${o.code||'TS-000'}</b><small>${c.name||'Cliente'}</small><small>${c.email||''}</small></div>
+        <div><small>Destino</small><b>${address}</b></div>
+        <div><small>Empresa</small><b>${company}</b></div>
+        <div><small>N° guía</small><input placeholder="Ej: MRW-000000" value="${o.guideNumber||o.guide||''}" onchange="updateGuide('${o.code}',this.value)"></div>
+        <div><span class="ship-status">${o.status||'Pendiente'}</span></div>
+        <div class="ship-actions"><button onclick="changeStoredOrderStatus('${o.code}','Enviado')">Marcar enviado</button><button class="ghost" onclick="changeStoredOrderStatus('${o.code}','Disponible para entrega')">Disponible</button></div>
+      </div>`;
+    }).join('');
 }
 function updateGuide(code,guide){
   for(const key of ['ts_orders','thinkstore_orders']){
@@ -2734,7 +2760,7 @@ window.addEventListener('load', ()=>{
     const f=document.getElementById('orderStatusFilter')?.value||'';
     const list=window.tsOrders().filter(o=>(!f||o.status===f) && JSON.stringify(o).toLowerCase().includes(q));
     if(!list.length){ box.innerHTML='<div class="admin-order-empty"><b>Sin pedidos todavía.</b><small>Cuando un cliente complete el checkout aparecerá aquí desde Supabase.</small></div>'; return; }
-    const statuses=['Pedido recibido','Pago por verificar','Pago verificado','En preparación','Enviado','Disponible para retiro','Entregado','Cancelado'];
+    const statuses=['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','En preparación','Enviado','Disponible para retiro','Entregado','Cancelado'];
     const icon=st=>({'Pedido recibido':'🟡','Pago por verificar':'🟠','Pago verificado':'🟢','En preparación':'🔵','Enviado':'🚚','Disponible para retiro':'🏪','Entregado':'✅','Cancelado':'⚫'}[st]||'🟡');
     box.innerHTML=`<div class="admin-order-head"><span>Orden</span><span>Cliente</span><span>Productos</span><span>Estatus</span><span>Acciones</span></div>` + list.map(o=>{
       const safe=JSON.stringify(o).replaceAll('"','&quot;');
@@ -2753,7 +2779,7 @@ window.addEventListener('load', ()=>{
     const box=document.getElementById('adminPreordersList'); if(!box) return;
     const pre=window.tsOrders().filter(o=>String(o.status||'').toLowerCase().includes('preorden') || (o.items||[]).some(i=>String(i.condition||'').toLowerCase().includes('pre')));
     if(!pre.length){ box.innerHTML='<div class="admin-empty"><b>Sin preórdenes visibles.</b><small>Cuando un pedido sea preorden aparecerá aquí.</small></div>'; return; }
-    box.innerHTML=pre.map(o=>`<div class="preorder-card"><div><b class="order-code">${safeText(o.code)}</b><small>${safeText(o.date)}</small></div><div><b>${safeText(o.customer?.name)}</b><small>${safeText(o.customer?.email)}</small></div><div class="preorder-items">${(o.items||[]).map(i=>safeText(i.product)).join('<br>')}</div><div><label>Estatus</label><select onchange="changeStoredOrderStatus('${safeText(o.code)}',this.value)"><option ${o.status==='Preorden recibida'?'selected':''}>Preorden recibida</option><option ${o.status==='Pago verificado'?'selected':''}>Pago verificado</option><option ${o.status==='Producto solicitado'?'selected':''}>Producto solicitado</option><option ${o.status==='En tránsito a tienda'?'selected':''}>En tránsito a tienda</option><option ${o.status==='Disponible para entrega'?'selected':''}>Disponible para entrega</option><option ${o.status==='Entregado'?'selected':''}>Entregado</option></select></div><div class="admin-row-actions"><button onclick="sendPreorderStatus && sendPreorderStatus('${safeText(o.code)}')">Enviar estatus</button></div></div>`).join('');
+    box.innerHTML=pre.map(o=>`<div class="preorder-card"><div><b class="order-code">${safeText(o.code)}</b><small>${safeText(o.date)}</small></div><div><b>${safeText(o.customer?.name)}</b><small>${safeText(o.customer?.email)}</small></div><div class="preorder-items">${(o.items||[]).map(i=>safeText(i.product)).join('<br>')}</div><div><label>Estatus</label><select onchange="changeStoredOrderStatus('${safeText(o.code)}',this.value)"><option ${o.status==='Preorden recibida'?'selected':''}>Preorden recibida</option><option ${o.status==='Pago recibido'?'selected':''}>Pago recibido</option><option ${o.status==='Pago verificado'?'selected':''}>Pago verificado</option><option ${o.status==='Producto solicitado'?'selected':''}>Producto solicitado</option><option ${o.status==='En tránsito a tienda'?'selected':''}>En tránsito a tienda</option><option ${o.status==='Disponible para entrega'?'selected':''}>Disponible para entrega</option><option ${o.status==='Entregado'?'selected':''}>Entregado</option></select></div><div class="admin-row-actions"><button onclick="sendPreorderStatus && sendPreorderStatus('${safeText(o.code)}')">Enviar estatus</button></div></div>`).join('');
   };
 
   window.renderAdminShipping = function(){
@@ -2831,7 +2857,7 @@ window.addEventListener('load', ()=>{
     ['enviado','Enviado'],
     ['entregado','Entregado']
   ];
-  const STATUS_OPTIONS = ['Pedido recibido','Pago por verificar','Pago verificado','Preparando pedido','En preparación','Enviado','Disponible para retiro','Entregado','Cancelado','Preorden recibida','Producto solicitado','En tránsito a tienda','Disponible para entrega'];
+  const STATUS_OPTIONS = ['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','Preparando pedido','En preparación','Enviado','Disponible para retiro','Entregado','Cancelado','Preorden recibida','Producto solicitado','En tránsito a tienda','Disponible para entrega'];
 
   const esc = (v)=>String(v ?? '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
   const text = (v)=>String(v ?? '').trim();
@@ -3020,7 +3046,7 @@ window.addEventListener('load', ()=>{
     // En modo manual también usamos Resend para mantener remitentes corporativos.
     // No abrimos el cliente de correo local porque rompe la experiencia premium.
     try{
-      const res = await fetch('/.netlify/functions/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,subject,text:body,logoUrl:new URL('assets/logo-thinkstore.PNG', location.href).href,department:String(order.status||'').toLowerCase().includes('preorden')?'preordenes':'pedidos',actionUrl:new URL('?tracking='+encodeURIComponent(order.code||''), location.href).href,actionLabel:'Ver estado del pedido'})});
+      const res = await fetch('/.netlify/functions/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,subject,text:body,logoUrl:new URL('assets/thinkstore-email-logo.jpg', location.href).href,department:String(order.status||'').toLowerCase().includes('preorden')?'preordenes':'pedidos',actionUrl:new URL('?tracking='+encodeURIComponent(order.code||''), location.href).href,actionLabel:'Ver estado del pedido'})});
       const data = await res.json().catch(()=>({}));
       if(!res.ok || !data.ok) throw new Error(data.error||'No enviado');
       if(typeof tsShowToast==='function') tsShowToast('📧 Correo de estado enviado');
@@ -3085,7 +3111,7 @@ window.addEventListener('load', ()=>{
   window.renderAdminPreorders = function(){
     const box=document.getElementById('adminPreordersList'); if(!box) return;
     const list=window.tsOrders().filter(o=>String(o.status||'').toLowerCase().includes('preorden')||(o.items||[]).some(i=>String(i.condition||'').toLowerCase().includes('pre')));
-    box.innerHTML=list.length?list.map(o=>`<div class="preorder-card"><div><b class="order-code">${esc(o.code)}</b><small>${esc(o.date)}</small></div><div><b>${esc(o.customer?.name)}</b><small>${esc(o.customer?.email)}</small></div><div class="preorder-items">${(o.items||[]).map(i=>esc(i.product)).join('<br>')}</div><div><label>Estatus</label><select onchange="changeStoredOrderStatus('${esc(o.code)}',this.value)"><option ${o.status==='Preorden recibida'?'selected':''}>Preorden recibida</option><option ${o.status==='Pago verificado'?'selected':''}>Pago verificado</option><option ${o.status==='Producto solicitado'?'selected':''}>Producto solicitado</option><option ${o.status==='En tránsito a tienda'?'selected':''}>En tránsito a tienda</option><option ${o.status==='Disponible para entrega'?'selected':''}>Disponible para entrega</option><option ${o.status==='Entregado'?'selected':''}>Entregado</option></select></div><div class="admin-row-actions"><button onclick="sendStoredOrderEmail('${esc(o.code)}')">Enviar estatus</button></div></div>`).join(''):'<div class="admin-empty"><b>Sin preórdenes visibles.</b><small>Cuando un pedido sea preorden aparecerá aquí.</small></div>';
+    box.innerHTML=list.length?list.map(o=>`<div class="preorder-card"><div><b class="order-code">${esc(o.code)}</b><small>${esc(o.date)}</small></div><div><b>${esc(o.customer?.name)}</b><small>${esc(o.customer?.email)}</small></div><div class="preorder-items">${(o.items||[]).map(i=>esc(i.product)).join('<br>')}</div><div><label>Estatus</label><select onchange="changeStoredOrderStatus('${esc(o.code)}',this.value)"><option ${o.status==='Preorden recibida'?'selected':''}>Preorden recibida</option><option ${o.status==='Pago recibido'?'selected':''}>Pago recibido</option><option ${o.status==='Pago verificado'?'selected':''}>Pago verificado</option><option ${o.status==='Producto solicitado'?'selected':''}>Producto solicitado</option><option ${o.status==='En tránsito a tienda'?'selected':''}>En tránsito a tienda</option><option ${o.status==='Disponible para entrega'?'selected':''}>Disponible para entrega</option><option ${o.status==='Entregado'?'selected':''}>Entregado</option></select></div><div class="admin-row-actions"><button onclick="sendStoredOrderEmail('${esc(o.code)}')">Enviar estatus</button></div></div>`).join(''):'<div class="admin-empty"><b>Sin preórdenes visibles.</b><small>Cuando un pedido sea preorden aparecerá aquí.</small></div>';
   };
 
   window.renderAdminShipping = function(){
@@ -3111,8 +3137,16 @@ window.addEventListener('load', ()=>{
 
 /* ===== ThinkStore V50 Dashboard Seguro - Netlify Functions + Supabase Service Role ===== */
 (function(){
-  const ADMIN_CODE = 'THINK2026';
-  const adminSecret = () => sessionStorage.getItem('thinkstore_admin_secret') || '';
+  // La clave real NO vive en el código. Se escribe al abrir el panel y Netlify la valida.
+  const adminSecret = () => sessionStorage.getItem('thinkstore_admin_secret') || localStorage.getItem('thinkstore_admin_secret') || '';
+  const saveAdminSecret = (secret) => {
+    const value = String(secret || '').trim();
+    if(value){
+      sessionStorage.setItem('thinkstore_admin_secret', value);
+      localStorage.setItem('thinkstore_admin_secret', value);
+    }
+    return value;
+  };
 
   const oldMapOrder = window.tsMapOrder || ((x)=>x);
   const oldRefresh = window.tsRefreshAdminData;
@@ -3120,8 +3154,8 @@ window.addEventListener('load', ()=>{
 
   window.openAdminSuite = function(){
     const pass = prompt('Código especial de administrador');
-    if(String(pass||'').trim().toUpperCase() !== ADMIN_CODE){ alert('Código incorrecto'); return; }
-    sessionStorage.setItem('thinkstore_admin_secret', ADMIN_CODE);
+    const secret = saveAdminSecret(pass);
+    if(!secret){ alert('Ingresa la clave de administrador'); return; }
     const modal = document.getElementById('adminSuiteModal');
     if(modal) modal.classList.add('open');
     window.tsRefreshAdminData({silent:false}).then(()=>window.renderAdminSuite && window.renderAdminSuite());
@@ -3161,25 +3195,52 @@ window.addEventListener('load', ()=>{
 
   window.changeStoredOrderStatus = async function(code,status){
     const before = (window.tsOrders ? window.tsOrders() : []).find(o=>String(o.code)===String(code));
+    const secret = adminSecret() || saveAdminSecret(prompt('Código especial de administrador para sincronizar Supabase'));
     let changedSecurely = false;
+    let result = null;
+    let secureError = '';
+
     if(before?.db_id || before?.code){
       try{
         const res = await fetch('/.netlify/functions/admin-update-order', {
           method:'POST',
-          headers:{ 'Content-Type':'application/json', 'x-admin-secret': adminSecret() },
+          headers:{ 'Content-Type':'application/json', 'x-admin-secret': secret },
           body: JSON.stringify({ id: before.db_id, code: before.code, status, note:'Actualizado desde dashboard ThinkStore' })
         });
-        const data = await res.json().catch(()=>({}));
-        if(!res.ok || !data.ok) throw new Error(data.error || 'No actualizado');
+        result = await res.json().catch(()=>({}));
+        if(!res.ok || !result.ok) throw new Error(result.error || 'No actualizado');
         changedSecurely = true;
-      }catch(e){ console.warn('Actualización segura falló:', e.message || e); }
+      }catch(e){
+        secureError = e.message || String(e);
+        console.warn('Actualización segura falló:', secureError);
+      }
     }
-    if(!changedSecurely && typeof oldChange === 'function') oldChange(code,status);
+
+    if(!changedSecurely){
+      // Actualización visual local sin disparar el flujo antiguo, para mostrar el error real de Supabase/Resend.
+      for(const key of ['ts_orders','thinkstore_orders']){
+        const arr = JSON.parse(localStorage.getItem(key)||'[]');
+        const idx = arr.findIndex(o=>String(o.code)===String(code));
+        if(idx >= 0){
+          arr[idx].status = status;
+          arr[idx].updatedAt = new Date().toLocaleString('es-VE');
+          localStorage.setItem(key, JSON.stringify(arr));
+        }
+      }
+      alert('Estado actualizado localmente, pero Supabase no confirmó el cambio: ' + (secureError || 'Error desconocido'));
+    }else if(result?.email?.sent){
+      const nota = result?.deliveryNoteEmail?.sent ? ' También se envió la nota de entrega.' : '';
+      alert('Estado actualizado en Supabase y correo enviado al cliente.' + nota);
+    }else if(result?.email?.skipped){
+      const reason = result.email.reason === 'missing_customer_email' ? 'el cliente no tiene correo registrado' : 'falta RESEND_API_KEY o RESEND_APY_KEY';
+      alert('Estado actualizado en Supabase. No se envió correo porque ' + reason + '.');
+    }else if(result?.email?.error){
+      alert('Estado actualizado en Supabase, pero Resend no envió el correo: ' + result.email.error);
+    }else{
+      alert('Estado actualizado en Supabase.');
+    }
+
     await window.tsRefreshAdminData({silent:true});
-    const updated = (window.tsOrders ? window.tsOrders() : []).find(o=>String(o.code)===String(code)) || {...before,status};
-    // Si el cambio fue seguro, la función Netlify ya envió el correo automático.
-    // Solo enviamos desde el frontend cuando cayó al modo local para evitar correos duplicados.
-    if(!changedSecurely && typeof window.tsSendOrderStatusEmail === 'function' && before && String(before.status)!==String(status)) window.tsSendOrderStatusEmail(updated,{manual:false});
     if(typeof window.renderAdminSuite === 'function') window.renderAdminSuite();
     if(typeof window.renderAccount === 'function') window.renderAccount();
   };
@@ -3201,7 +3262,7 @@ window.addEventListener('load', ()=>{
   const esc = (v)=>String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const money = (n)=> Number(n||0) ? '$' + Number(n||0).toLocaleString('es-VE') : 'A confirmar';
   const orderTotal = (o)=> Number(o?.total_usd || o?.total || 0) || (o?.items||[]).reduce((s,i)=>s + Number(i.price || i.precio_usd || 0) * Number(i.qty || i.quantity || i.cantidad || 1), 0);
-  const allStatuses = ['Pedido recibido','Pago por verificar','Pago verificado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado'];
+  const allStatuses = ['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado'];
   const normalizedStatus = (st)=>{
     const s=String(st||'Pedido recibido').toLowerCase();
     if(s.includes('cancel')) return 'Cancelado';
@@ -3842,4 +3903,210 @@ window.addEventListener('load', ()=>{
   if(typeof oldRenderAdminSuite==='function') window.renderAdminSuite=function(){ const r=oldRenderAdminSuite.apply(this,arguments); setTimeout(dashboardNotice,120); return r; };
   document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{ injectCheckoutStepper(); enhanceAccount(); dashboardNotice(); },700));
   window.addEventListener('load',()=>setTimeout(()=>{ injectCheckoutStepper(); enhanceAccount(); dashboardNotice(); },900));
+})();
+
+/* ThinkStore Marketing Professional */
+(function(){
+  function q(id){ return document.getElementById(id); }
+  function adminSecretValue(){ return sessionStorage.getItem('thinkstore_admin_secret') || localStorage.getItem('thinkstore_admin_secret') || ''; }
+  function val(id, fallback=''){ return (q(id)?.value || fallback).trim(); }
+  function set(id, value){ if(q(id)) q(id).value = value; }
+
+  window.tsMarketingFillDemo = function(){
+    set('mkAudience','all');
+    set('mkSubject','Novedades ThinkStore | Disponibilidad Apple');
+    set('mkTitle','Nuevas ofertas disponibles');
+    set('mkSubtitle','Descubre equipos Apple, accesorios originales y preórdenes exclusivas.');
+    set('mkMessage','Hola, tenemos nuevas opciones disponibles en ThinkStore. Puedes consultar disponibilidad, precios y apartados directamente desde nuestra web o respondiendo este correo.');
+    set('mkProductName','iPhone 16 Pro Max');
+    set('mkProductDetails','Disponible en varias capacidades y colores. Atención personalizada, envíos nacionales y retiro en tienda física en Altamira.');
+    set('mkOffer','Oferta especial por tiempo limitado');
+    set('mkActionUrl','https://thinkstore.com.ve');
+    set('mkActionLabel','Ver catálogo');
+    tsMarketingPreview();
+  };
+
+  function marketingPayload(){
+    return {
+      audience: val('mkAudience','all'),
+      testEmail: val('mkTestEmail'),
+      subject: val('mkSubject','Novedades ThinkStore'),
+      title: val('mkTitle','Nuevas ofertas disponibles'),
+      subtitle: val('mkSubtitle','Productos Apple, accesorios y preórdenes exclusivas.'),
+      message: val('mkMessage','Tenemos novedades disponibles para ti.'),
+      productName: val('mkProductName','Producto destacado ThinkStore'),
+      productDetails: val('mkProductDetails','Disponibilidad, garantía y asesoría especializada.'),
+      offer: val('mkOffer','Consulta precio y disponibilidad'),
+      actionUrl: val('mkActionUrl','https://thinkstore.com.ve'),
+      actionLabel: val('mkActionLabel','Ver promoción'),
+      bannerUrl: val('mkBannerUrl'),
+      logoUrl: 'https://thinkstore.com.ve/assets/thinkstore-email-logo.jpg'
+    };
+  }
+
+  window.tsMarketingPreview = function(){
+    const p = marketingPayload();
+    const preview = q('mkPreview');
+    if(!preview) return;
+    preview.innerHTML = `
+      <div class="mk-email-card">
+        <div class="mk-email-hero">
+          <img src="assets/thinkstore-email-logo.jpg" onerror="this.src='assets/logo-thinkstore.png'" alt="ThinkStore">
+          <small>Promoción exclusiva</small>
+          <h2>${p.title}</h2>
+          <p>${p.subtitle}</p>
+        </div>
+        <div class="mk-email-body">
+          ${p.bannerUrl ? `<img class="mk-banner" src="${p.bannerUrl}" alt="Banner">` : ''}
+          <p>${p.message.replace(/\n/g,'<br>')}</p>
+          <div class="mk-product">
+            <span>Producto destacado</span>
+            <b>${p.productName}</b>
+            <p>${p.productDetails}</p>
+            <strong>${p.offer}</strong>
+          </div>
+          <button>${p.actionLabel}</button>
+        </div>
+      </div>`;
+  };
+
+  window.tsSendMarketingCampaign = async function(){
+    const result = q('mkResult');
+    const secret = adminSecretValue();
+    if(!secret){ alert('Abre el panel con tu código administrador antes de enviar campañas.'); return; }
+    const payload = marketingPayload();
+    if(payload.audience === 'test' && !payload.testEmail){ alert('Coloca un correo de prueba.'); return; }
+    if(!confirm('¿Enviar esta campaña ThinkStore?')) return;
+    if(result) result.textContent = 'Enviando campaña...';
+    try{
+      const res = await fetch('/.netlify/functions/send-campaign', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok) throw new Error(data.error || 'No se pudo enviar la campaña.');
+      if(result) result.textContent = `✅ Campaña enviada: ${data.sent}/${data.total} correos. Fallidos: ${data.failed || 0}`;
+      alert(`Campaña enviada: ${data.sent}/${data.total}`);
+    }catch(e){
+      if(result) result.textContent = '❌ ' + (e.message || e);
+      alert('No se pudo enviar la campaña: ' + (e.message || e));
+    }
+  };
+
+  const oldOpenMassEmail = window.openMassEmail;
+  window.openMassEmail = function(){
+    const suite = document.getElementById('adminSuiteModal');
+    if(suite && suite.classList.contains('open') && typeof window.adminTab === 'function'){
+      window.adminTab('marketing');
+      setTimeout(()=>{ if(!val('mkSubject')) window.tsMarketingFillDemo(); }, 80);
+      return;
+    }
+    if(typeof oldOpenMassEmail === 'function') oldOpenMassEmail();
+  };
+
+  document.addEventListener('input', function(e){
+    if(e.target && /^mk/.test(e.target.id || '')) window.tsMarketingPreview();
+  });
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(()=>{ if(q('mkPreview')) window.tsMarketingFillDemo(); }, 500); });
+})();
+
+
+/* ===== ThinkStore V56 - 5 Funciones Pro: Tracking, Factura, Wishlist, Carrito abandonado, Estadísticas ===== */
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const readJSON=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||'')}catch(_){return f}};
+  const writeJSON=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+  const money=(n)=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const clean=(v)=>String(v||'').trim();
+  const adminSecret=()=>sessionStorage.getItem('thinkstore_admin_secret')||localStorage.getItem('thinkstore_admin_secret')||'';
+  const getOrders=()=> (typeof window.tsOrders==='function'?window.tsOrders():[]) || window.adminOrders || window.orders || [];
+  const getCustomers=()=> (typeof window.tsCustomers==='function'?window.tsCustomers():[]) || window.adminCustomers || window.clientes || [];
+  const flow=['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','Preparando pedido','En tránsito','Disponible para entrega','Entregado'];
+  function orderCode(o){ return clean(o.codigo||o.code||o.order_code||o.id||o.numero||'TS'); }
+  function orderStatus(o){ return clean(o.estado||o.status||'Pedido recibido'); }
+  function orderTotal(o){ return Number(o.total_usd||o.total||o.monto||0); }
+  function orderCustomer(o){ const c=o.clientes||o.cliente||{}; return clean(c.nombre||o.customer_name||o.nombre||'Cliente'); }
+  function orderEmail(o){ const c=o.clientes||o.cliente||{}; return clean(c.correo||c.email||o.customer_email||o.correo||o.email||''); }
+  function itemName(i){ return clean(i.producto||i.product_name||i.product||i.nombre||i.name||'Producto'); }
+
+  window.tsTrackingProgressHtml=function(status){
+    let pos=flow.indexOf(status); if(status==='En preparación') pos=flow.indexOf('Preparando pedido'); if(pos<0) pos=0;
+    return `<div class="ts-pro-track">${flow.map((s,i)=>`<div class="ts-pro-step ${i<pos?'done':i===pos?'active':''}"><span>${i<pos?'✓':i===pos?'●':'○'}</span><b>${s}</b></div>`).join('')}</div>`;
+  };
+
+  window.tsOpenTrackingPro=function(code){
+    const orders=getOrders();
+    const o=orders.find(x=>orderCode(x)===code||String(x.id)===String(code))||{};
+    const status=orderStatus(o);
+    const items=o.pedido_items||o.items||[];
+    const html=`<div class="modal open" id="tsTrackingProModal"><div class="card ts-pro-modal"><button class="close" onclick="document.getElementById('tsTrackingProModal').remove()">×</button><img src="assets/logo-thinkstore.png" class="ts-pro-logo"><small>Seguimiento ThinkStore</small><h2>${orderCode(o)||code}</h2><p>Estado actual: <b>${status}</b></p>${window.tsTrackingProgressHtml(status)}<div class="ts-pro-details"><b>Cliente</b><span>${orderCustomer(o)}</span><b>Total</b><span>${money(orderTotal(o))}</span><b>Productos</b><span>${items.length?items.map(itemName).join('<br>'):'Producto por confirmar'}</span></div><div class="action-row"><button class="btn" onclick="window.tsPrintInvoice('${orderCode(o)||code}')">Descargar factura / nota</button><button class="btn ghost" onclick="location.href='https://thinkstore.com.ve/#seguimiento'">Ver en la web</button></div></div></div>`;
+    document.body.insertAdjacentHTML('beforeend',html);
+  };
+
+  window.tsPrintInvoice=function(code){
+    const orders=getOrders(); const o=orders.find(x=>orderCode(x)===code||String(x.id)===String(code))||{};
+    const items=o.pedido_items||o.items||[];
+    const w=window.open('','_blank');
+    const rows=(items.length?items:[{producto:'Producto por confirmar',cantidad:1,precio:orderTotal(o)}]).map(i=>`<tr><td>${itemName(i)}</td><td>${clean(i.color||'')}</td><td>${clean(i.capacidad||i.capacity||'')}</td><td>${i.cantidad||i.qty||1}</td><td>${money(i.precio||i.price_usd||0)}</td></tr>`).join('');
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Factura ${orderCode(o)||code}</title><style>body{font-family:Arial,sans-serif;color:#111;margin:40px}.head{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:20px}.logo{width:150px}h1{font-size:28px}table{width:100%;border-collapse:collapse;margin-top:28px}td,th{border-bottom:1px solid #eee;padding:12px;text-align:left}.total{text-align:right;font-size:24px;font-weight:800;margin-top:22px}.foot{margin-top:40px;color:#666;font-size:13px}</style></head><body><div class="head"><div><img class="logo" src="https://thinkstore.com.ve/assets/logo-thinkstore.png"><h1>Nota de entrega / Factura</h1><p><b>Pedido:</b> ${orderCode(o)||code}<br><b>Estado:</b> ${orderStatus(o)}<br><b>Fecha:</b> ${new Date().toLocaleDateString()}</p></div><div><b>ThinkStore</b><br>Altamira, Caracas<br>www.thinkstore.com.ve</div></div><h2>Cliente</h2><p>${orderCustomer(o)}<br>${orderEmail(o)}</p><table><thead><tr><th>Producto</th><th>Color</th><th>Capacidad</th><th>Cant.</th><th>Precio</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total: ${money(orderTotal(o))}</div><p class="foot">Documento generado por ThinkStore. Para validar este pedido, consulta el seguimiento en thinkstore.com.ve.</p><script>window.print()<\/script></body></html>`);
+    w.document.close();
+  };
+
+  window.tsWishlistToggle=function(productKey, name){
+    const list=readJSON('ts_wishlist',[]); const key=clean(productKey||name);
+    const idx=list.findIndex(x=>x.key===key);
+    if(idx>=0) list.splice(idx,1); else list.push({key,name:name||key,created_at:new Date().toISOString()});
+    writeJSON('ts_wishlist',list); window.tsRenderWishlistCount(); return idx<0;
+  };
+  window.tsRenderWishlistCount=function(){
+    const count=(readJSON('ts_wishlist',[])||[]).length;
+    document.querySelectorAll('[data-ts-wishlist-count]').forEach(el=>el.textContent=count);
+  };
+  function injectWishlistButtons(){
+    document.querySelectorAll('.product-card,.card-product,.catalog-card,[data-product-id]').forEach((card,idx)=>{
+      if(card.querySelector('.ts-wish-btn')) return;
+      const name=(card.querySelector('h3,h2,.product-title')?.textContent||card.getAttribute('data-product-id')||('Producto '+idx)).trim();
+      const btn=document.createElement('button'); btn.className='ts-wish-btn'; btn.type='button'; btn.innerHTML='♡'; btn.title='Guardar en favoritos';
+      btn.onclick=(ev)=>{ev.stopPropagation(); const added=window.tsWishlistToggle(name,name); btn.innerHTML=added?'♥':'♡'; if(typeof tsShowToast==='function') tsShowToast(added?'Agregado a favoritos':'Quitado de favoritos');};
+      card.style.position='relative'; card.appendChild(btn);
+    });
+  }
+
+  window.tsSendAbandonedCart=function(email){
+    const cart=readJSON('cart',[])||readJSON('ts_cart',[])||[];
+    const to=clean(email||prompt('Correo del cliente para recuperación de carrito:')||'');
+    if(!to) return;
+    fetch('/.netlify/functions/send-abandoned-cart',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':adminSecret()},body:JSON.stringify({email:to,cart})})
+      .then(r=>r.json()).then(d=>{ if(!d.ok) throw new Error(d.error||'No enviado'); alert('Correo de recuperación enviado.');})
+      .catch(e=>alert('No se pudo enviar recuperación: '+(e.message||e)));
+  };
+
+  window.tsSendInvoiceEmail=function(code){
+    const orders=getOrders(); const o=orders.find(x=>orderCode(x)===code||String(x.id)===String(code))||{};
+    fetch('/.netlify/functions/send-invoice',{method:'POST',headers:{'Content-Type':'application/json','x-admin-secret':adminSecret()},body:JSON.stringify({order:o,code:orderCode(o)||code})})
+      .then(r=>r.json()).then(d=>{ if(!d.ok) throw new Error(d.error||'No enviado'); alert('Factura / nota enviada al cliente.');})
+      .catch(e=>alert('No se pudo enviar factura: '+(e.message||e)));
+  };
+
+  function injectAdminProButtons(){
+    const box=$('adminOrdersList'); if(!box) return;
+    box.querySelectorAll('.admin-card,.order-card,.admin-order-card').forEach(card=>{
+      if(card.querySelector('.ts-pro-actions')) return;
+      const txt=card.textContent||''; const m=txt.match(/TS-\d{4}-\d{4}/); if(!m) return;
+      card.insertAdjacentHTML('beforeend',`<div class="ts-pro-actions"><button class="btn ghost" onclick="tsOpenTrackingPro('${m[0]}')">Seguimiento premium</button><button class="btn ghost" onclick="tsPrintInvoice('${m[0]}')">Factura PDF</button><button class="btn ghost" onclick="tsSendInvoiceEmail('${m[0]}')">Enviar factura</button></div>`);
+    });
+  }
+
+  function enhanceDashboardStats(){
+    const root=document.querySelector('#admin-dashboard .admin-kpi-grid'); if(!root||document.getElementById('tsAdvancedStats')) return;
+    const orders=getOrders(); const customers=getCustomers();
+    const total=orders.reduce((s,o)=>s+orderTotal(o),0); const delivered=orders.filter(o=>/entregado/i.test(orderStatus(o))).length;
+    const avg=orders.length?total/orders.length:0;
+    root.insertAdjacentHTML('afterend',`<div id="tsAdvancedStats" class="ts-advanced-stats"><div><span>Ticket promedio</span><b>${money(avg)}</b></div><div><span>Entregados</span><b>${delivered}</b></div><div><span>Clientes activos</span><b>${customers.length}</b></div><div><span>Ventas estimadas</span><b>${money(total)}</b></div></div>`);
+  }
+
+  const oldRenderAdminSuite=window.renderAdminSuite;
+  if(typeof oldRenderAdminSuite==='function') window.renderAdminSuite=function(){ const r=oldRenderAdminSuite.apply(this,arguments); setTimeout(()=>{injectAdminProButtons(); enhanceDashboardStats();},250); return r; };
+  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>{injectWishlistButtons();window.tsRenderWishlistCount();enhanceDashboardStats();},900); setInterval(()=>{injectWishlistButtons();injectAdminProButtons();},2500);});
 })();

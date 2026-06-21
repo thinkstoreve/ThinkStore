@@ -9,9 +9,9 @@ exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
 
-  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.RESEND_APY_KEY;
   if (!RESEND_API_KEY) {
-    return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Falta configurar RESEND_API_KEY en Netlify.' }) };
+    return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Falta configurar RESEND_API_KEY o RESEND_APY_KEY en Netlify.' }) };
   }
 
   let data;
@@ -23,7 +23,7 @@ exports.handler = async function(event) {
   const subject = clean(data.subject || 'ThinkStore');
   const text = clean(data.text || data.message || '');
   const department = clean(data.department || data.channel || data.type || 'pedidos').toLowerCase();
-  const logoUrl = clean(data.logoUrl || 'https://thinkstore.com.ve/assets/logo-thinkstore.PNG');
+  const logoUrl = clean(data.logoUrl || 'https://thinkstore.com.ve/assets/thinkstore-email-logo.jpg');
   const actionUrl = clean(data.actionUrl || data.trackingUrl || 'https://thinkstore.com.ve');
   const actionLabel = clean(data.actionLabel || 'Ver en ThinkStore');
 
@@ -59,37 +59,44 @@ exports.handler = async function(event) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   const htmlText = esc(text)
-    .replace(/━━━━━━━━━━━━━━━━━━━━━━/g, '<hr style="border:none;border-top:1px solid #eeeeee;margin:24px 0">')
+    .replace(/━━━━━━━━━━━━━━━━━━━━━━/g, '<hr style="border:none;border-top:1px solid rgba(255,255,255,.12);margin:24px 0">')
     .replace(/\n/g, '<br>');
 
   const html = `
-  <div style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:24px 0;">
-      <tr><td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111111;max-width:600px;width:100%;">
-          <tr>
-            <td style="padding:24px 32px;border-bottom:1px solid #eeeeee;">
-              ${logoUrl ? `<img src="${esc(logoUrl)}" alt="ThinkStore" width="140" style="display:block;height:auto;max-width:140px;">` : `<strong style="font-size:22px;">ThinkStore</strong>`}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:38px 36px;font-size:17px;line-height:1.75;color:#111111;">
-              <div style="font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#6e6e73;margin-bottom:12px;">${esc(selected.label)}</div>
-              ${htmlText}
-              <div style="text-align:center;margin:36px 0 10px;">
-                <a href="${esc(actionUrl)}" style="background:#000000;color:#ffffff;text-decoration:none;padding:16px 34px;border-radius:8px;font-size:16px;font-weight:bold;display:inline-block;">${esc(actionLabel)}</a>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#f7f7f7;padding:24px 36px;border-top:1px solid #eeeeee;font-size:14px;line-height:23px;color:#555555;">
-              <strong style="color:#111111;">ThinkStore</strong><br>
-              Altamira, Caracas - Venezuela<br>
-              <a href="https://thinkstore.com.ve" style="color:#111111;text-decoration:underline;">www.thinkstore.com.ve</a>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
+  <div style="margin:0;padding:0;background:#050505;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:28px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#111114;border:1px solid rgba(255,255,255,.12);border-radius:28px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45);">
+            <tr>
+              <td style="background:linear-gradient(145deg,#050505 0%,#17171b 50%,#2a2a31 100%);padding:34px 34px 28px;">
+                <div style="background:#ffffff;border-radius:22px;padding:18px 22px;display:inline-block;margin-bottom:28px;">
+                  <img src="${esc(logoUrl)}" alt="ThinkStore" width="260" style="display:block;width:260px;max-width:100%;height:auto;border:0;">
+                </div>
+                <div style="font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:rgba(255,255,255,.58);margin-bottom:12px;">${esc(selected.label)}</div>
+                <h1 style="font-size:34px;line-height:1.15;margin:0;color:#ffffff;font-weight:800;">Actualización ThinkStore</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px 34px;background:#111114;">
+                <div style="background:#1b1b20;border:1px solid rgba(255,255,255,.10);border-radius:20px;padding:22px;font-size:17px;line-height:1.75;color:#f5f5f7;">
+                  ${htmlText}
+                </div>
+                <div style="text-align:center;margin:30px 0 4px;">
+                  <a href="${esc(actionUrl)}" style="display:inline-block;background:#ffffff;color:#000000;text-decoration:none;border-radius:999px;padding:15px 26px;font-size:15px;font-weight:800;">${esc(actionLabel)}</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#0b0b0d;border-top:1px solid rgba(255,255,255,.10);padding:24px 34px;font-size:13px;line-height:1.7;color:rgba(255,255,255,.58);">
+                <strong style="color:#ffffff;">ThinkStore</strong><br>
+                Altamira, Caracas · Venezuela<br>
+                <a href="https://thinkstore.com.ve" style="color:#ffffff;text-decoration:underline;">www.thinkstore.com.ve</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
     </table>
   </div>`;
 

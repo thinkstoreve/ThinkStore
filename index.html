@@ -355,7 +355,7 @@
     <button class="close" onclick="closeAdmin()">×</button>
     <h2>Panel privado ThinkStore</h2>
     <p class="muted">Acceso de control para clientes, compras, preórdenes y notas de entrega.</p>
-    <div id="adminLogin" class="form"><input id="adminPass" type="password" placeholder="Clave privada"><button class="btn" onclick="loginAdmin()">Entrar</button><small>Clave demo: thinkstore2026</small></div>
+    <div id="adminLogin" class="form"><input id="adminPass" type="password" placeholder="Clave privada"><button class="btn" onclick="loginAdmin()">Entrar</button><small>Clave: código configurado en Netlify</small></div>
     <div id="adminContent" style="display:none">
       <div class="admin-kpis">
         <div><b id="kpiCustomers">0</b><small>Clientes</small></div>
@@ -439,6 +439,7 @@
       <button class="admin-tab" onclick="adminTab('customers')">👤 Clientes</button>
       <button class="admin-tab" onclick="adminTab('preorders')">⏳ Preórdenes</button>
       <button class="admin-tab" onclick="adminTab('shipping')">🚚 Envíos</button>
+      <button class="admin-tab" onclick="adminTab('marketing')">📣 Marketing</button>
       <button class="admin-tab" onclick="adminTab('settings')">⚙️ Configuración</button>
     </aside>
 
@@ -550,6 +551,56 @@
           <div><h2>Envíos</h2><p>MRW, Zoom, Tealca y retiro en tienda.</p></div>
         </div>
         <div id="adminShippingList" class="admin-list"></div>
+      </section>
+
+
+      <section id="admin-marketing" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Marketing y promociones</h2><p>Campañas automáticas con Resend para clientes registrados.</p></div>
+          <button class="btn ghost" onclick="tsMarketingPreview()">Vista previa</button>
+        </div>
+        <div class="marketing-grid">
+          <div class="admin-card marketing-form-card">
+            <h3>Crear campaña</h3>
+            <label>Audiencia</label>
+            <select id="mkAudience">
+              <option value="all">Todos los clientes registrados</option>
+              <option value="buyers">Clientes con pedidos</option>
+              <option value="test">Prueba a un correo</option>
+            </select>
+            <label>Correo de prueba</label>
+            <input id="mkTestEmail" placeholder="tu-correo@gmail.com">
+            <label>Asunto</label>
+            <input id="mkSubject" placeholder="Nuevas ofertas ThinkStore">
+            <label>Título principal</label>
+            <input id="mkTitle" placeholder="Nuevas ofertas disponibles">
+            <label>Subtítulo</label>
+            <input id="mkSubtitle" placeholder="Productos Apple, accesorios y preórdenes exclusivas.">
+            <label>Mensaje</label>
+            <textarea id="mkMessage" rows="5" placeholder="Escribe el mensaje promocional para tus clientes..."></textarea>
+            <label>Producto destacado</label>
+            <input id="mkProductName" placeholder="iPhone 16 Pro Max">
+            <label>Detalles del producto</label>
+            <textarea id="mkProductDetails" rows="3" placeholder="Disponible en varios colores, garantía y envío nacional."></textarea>
+            <label>Precio / Oferta</label>
+            <input id="mkOffer" placeholder="Consulta precio especial">
+            <label>URL del botón</label>
+            <input id="mkActionUrl" placeholder="https://thinkstore.com.ve">
+            <label>Texto del botón</label>
+            <input id="mkActionLabel" placeholder="Ver promoción">
+            <label>URL de banner opcional</label>
+            <input id="mkBannerUrl" placeholder="https://.../banner.jpg">
+            <div class="action-row">
+              <button class="btn" onclick="tsSendMarketingCampaign()">Enviar campaña</button>
+              <button class="btn ghost" onclick="tsMarketingFillDemo()">Rellenar ejemplo</button>
+            </div>
+            <p id="mkResult" class="muted"></p>
+          </div>
+          <div class="admin-card marketing-preview-card">
+            <h3>Vista previa</h3>
+            <div id="mkPreview" class="marketing-preview"></div>
+          </div>
+        </div>
       </section>
 
       <section id="admin-settings" class="admin-view">
@@ -692,5 +743,67 @@
     </form>
   </div>
 </div>
+
+
+<section id="growth-enterprise" class="ts-growth-enterprise" style="padding:32px; margin:24px auto; max-width:1180px;">
+  <h2>ThinkStore Growth Enterprise</h2>
+  <p>Módulos premium preparados para fidelización, operación y marketing avanzado.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+    <div class="card">🎁 Programa de puntos</div>
+    <div class="card">⭐ Reseñas verificadas</div>
+    <div class="card">🔥 Productos destacados</div>
+    <div class="card">📊 Inventario real</div>
+    <div class="card">🚚 Tracking con guía</div>
+    <div class="card">🛡️ Garantías digitales</div>
+    <div class="card">🎟️ Gift Cards</div>
+    <div class="card">🤖 Asistente IA ThinkStore</div>
+    <div class="card">📧 Segmentación inteligente</div>
+    <div class="card">🎂 Campañas de cumpleaños</div>
+    <div class="card">📦 Preórdenes inteligentes</div>
+  </div>
+</section>
+
+
+<section id="v58-sales-automation" style="max-width:1180px;margin:32px auto;padding:32px;border-radius:24px;background:#0b0b0f;color:#fff;">
+  <h2 style="font-size:28px;margin:0 0 10px;">ThinkStore V58 Sales Automation</h2>
+  <p style="color:#c7c7cc;margin:0 0 24px;">Herramientas premium para cerrar ventas, reducir mensajes manuales y mejorar el seguimiento de clientes.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+    <div style="background:#16161c;padding:18px;border-radius:18px;">📲 WhatsApp inteligente<br><small>Mensaje automático por producto.</small></div>
+    <div style="background:#16161c;padding:18px;border-radius:18px;">🛒 Cotizador PDF<br><small>Cotizaciones premium con vigencia.</small></div>
+    <div style="background:#16161c;padding:18px;border-radius:18px;">📦 Mapa de preórdenes<br><small>Comprado → Aduana → Venezuela.</small></div>
+    <div style="background:#16161c;padding:18px;border-radius:18px;">📊 Dashboard ejecutivo<br><small>Ventas, clientes y preórdenes.</small></div>
+    <div style="background:#16161c;padding:18px;border-radius:18px;">🌟 Programa VIP<br><small>Silver, Gold y Platinum.</small></div>
+    <div style="background:#16161c;padding:18px;border-radius:18px;">🎥 Galería de videos<br><small>Base para reviews y unboxing.</small></div>
+  </div>
+</section>
+
+
+<section id="v59-service-care-ai" style="max-width:1180px;margin:36px auto;padding:34px;border-radius:28px;background:linear-gradient(135deg,#050505,#15151b);color:#fff;">
+  <h2 style="font-size:30px;margin:0 0 10px;">ThinkStore V59 Service, Care & AI</h2>
+  <p style="color:#d1d1d6;margin:0 0 26px;">Nueva base premium para servicio técnico, protección, comparación Apple e IA vendedora.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;">
+    <div style="background:#1c1c22;padding:20px;border-radius:20px;">🔧 Centro de Servicio Técnico<br><small>Órdenes TS-RP con serial, falla y fotos.</small></div>
+    <div style="background:#1c1c22;padding:20px;border-radius:20px;">📱 Seguimiento de Reparaciones<br><small>Diagnóstico → Reparación → Listo.</small></div>
+    <div style="background:#1c1c22;padding:20px;border-radius:20px;">💎 ThinkStore Care<br><small>Planes de 6 y 12 meses.</small></div>
+    <div style="background:#1c1c22;padding:20px;border-radius:20px;">🍏 Comparador Apple<br><small>iPhone vs iPhone / MacBook vs MacBook.</small></div>
+    <div style="background:#1c1c22;padding:20px;border-radius:20px;">🤖 IA Vendedora<br><small>Recomendaciones por presupuesto y uso.</small></div>
+    <div style="background:#1c1c22;padding:20px;border-radius:20px;">📦 Importaciones Premium<br><small>Proveedor → Miami → Aduana → Venezuela.</small></div>
+  </div>
+</section>
+
+
+<section id="v60-ecosistema-comercial" style="max-width:1180px;margin:36px auto;padding:34px;border-radius:28px;background:linear-gradient(135deg,#f5f5f7,#ffffff);color:#111;border:1px solid #e5e5ea;">
+  <h2 style="font-size:30px;margin:0 0 10px;">ThinkStore V60 Ecosistema Comercial</h2>
+  <p style="color:#555;margin:0 0 26px;">Base premium para ventas, atención, financiamiento, CRM, citas y recomendaciones inteligentes.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;">
+    <div style="background:#fff;padding:20px;border-radius:20px;border:1px solid #eee;">👤 Portal completo del cliente<br><small>Pedidos, garantías, facturas, reparaciones y puntos.</small></div>
+    <div style="background:#fff;padding:20px;border-radius:20px;border:1px solid #eee;">🎯 CRM inteligente<br><small>Clientes nuevos, VIP, inactivos y leads calientes.</small></div>
+    <div style="background:#fff;padding:20px;border-radius:20px;border:1px solid #eee;">💰 Financiamiento y cuotas<br><small>Simulador de inicial y mensualidades.</small></div>
+    <div style="background:#fff;padding:20px;border-radius:20px;border:1px solid #eee;">🔄 Renueva tu iPhone<br><small>Trade-in como parte de pago.</small></div>
+    <div style="background:#fff;padding:20px;border-radius:20px;border:1px solid #eee;">📅 Citas en tienda<br><small>Diagnóstico, reparación, retiro y asesoría.</small></div>
+    <div style="background:#fff;padding:20px;border-radius:20px;border:1px solid #eee;">🏷️ Etiquetas QR<br><small>Pedidos, reparaciones y entregas.</small></div>
+    <div style="background:#fff;padding:20px;border-radius:20px;border:1px solid #eee;">🧠 Recomendaciones inteligentes<br><small>Accesorios y productos complementarios.</small></div>
+  </div>
+</section>
 
 </body></html>
