@@ -878,8 +878,8 @@ function findOrderByCode(code){
   const all = tsOrders ? tsOrders() : orders;
 
   return (all || []).find(o =>
-    String(o.code) === String(code) &&
-    (!token || String(o.tracking_token || '') === String(token))
+    String(o.code || '').trim().toUpperCase() === String(code || '').trim().toUpperCase() &&
+    String(o.tracking_token || '').trim() === String(token || '').trim()
   );
 }
 
