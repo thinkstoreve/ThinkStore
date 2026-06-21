@@ -3313,7 +3313,11 @@ window.addEventListener('load', ()=>{
     const current = Math.max(0, allStatuses.indexOf(active));
     return `<div class="ts-enterprise-progress">${allStatuses.map((s,i)=>`<div class="ts-step ${i<current?'done':i===current?'active':''}"><span>${i<current?'✓':i===current?'●':'○'}</span><b>${esc(s)}</b></div>`).join('')}</div>`;
   };
-  window.tsOrderTrackingUrl = function(code){ return `https://thinkstore.com.ve/seguimiento/${encodeURIComponent(code||'')}`; };
+  window.tsOrderTrackingUrl = function(code, token){
+  const c = encodeURIComponent(code || '');
+  const t = encodeURIComponent(token || '');
+  return `https://thinkstore.com.ve/?tracking=${c}&token=${t}#status`;
+};
   window.tsEnterpriseNotificationItems = function(){
     const orders = (window.tsOrders ? window.tsOrders() : []);
     const customers = (window.tsCustomers ? window.tsCustomers() : []);
@@ -3370,7 +3374,7 @@ window.addEventListener('load', ()=>{
     const out=document.getElementById('statusResult');
     if(!out) return oldCheckStatus && oldCheckStatus();
     if(!o){ out.innerHTML='<p class="muted">No encontré esa orden. Revisa el código o inicia sesión.</p>'; return; }
-    out.innerHTML=`<div class="ts-public-track"><h3>${esc(o.code)}</h3><p>${statusIcon(o.status)} <b>${esc(o.status||'Pedido recibido')}</b></p>${window.tsEnterpriseTimeline(o)}<small>QR / enlace: ${esc(window.tsOrderTrackingUrl(o.code))}</small><div class="admin-row-actions"><button class="btn ghost" onclick="showPremiumNoteByCode('${esc(o.code)}')">Ver nota de entrega</button></div></div>`;
+    out.innerHTML=`<div class="ts-public-track"><h3>${esc(o.code)}</h3><p>${statusIcon(o.status)} <b>${esc(o.status||'Pedido recibido')}</b></p>${window.tsEnterpriseTimeline(o)}<small>QR / enlace: ${esc(window.tsOrderTrackingUrl(o.code, o.tracking_token))}</small><div class="admin-row-actions"><button class="btn ghost" onclick="showPremiumNoteByCode('${esc(o.code)}')">Ver nota de entrega</button></div></div>`;
   };
   const oldAdminOrders = window.renderAdminOrders;
   window.renderAdminOrders = function(){
