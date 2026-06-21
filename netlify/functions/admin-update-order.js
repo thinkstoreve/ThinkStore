@@ -256,7 +256,7 @@ exports.handler = async function(event) {
   }
 
   function fromForDepartment(department) {
-    const fallbackFrom = process.env.FROM_EMAIL || 'ThinkStore Pedidos <onboarding@resend.dev>';
+    const fallbackFrom = process.env.FROM_EMAIL || 'ThinkStore Pedidos <pedidos@thinkstore.com.ve>';
     const map = {
       pedidos: process.env.FROM_PEDIDOS_EMAIL || fallbackFrom,
       preordenes: process.env.FROM_PREORDENES_EMAIL || fallbackFrom,
