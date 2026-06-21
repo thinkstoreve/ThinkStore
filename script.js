@@ -4596,3 +4596,234 @@ window.addEventListener('load', ()=>{
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',activateGrowthCards); else activateGrowthCards();
 })();
+
+/* ===== ThinkStore V61 Ecosistema Comercial Pro funciones activas ===== */
+(function(){
+  const $=window.$ || ((id)=>document.getElementById(id));
+  const esc=(s)=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const money=(v)=>'$'+Number(v||0).toLocaleString('es-VE');
+  const store=(k,v)=>{ try{ if(v===undefined) return JSON.parse(localStorage.getItem(k)||'null'); localStorage.setItem(k,JSON.stringify(v)); return v; }catch(e){ return null; } };
+  const orders=()=>{ try{return (window.tsOrders?window.tsOrders():window.orders)||[];}catch(e){return [];} };
+  const customers=()=>{ try{return (window.tsCustomers?window.tsCustomers():window.customers)||[];}catch(e){return [];} };
+  const current=()=>{ try{return window.currentUser || JSON.parse(localStorage.getItem('ts_current_user')||localStorage.getItem('ts_customer')||'{}') || {};}catch(e){return{};} };
+  const val=(id)=>($(id)?.value||'').trim();
+  function setModal(icon,title,subtitle,body){
+    if($('tsFeatureIcon')) $('tsFeatureIcon').textContent=icon;
+    if($('tsFeatureTitle')) $('tsFeatureTitle').textContent=title;
+    if($('tsFeatureSubtitle')) $('tsFeatureSubtitle').textContent=subtitle;
+    if($('tsFeatureBody')) $('tsFeatureBody').innerHTML=body;
+    const m=$('tsFeatureModal'); if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
+  }
+  function wa(msg){ if(window.tsOpenSmartWhatsApp){ window.tsOpenSmartWhatsApp('general'); setTimeout(()=>{ const t=$('tsSmartWaExtra'); if(t) t.value=msg; },80); } else window.open('https://wa.me/584242142262?text='+encodeURIComponent(msg),'_blank'); }
+  const clientEmail=(o)=>o?.customer?.email || o?.customerEmail || o?.email || o?.cliente_email || '';
+  const clientName=(o)=>o?.customer?.name || o?.customerName || o?.cliente || o?.name || '';
+  const orderCode=(o)=>o?.code || o?.codigo || o?.order_code || '';
+  const orderStatus=(o)=>o?.status || o?.estado || 'Pedido recibido';
+  const orderTotal=(o)=>Number(o?.total_usd || o?.total || o?.amount || 0);
+
+  const v61={
+    portal(){
+      const c=current(); const email=c.email||'';
+      const my=orders().filter(o=>!email || clientEmail(o)===email);
+      const spent=my.reduce((a,o)=>a+orderTotal(o),0);
+      const points=Math.floor(spent/10);
+      setModal('👤','Portal completo del cliente','Vista unificada de pedidos, garantías, facturas, reparaciones y puntos.',`
+        <div class="ts-feature-grid">
+          <div class="ts-feature-box"><b>Cliente</b><h2>${esc(c.name||email||'Visitante')}</h2></div>
+          <div class="ts-feature-box"><b>Pedidos</b><h2>${my.length}</h2></div>
+          <div class="ts-feature-box"><b>Total comprado</b><h2>${money(spent)}</h2></div>
+          <div class="ts-feature-box"><b>Puntos VIP</b><h2>${points}</h2></div>
+        </div>
+        <div class="ts-feature-actions"><button onclick="tsV61OpenClientAccount()">Abrir cuenta</button><button class="light ts-pro-btn" onclick="tsV61PortalWA()">Enviar resumen por WhatsApp</button></div>
+        <pre class="ts-feature-result">Módulos activos dentro del portal:\n• Pedidos y preórdenes\n• Reparaciones y garantías\n• Facturas / notas de entrega\n• Puntos VIP y beneficios</pre>`);
+      window.tsV61LastPortal=`ThinkStore · Portal del cliente\nCliente: ${c.name||email||'Cliente'}\nPedidos: ${my.length}\nPuntos VIP: ${points}`;
+    },
+    crm(){
+      const os=orders(), cs=customers();
+      const totalByEmail={}; os.forEach(o=>{ const e=clientEmail(o)||'sin-correo'; totalByEmail[e]=(totalByEmail[e]||0)+orderTotal(o); });
+      const vip=Object.values(totalByEmail).filter(v=>v>=1000).length;
+      const nuevos=cs.length || new Set(os.map(clientEmail).filter(Boolean)).size;
+      const calientes=os.filter(o=>String(orderStatus(o)).toLowerCase().includes('preorden')||String(orderStatus(o)).toLowerCase().includes('cotiz')).length;
+      setModal('🎯','CRM inteligente','Clasificación comercial automática para campañas, seguimiento y clientes VIP.',`
+        <div class="ts-feature-grid">
+          <div class="ts-feature-box"><b>Clientes registrados</b><h2>${nuevos}</h2></div>
+          <div class="ts-feature-box"><b>Clientes VIP</b><h2>${vip}</h2></div>
+          <div class="ts-feature-box"><b>Leads calientes</b><h2>${calientes}</h2></div>
+          <div class="ts-feature-box"><b>Pedidos analizados</b><h2>${os.length}</h2></div>
+        </div>
+        <div class="ts-feature-actions"><button onclick="tsV61ExportCRM()">Exportar CRM CSV</button><button class="light ts-pro-btn" onclick="tsV61CRMWhatsApp()">Campaña sugerida</button></div>
+        <pre class="ts-feature-result">Segmentos activos:\n• Nuevo cliente: primer pedido o registro reciente.\n• VIP: compras acumuladas desde $1.000.\n• Inactivo: cliente sin compra reciente.\n• Lead caliente: preorden, cotización o carrito pendiente.</pre>`);
+    },
+    finance(){
+      setModal('💰','Financiamiento y cuotas','Simula inicial, cuotas y planes de pago para cerrar ventas más rápido.',`
+        <div class="ts-feature-form">
+          <label>Producto<input id="fnProduct" placeholder="iPhone 16 Pro Max"></label>
+          <label>Precio USD<input id="fnPrice" type="number" placeholder="1200"></label>
+          <label>Inicial USD<input id="fnInitial" type="number" placeholder="300"></label>
+          <label>Meses<select id="fnMonths"><option>3</option><option>6</option><option>9</option><option>12</option></select></label>
+          <label>Recargo %<input id="fnRate" type="number" value="0"></label>
+        </div>
+        <div class="ts-feature-actions"><button onclick="tsV61CalcFinance()">Calcular cuotas</button><button class="light ts-pro-btn" onclick="tsV61FinanceWA()">Enviar plan por WhatsApp</button></div>
+        <pre id="fnResult" class="ts-feature-result">Completa los datos para generar la simulación.</pre>`);
+    },
+    tradein(){
+      setModal('🔄','Renueva tu iPhone','Formulario Trade-In para recibir equipos como parte de pago.',`
+        <div class="ts-feature-form">
+          <label>Modelo actual<input id="tiModel" placeholder="iPhone 13 Pro Max"></label>
+          <label>Capacidad<select id="tiStorage"><option>64GB</option><option>128GB</option><option>256GB</option><option>512GB</option><option>1TB</option></select></label>
+          <label>Estado<select id="tiState"><option>Excelente</option><option>Bueno</option><option>Detalles estéticos</option><option>Pantalla / batería con detalle</option></select></label>
+          <label>Equipo que desea<input id="tiWanted" placeholder="iPhone 16 Pro"></label>
+        </div>
+        <div class="ts-feature-actions"><button onclick="tsV61EstimateTradeIn()">Estimar valor</button><button class="light ts-pro-btn" onclick="tsV61TradeInWA()">Enviar a WhatsApp</button></div>
+        <pre id="tiResult" class="ts-feature-result">Estimación referencial. El valor final se confirma en tienda.</pre>`);
+    },
+    appointments(){
+      const list=store('ts_store_appointments')||[];
+      setModal('📅','Citas en tienda','Agenda diagnósticos, reparaciones, retiros y asesorías Apple.',`
+        <div class="ts-feature-form">
+          <label>Cliente<input id="apClient" placeholder="Nombre del cliente"></label>
+          <label>Motivo<select id="apType"><option>Diagnóstico</option><option>Reparación</option><option>Retiro en tienda</option><option>Asesoría Apple</option></select></label>
+          <label>Fecha<input id="apDate" type="date"></label>
+          <label>Hora<input id="apTime" type="time"></label>
+          <label>Detalle<textarea id="apNote" rows="2" placeholder="Equipo, falla o requerimiento"></textarea></label>
+        </div>
+        <div class="ts-feature-actions"><button onclick="tsV61SaveAppointment()">Guardar cita</button><button class="light ts-pro-btn" onclick="tsV61AppointmentWA()">Enviar confirmación</button></div>
+        <div id="apList">${renderAppointments(list)}</div>`);
+    },
+    qr(){
+      setModal('🏷️','Etiquetas QR','Genera etiquetas para pedidos, reparaciones, garantías y entregas.',`
+        <div class="ts-feature-form">
+          <label>Tipo<select id="qrType"><option>Pedido</option><option>Reparación</option><option>Garantía</option><option>Entrega</option></select></label>
+          <label>Código<input id="qrCode" placeholder="TS-2026-0001"></label>
+          <label>Descripción<input id="qrDesc" placeholder="iPhone / cliente / estado"></label>
+        </div>
+        <div class="ts-feature-actions"><button onclick="tsV61BuildQRLabel()">Generar etiqueta</button><button class="light ts-pro-btn" onclick="window.print()">Imprimir</button></div>
+        <div id="qrResult" class="ts-feature-result">La etiqueta aparecerá aquí.</div>`);
+    },
+    recommendations(){
+      setModal('🧠','Recomendaciones inteligentes','Sugiere accesorios y productos complementarios según la compra.',`
+        <div class="ts-feature-form">
+          <label>Producto principal<input id="rcProduct" placeholder="iPhone 16 / MacBook Air / iPad"></label>
+          <label>Uso del cliente<select id="rcUse"><option>Fotos y video</option><option>Trabajo</option><option>Estudio</option><option>Gaming</option><option>Regalo</option></select></label>
+          <label>Presupuesto adicional USD<input id="rcBudget" type="number" placeholder="150"></label>
+        </div>
+        <div class="ts-feature-actions"><button onclick="tsV61Recommend()">Generar recomendación</button><button class="light ts-pro-btn" onclick="tsV61RecommendWA()">Enviar por WhatsApp</button></div>
+        <pre id="rcResult" class="ts-feature-result">Genera recomendaciones para aumentar el ticket promedio.</pre>`);
+    }
+  };
+
+  window.tsOpenV61Feature=function(name){ (v61[name]||v61.portal)(); };
+  window.tsV61OpenClientAccount=function(){ if(typeof window.openClientAccount==='function') window.openClientAccount(); else if(typeof window.openClientLogin==='function') window.openClientLogin(); else alert('Portal de cliente disponible desde Login / Cuenta.'); };
+  window.tsV61PortalWA=function(){ wa(window.tsV61LastPortal||'Resumen del portal ThinkStore'); };
+  window.tsV61ExportCRM=function(){ const rows=['segmento,cliente,correo,total,status']; orders().forEach(o=>rows.push(['cliente',clientName(o),clientEmail(o),orderTotal(o),orderStatus(o)].map(x=>'"'+String(x||'').replace(/"/g,'""')+'"').join(','))); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'})); a.download='thinkstore_crm_inteligente.csv'; a.click(); };
+  window.tsV61CRMWhatsApp=function(){ wa('ThinkStore CRM inteligente\nCampaña sugerida: Clientes iPhone → accesorios MagSafe, AirPods y Apple Watch. Clientes inactivos → cupón por 7 días.'); };
+  window.tsV61CalcFinance=function(){ const price=Number(val('fnPrice')||0), initial=Number(val('fnInitial')||0), months=Number(val('fnMonths')||6), rate=Number(val('fnRate')||0); const balance=Math.max(0,price-initial); const total=balance*(1+rate/100); const cuota=months?total/months:0; const msg=`ThinkStore · Simulador de financiamiento\nProducto: ${val('fnProduct')||'Producto'}\nPrecio: ${money(price)}\nInicial: ${money(initial)}\nSaldo financiado: ${money(total)}\nPlan: ${months} cuotas de ${money(cuota)}\nNota: aprobación y condiciones sujetas a validación.`; window.tsV61LastFinance=msg; if($('fnResult')) $('fnResult').textContent=msg; };
+  window.tsV61FinanceWA=function(){ if(!window.tsV61LastFinance) window.tsV61CalcFinance(); wa(window.tsV61LastFinance||'Plan de financiamiento ThinkStore'); };
+  window.tsV61EstimateTradeIn=function(){ const state=val('tiState'); let base=250; if(/pro max/i.test(val('tiModel'))) base=520; else if(/pro/i.test(val('tiModel'))) base=430; else if(/14|15|16/i.test(val('tiModel'))) base=380; if(state==='Excelente') base*=1; else if(state==='Bueno') base*=.85; else if(state.includes('estéticos')) base*=.7; else base*=.5; const msg=`ThinkStore · Renueva tu iPhone\nModelo: ${val('tiModel')||'Por confirmar'}\nCapacidad: ${val('tiStorage')}\nEstado: ${state}\nEquipo deseado: ${val('tiWanted')||'Por confirmar'}\nValor referencial como parte de pago: ${money(Math.round(base))}\nValor final sujeto a revisión física.`; window.tsV61LastTradeIn=msg; if($('tiResult')) $('tiResult').textContent=msg; };
+  window.tsV61TradeInWA=function(){ if(!window.tsV61LastTradeIn) window.tsV61EstimateTradeIn(); wa(window.tsV61LastTradeIn||'Trade-In ThinkStore'); };
+  function renderAppointments(list){ return (list||[]).map(a=>`<div class="ts-feature-box"><b>📅 ${esc(a.date)} ${esc(a.time)} · ${esc(a.type)}</b><p>${esc(a.client)}<br>${esc(a.note)}</p></div>`).join('') || '<p class="muted">Sin citas registradas.</p>'; }
+  window.tsV61SaveAppointment=function(){ const list=store('ts_store_appointments')||[]; const item={client:val('apClient')||'Cliente',type:val('apType'),date:val('apDate')||new Date().toLocaleDateString('es-VE'),time:val('apTime')||'Por confirmar',note:val('apNote')}; list.unshift(item); store('ts_store_appointments',list); window.tsV61LastAppointment=`ThinkStore · Cita en tienda\nCliente: ${item.client}\nMotivo: ${item.type}\nFecha: ${item.date}\nHora: ${item.time}\nDetalle: ${item.note}`; if($('apList')) $('apList').innerHTML=renderAppointments(list); };
+  window.tsV61AppointmentWA=function(){ if(!window.tsV61LastAppointment) window.tsV61SaveAppointment(); wa(window.tsV61LastAppointment||'Cita ThinkStore'); };
+  window.tsV61BuildQRLabel=function(){ const type=val('qrType'), code=val('qrCode')||'TS-2026-0000', desc=val('qrDesc')||'ThinkStore'; const url=`https://thinkstore.com.ve/?tracking=${encodeURIComponent(code)}#status`; const html=`<div class="ts-qr-label"><div class="ts-qr-fake">QR</div><div><b>${esc(type)} · ${esc(code)}</b><p>${esc(desc)}</p><small>${esc(url)}</small></div></div>`; if($('qrResult')) $('qrResult').innerHTML=html; };
+  window.tsV61Recommend=function(){ const p=val('rcProduct').toLowerCase(); const budget=Number(val('rcBudget')||0); let items=['Funda premium','Vidrio templado','Cargador USB‑C','Cable 240W']; if(p.includes('iphone')) items=['AirPods Pro','Cargador 35W','Funda MagSafe','Apple Watch','Vidrio premium']; if(p.includes('mac')) items=['Magic Mouse','Magic Keyboard','Adaptador USB‑C','Hub multipuerto','Soporte laptop']; if(p.includes('ipad')) items=['Apple Pencil USB‑C','Magic Keyboard','Funda protectora','Cargador USB‑C']; const pick=budget<100?items.slice(0,3):items; const msg=`ThinkStore · Recomendaciones inteligentes\nProducto: ${val('rcProduct')||'Producto'}\nUso: ${val('rcUse')}\nPresupuesto adicional: ${money(budget)}\n\nSugerencias:\n• ${pick.join('\n• ')}`; window.tsV61LastRecommend=msg; if($('rcResult')) $('rcResult').textContent=msg; };
+  window.tsV61RecommendWA=function(){ if(!window.tsV61LastRecommend) window.tsV61Recommend(); wa(window.tsV61LastRecommend||'Recomendaciones ThinkStore'); };
+
+  function activateV60Cards(){
+    const map=[['Portal completo del cliente','portal'],['CRM inteligente','crm'],['Financiamiento y cuotas','finance'],['Renueva tu iPhone','tradein'],['Citas en tienda','appointments'],['Etiquetas QR','qr'],['Recomendaciones inteligentes','recommendations']];
+    document.querySelectorAll('#v60-ecosistema-comercial div[style]').forEach(el=>{
+      const txt=el.textContent||''; const m=map.find(([label])=>txt.includes(label)); if(!m) return;
+      el.setAttribute('role','button'); el.tabIndex=0; el.classList.add('ts-growth-active');
+      el.onclick=()=>window.tsOpenV61Feature(m[1]); el.onkeydown=(e)=>{ if(e.key==='Enter') el.click(); };
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',activateV60Cards); else activateV60Cards();
+})();
+
+/* ===== ThinkStore V62 Multi-Rol Pro: permisos, portal y acceso por rol ===== */
+(function(){
+  const ROLE_LABELS={
+    cliente:'Cliente', vendedor:'Ventas', recepcion:'Recepción', soporte:'Soporte', tecnico:'Técnico', logistica:'Logística', admin:'Admin', superadmin:'Super Admin'
+  };
+  const STAFF_ROLES=['vendedor','recepcion','soporte','tecnico','logistica','admin','superadmin'];
+  function readUser(){ try{ return JSON.parse(localStorage.getItem('ts_current_user')||'null'); }catch(e){ return null; } }
+  function writeUser(u){ if(u) localStorage.setItem('ts_current_user', JSON.stringify(u)); }
+  function normalizeRole(role){
+    role=String(role||'cliente').trim().toLowerCase();
+    if(role==='seller'||role==='ventas') return 'vendedor';
+    if(role==='reception'||role==='recepción') return 'recepcion';
+    if(role==='support') return 'soporte';
+    if(role==='technical') return 'tecnico';
+    if(role==='logistics') return 'logistica';
+    if(role==='administrator') return 'admin';
+    return ROLE_LABELS[role] ? role : 'cliente';
+  }
+  window.tsGetCurrentRole=function(){ const u=readUser(); return normalizeRole(u?.role || u?.rol || u?.tipo || 'cliente'); };
+  window.tsRoleLabel=function(role){ return ROLE_LABELS[normalizeRole(role)] || 'Cliente'; };
+  window.tsIsStaff=function(){ return STAFF_ROLES.includes(window.tsGetCurrentRole()); };
+  window.tsCan=function(module){
+    const role=window.tsGetCurrentRole();
+    const map={
+      cliente:['cuenta','pedidos','preordenes','garantias','reparaciones_cliente','puntos'],
+      vendedor:['ventas','cotizaciones','clientes','pagos','preordenes','crm','productos','whatsapp'],
+      recepcion:['recepcion','tickets','diagnostico','reparaciones','garantias','clientes','citas'],
+      soporte:['soporte','tickets','diagnostico','reparaciones','garantias','clientes','citas'],
+      tecnico:['tecnico','diagnostico','reparaciones','repuestos','pruebas','garantias'],
+      logistica:['logistica','envios','guias','entregas','pedidos','preordenes'],
+      admin:['*'], superadmin:['*']
+    };
+    const allowed=map[role]||map.cliente;
+    return allowed.includes('*') || allowed.includes(module);
+  };
+  async function hydrateRoleFromSupabase(){
+    const u=readUser();
+    if(!u || !window.tsSupabaseReady || !window.tsSupabase) return u;
+    try{
+      const session=await window.tsSupabase.auth.getSession();
+      const uid=session?.data?.session?.user?.id || u.supabase_id || u.id;
+      const email=session?.data?.session?.user?.email || u.email;
+      let role='cliente';
+      if(uid){
+        const r1=await window.tsSupabase.from('staff_profiles').select('role,is_active').eq('id',uid).maybeSingle();
+        if(!r1.error && r1.data && r1.data.is_active!==false) role=normalizeRole(r1.data.role);
+        if(role==='cliente'){
+          const r2=await window.tsSupabase.from('clientes').select('role,rol,tipo').eq('id',uid).maybeSingle();
+          if(!r2.error && r2.data) role=normalizeRole(r2.data.role||r2.data.rol||r2.data.tipo||'cliente');
+        }
+      }
+      if(email && role==='cliente'){
+        const r3=await window.tsSupabase.from('staff_profiles').select('role,is_active').eq('email',email).maybeSingle();
+        if(!r3.error && r3.data && r3.data.is_active!==false) role=normalizeRole(r3.data.role);
+      }
+      u.role=role; u.rol=role; writeUser(u);
+      return u;
+    }catch(e){ console.warn('ThinkStore role hydrate:', e); return u; }
+  }
+  function updateNavRole(){
+    const btn=document.getElementById('clientNavBtn');
+    const u=readUser();
+    if(!btn) return;
+    if(!u){ btn.textContent='👤 Login'; return; }
+    const role=window.tsGetCurrentRole();
+    btn.textContent=window.tsIsStaff() ? '🧭 Panel' : '👤 Cuenta';
+    btn.title=window.tsIsStaff() ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta ThinkStore';
+  }
+  window.tsOpenRolePanel=function(){
+    const u=readUser();
+    if(!u){ if(typeof window.openClientLogin==='function') window.openClientLogin(); return; }
+    if(window.tsIsStaff()) location.href='panel.html';
+    else if(typeof window.openAccount==='function') window.openAccount();
+  };
+  window.tsClientNavAction=function(){ window.tsOpenRolePanel(); };
+  const oldLogin=window.loginClient;
+  if(typeof oldLogin==='function'){
+    window.loginClient=async function(){
+      const r=await oldLogin.apply(this, arguments);
+      await hydrateRoleFromSupabase();
+      updateNavRole();
+      return r;
+    };
+  }
+  document.addEventListener('DOMContentLoaded', async()=>{ await hydrateRoleFromSupabase(); updateNavRole(); });
+  window.addEventListener('load', updateNavRole);
+  setInterval(updateNavRole, 1500);
+})();
