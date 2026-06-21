@@ -3229,12 +3229,8 @@ window.addEventListener('load', ()=>{
       }
       alert('Estado actualizado localmente, pero Supabase no confirmó el cambio: ' + (secureError || 'Error desconocido'));
     }else if(result?.email?.sent){
-<<<<<<< HEAD
       const nota = result?.deliveryNoteEmail?.sent ? ' También se envió la nota de entrega.' : '';
       alert('Estado actualizado en Supabase y correo enviado al cliente.' + nota);
-=======
-      alert('Estado actualizado en Supabase y correo enviado al cliente.');
->>>>>>> 99e347dc4cca18d53eaa989144a131a9cd3f3276
     }else if(result?.email?.skipped){
       const reason = result.email.reason === 'missing_customer_email' ? 'el cliente no tiene correo registrado' : 'falta RESEND_API_KEY o RESEND_APY_KEY';
       alert('Estado actualizado en Supabase. No se envió correo porque ' + reason + '.');
