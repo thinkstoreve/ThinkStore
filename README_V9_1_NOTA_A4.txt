@@ -12,4 +12,4 @@ Corrección:
 - En móvil se muestra como documento con scroll horizontal para conservar el diseño.
 
 Panel demo:
-Clave admin: thinkstore2026
+Clave admin: [CODIGO_ADMIN]

@@ -1,6 +1,6 @@
 ThinkStore V10 - Panel Administrador Completo Demo
 
-Clave admin: thinkstore2026
+Clave admin: [CODIGO_ADMIN]
 
 Incluye:
 - Dashboard con métricas principales.

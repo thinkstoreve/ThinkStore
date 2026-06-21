@@ -485,7 +485,7 @@ drawCustomerSummary();
 /* ===== ThinkStore Final: clientes, pedidos, estatus y panel privado demo ===== */
 let orders = JSON.parse(localStorage.getItem('ts_orders') || '[]');
 let customers = JSON.parse(localStorage.getItem('ts_customers') || '[]');
-const ADMIN_KEY = 'ADMIN';
+const ADMIN_KEY = null; // La clave real se escribe manualmente y se valida en Netlify
 
 function saveAll(){
   localStorage.setItem('ts_orders', JSON.stringify(orders));
@@ -915,7 +915,9 @@ function sendMassEmail(){
 function openAdmin(){ $('adminModal').classList.add('open'); renderAdmin(); }
 function closeAdmin(){ $('adminModal').classList.remove('open'); }
 function loginAdmin(){
-  if(($('adminPass').value||'')!==ADMIN_KEY){alert('Clave incorrecta');return;}
+  const pass = String(($('adminPass').value||'')).trim();
+  if(!pass){alert('Ingresa la clave de administrador');return;}
+  sessionStorage.setItem('thinkstore_admin_secret', pass);
   $('adminLogin').style.display='none';
   $('adminContent').style.display='block';
   renderAdmin();
@@ -1516,19 +1518,16 @@ function saveAdminState(){
   localStorage.setItem('ts_admin_inventory', JSON.stringify(adminInventory));
   localStorage.setItem('ts_admin_settings', JSON.stringify(adminSettings));
 }
-const TS_ADMIN_SECRET_CODE = 'ADMIN';
+const TS_ADMIN_SECRET_CODE = null; // Sin clave fija en el frontend
 let tsAdminTapCount = 0;
 let tsAdminTapTimer = null;
 let tsAdminKeyBuffer = '';
 
 function openAdminSuite(){
   const pass = prompt('Código especial de administrador');
-  if(!pass) return;
-  const normalized = String(pass).trim().toUpperCase();
-  if(normalized !== TS_ADMIN_SECRET_CODE){
-    alert('Código incorrecto.');
-    return;
-  }
+  const secret = String(pass || '').trim();
+  if(!secret){ alert('Ingresa la clave de administrador.'); return; }
+  sessionStorage.setItem('thinkstore_admin_secret', secret);
   document.getElementById('adminSuiteModal').classList.add('open');
   loadAdminSettings();
   renderAdminSuite();
@@ -1549,8 +1548,8 @@ function hiddenAdminTap(event){
 document.addEventListener('keydown', (event)=>{
   const key = event.key || '';
   if(key.length !== 1) return;
-  tsAdminKeyBuffer = (tsAdminKeyBuffer + key).toUpperCase().slice(-9);
-  if(tsAdminKeyBuffer === 'ADMIN'){
+  tsAdminKeyBuffer = (tsAdminKeyBuffer + key).toUpperCase().slice(-7);
+  if(tsAdminKeyBuffer === 'PANELTS'){
     tsAdminKeyBuffer = '';
     openAdminSuite();
   }
@@ -3111,7 +3110,7 @@ window.addEventListener('load', ()=>{
 
 /* ===== ThinkStore V50 Dashboard Seguro - Netlify Functions + Supabase Service Role ===== */
 (function(){
-  const ADMIN_CODE = 'ADMIN';
+  // La clave real NO vive en el código. Se escribe al abrir el panel y Netlify la valida.
   const adminSecret = () => sessionStorage.getItem('thinkstore_admin_secret') || '';
 
   const oldMapOrder = window.tsMapOrder || ((x)=>x);
@@ -3120,8 +3119,9 @@ window.addEventListener('load', ()=>{
 
   window.openAdminSuite = function(){
     const pass = prompt('Código especial de administrador');
-    if(String(pass||'').trim().toUpperCase() !== ADMIN_CODE){ alert('Código incorrecto'); return; }
-    sessionStorage.setItem('thinkstore_admin_secret', ADMIN_CODE);
+    const secret = String(pass || '').trim();
+    if(!secret){ alert('Ingresa la clave de administrador'); return; }
+    sessionStorage.setItem('thinkstore_admin_secret', secret);
     const modal = document.getElementById('adminSuiteModal');
     if(modal) modal.classList.add('open');
     window.tsRefreshAdminData({silent:false}).then(()=>window.renderAdminSuite && window.renderAdminSuite());
