@@ -3736,7 +3736,8 @@ window.addEventListener('load', ()=>{
   function openModal(){ $('tsV55Modal')?.classList.add('open'); }
   function injectTopButtons(){
     const nav=document.querySelector('nav'); if(!nav || nav.dataset.v55) return; nav.dataset.v55='1';
-    nav.insertAdjacentHTML('beforeend',`<button onclick="openStatus && openStatus()">📦 Seguimiento</button><button onclick="tsOpenWishlist()">❤️ Favoritos</button><button onclick="tsOpenCompare()">⚖️ Comparar</button>`);
+    // Botones premium de seguimiento/favoritos/comparar ocultos en la página principal.
+    // El seguimiento queda solo dentro de la cuenta del cliente.
   }
   function enhanceCards(){
     document.querySelectorAll('.prod').forEach(card=>{
@@ -4154,8 +4155,9 @@ window.addEventListener('load', ()=>{
   function $(id){ return document.getElementById(id); }
   function getUser(){
     try{
-      if(window.currentUser) return window.currentUser;
-      return JSON.parse(localStorage.getItem('ts_current_user') || localStorage.getItem('ts_customer') || 'null');
+      const raw = localStorage.getItem('ts_current_user');
+      const user = raw ? JSON.parse(raw) : null;
+      return user && (user.email || user.id || user.supabase_id) ? user : null;
     }catch(e){ return null; }
   }
   function sameClient(order, user){
@@ -4242,4 +4244,50 @@ window.addEventListener('load', ()=>{
   document.addEventListener('DOMContentLoaded', window.tsUpdateClientNav);
   window.addEventListener('storage', window.tsUpdateClientNav);
   setTimeout(window.tsUpdateClientNav, 700);
+})();
+
+
+/* ===== ThinkStore Fix: navegación pública limpia y carrito protegido ===== */
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function loggedUser(){
+    try{
+      const raw = localStorage.getItem('ts_current_user');
+      const user = raw ? JSON.parse(raw) : null;
+      return user && (user.email || user.id || user.supabase_id) ? user : null;
+    }catch(e){ return null; }
+  }
+  function refreshMainNav(){
+    const nav = document.querySelector('header.top nav');
+    if(!nav) return;
+    nav.querySelectorAll('button').forEach(btn=>{
+      const text = (btn.textContent || '').toLowerCase();
+      if(text.includes('seguimiento') || text.includes('estatus') || text.includes('favoritos') || text.includes('comparar')){
+        btn.remove();
+      }
+    });
+    const accountBtn = $('clientNavBtn');
+    if(accountBtn){
+      accountBtn.textContent = loggedUser() ? '👤 Cuenta' : '👤 Login';
+      accountBtn.onclick = function(){
+        if(loggedUser()){
+          if(typeof window.openAccount === 'function') window.openAccount();
+        }else if(typeof window.openClientLogin === 'function'){
+          window.openClientLogin();
+        }
+      };
+    }
+  }
+  const previousOpenCart = window.openCart;
+  window.openCart = function(){
+    if(!loggedUser()){
+      if(typeof window.openClientLogin === 'function') window.openClientLogin();
+      alert('Inicia sesión para ver tu carrito y continuar la compra.');
+      return;
+    }
+    return previousOpenCart && previousOpenCart.apply(this, arguments);
+  };
+  document.addEventListener('DOMContentLoaded', refreshMainNav);
+  window.addEventListener('load', refreshMainNav);
+  setInterval(refreshMainNav, 1000);
 })();
