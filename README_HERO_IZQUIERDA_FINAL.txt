@@ -1,0 +1,1 @@
+Texto y botones movidos a la esquina izquierda. Los tres botones quedan en una sola fila en escritorio. Imagen intacta.

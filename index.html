@@ -1,0 +1,696 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ThinkStore | Apple, accesorios y soporte técnico</title><link rel="stylesheet" href="styles.css"></head><body>
+<header class="top"><a class="brand" href="#inicio" onclick="hiddenAdminTap(event)" title="ThinkStore"><img loading="eager" decoding="async" src="assets/2D678121-65A3-4A35-91B7-D248AE166B74.jpeg"><span><b>ThinkStore</b><small>Todo lo que deseas en un mismo lugar</small></span></a><nav><a href="#inicio">🍎 Inicio</a><a href="#catalogo" onclick="openCategoryWindow('iPhone');return true;">📱 iPhone</a><a href="#catalogo" onclick="openCategoryWindow('Mac');return true;">💻 MacBook</a><a href="#catalogo" onclick="openCategoryWindow('iPad');return true;">📲 iPad</a><a href="#catalogo" onclick="openCategoryWindow('Audio','AirPods');return true;">🎧 AirPods</a><a href="#catalogo" onclick="openCategoryWindow('Apple Watch','Watch');return true;">⌚ Watch</a><a href="#catalogo" onclick="openCategoryWindow('Accesorios');return true;">🔌 Accesorios</a><a href="#envios">🚚 Envíos</a><button onclick="openStatus()">📦 Estatus</button><button onclick="openClientLogin()">👤 Login</button><button onclick="openAccount()">🧾 Mi cuenta</button><button onclick="openCart()">🛒 Carrito <b id="cartCount">0</b></button><button onclick="toggleTheme()">🌙</button></nav></header>
+
+<section class="ts-v2-hero" id="inicio">
+  <div class="ts-v2-hero-bg"></div>
+  <div class="ts-v2-hero-content">
+    <span class="ts-v2-kicker">ThinkStore Premium</span>
+    <h1>iPhone 17 Pro Max</h1>
+    <p>El iPhone más avanzado. Potencia profesional, diseño premium y capacidades hasta 2TB.</p>
+    <div class="ts-v2-hero-actions">
+      <button class="btn ts-v2-primary" onclick="openCategoryModalV2('iPhone')">Comprar ahora</button>
+      <button class="btn ghost ts-v2-secondary" onclick="scrollToCatalogV2()">Ver catálogo</button>
+      <button class="btn ghost ts-v2-secondary" onclick="openWhatsApp()">WhatsApp</button>
+    </div>
+  </div>
+  <div class="ts-v2-hero-device">
+    <div class="ts-v2-device-glow"></div>
+    <img loading="lazy" decoding="async" src="assets/iphone17promax_sheet.jpg" alt="iPhone 17 Pro Max" onerror="this.src='assets/iphone_assets_sheet.jpg'; this.onerror=null;">
+  </div>
+</section>
+
+<section class="ts-v2-categories" id="categorias-premium">
+  <div class="ts-v2-section-head">
+    <h2>Compra por categoría</h2>
+    <p>Explora equipos y accesorios Apple organizados para encontrar rápido lo que necesitas.</p>
+  </div>
+  <div class="ts-v2-category-grid">
+    <button class="ts-v2-category-card iphone" onclick="openCategoryModalV2('iPhone')">
+      <div class='cat-icon'>📱</div><span>Nuevo</span><h3>iPhone</h3><p>Modelos 15, 16 y 17</p>
+    </button>
+    <button class="ts-v2-category-card mac" onclick="openCategoryModalV2('Mac')">
+      <div class='cat-icon'>💻</div><span>Pro</span><h3>MacBook</h3><p>Air y Pro con chip M</p>
+    </button>
+    <button class="ts-v2-category-card ipad" onclick="openCategoryModalV2('iPad')">
+      <div class='cat-icon'>▣</div><span>Creatividad</span><h3>iPad</h3><p>Potencia portátil</p>
+    </button>
+    <button class="ts-v2-category-card airpods" onclick="openCategoryModalV2('AirPods')">
+      <div class='cat-icon'>🎧</div><span>Audio</span><h3>AirPods</h3><p>Sonido premium</p>
+    </button>
+    <button class="ts-v2-category-card watch" onclick="openCategoryModalV2('Watch')">
+      <div class='cat-icon'>⌚</div><span>Salud</span><h3>Apple Watch</h3><p>Siempre conectado</p>
+    </button>
+    <button class="ts-v2-category-card accesorios" onclick="openCategoryModalV2('Accesorios')">
+      <div class='cat-icon'>🔌</div><span>Extras</span><h3>Accesorios</h3><p>Cables, Pencil y más</p>
+    </button>
+  </div>
+</section>
+
+<section class="ts-v2-featured" id="destacados">
+  <div class="ts-v2-section-head">
+    <h2>Destacados ThinkStore</h2>
+    <p>Los equipos más buscados, listos para consultar disponibilidad y preorden.</p>
+  </div>
+  <div id="v2FeaturedProducts" class="ts-v2-featured-grid"></div>
+</section>
+
+<main><section id="inicio" class="hero hero-premium">
+  <div class="hero-bg-layer"></div>
+  <div class="hero-fusion">
+    <img loading="eager" decoding="async" class="fusion fusion-max" src="assets/hero_airpodsmax_desk.jpg" alt="AirPods Max y MacBook">
+    <img loading="eager" decoding="async" class="fusion fusion-phone" src="assets/hero_iphone17pro_orange_clean.png" alt="iPhone 17 Pro">
+    <img loading="eager" decoding="async" class="fusion fusion-airpods" src="assets/hero_airpodspro_clean.png" alt="AirPods Pro">
+    <img loading="eager" decoding="async" class="fusion fusion-air" src="assets/iphone_air_champagne_clean.png" alt="iPhone Air">
+  </div>
+  <div class="hero-copy">
+    <img loading="eager" decoding="async" class="biglogo" src="assets/2D678121-65A3-4A35-91B7-D248AE166B74.jpeg">
+    <p class="eyebrow">Apple • Accesorios • Soporte técnico</p>
+    <h1>Tecnología Premium al Mejor Precio</h1>
+    <p>MacBook, iPhone, iPad, AirPods, accesorios Apple y soporte técnico especializado en Altamira, Caracas.</p>
+    <a class="btn" href="#catalogo">Comprar ahora</a>
+    <a class="btn wa" href="https://wa.me/584141032030" target="_blank">WhatsApp</a>
+  </div>
+</section>
+<section class="cats"><button type="button" onclick="openCategoryWindow('Mac')">💻<b>Mac</b></button><button type="button" onclick="openCategoryWindow('iPhone')">📱<b>iPhone</b></button><button type="button" onclick="openCategoryWindow('iPad')">▣<b>iPad</b></button><button type="button" onclick="openCategoryWindow('Audio','AirPods')">🎧<b>AirPods</b></button><button type="button" onclick="openCategoryWindow('Accesorios')">✏️<b>Accesorios</b></button></section>
+<section class="promo"><div><p class="eyebrow">Nuevo destacado</p><h2>MacBook Pro con chip M4 Pro y M4 Max</h2><p>Potencia profesional para edición, diseño, programación, IA y productividad avanzada.</p><button class="btn" onclick="openProduct('macbookpro-m4')">Ver producto</button></div><img loading="lazy" decoding="async" src="assets/282606E3-694F-4B37-B9B6-0D33B5B6B6B0.jpeg"></section>
+<section id="catalogo" class="section"><p class="eyebrow">Catálogo interactivo</p><h2>Elige por marca, modelo, color y capacidad</h2><div class="filters"><button class="filter active" data-cat="Todos" onclick="selectCategory('Todos')">Todos</button><button class="filter" data-cat="Mac" onclick="openCategoryWindow('Mac')">Mac</button><button class="filter" data-cat="iPhone" onclick="openCategoryWindow('iPhone')">iPhone</button><button class="filter" data-cat="iPad" onclick="openCategoryWindow('iPad')">iPad</button><button class="filter" data-cat="Audio" onclick="openCategoryWindow('Audio','AirPods')">AirPods</button><button class="filter" data-cat="Apple Watch" onclick="openCategoryWindow('Apple Watch','Watch')">Watch</button><button class="filter" data-cat="Accesorios" onclick="openCategoryWindow('Accesorios')">Accesorios</button></div><input id="search" type="search" name="thinkstore_product_search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Buscar producto..." oninput="render()"><div id="grid" class="grid"></div></section>
+<section id="mac" class="banner dark"><h2>MacBook Air y MacBook Pro</h2><p>M3, M4, M4 Pro y M4 Max.</p></section><section id="iphone" class="banner"><h2>iPhone desde gama 15 en adelante</h2><p>Colores, capacidades y preórdenes.</p></section><section id="ipad" class="banner dark"><h2>iPad A16 y Apple Pencil</h2></section><section id="audio" class="banner"><h2>AirPods 4, AirPods Pro y AirPods Max</h2></section><section id="accesorios" class="banner dark"><h2>Magic Mouse, Magic Keyboard, AirTag, cables y Pencil</h2></section>
+<section class="section service"><p class="eyebrow">Soporte técnico</p><h2>Servicio técnico Apple</h2><div class="servgrid"><div>🔍 Diagnóstico</div><div>🔋 Baterías</div><div>🖥️ Pantallas</div><div>💾 Datos</div><div>🍎 macOS</div><div>🧼 Mantenimiento</div></div></section>
+<section id="envios" class="section"><p class="eyebrow">Confianza ThinkStore</p><h2>Envíos y pagos</h2><div class="panels"><div><h3>🚚 Envíos nacionales</h3><div class="logos"><img loading="lazy" decoding="async" src="assets/mrw.svg"><img loading="lazy" decoding="async" src="assets/zoom.svg"><img loading="lazy" decoding="async" src="assets/tealca.svg"></div><p>MRW, Zoom y TEALCA a toda Venezuela.</p></div><div><h3>💳 Métodos de pago</h3><div class="logos pay"><img loading="lazy" decoding="async" src="assets/zelle.svg"><img loading="lazy" decoding="async" src="assets/pago-movil.svg"><img loading="lazy" decoding="async" src="assets/efectivo.svg"><img loading="lazy" decoding="async" src="assets/binance.svg"><img loading="lazy" decoding="async" src="assets/usdt.svg"></div><p>Zelle, Pago Móvil Bancamiga, efectivo y USDT.</p></div></div></section>
+<section class="location"><div><p class="eyebrow">Tienda física</p><h2>Altamira, Caracas, Venezuela</h2><p>Delivery gratis en algunos sectores y atención por WhatsApp.</p></div><a class="btn" href="https://wa.me/584141032030?text=Hola%20ThinkStore,%20quiero%20la%20ubicación" target="_blank">Pedir ubicación</a></section></main>
+<footer><div><img loading="eager" decoding="async" src="assets/2D678121-65A3-4A35-91B7-D248AE166B74.jpeg"><b>ThinkStore</b><p>Tu tienda de confianza para productos Apple y tecnología premium.</p></div><p>WhatsApp: 0414-1032030<br>Instagram: @thinkstore_ve<br>Correo: Thinkstore.ve@gmail.com</p></footer><button class="float" onclick="window.open('https://wa.me/584141032030','_blank')">WhatsApp</button>
+
+
+<div id="categoryModal" class="modal category-modal">
+  <div class="card category-card">
+    <button class="close" onclick="closeCategoryWindow()">×</button>
+    <div class="category-head">
+      <div>
+        <p class="eyebrow">Categoría ThinkStore</p>
+        <h2 id="categoryTitle">Categoría</h2>
+        <p id="categoryDesc" class="muted">Explora modelos, colores y configuraciones disponibles.</p>
+      </div>
+      <button class="btn ghost" onclick="closeCategoryWindow()">Volver al catálogo</button>
+    </div>
+    <div id="categoryGrid" class="grid category-grid"></div>
+  </div>
+</div>
+
+<div id="modal" class="modal">
+  <div class="card detail">
+    <button class="close" onclick="closeProduct()">×</button>
+    <div>
+      <img loading="lazy" decoding="async" id="mainImg">
+      <div id="thumbs" class="thumbs"></div>
+    </div>
+    <div>
+      <span id="badge" class="tag"></span>
+      <h2 id="pname"></h2>
+      <p id="pdesc"></p>
+      <div id="productMeta" class="product-meta"></div>
+
+      <label>Color / versión</label>
+      <div id="colors" class="opts"></div>
+
+      <label>Modelo / capacidad / configuración</label>
+      <div id="vars" class="opts"></div>
+
+      <label>Estado del equipo</label>
+      <div id="conditions" class="opts"></div>
+
+      <h3>Detalles del modelo</h3>
+      <ul id="features"></ul>
+
+      <div class="action-row">
+        <button class="btn" onclick="addCart()">Añadir al carrito</button>
+        <button class="btn wa" onclick="waProduct()">Consultar WhatsApp</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id="clientLoginModal" class="modal">
+  <div class="card register-card auth-card">
+    <button class="close" onclick="closeClientLogin()">×</button>
+    <h2>Acceso de cliente</h2>
+    <p class="muted">Inicia sesión para comprar, ver tus pedidos, estatus y nota de entrega completa.</p>
+    <div class="auth-tabs">
+      <button class="opt sel" id="loginTabBtn" onclick="showLoginTab()">Iniciar sesión</button>
+      <button class="opt" id="registerTabBtn" onclick="showRegisterTab()">Crear cuenta</button>
+    </div>
+    <div id="loginTab" class="form">
+      <input id="loginUser" placeholder="Correo, teléfono o usuario">
+      <input id="loginPass" type="password" placeholder="Contraseña">
+      <button class="btn" onclick="loginClient()">Entrar a mi cuenta</button>
+      <button class="btn ghost" onclick="resetPassword()">Olvidé mi contraseña</button>
+      <small class="muted">Si aún no tienes cuenta, presiona Crear cuenta.</small>
+    </div>
+    <div id="registerTab" style="display:none">
+      <form id="quickRegisterForm" onsubmit="saveCustomer(event)" class="form customer-form">
+        <input id="qrname" required placeholder="Nombre y apellido / Razón social">
+        <input id="qrid" required placeholder="Cédula o RIF">
+        <input id="qrphone" required placeholder="Teléfono / WhatsApp">
+        <input id="qremail" type="email" required placeholder="Correo electrónico">
+        <input id="qrstate" required placeholder="Estado">
+        <input id="qrcity" required placeholder="Ciudad">
+        <input id="qraddress" required placeholder="Dirección completa">
+        <input id="qrref" placeholder="Punto de referencia">
+        <select id="qrshipping">
+          <option>Delivery ThinkStore</option><option>MRW</option><option>Zoom</option><option>TEALCA</option><option>Retiro en tienda</option>
+        </select>
+        <input id="qragency" placeholder="Agencia destino / sucursal">
+        <input id="qruser" required placeholder="Usuario del cliente">
+        <input id="qrpass" required type="password" placeholder="Clave del cliente">
+        <button class="btn">Crear cuenta y entrar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="registerModal" class="modal">
+  <div class="card register-card">
+    <button class="close" onclick="closeRegister()">×</button>
+    <h2>Registro de cliente</h2>
+    <p class="muted">Guarda los datos del cliente para generar la nota de entrega.</p>
+    <form id="registerForm" onsubmit="saveCustomer(event)" class="form customer-form">
+      <input id="rname" required placeholder="Nombre y apellido / Razón social">
+      <input id="rid" required placeholder="Cédula o RIF">
+      <input id="rphone" required placeholder="Teléfono / WhatsApp">
+      <input id="remail" type="email" placeholder="Correo electrónico">
+      <input id="rstate" required placeholder="Estado">
+      <input id="rcity" required placeholder="Ciudad">
+      <input id="raddress" required placeholder="Dirección completa">
+      <input id="rref" placeholder="Punto de referencia">
+      <select id="rshipping">
+        <option>Delivery ThinkStore</option>
+        <option>MRW</option>
+        <option>Zoom</option>
+        <option>TEALCA</option>
+        <option>Retiro en tienda</option>
+      </select>
+      <input id="ragency" placeholder="Agencia destino / sucursal">
+      <input id="ruser" placeholder="Usuario del cliente"><input id="rpass" placeholder="Clave del cliente"><button class="btn">Guardar cliente</button>
+    </form>
+  </div>
+</div>
+
+<div id="cart" class="modal checkout-modal">
+  <div class="card cart-card premium-checkout-card">
+    <button class="close checkout-close" onclick="closeCart()">×</button>
+
+    <div class="checkout-head">
+      <div class="checkout-icon">🛒</div>
+      <div>
+        <h2>Finalizar compra</h2>
+        <p class="muted">Revisa tu pedido y confirma los datos de entrega.</p>
+      </div>
+    </div>
+
+    <div class="checkout-layout">
+      <div class="checkout-main">
+        <section class="checkout-panel product-panel">
+          <div class="panel-title">
+            <span>01</span>
+            <div><b>Productos seleccionados</b><small>Tu carrito ThinkStore</small></div>
+          </div>
+          <div id="cartItems"></div>
+          <div class="cart-actions premium-actions ts-cart-actions-v23">
+            <button class="btn ghost continue-shopping-btn" onclick="continueShoppingFromCart()">🛍️ Seguir comprando</button>
+            <button class="btn ghost" onclick="openRegister()">👤 Registrar cliente</button>
+            <button class="btn ghost" onclick="clearCart()">🗑️ Vaciar carrito</button>
+          </div>
+        </section>
+
+        <section class="checkout-panel">
+          <div class="panel-title">
+            <span>02</span>
+            <div><b>Información del cliente</b><small>Datos para la nota de entrega</small></div>
+          </div>
+          <div id="customerSummary" class="customer-summary premium-customer"></div>
+        </section>
+
+        <section class="checkout-panel">
+          <div class="panel-title">
+            <span>03</span>
+            <div><b>Método de pago</b><small>Selecciona el método preferido</small></div>
+          </div>
+          <select id="payMethod" class="premium-hidden-select" onchange="syncCheckoutCards()">
+            <option>Pago Móvil</option>
+            <option>Zelle</option>
+            <option>Efectivo</option>
+            <option>USDT</option>
+          </select>
+          <div class="pay-choice-grid pay-grid-4">
+            <button type="button" class="pay-choice" data-pay="Pago Móvil" onclick="selectPayMethod('Pago Móvil')">📱<b>Pago Móvil</b></button>
+            <button type="button" class="pay-choice" data-pay="Zelle" onclick="selectPayMethod('Zelle')">⚡<b>Zelle</b></button>
+            <button type="button" class="pay-choice" data-pay="Efectivo" onclick="selectPayMethod('Efectivo')">💵<b>Efectivo</b></button>
+            <button type="button" class="pay-choice" data-pay="USDT" onclick="selectPayMethod('USDT')">₮<b>USDT</b></button>
+          </div>
+          <div id="paymentDetailsCard" class="payment-details-card"></div>
+          <div id="paymentInputs" class="checkout-extra-grid premium-inputs">
+            <input id="paymentRef" placeholder="Referencia de pago / comprobante">
+            <input id="paymentAmount" placeholder="Monto pagado">
+          </div>
+        </section>
+
+        <section class="checkout-panel delivery-upload-grid">
+          <div>
+            <div class="panel-title mini">
+              <span>04</span>
+              <div><b>Comprobante</b><small>JPG, PNG o PDF</small></div>
+            </div>
+            <label id="paymentUploadBox" class="premium-upload payment-preview">
+              <input id="paymentFile" type="file" accept="image/png,image/jpeg,application/pdf">
+              <div id="paymentPreview" class="payment-preview-content">
+                <span class="upload-cloud">☁️</span>
+                <b>Arrastra tu comprobante aquí</b>
+                <small id="paymentFileStatus" class="muted">o selecciona un archivo</small>
+              </div>
+            </label>
+          </div>
+          <div>
+            <div class="panel-title mini">
+              <span>05</span>
+              <div><b>Método de entrega</b><small>¿Cómo deseas recibir tu pedido?</small></div>
+            </div>
+            <select id="deliveryType" class="premium-hidden-select" onchange="syncCheckoutCards()">
+              <option>Envío nacional</option>
+              <option>Retiro en tienda</option>
+              <option>Delivery local</option>
+            </select>
+            <div class="delivery-choice-grid">
+              <button type="button" class="delivery-choice" data-delivery="Envío nacional" onclick="selectDeliveryType('Envío nacional')">🚚<b>Envío nacional</b><small>MRW · Zoom · TEALCA</small></button>
+              <button type="button" class="delivery-choice" data-delivery="Retiro en tienda" onclick="selectDeliveryType('Retiro en tienda')">🏬<b>Retiro en tienda</b><small>Altamira</small></button>
+              <button type="button" class="delivery-choice" data-delivery="Delivery local" onclick="selectDeliveryType('Delivery local')">🛵<b>Delivery local</b><small>Zonas cercanas</small></button>
+            </div>
+            <input id="guideNumber" class="guide-premium" placeholder="Número de guía (opcional)">
+          </div>
+        </section>
+
+        <div class="secure-strip">
+          <div>🛡️ <b>Compra segura</b><small>Datos protegidos</small></div>
+          <div>🎧 <b>Soporte 24/7</b><small>Atención personalizada</small></div>
+          <div>✨ <b>Garantía oficial</b><small>Productos Apple</small></div>
+        </div>
+      </div>
+
+      <aside class="checkout-summary">
+        <div class="summary-title">🛍️ <b>Resumen de tu pedido</b></div>
+        <div id="cartSummaryItems" class="summary-items"></div>
+        <div class="summary-line"><span>Subtotal</span><b id="cartSubtotal">Por confirmar</b></div>
+        <div class="summary-line"><span>Envío</span><b class="green">Gratis*</b></div>
+        <div class="summary-total"><span>Total</span><b id="cartTotal">USD —</b></div>
+        <div class="summary-alert">🔒 Al confirmar, serás redirigido a WhatsApp para enviar tu pedido y comprobante.</div>
+        <button class="btn wa checkout-primary" onclick="checkoutWhatsApp()">💬 Confirmar pedido <span>→</span></button>
+        <button id="generateNoteBtn" class="btn checkout-secondary ts-note-locked" onclick="generateDeliveryNote()" disabled title="Disponible cuando el pago esté verificado">🔒 Nota disponible después de verificar pago</button>
+        <p class="muted tiny">El total y disponibilidad se confirman por ThinkStore antes del despacho.</p>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<div id="noteModal" class="modal">
+  <div class="card note-card">
+    <button class="close" type="button" onclick="window.closeNote()">×</button>
+    <h2>Nota de entrega</h2>
+    <div id="deliveryNote" class="delivery-note"></div>
+    <div class="action-row">
+      <button class="btn" onclick="window.print()">Imprimir</button>
+      <button class="btn ghost" onclick="copyNote()">Copiar nota</button>
+      <button class="btn wa" onclick="sendNoteWhatsApp()">Enviar por WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+
+
+<div id="accountModal" class="modal">
+  <div class="card account-card">
+    <button class="close" onclick="closeAccount()">×</button>
+    <div class="account-head">
+      <img loading="lazy" decoding="async" src="assets/thinkstore_logo_custom.jpeg" alt="ThinkStore">
+      <div>
+        <h2>Mi cuenta ThinkStore</h2>
+        <p id="accountWelcome" class="muted">Inicia sesión para ver tus pedidos.</p>
+      </div>
+    </div>
+    <div id="accountLoggedOut" class="account-box">
+      <p>Para comprar y ver el estatus de tus pedidos debes iniciar sesión.</p>
+      <button class="btn" onclick="closeAccount();openClientLogin()">Iniciar sesión / Registrarme</button>
+    </div>
+    <div id="accountLoggedIn" style="display:none">
+      <div id="accountCustomer" class="customer-summary"></div>
+      <h3>Mis pedidos</h3>
+      <div id="myOrders" class="admin-list"></div>
+      <div class="action-row">
+        <button class="btn ghost" onclick="logoutClient()">Cerrar sesión</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="adminModal" class="modal">
+  <div class="card admin-card">
+    <button class="close" onclick="closeAdmin()">×</button>
+    <h2>Panel privado ThinkStore</h2>
+    <p class="muted">Acceso de control para clientes, compras, preórdenes y notas de entrega.</p>
+    <div id="adminLogin" class="form"><input id="adminPass" type="password" placeholder="Clave privada"><button class="btn" onclick="loginAdmin()">Entrar</button><small>Clave demo: thinkstore2026</small></div>
+    <div id="adminContent" style="display:none">
+      <div class="admin-kpis">
+        <div><b id="kpiCustomers">0</b><small>Clientes</small></div>
+        <div><b id="kpiOrders">0</b><small>Pedidos</small></div>
+        <div><b id="kpiPreorders">0</b><small>Preórdenes</small></div>
+      </div>
+
+      <div class="admin-actions">
+        <button class="btn ghost" onclick="exportCustomers()">Exportar clientes CSV</button>
+        <button class="btn ghost" onclick="exportOrders()">Exportar pedidos CSV</button>
+        <button class="btn ghost" onclick="openMassEmail()">Masificación por correo</button>
+        <button class="btn ghost" onclick="clearOrders()">Limpiar pedidos demo</button>
+      </div>
+
+      <h3>Clientes registrados</h3>
+      <div id="adminCustomers" class="admin-list"></div>
+
+      <h3>Pedidos y preórdenes</h3>
+      <p class="muted">Al cambiar el estatus puedes abrir un correo listo para enviar al cliente con su actualización.</p>
+      <div id="adminOrders" class="admin-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="statusModal" class="modal">
+  <div class="card admin-card">
+    <button class="close" onclick="closeStatus()">×</button>
+    <h2>Consultar estatus de compra</h2>
+    <p class="muted">Ingresa tu número de orden para ver el estado de tu compra o preorden.</p>
+    <div class="form"><input id="statusCode" placeholder="Ejemplo: TS-2026-0001"><button class="btn" onclick="checkStatus()">Consultar</button></div>
+    <div id="statusResult" class="customer-summary"></div>
+  </div>
+</div>
+
+<div id="massEmailModal" class="modal">
+  <div class="card admin-card">
+    <button class="close" onclick="closeMassEmail()">×</button>
+    <h2>Masificación por correo</h2>
+    <p class="muted">Crea una campaña para clientes registrados. En esta versión demo se abre tu app de correo con los destinatarios en CCO.</p>
+    <div class="form">
+      <input id="massSubject" placeholder="Asunto: Nueva disponibilidad ThinkStore">
+      <textarea id="massMessage" rows="7" placeholder="Mensaje para tus clientes"></textarea>
+      <button class="btn" onclick="sendMassEmail()">Abrir correo masivo</button>
+    </div>
+    <p class="muted">Para envío automático real luego conectamos Supabase + Resend/SendGrid.</p>
+  </div>
+</div>
+
+
+<div id="premiumNoteModal" class="modal">
+  <div class="note-modal-card">
+    <button class="close" onclick="closePremiumNote()">×</button>
+    <div id="premiumNote" class="premium-note"></div>
+    <div class="note-actions">
+      <button class="btn" onclick="printPremiumNote()">Imprimir / Guardar PDF</button>
+      <button class="btn ghost" onclick="copyPremiumNoteText()">Copiar resumen</button>
+      <button class="btn ghost" onclick="closePremiumNote()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<div id="adminSuiteModal" class="modal admin-suite-modal">
+  <div class="admin-suite">
+    <button class="close admin-close" onclick="closeAdminSuite()">×</button>
+
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <img loading="lazy" decoding="async" src="assets/logo.png" onerror="this.src='assets/logo.jpeg'" alt="ThinkStore">
+        <div>
+          <b>ThinkStore</b>
+          <small>Panel Administrador</small>
+        </div>
+      </div>
+      <button class="admin-tab active" onclick="adminTab('dashboard')">📊 Dashboard</button>
+      <button class="admin-tab" onclick="adminTab('products')">📦 Productos</button>
+      <button class="admin-tab" onclick="adminTab('inventory')">🏷️ Inventario</button>
+      <button class="admin-tab" onclick="adminTab('orders')">🛒 Pedidos</button>
+      <button class="admin-tab" onclick="adminTab('payments')">💳 Pagos</button>
+      <button class="admin-tab" onclick="adminTab('customers')">👤 Clientes</button>
+      <button class="admin-tab" onclick="adminTab('preorders')">⏳ Preórdenes</button>
+      <button class="admin-tab" onclick="adminTab('shipping')">🚚 Envíos</button>
+      <button class="admin-tab" onclick="adminTab('settings')">⚙️ Configuración</button>
+    </aside>
+
+    <main class="admin-main">
+      <section id="admin-dashboard" class="admin-view active">
+        <div class="admin-header">
+          <div><h2>Dashboard</h2><p>Resumen general de ThinkStore.</p></div>
+          <button class="btn" onclick="seedDemoAdminData()">Cargar datos demo</button>
+        </div>
+        <div class="admin-kpi-grid">
+          <div><span>Ventas USD</span><b id="dashSalesUsd">$0</b><small>Pedidos confirmados</small></div>
+          <div><span>Pedidos</span><b id="dashOrders">0</b><small>Totales</small></div>
+          <div><span>Clientes</span><b id="dashCustomers">0</b><small>Registrados</small></div>
+          <div><span>Preórdenes</span><b id="dashPreorders">0</b><small>Activas</small></div>
+        </div>
+        <div class="admin-two-col">
+          <div class="admin-card">
+            <h3>Pedidos recientes</h3>
+            <div id="dashRecentOrders"></div>
+          </div>
+          <div class="admin-card">
+            <h3>Alertas de stock</h3>
+            <div id="dashStockAlerts"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="admin-products" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Productos</h2><p>Crear, editar y activar productos.</p></div>
+          <button class="btn" onclick="openAdminProductForm()">+ Nuevo producto</button>
+        </div>
+        <div class="admin-toolbar">
+          <input id="adminProductSearch" placeholder="Buscar producto..." oninput="renderAdminProducts()">
+          <select id="adminProductCategory" onchange="renderAdminProducts()">
+            <option value="">Todas las categorías</option>
+            <option>iPhone</option><option>Mac</option><option>iPad</option><option>Audio</option><option>Apple Watch</option><option>Accesorios</option>
+          </select>
+        </div>
+        <div id="adminProductsList" class="admin-table-wrap"></div>
+      </section>
+
+      <section id="admin-inventory" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Inventario</h2><p>Stock por modelo, color y capacidad.</p></div>
+          <button class="btn" onclick="exportAdminInventory()">Exportar inventario</button>
+        </div>
+        <div class="admin-toolbar">
+          <input id="inventorySearch" placeholder="Buscar inventario..." oninput="renderInventory()">
+          <select id="stockFilter" onchange="renderInventory()">
+            <option value="">Todo</option>
+            <option value="low">Stock bajo</option>
+            <option value="zero">Sin stock</option>
+            <option value="preorder">Preorden</option>
+          </select>
+        </div>
+        <div id="inventoryList" class="admin-table-wrap"></div>
+      </section>
+
+      <section id="admin-orders" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Pedidos</h2><p>Cambia estatus, genera notas y envía correos.</p></div>
+          <button class="btn" onclick="exportOrders && exportOrders()">Exportar pedidos</button>
+        </div>
+        <div class="admin-toolbar">
+          <input id="orderSearch" placeholder="Buscar orden / cliente..." oninput="renderAdminOrders()">
+          <select id="orderStatusFilter" onchange="renderAdminOrders()">
+            <option value="">Todos los estados</option>
+            <option>Pedido recibido</option>
+            <option>Pago por verificar</option>
+            <option>Pago verificado</option>
+            <option>En preparación</option>
+            <option>Enviado</option>
+            <option>Disponible para retiro</option>
+            <option>Entregado</option>
+          </select>
+        </div>
+        <div id="adminOrdersList" class="admin-list"></div>
+      </section>
+
+      <section id="admin-payments" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Pagos</h2><p>Referencias, montos y comprobantes.</p></div>
+        </div>
+        <div id="adminPaymentsList" class="admin-list"></div>
+      </section>
+
+      <section id="admin-customers" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Clientes</h2><p>Clientes registrados e historial.</p></div>
+          <button class="btn" onclick="exportCustomers && exportCustomers()">Exportar clientes</button>
+        </div>
+        <div class="admin-toolbar">
+          <input id="customerSearch" placeholder="Buscar cliente..." oninput="renderAdminCustomers()">
+          <button class="btn ghost" onclick="openMassEmail && openMassEmail()">Masificación por correo</button>
+        </div>
+        <div id="adminCustomersList" class="admin-table-wrap"></div>
+      </section>
+
+      <section id="admin-preorders" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Preórdenes</h2><p>Control de equipos apartados.</p></div>
+        </div>
+        <div id="adminPreordersList" class="admin-list"></div>
+      </section>
+
+      <section id="admin-shipping" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Envíos</h2><p>MRW, Zoom, Tealca y retiro en tienda.</p></div>
+        </div>
+        <div id="adminShippingList" class="admin-list"></div>
+      </section>
+
+      <section id="admin-settings" class="admin-view">
+        <div class="admin-header">
+          <div><h2>Configuración</h2><p>Tasa, pagos, contacto y envío.</p></div>
+          <button class="btn" onclick="saveAdminSettings()">Guardar cambios</button>
+        </div>
+        <div class="settings-grid">
+          <div class="admin-card">
+            <h3>Tasa USD → Bs</h3>
+            <label>Tasa del día</label>
+            <input id="settingRate" type="number" step="0.01" placeholder="Ej: 36.50">
+            <small>Se usa para conversión opcional en Bs.</small>
+          </div>
+          <div class="admin-card">
+            <h3>Contacto</h3>
+            <label>WhatsApp</label><input id="settingWhatsApp" placeholder="584241234567">
+            <label>Correo ventas</label><input id="settingEmail" placeholder="ventas@thinkstore.com.ve">
+            <label>Instagram</label><input id="settingInstagram" placeholder="@thinkstore">
+          </div>
+          <div class="admin-card">
+            <h3>Métodos de pago</h3>
+            <textarea id="settingPayments" rows="8" placeholder="Pago Móvil: Bancamiga / 04120142898 / E-84554142&#10;Zelle: (954) 445-9161&#10;Efectivo: tienda o delivery&#10;USDT: por configurar"></textarea>
+          </div>
+          <div class="admin-card">
+            <h3>Envíos</h3>
+            <label><input type="checkbox" id="shipMRW" checked> MRW</label>
+            <label><input type="checkbox" id="shipZoom" checked> Zoom</label>
+            <label><input type="checkbox" id="shipTealca" checked> Tealca</label>
+            <label><input type="checkbox" id="shipPickup" checked> Retiro en tienda</label>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="adminProductModal" class="modal">
+  <div class="card admin-product-card">
+    <button class="close" onclick="closeAdminProductForm()">×</button>
+    <h2 id="adminProductFormTitle">Producto</h2>
+    <div class="admin-form-grid">
+      <input id="apName" placeholder="Nombre del producto">
+      <select id="apCategory"><option>iPhone</option><option>Mac</option><option>iPad</option><option>Audio</option><option>Apple Watch</option><option>Accesorios</option></select>
+      <input id="apBadge" placeholder="Etiqueta: Nuevo / Pro / Oferta">
+      <input id="apPrice" type="number" placeholder="Precio USD">
+      <div class="admin-image-field">
+        <label>Imagen principal</label>
+        <div class="admin-image-preview" id="apImagePreview"><span>Sin imagen</span></div>
+        <div class="admin-image-actions">
+          <input id="apMain" placeholder="Imagen principal en assets o URL">
+          <label class="btn ghost admin-upload-btn">📷 Subir imagen
+            <input id="apUpload" type="file" accept="image/png,image/jpeg,image/webp" onchange="handleAdminImageUpload(event)" hidden>
+          </label>
+        </div>
+        <small>La imagen se ajusta automáticamente al catálogo, carrito y detalle del producto.</small>
+      </div>
+      <input id="apColors" placeholder="Colores: Azul=img.jpeg, Plata=img2.jpeg">
+      <input id="apStorage" placeholder="Capacidades: 128GB,256GB,512GB">
+      <input id="apStock" type="number" placeholder="Stock inicial">
+      <textarea id="apDesc" rows="4" placeholder="Descripción del producto"></textarea>
+      <textarea id="apFeatures" rows="4" placeholder="Características, una por línea"></textarea>
+    </div>
+    <button class="btn" onclick="saveAdminProduct()">Guardar producto</button>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="script.js"></script>
+
+<div id="categoryModalV2" class="modal ts-v2-category-modal">
+  <div class="ts-v2-category-window">
+    <button class="close ts-v2-close" onclick="closeCategoryModalV2()">×</button>
+    <div class="ts-v2-category-window-head">
+      <span id="categoryModalV2Kicker">ThinkStore</span>
+      <h2 id="categoryModalV2Title">Categoría</h2>
+      <p id="categoryModalV2Desc">Productos disponibles</p>
+    </div>
+    <div id="categoryModalV2Products" class="ts-v2-category-products"></div>
+  </div>
+</div>
+
+
+<script>
+(function(){
+  const icons = {
+    MacBook:`<svg viewBox="0 0 64 64"><rect x="12" y="14" width="40" height="28" rx="3"/><path d="M8 48h48l-4 5H12z"/></svg>`,
+    Mac:`<svg viewBox="0 0 64 64"><rect x="12" y="14" width="40" height="28" rx="3"/><path d="M8 48h48l-4 5H12z"/></svg>`,
+    iPhone:`<svg viewBox="0 0 64 64"><rect x="22" y="7" width="20" height="50" rx="5"/><path d="M29 12h6"/><circle cx="32" cy="51" r="1.7"/></svg>`,
+    iPad:`<svg viewBox="0 0 64 64"><rect x="17" y="8" width="30" height="48" rx="5"/><circle cx="32" cy="50" r="1.8"/></svg>`,
+    AirPods:`<svg viewBox="0 0 64 64"><path d="M23 17c-6 0-10 4-10 10s4 10 10 10c4 0 7-3 7-7v-6c0-4-3-7-7-7z"/><path d="M41 17c6 0 10 4 10 10s-4 10-10 10c-4 0-7-3-7-7v-6c0-4 3-7 7-7z"/><path d="M26 34v17c0 3-2 5-5 5s-5-2-5-5V38"/><path d="M38 34v17c0 3 2 5 5 5s5-2 5-5V38"/></svg>`,
+    "Apple Watch":`<svg viewBox="0 0 64 64"><path d="M25 7h14l2 9H23z"/><rect x="18" y="16" width="28" height="32" rx="8"/><path d="M23 48h18l-2 9H25z"/><path d="M47 27h3v10h-3"/></svg>`,
+    Watch:`<svg viewBox="0 0 64 64"><path d="M25 7h14l2 9H23z"/><rect x="18" y="16" width="28" height="32" rx="8"/><path d="M23 48h18l-2 9H25z"/><path d="M47 27h3v10h-3"/></svg>`,
+    Accesorios:`<svg viewBox="0 0 64 64"><path d="M18 12v14c0 7 5 12 12 12h4"/><path d="M46 52V38c0-7-5-12-12-12h-4"/><path d="M12 12h12"/><path d="M40 52h12"/><path d="M18 8v8"/><path d="M46 48v8"/></svg>`
+  };
+
+  function applyAppleStyleIcons(){
+    const cards = document.querySelectorAll('.ts-v2-category-card, .category-card');
+    cards.forEach(card=>{
+      if(card.closest('.final-clean-cats') || card.closest('.premium-ref-cats')) return;
+      const text = (card.textContent || '').trim();
+      const key = Object.keys(icons).find(k => text.toLowerCase().includes(k.toLowerCase()));
+      if(!key) return;
+      card.querySelectorAll('.cat-icon,.restored-category-icon,.apple-style-category-icon').forEach(el=>el.remove());
+      const wrap = document.createElement('div');
+      wrap.className = 'apple-style-category-icon';
+      wrap.innerHTML = icons[key];
+      card.insertBefore(wrap, card.firstChild);
+    });
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyAppleStyleIcons);
+  else applyAppleStyleIcons();
+
+  setTimeout(applyAppleStyleIcons, 400);
+})();
+</script>
+
+
+<!-- ThinkStore Premium Auth Modals -->
+<div id="tsPremiumAuthModal" class="ts-premium-auth-modal" aria-hidden="true">
+  <div class="ts-premium-auth-backdrop" onclick="tsClosePremiumAuthModal()"></div>
+  <div class="ts-premium-auth-card" role="dialog" aria-modal="true" aria-labelledby="tsPremiumAuthTitle">
+    <button class="ts-premium-auth-x" onclick="tsClosePremiumAuthModal()" aria-label="Cerrar">×</button>
+    <div class="ts-premium-auth-logo-wrap">
+      <img src="assets/logo-thinkstore.PNG" alt="ThinkStore" class="ts-premium-auth-logo">
+    </div>
+    <h2 id="tsPremiumAuthTitle">Restablece tu contraseña</h2>
+    <p id="tsPremiumAuthText">Ingresa tu nueva contraseña ThinkStore.</p>
+    <form id="tsPremiumAuthForm" class="ts-premium-auth-form">
+      <label id="tsPremiumAuthLabel" for="tsPremiumAuthInput">Nueva contraseña</label>
+      <input id="tsPremiumAuthInput" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres" required>
+      <small id="tsPremiumAuthHint">Usa mínimo 6 caracteres.</small>
+      <div class="ts-premium-auth-actions">
+        <button type="button" class="ts-premium-auth-btn ts-premium-auth-btn-ghost" onclick="tsClosePremiumAuthModal()">Cancelar</button>
+        <button id="tsPremiumAuthSubmit" type="submit" class="ts-premium-auth-btn ts-premium-auth-btn-primary">Actualizar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+</body></html>
