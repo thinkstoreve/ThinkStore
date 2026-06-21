@@ -12,7 +12,7 @@
 </style>
 </head>
 <body>
-<section id="gate" class="gate"><div class="gate-card"><img src="logo-thinkstore.png" alt="ThinkStore"><h1>Panel ThinkStore</h1><p>Acceso privado por permisos para clientes, ventas, recepción, soporte técnico, técnicos, logística y administración.</p><input id="email" placeholder="Correo de acceso"><input id="pass" type="password" placeholder="Clave"><select id="demoRole"><option value="cliente">Cliente</option><option value="vendedor">Vendedor</option><option value="recepcion">Recepción / Soporte</option><option value="tecnico">Técnico</option><option value="logistica">Logística</option><option value="admin">Admin</option></select><button class="btn" onclick="demoLogin()">Entrar modo local</button><p class="muted">Si vienes desde la tienda con sesión iniciada, el panel abrirá automáticamente con tu rol.</p><a href="index.html" style="color:#fff">Volver a ThinkStore</a></div></section>
+<section id="gate" class="gate"><div class="gate-card"><img src="logo-thinkstore.png" alt="ThinkStore"><h1>Panel ThinkStore</h1><p>Acceso privado por permisos para clientes, ventas, recepción, soporte técnico, técnicos, logística y administración.</p><input id="email" placeholder="Correo de acceso"><input id="pass" type="password" placeholder="Clave"><select id="demoRole"><option value="cliente">Cliente</option><option value="vendedor">Vendedor</option><option value="recepcion">Recepción / Soporte</option><option value="tecnico">Técnico</option><option value="logistica">Logística</option><option value="admin">Admin</option><option value="superadmin">Super Admin</option></select><button class="btn" onclick="demoLogin()">Entrar modo local</button><p class="muted">Si vienes desde la tienda con sesión iniciada, el panel abrirá automáticamente con tu rol.</p><a href="index.html" style="color:#fff">Volver a ThinkStore</a></div></section>
 <div id="app" class="app"><header class="top"><div class="top-inner"><div class="brand"><img src="logo-thinkstore.png" alt="ThinkStore"><span>ThinkStore · Panel Multi-Rol</span><span id="rolePill" class="role-pill">Rol</span></div><nav class="nav"><a href="index.html">Tienda</a><a href="admin-growth.html" data-roles="admin,superadmin">Growth Enterprise</a><button onclick="logout()">Cerrar sesión</button></nav></div></header><main class="layout"><aside class="side" id="side"></aside><section class="main-card"><div class="hero"><h1 id="heroTitle">Bienvenido</h1><p id="heroText">Tu panel mostrará solo los módulos permitidos para tu rol.</p><div class="kpis"><div class="kpi"><b id="kpi1">0</b><small>Pedidos</small></div><div class="kpi"><b id="kpi2">0</b><small>Clientes</small></div><div class="kpi"><b id="kpi3">0</b><small>Tickets</small></div><div class="kpi"><b id="kpi4">0</b><small>Envíos</small></div></div></div><div id="content"></div></section></main><footer class="footer">ThinkStore.com.ve · Sistema privado de roles y permisos</footer></div>
 <script>
 const LS_USER='ts_current_user';
@@ -29,6 +29,7 @@ const MODULES=[
 {id:'clientes',icon:'👥',title:'Clientes / CRM',desc:'Registro, segmentación y seguimiento.'},
 {id:'pagos',icon:'💳',title:'Pagos',desc:'Validación de pagos y comprobantes.'},
 {id:'preordenes',icon:'⏳',title:'Preórdenes',desc:'Estados de importación y entregas.'},
+{id:'pedidos',icon:'📦',title:'Pedidos',desc:'Gestión de pedidos y estados.'},
 {id:'recepcion',icon:'📥',title:'Recepción de equipos',desc:'Ingreso de equipos para servicio.'},
 {id:'tickets',icon:'🎫',title:'Tickets de soporte',desc:'Casos de soporte y garantías.'},
 {id:'tecnico',icon:'🔧',title:'Panel técnico',desc:'Diagnóstico, reparación y pruebas.'},
@@ -45,7 +46,8 @@ const MODULES=[
 {id:'permisos',icon:'🔐',title:'Permisos',desc:'Gestión de roles del equipo.'}
 ];
 function $(id){return document.getElementById(id)} function esc(s){return String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))} function money(n){n=Number(n||0);return n?'$'+n.toLocaleString('en-US'):'Por confirmar'}
-function user(){try{return JSON.parse(localStorage.getItem(LS_USER)||'null')}catch(e){return null}} function setUser(u){localStorage.setItem(LS_USER,JSON.stringify(u))} function role(){return String(user()?.role||user()?.rol||'cliente').toLowerCase()} function can(id){const p=PERMS[role()]||PERMS.cliente;return p.includes('*')||p.includes(id)} function store(k,v){if(v!==undefined)localStorage.setItem(k,JSON.stringify(v));try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return[]}}
+function user(){try{return JSON.parse(localStorage.getItem(LS_USER)||'null')}catch(e){return null}} function setUser(u){localStorage.setItem(LS_USER,JSON.stringify(u))} function role(){return String(user()?.role||user()?.rol||'cliente').toLowerCase()} function rolePerms(r=role()){const custom=store('ts_role_permissions')||{};const p=custom[r]||PERMS[r]||PERMS.cliente;return p}
+function can(id){const p=rolePerms();return p.includes('*')||p.includes(id)} function store(k,v){if(v!==undefined)localStorage.setItem(k,JSON.stringify(v));try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return[]}}
 function orders(){return store('ts_orders').concat(store('thinkstore_orders')).filter(Boolean)} function customers(){return store('ts_customers').concat(store('thinkstore_customers')).filter(Boolean)} function tickets(){return store('ts_repairs').concat(store('ts_support_tickets')).filter(Boolean)} function shipments(){return store('ts_shipments')}
 function demoLogin(){const email=$('email').value||'staff@thinkstore.com.ve';const r=$('demoRole').value;setUser({email,name:email.split('@')[0],role:r,rol:r});boot()}
 function logout(){localStorage.removeItem(LS_USER);location.href='index.html'}
@@ -55,6 +57,38 @@ function setActive(id){document.querySelectorAll('.side button').forEach(b=>b.cl
 function openModule(id){if(!can(id)){alert('No tienes permisos para este módulo.');return}setActive(id);const m=MODULES.find(x=>x.id===id)||MODULES[0];$('heroTitle').textContent=m.icon+' '+m.title;$('heroText').textContent=m.desc;const fn=views[id]||views.generic;fn(id)}
 function rows(arr,empty='Sin registros todavía.'){return arr.length?`<table class="table"><tbody>${arr.map(x=>`<tr><td>${x}</td></tr>`).join('')}</tbody></table>`:`<div class="result">${empty}</div>`}
 function result(id,text){$(id).textContent=text} function val(id){return $(id)?.value||''}
+
+function roleRows(){
+  const roles=['cliente','vendedor','recepcion','soporte','tecnico','logistica','admin','superadmin'];
+  const assignments=store('ts_role_assignments')||[];
+  return assignments.map((a,i)=>`<tr><td>${esc(a.email)}</td><td><span class="badge">${ROLE_LABELS[a.role]||a.role}</span></td><td>${esc(a.active===false?'Inactivo':'Activo')}</td><td>${esc(a.date||'')}</td><td><button class="btn ghost" onclick="editAssignment(${i})">Editar</button> <button class="btn danger" onclick="deleteAssignment(${i})">Quitar</button></td></tr>`).join('')||`<tr><td colspan="5" class="muted">Aún no hay accesos registrados.</td></tr>`
+}
+function editAssignment(i){const l=store('ts_role_assignments')||[];const a=l[i];if(!a)return;$('permEmail').value=a.email;$('permRole').value=a.role;$('permActive').value=String(a.active!==false);$('permIndex').value=i;result('permResult','Editando acceso de '+a.email)}
+function deleteAssignment(i){const l=store('ts_role_assignments')||[];const a=l[i];if(!a)return;if(!confirm('¿Quitar acceso de '+a.email+'?'))return;l.splice(i,1);store('ts_role_assignments',l);views.permisos()}
+function saveAssignment(){
+  const email=val('permEmail').trim().toLowerCase(); const r=val('permRole'); const active=val('permActive')==='true'; const idx=val('permIndex');
+  if(!email){result('permResult','Escribe un correo para asignar acceso.');return}
+  let l=store('ts_role_assignments')||[]; const item={email,role:r,active,date:new Date().toLocaleString('es-VE')};
+  if(idx!=='' && l[Number(idx)]) l[Number(idx)]={...l[Number(idx)],...item}; else { const existing=l.findIndex(x=>String(x.email).toLowerCase()===email); if(existing>=0) l[existing]={...l[existing],...item}; else l.unshift(item); }
+  store('ts_role_assignments',l); result('permResult','Acceso guardado: '+email+' · '+(ROLE_LABELS[r]||r)); views.permisos();
+}
+function renderPermMatrix(){
+  const editableRoles=['cliente','vendedor','recepcion','soporte','tecnico','logistica'];
+  const custom=store('ts_role_permissions')||{};
+  return editableRoles.map(r=>{
+    const p=custom[r]||PERMS[r]||[];
+    return `<div class="card" style="padding:18px;margin:12px 0"><h3>${ROLE_LABELS[r]}</h3><div class="grid">${MODULES.filter(m=>m.id!=='permisos').map(m=>`<label style="font-weight:700"><input type="checkbox" data-roleperm="${r}" value="${m.id}" ${p.includes('*')||p.includes(m.id)?'checked':''}> ${m.icon} ${m.title}</label>`).join('')}</div></div>`
+  }).join('')
+}
+function saveRoleMatrix(){
+  const custom=store('ts_role_permissions')||{};
+  ['cliente','vendedor','recepcion','soporte','tecnico','logistica'].forEach(r=>{
+    custom[r]=Array.from(document.querySelectorAll(`[data-roleperm="${r}"]:checked`)).map(x=>x.value);
+  });
+  custom.admin=['*']; custom.superadmin=['*']; store('ts_role_permissions',custom); renderSide(); result('permMatrixResult','Permisos actualizados para los roles.');
+}
+function resetRoleMatrix(){ if(!confirm('¿Restaurar permisos predeterminados?'))return; localStorage.removeItem('ts_role_permissions'); renderSide(); views.permisos(); }
+
 const views={
  generic(id){$('content').innerHTML=`<div class="grid"><div class="module"><b>Módulo activo</b><small>Esta área ya está separada por permisos. Próximo paso: conectar este módulo a Supabase en producción.</small></div></div>`},
  dashboard(){const total=orders().reduce((s,o)=>s+Number(o.total_usd||o.total||0),0);$('content').innerHTML=`<div class="grid"><div class="module"><b>${orders().length}</b><small>Pedidos</small></div><div class="module"><b>${customers().length}</b><small>Clientes</small></div><div class="module"><b>${tickets().length}</b><small>Servicios / Tickets</small></div><div class="module"><b>${money(total)}</b><small>Ventas estimadas</small></div></div>`},
@@ -77,7 +111,8 @@ const views={
  citas(){$('content').innerHTML=`<div class="form"><label>Cliente<input id="apClient"></label><label>Motivo<select id="apType"><option>Diagnóstico</option><option>Reparación</option><option>Retiro</option><option>Asesoría Apple</option></select></label><label>Fecha<input id="apDate" type="date"></label><label>Hora<input id="apTime" type="time"></label></div><div class="actions"><button class="btn" onclick="let l=store('ts_store_appointments')||[];l.unshift({client:val('apClient'),type:val('apType'),date:val('apDate'),time:val('apTime')});store('ts_store_appointments',l);result('apResult','Cita guardada')">Guardar cita</button></div><pre id="apResult" class="result"></pre>`},
  puntos(){$('content').innerHTML=`<div class="result">Programa VIP activo. Los clientes verán puntos, beneficios y nivel dentro de su cuenta.</div>`},
  recomendaciones(){$('content').innerHTML=`<div class="form"><label>Presupuesto USD<input id="aiBudget" type="number"></label><label>Uso<select id="aiUse"><option>Fotos y redes</option><option>Trabajo</option><option>Estudio</option><option>Gaming</option></select></label></div><div class="actions"><button class="btn" onclick="let b=+val('aiBudget');result('aiResult','Recomendación: '+(b>1200?'iPhone Pro Max / MacBook Pro':b>700?'iPhone 15/16 o MacBook Air':'iPhone 13/14 o accesorios')+'\\nUso: '+val('aiUse'))">Recomendar</button></div><pre id="aiResult" class="result"></pre>`},
- permisos(){$('content').innerHTML=`<div class="form"><label>Correo<input id="permEmail"></label><label>Rol<select id="permRole"><option value="cliente">Cliente</option><option value="vendedor">Vendedor</option><option value="recepcion">Recepción</option><option value="soporte">Soporte</option><option value="tecnico">Técnico</option><option value="logistica">Logística</option><option value="admin">Admin</option></select></label></div><div class="actions"><button class="btn" onclick="let l=store('ts_role_assignments')||[];l.unshift({email:val('permEmail'),role:val('permRole'),date:new Date().toLocaleString('es-VE')});store('ts_role_assignments',l);result('permResult','Rol asignado en modo local. Para producción usa Supabase staff_profiles.')">Asignar rol local</button></div><pre id="permResult" class="result"></pre><p class="muted">En producción, los permisos reales se guardan en Supabase usando la tabla <b>staff_profiles</b>.</p>`}
+ pedidos(){const list=orders().map(o=>`<b>${esc(o.code||o.codigo||'Pedido')}</b><br>${esc(o.status||o.estado||'Recibido')} · ${money(o.total_usd||o.total)}<br><small>${esc(o.customer_email||o.email||o.correo||'')}</small>`);$('content').innerHTML=rows(list,'No hay pedidos cargados todavía.')},
+ permisos(){$('content').innerHTML=`<div class="card" style="padding:20px;margin-bottom:16px"><h2>Administrar accesos del equipo</h2><p class="muted">Solo Admin y Super Admin pueden crear usuarios internos, cambiar roles y activar/desactivar accesos.</p><input type="hidden" id="permIndex" value=""><div class="form"><label>Correo del usuario<input id="permEmail" placeholder="usuario@thinkstore.com.ve"></label><label>Rol<select id="permRole"><option value="cliente">Cliente</option><option value="vendedor">Vendedor</option><option value="recepcion">Recepción</option><option value="soporte">Soporte</option><option value="tecnico">Técnico</option><option value="logistica">Logística</option><option value="admin">Admin</option><option value="superadmin">Super Admin</option></select></label><label>Estado<select id="permActive"><option value="true">Activo</option><option value="false">Inactivo</option></select></label></div><div class="actions"><button class="btn" onclick="saveAssignment()">Guardar acceso</button><button class="btn ghost" onclick="$('permEmail').value='';$('permIndex').value='';result('permResult','')">Nuevo</button></div><pre id="permResult" class="result"></pre><h3>Usuarios con acceso</h3><table class="table"><thead><tr><th>Correo</th><th>Rol</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>${roleRows()}</tbody></table></div><div class="card" style="padding:20px"><h2>Permisos por rol</h2><p class="muted">Define qué módulos puede ver cada rol. Admin y Super Admin siempre tienen acceso total.</p>${renderPermMatrix()}<div class="actions"><button class="btn" onclick="saveRoleMatrix()">Guardar permisos</button><button class="btn ghost" onclick="resetRoleMatrix()">Restaurar predeterminado</button></div><pre id="permMatrixResult" class="result"></pre></div><p class="muted">Modo local listo. Para producción, ejecuta <b>supabase_v63_admin_accesos.sql</b> y conecta los accesos a Supabase.</p>`}
 };
 boot();
 </script>
