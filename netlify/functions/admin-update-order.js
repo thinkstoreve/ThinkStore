@@ -321,7 +321,20 @@ Gracias por confiar en ThinkStore.`;
     return map[department] || map.pedidos;
   }
 
-  async function sendStatusEmail(pedido) {
+  async 
+function normalizePedido(pedido){
+  return {
+    code: pedido.code || pedido.order_code || pedido.id || 'TS',
+    status: pedido.status || 'Actualizado',
+    customerName: pedido.customerName || pedido.customer_name || pedido.nombre || 'Cliente',
+    customerEmail: pedido.customerEmail || pedido.email || pedido.customer_email || '',
+    items: pedido.items || [],
+    guide: pedido.guide || pedido.guia || '',
+    shippingCompany: pedido.shippingCompany || pedido.shipping_company || ''
+  };
+}
+
+function sendStatusEmail(pedido) {
     const RESEND_API_KEY = clean(process.env.RESEND_API_KEY || process.env.RESEND_APY_KEY);
     if (!RESEND_API_KEY || !pedido.customerEmail) return { skipped: true, reason: !RESEND_API_KEY ? 'missing_resend_key' : 'missing_customer_email' };
     const email = buildEmail(pedido);
