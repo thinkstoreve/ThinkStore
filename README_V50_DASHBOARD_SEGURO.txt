@@ -16,8 +16,8 @@ Para que funcione al 100%, crea estas variables en Netlify > Project configurati
    IMPORTANTE: marcar como Secret. Nunca colocar esta clave en el frontend.
 
 4) THINKSTORE_ADMIN_SECRET
-   Valor recomendado: THINK2026
-   Debe coincidir con el código administrador que usas para abrir el panel.
+   Valor recomendado: [CODIGO_ADMIN]
+   Debe coincidir con el código administrador configurado en Netlify.
 
 Qué incluye:
 - Dashboard administrador leyendo clientes reales desde Supabase.
