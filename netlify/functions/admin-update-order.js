@@ -11,8 +11,8 @@ exports.handler = async function(event) {
 
   // Acepta la clave privada de Netlify y el código corto del panel.
   // Esto evita que el dashboard pueda leer datos pero falle al cambiar estados.
-  const expectedSecret = process.env.THINKSTORE_ADMIN_SECRET || 'THINK2026';
-  const expectedCode = process.env.THINKSTORE_ADMIN_CODE || 'THINK2026';
+  const expectedSecret = process.env.THINKSTORE_ADMIN_SECRET;
+  const expectedCode = process.env.THINKSTORE_ADMIN_CODE;
   const provided = event.headers['x-admin-secret'] || event.headers['X-Admin-Secret'] || '';
   if (![String(expectedSecret), String(expectedCode)].includes(String(provided))) {
     return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'Acceso administrador no autorizado' }) };
