@@ -485,7 +485,7 @@ drawCustomerSummary();
 /* ===== ThinkStore Final: clientes, pedidos, estatus y panel privado demo ===== */
 let orders = JSON.parse(localStorage.getItem('ts_orders') || '[]');
 let customers = JSON.parse(localStorage.getItem('ts_customers') || '[]');
-const ADMIN_KEY = 'thinkstore2026';
+const ADMIN_KEY = 'ADMIN';
 
 function saveAll(){
   localStorage.setItem('ts_orders', JSON.stringify(orders));
