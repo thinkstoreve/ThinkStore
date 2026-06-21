@@ -3502,12 +3502,7 @@ window.addEventListener('load', ()=>{
     if(typeof window.openStatus==='function') window.openStatus();
     setTimeout(()=>{ const input=document.getElementById('statusCode')||document.getElementById('trackCode'); if(input) input.value=code; window.checkStatus(); },100);
   };
-  window.addEventListener('load',()=>{
-    try{
-      const code=new URLSearchParams(location.search).get('tracking');
-      if(code){ setTimeout(()=>window.openStatusFromCode(code),450); }
-    }catch(e){}
-  });
+  // Seguimiento público desactivado: ahora se consulta solo dentro de la cuenta del cliente.
 })();
 
 
@@ -4151,4 +4146,100 @@ window.addEventListener('load', ()=>{
   const oldRenderAdminSuite=window.renderAdminSuite;
   if(typeof oldRenderAdminSuite==='function') window.renderAdminSuite=function(){ const r=oldRenderAdminSuite.apply(this,arguments); setTimeout(()=>{injectAdminProButtons(); enhanceDashboardStats();},250); return r; };
   document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>{injectWishlistButtons();window.tsRenderWishlistCount();enhanceDashboardStats();},900); setInterval(()=>{injectWishlistButtons();injectAdminProButtons();},2500);});
+})();
+
+
+/* ===== ThinkStore Fix Login Seguro: navegación y seguimiento solo desde cuenta ===== */
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function getUser(){
+    try{
+      if(window.currentUser) return window.currentUser;
+      return JSON.parse(localStorage.getItem('ts_current_user') || localStorage.getItem('ts_customer') || 'null');
+    }catch(e){ return null; }
+  }
+  function sameClient(order, user){
+    if(!order || !user) return false;
+    const c = order.customer || {};
+    const valsOrder = [order.cliente_id, order.customer_id, order.customerEmail, order.customer_email, order.email, c.id, c.email, c.phone].filter(Boolean).map(v=>String(v).toLowerCase());
+    const valsUser = [user.supabase_id, user.id, user.email, user.phone].filter(Boolean).map(v=>String(v).toLowerCase());
+    return valsOrder.some(v=>valsUser.includes(v));
+  }
+  window.tsUpdateClientNav = function(){
+    const btn = $('clientNavBtn');
+    if(!btn) return;
+    const logged = !!getUser();
+    btn.textContent = logged ? '👤 Cuenta' : '👤 Login';
+    btn.setAttribute('aria-label', logged ? 'Abrir cuenta' : 'Iniciar sesión');
+  };
+  window.tsClientNavAction = function(){
+    if(getUser()){
+      if(typeof window.openAccount === 'function') return window.openAccount();
+    }
+    if(typeof window.openClientLogin === 'function') return window.openClientLogin();
+  };
+
+  const oldOpenStatus = window.openStatus;
+  window.openStatus = function(){
+    if(!getUser()){
+      if(typeof window.openClientLogin === 'function') window.openClientLogin();
+      alert('Inicia sesión para ver el seguimiento de tus pedidos.');
+      return;
+    }
+    return oldOpenStatus && oldOpenStatus.apply(this, arguments);
+  };
+
+  window.openStatusFromCode = function(code){
+    if(!getUser()){
+      if(typeof window.openClientLogin === 'function') window.openClientLogin();
+      return;
+    }
+    window.openStatus();
+    setTimeout(()=>{
+      const input = $('statusCode') || $('trackCode');
+      if(input) input.value = code || '';
+      if(typeof window.checkStatus === 'function') window.checkStatus();
+    },100);
+  };
+
+  window.checkStatus = function(){
+    const user = getUser();
+    const input = $('statusCode') || $('trackCode');
+    const out = $('statusResult');
+    const code = String(input?.value || '').trim().toUpperCase();
+    if(!out) return;
+    if(!user){
+      out.innerHTML = '<div class="ts-track-empty"><b>Inicia sesión para consultar tus pedidos.</b><p>Por seguridad, el seguimiento solo está disponible dentro de tu cuenta ThinkStore.</p></div>';
+      return;
+    }
+    const all = (window.tsOrders ? window.tsOrders() : []).concat(window.orders || []);
+    const order = all.find(o => String(o.code || o.order_code || '').trim().toUpperCase() === code && sameClient(o, user));
+    if(!order){
+      out.innerHTML = '<div class="ts-track-empty"><b>No encontramos ese pedido en tu cuenta.</b><p>Verifica el código o inicia sesión con la cuenta usada al comprar.</p></div>';
+      return;
+    }
+    if(!order.code && order.order_code) order.code = order.order_code;
+    if(typeof window.tsPremiumTrackingHTML === 'function') out.innerHTML = window.tsPremiumTrackingHTML(order);
+    else out.innerHTML = '<b>'+String(order.code||'Pedido')+'</b><br>Estatus: <b>'+String(order.status||order.estado||'Pedido recibido')+'</b>';
+  };
+
+  const oldLogin = window.loginClient;
+  if(typeof oldLogin === 'function'){
+    window.loginClient = async function(){
+      const r = await oldLogin.apply(this, arguments);
+      setTimeout(window.tsUpdateClientNav, 150);
+      return r;
+    };
+  }
+  const oldLogout = window.logoutClient;
+  if(typeof oldLogout === 'function'){
+    window.logoutClient = async function(){
+      const r = await oldLogout.apply(this, arguments);
+      setTimeout(window.tsUpdateClientNav, 150);
+      return r;
+    };
+  }
+  document.addEventListener('DOMContentLoaded', window.tsUpdateClientNav);
+  window.addEventListener('storage', window.tsUpdateClientNav);
+  setTimeout(window.tsUpdateClientNav, 700);
 })();
