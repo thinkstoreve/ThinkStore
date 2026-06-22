@@ -5,8 +5,8 @@
 :root {
   --blue: #0a84ff;
   --text: #ffffff;
-  --muted: rgba(255,255,255,.76);
-  --line: rgba(255,255,255,.16);
+  --muted: rgba(255,255,255,.78);
+  --line: rgba(255,255,255,.18);
 }
 
 html,
@@ -150,7 +150,7 @@ p {
 }
 
 .btn.secondary {
-  background: rgba(255,255,255,.10);
+  background: rgba(255,255,255,.12);
 }
 
 footer {
@@ -160,6 +160,7 @@ footer {
   font-size: 15px;
 }
 
+/* Modal como la referencia: solo aparece al pulsar Ingresar al panel */
 .dialog {
   border: 0;
   padding: 0;
@@ -167,28 +168,31 @@ footer {
 }
 
 .dialog::backdrop {
-  background: rgba(0,0,0,.58);
+  background: rgba(0,0,0,.46);
 }
 
 .login-card {
   width: min(720px, calc(100vw - 40px));
-  padding: 46px;
+  padding: 42px 44px;
   border-radius: 28px;
-  border: 1px solid rgba(255,255,255,.16);
-  background: rgba(9, 14, 24, .84);
-  box-shadow: 0 30px 90px rgba(0,0,0,.55);
-  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,.20);
+  background: rgba(11, 17, 29, .78);
+  box-shadow: 0 32px 100px rgba(0,0,0,.56);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: white;
 }
 
 .login-card h2 {
   margin: 0 0 12px;
   font-size: 38px;
+  letter-spacing: -.8px;
 }
 
 .login-card p {
   margin: 0 0 28px;
   font-size: 17px;
+  color: rgba(255,255,255,.82);
 }
 
 .login-card label {
@@ -202,11 +206,17 @@ footer {
   width: 100%;
   height: 54px;
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.20);
-  background: rgba(0,0,0,.42);
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(0,0,0,.36);
   color: white;
   padding: 0 16px;
   font-size: 17px;
+  outline: none;
+}
+
+.login-card input:focus {
+  border-color: rgba(111,209,255,.95);
+  box-shadow: 0 0 0 3px rgba(10,132,255,.20);
 }
 
 .dialog-actions {

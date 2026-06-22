@@ -1,14 +1,12 @@
 # ThinkStore Service Center
 
-Proyecto independiente para `soporte.thinkstore.com.ve`.
+Versión preparada con:
 
-## Instalación
-
-Copia todo el contenido de este ZIP dentro de:
-
-`ThinkStore/soporte/`
-
-Luego haz Commit y Push en GitHub.
+- Fondo limpio de soporte ThinkStore.
+- Interfaz principal simple.
+- Modal de acceso como referencia.
+- Sin cuadros extra detrás del texto.
+- Sin cambios externos a Supabase.
 
 ## Credenciales demo
 
@@ -16,6 +14,6 @@ Luego haz Commit y Push en GitHub.
 - tecnico / tecnico123
 - recepcion / recepcion123
 
-## Nota
+## Instalación
 
-No contiene SQL ni modifica Supabase. Es una versión limpia del frontend.
+Copia todo dentro de `ThinkStore/soporte/`, reemplaza, luego Commit + Push.
