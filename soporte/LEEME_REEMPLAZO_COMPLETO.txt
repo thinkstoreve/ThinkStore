@@ -1,0 +1,20 @@
+ThinkStore Service Center - reemplazo completo
+
+Este paquete está preparado para borrar el contenido actual de ThinkStore/soporte/ y pegar este contenido.
+
+Cambios:
+- Fondo reemplazado por la imagen limpia enviada por Freddy.
+- Se fuerza el uso de assets/repair-background.jpg.
+- Se eliminan overlays/cuadros fantasma del hero mediante CSS.
+- Se conserva la interfaz del soporte y el modal de acceso.
+
+Instalación:
+1. Abre ThinkStore/soporte/.
+2. Borra TODO el contenido actual de esa carpeta.
+3. Descomprime este ZIP.
+4. Copia TODO el contenido descomprimido dentro de ThinkStore/soporte/.
+5. En GitHub Desktop debe aparecer lista de archivos modificados.
+6. Commit + Push.
+7. Espera Netlify y recarga con Cmd + Shift + R.
+
+No ejecutes ningún archivo .sql si ya tienes Supabase configurado.
