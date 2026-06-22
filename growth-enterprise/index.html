@@ -1,44 +1,137 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ThinkStore Growth Enterprise</title>
-
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <section id="lockScreen" class="lock-screen">
+    <div class="aurora"></div>
+    <div class="lock-card">
+      <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" class="lock-logo" />
+      <span class="pill">Acceso privado · Administrador</span>
+      <h1>Growth Enterprise</h1>
+      <p>Panel ejecutivo para ventas, inventario, clientes, marketing, finanzas, reportes, integraciones y automatizaciones de ThinkStore.</p>
+      <div class="login-row">
+        <input id="adminKey" type="password" placeholder="Clave de administrador" autocomplete="current-password" />
+        <button id="unlockBtn">Entrar</button>
+      </div>
+      <small>Clave demo: <b>thinkstore2026</b></small>
+    </div>
+  </section>
 
-  <div class="growth-container">
-
-    <div class="hero">
-
-      <div class="hero-text">
-
-        <span class="badge">
-          THINKSTORE BUSINESS SUITE
-        </span>
-
-        <h1>
-          Growth Enterprise
-        </h1>
-
-        <p>
-          Centro de administración empresarial para controlar ventas,
-          marketing, inventario, finanzas y crecimiento de ThinkStore.
-        </p>
-
-        <button id="enterGrowth">
-          Entrar al Panel
-        </button>
-
+  <main id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
+        <span>Growth Enterprise</span>
       </div>
 
-    </div>
+      <nav class="nav-list" aria-label="Módulos Growth Enterprise">
+        <button class="nav active" data-view="executive"><i>▦</i>Panel Ejecutivo</button>
+        <button class="nav" data-view="sales"><i>🛒</i>Ventas</button>
+        <button class="nav" data-view="products"><i>⬡</i>Productos</button>
+        <button class="nav" data-view="inventory"><i>▣</i>Inventario</button>
+        <button class="nav" data-view="clients"><i>♙</i>Clientes</button>
+        <button class="nav" data-view="marketing"><i>📣</i>Marketing</button>
+        <button class="nav" data-view="finance"><i>$</i>Finanzas</button>
+        <button class="nav" data-view="reports"><i>▥</i>Reportes</button>
+        <button class="nav" data-view="integrations"><i>✣</i>Integraciones</button>
+        <button class="nav" data-view="automations"><i>⚙</i>Automatizaciones</button>
+        <button class="nav" data-view="settings"><i>⚙</i>Configuración</button>
+      </nav>
 
-  </div>
+      <div class="plan-card">
+        <div class="crown">♛</div>
+        <div><b>Plan Enterprise</b><span><em></em> Activo</span></div>
+        <strong>›</strong>
+      </div>
+
+      <div class="admin-card">
+        <div class="avatar">A</div>
+        <div><b>Administrador</b><span>admin@thinkstore.com.ve</span></div>
+        <button title="Cerrar sesión" id="logoutMini">⌄</button>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div class="title-block">
+          <p>Bienvenido, <span>Administrador</span></p>
+          <h1 id="pageTitle">Panel Ejecutivo</h1>
+          <small id="pageSubtitle">Resumen general de tu negocio en tiempo real.</small>
+        </div>
+
+        <div class="top-actions">
+          <label class="search"><i>⌕</i><input id="searchInput" type="search" placeholder="Buscar en ThinkStore..." /></label>
+          <button class="icon-btn" title="Notificaciones">♧<b>3</b></button>
+          <button class="icon-btn" title="Ayuda">?</button>
+          <button class="logout" id="logoutBtn">⇥ Salir</button>
+          <button class="date-btn">▣ 22 May - 22 Jun, 2025⌄</button>
+        </div>
+      </header>
+
+      <section id="executive" class="view active">
+        <div class="metric-grid">
+          <article class="metric"><div class="icon purple">$</div><span>Ventas del mes</span><strong>$124,850.00</strong><small class="up">↑ 18.6% vs mes anterior</small><button>⋮</button></article>
+          <article class="metric"><div class="icon green">▢</div><span>Pedidos totales</span><strong>1,248</strong><small class="up">↑ 12.4% vs mes anterior</small><button>⋮</button></article>
+          <article class="metric"><div class="icon orange">♟</div><span>Clientes activos</span><strong>3,682</strong><small class="up">↑ 9.8% vs mes anterior</small><button>⋮</button></article>
+          <article class="metric"><div class="icon blue">⌁</div><span>Utilidad estimada</span><strong>$28,940.00</strong><small class="up">↑ 21.7% vs mes anterior</small><button>⋮</button></article>
+        </div>
+
+        <div class="main-grid">
+          <article class="panel chart-panel">
+            <div class="panel-head"><h3>Crecimiento de Ventas</h3><button>Mensual⌄</button></div>
+            <div class="sales-chart">
+              <div class="y-axis"><span>$150K</span><span>$120K</span><span>$90K</span><span>$60K</span><span>$30K</span><span>$0</span></div>
+              <svg viewBox="0 0 760 290" preserveAspectRatio="none" aria-label="Gráfico de crecimiento">
+                <defs><linearGradient id="lineFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2f7cff" stop-opacity=".78"/><stop offset="1" stop-color="#2f7cff" stop-opacity=".08"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="4" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+                <path class="gridline" d="M0 35H760M0 85H760M0 135H760M0 185H760M0 235H760"/>
+                <path class="area" d="M0 250 C60 248 75 230 120 228 S200 225 240 202 S320 170 380 186 S450 154 505 145 S575 120 620 72 S700 46 760 22 L760 290 L0 290Z"/>
+                <path class="line" d="M0 250 C60 248 75 230 120 228 S200 225 240 202 S320 170 380 186 S450 154 505 145 S575 120 620 72 S700 46 760 22"/>
+                <circle cx="760" cy="22" r="7" class="dot"/>
+              </svg>
+              <div class="months"><span>Ene</span><span>Feb</span><span>Mar</span><span>Abr</span><span>May</span><span>Jun</span></div>
+              <div class="tooltip">22 Jun, 2025<br><b>✦ $124,850.00</b></div>
+            </div>
+          </article>
+
+          <article class="panel activity">
+            <div class="panel-head"><h3>Resumen de Actividades</h3><a href="#">Ver todas</a></div>
+            <div class="activity-list" id="activityList"></div>
+          </article>
+        </div>
+
+        <div class="bottom-grid">
+          <article class="panel top-products"><div class="panel-head"><h3>Top Productos</h3><a>Ver todos</a></div><div id="topProducts"></div></article>
+          <article class="panel channels"><h3>Canales de Venta</h3><div class="donut-wrap"><div class="donut"><b>62%</b><span>Tienda Online</span></div><ul id="channelList"></ul></div><a>Ver reporte</a></article>
+          <article class="panel store-status"><div class="panel-head"><h3>Estado de la Tienda</h3><span class="status-pill">● Todo en orden</span></div><div id="statusList"></div></article>
+        </div>
+
+        <div class="strip-grid">
+          <article><div class="icon purple">$</div><span>Ingresos Totales</span><b>$1,248,850.00</b><small class="up">↑ 16.3% vs mes anterior</small></article>
+          <article><div class="icon indigo">📣</div><span>Gasto en Marketing</span><b>$24,850.00</b><small class="down">↓ 4.3% vs mes anterior</small></article>
+          <article><div class="icon teal">⌁</div><span>Retorno de Inversión (ROI)</span><b>312%</b><small class="up">↑ 22.5% vs mes anterior</small></article>
+          <article><div class="icon violet">🛒</div><span>Carritos Abandonados</span><b>128</b><small class="down">↓ 8.1% vs mes anterior</small></article>
+          <article><div class="icon purple">◇</div><span>Valor Promedio de Orden</span><b>$98.50</b><small class="up">↑ 7.8% vs mes anterior</small></article>
+        </div>
+      </section>
+
+      <section id="sales" class="view module-view"></section>
+      <section id="products" class="view module-view"></section>
+      <section id="inventory" class="view module-view"></section>
+      <section id="clients" class="view module-view"></section>
+      <section id="marketing" class="view module-view"></section>
+      <section id="finance" class="view module-view"></section>
+      <section id="reports" class="view module-view"></section>
+      <section id="integrations" class="view module-view"></section>
+      <section id="automations" class="view module-view"></section>
+      <section id="settings" class="view module-view"></section>
+    </section>
+  </main>
 
   <script src="app.js"></script>
-
 </body>
 </html>
