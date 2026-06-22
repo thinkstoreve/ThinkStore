@@ -1,83 +1,255 @@
-:root{--bg:#05070c;--panel:#101522;--soft:#192033;--line:rgba(255,255,255,.1);--text:#f7f9ff;--muted:#9aa6bf;--blue:#0071e3;--green:#25d366;--warn:#ffb020;--danger:#ff4d4f}
-*{box-sizing:border-box}body{margin:0;background:#05070c;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.ts-service-app{min-height:100vh;background:linear-gradient(90deg,rgba(5,7,12,.98) 0%,rgba(5,7,12,.92) 34%,rgba(5,7,12,.48) 58%,rgba(5,7,12,.22) 100%),linear-gradient(180deg,rgba(5,7,12,.2),rgba(5,7,12,.92)),url("assets/repair-background.jpg") right center/cover no-repeat}.hero{padding:84px 7%;max-width:980px;min-height:100vh;display:flex;flex-direction:column;justify-content:center}.hero-logo{width:min(320px,62vw);height:auto;margin-bottom:70px;filter:drop-shadow(0 12px 30px rgba(0,0,0,.45))}.eyebrow{text-transform:uppercase;letter-spacing:.22em;color:#1f9bff;font-weight:900;font-size:.78rem}.hero h1{font-size:clamp(2.25rem,6.2vw,5.15rem);line-height:.95;margin:12px 0;text-shadow:0 18px 45px rgba(0,0,0,.55)}.hero p{color:#e3e9f4;font-size:1.15rem;max-width:760px;text-shadow:0 10px 25px rgba(0,0,0,.65)}.hero-actions,.actions{display:flex;gap:12px;flex-wrap:wrap}button{border:0;border-radius:999px;background:var(--blue);color:white;padding:13px 20px;font-weight:800;cursor:pointer}.secondary{background:rgba(255,255,255,.1);border:1px solid var(--line)}.dashboard{display:grid;grid-template-columns:280px 1fr;min-height:100vh}.hidden{display:none!important}.sidebar{background:rgba(0,0,0,.35);border-right:1px solid var(--line);padding:24px;position:sticky;top:0;height:100vh}.sidebar h2{margin:0}.sidebar small{color:var(--muted)}nav{display:grid;gap:10px;margin:28px 0}nav button{border-radius:18px;text-align:left;background:transparent;border:1px solid var(--line)}nav button.active,nav button:hover{background:var(--soft)}.logout{background:#2b1220}.workspace{padding:28px}.topline{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:24px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px}.metric,.tablewrap,.card{background:rgba(16,21,34,.86);border:1px solid var(--line);border-radius:28px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.25)}.metric b{font-size:2rem}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left}th{color:#abc8ff}.badge{padding:6px 10px;border-radius:999px;background:var(--soft);font-size:.8rem}.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);align-items:center;justify-content:center;padding:20px;z-index:50}.modal.open{display:flex}.card{width:min(520px,100%)}.wide{width:min(920px,100%)}label{display:grid;gap:7px;color:#c7d2ea;font-size:.9rem;margin:10px 0}input,select,textarea{width:100%;border:1px solid var(--line);background:#080c14;color:white;border-radius:16px;padding:12px}textarea{min-height:90px}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.pill-row{display:flex;gap:8px;flex-wrap:wrap}.danger{background:var(--danger)}.green{background:var(--green)}@media(max-width:780px){.ts-service-app{background:linear-gradient(180deg,rgba(5,7,12,.72),rgba(5,7,12,.97)),url("assets/repair-background.jpg") center/cover no-repeat}.hero{padding:42px 7%;justify-content:flex-start}.hero-logo{margin-bottom:46px}.dashboard{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.grid2{grid-template-columns:1fr}.topline{align-items:flex-start;flex-direction:column}}
+* {
+  box-sizing: border-box;
+}
 
+:root {
+  --blue: #0a84ff;
+  --text: #ffffff;
+  --muted: rgba(255,255,255,.76);
+  --line: rgba(255,255,255,.16);
+}
 
-/* === Fondo limpio final: solo cambia el fondo del soporte === */
-.ts-service-app{
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  color: var(--text);
+  background: #05080f;
+}
+
+body {
   background-image:
-    linear-gradient(90deg, rgba(5,7,12,.96) 0%, rgba(5,7,12,.86) 34%, rgba(5,7,12,.42) 58%, rgba(5,7,12,.10) 100%),
-    linear-gradient(180deg, rgba(5,7,12,.10) 0%, rgba(5,7,12,.38) 100%),
-    url("assets/repair-background.jpg") !important;
-  background-position: center center !important;
-  background-size: cover !important;
-  background-repeat: no-repeat !important;
-  background-attachment: fixed !important;
-}
-.modal{
-  background: rgba(0,0,0,.72) !important;
+    linear-gradient(90deg, rgba(4,7,13,.98) 0%, rgba(4,7,13,.82) 34%, rgba(4,7,13,.20) 62%, rgba(4,7,13,.04) 100%),
+    url("assets/repair-background.jpg");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
-
-/* === FIX: quitar cuadro oscuro detrás del texto principal === */
-/* Solo elimina panel/overlay del hero. No mueve botones, textos ni estructura. */
-.hero-card,
-.hero-panel,
-.hero-content,
-.hero-copy,
-.landing-card,
-.intro-card,
-.service-hero-card,
-.service-card,
-.welcome-card,
-.main-card,
-.hero .card,
-.hero section,
-.ts-hero-card,
-.ts-hero-content {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: 0 !important;
-  box-shadow: none !important;
+.page {
+  min-height: 100vh;
+  position: relative;
+  padding: 54px 64px 32px;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Evita pseudo-capas oscuras en el área del texto */
-.hero-card::before,
-.hero-card::after,
-.hero-panel::before,
-.hero-panel::after,
-.hero-content::before,
-.hero-content::after,
-.landing-card::before,
-.landing-card::after,
-.service-hero-card::before,
-.service-hero-card::after,
-.ts-hero-card::before,
-.ts-hero-card::after,
-.ts-hero-content::before,
-.ts-hero-content::after {
-  display: none !important;
-  content: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* Mantiene el fondo actual visible y limpio */
-body,
-.ts-service-app {
-  background-image:
-    linear-gradient(90deg, rgba(5,7,12,.88) 0%, rgba(5,7,12,.64) 38%, rgba(5,7,12,.18) 70%, rgba(5,7,12,.04) 100%),
-    url("assets/repair-background.jpg") !important;
-  background-size: cover !important;
-  background-position: center center !important;
-  background-repeat: no-repeat !important;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-
-/* Limpieza final del fondo */
-.hero-logo{
- opacity:1 !important;
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 900;
 }
-.ts-service-app{
- background-position:right center !important;
+
+.brand strong {
+  display: block;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -1.5px;
+}
+
+.brand span {
+  display: block;
+  margin-top: 7px;
+  font-size: 13px;
+  letter-spacing: 7px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.86);
+}
+
+.nav {
+  display: flex;
+  gap: 18px;
+}
+
+.nav button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hero {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  max-width: 760px;
+}
+
+.hero-content {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.kicker {
+  color: var(--blue);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 9px;
+  margin-bottom: 26px;
+}
+
+h1 {
+  margin: 0;
+  max-width: 760px;
+  font-size: clamp(58px, 8vw, 104px);
+  line-height: .92;
+  letter-spacing: -5px;
+  font-weight: 900;
+}
+
+p {
+  max-width: 680px;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1.42;
+  margin: 32px 0 0;
+}
+
+.actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 34px;
+}
+
+.btn {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  min-height: 56px;
+  padding: 0 28px;
+  font-size: 18px;
+  font-weight: 800;
+  color: white;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: linear-gradient(180deg, #1aa0ff, #0077ee);
+  border-color: rgba(255,255,255,.12);
+}
+
+.btn.secondary {
+  background: rgba(255,255,255,.10);
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  color: rgba(255,255,255,.7);
+  font-size: 15px;
+}
+
+.dialog {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.dialog::backdrop {
+  background: rgba(0,0,0,.58);
+}
+
+.login-card {
+  width: min(720px, calc(100vw - 40px));
+  padding: 46px;
+  border-radius: 28px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(9, 14, 24, .84);
+  box-shadow: 0 30px 90px rgba(0,0,0,.55);
+  backdrop-filter: blur(18px);
+  color: white;
+}
+
+.login-card h2 {
+  margin: 0 0 12px;
+  font-size: 38px;
+}
+
+.login-card p {
+  margin: 0 0 28px;
+  font-size: 17px;
+}
+
+.login-card label {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  margin: 20px 0 8px;
+}
+
+.login-card input {
+  width: 100%;
+  height: 54px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.20);
+  background: rgba(0,0,0,.42);
+  color: white;
+  padding: 0 16px;
+  font-size: 17px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+@media (max-width: 800px) {
+  .page {
+    padding: 34px 24px 26px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    gap: 20px;
+    flex-direction: column;
+  }
+
+  .brand strong {
+    font-size: 28px;
+  }
+
+  .brand span {
+    letter-spacing: 4px;
+  }
+
+  .hero {
+    align-items: flex-start;
+    padding-top: 80px;
+  }
+
+  h1 {
+    font-size: 58px;
+    letter-spacing: -3px;
+  }
+
+  p {
+    font-size: 18px;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
