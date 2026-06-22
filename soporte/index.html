@@ -43,10 +43,23 @@
     <form class="card" onsubmit="TSService.login(event)">
       <h2>Acceso privado</h2>
       <p>Solo personal autorizado. Los clientes consultan por código o QR.</p>
-      <label>Usuario</label><input id="loginUser" required placeholder="admin / tecnico / recepcion" />
-      <label>Contraseña</label><input id="loginPass" type="password" required placeholder="Contraseña" />
+      <label>Correo electrónico</label><input id="loginUser" type="email" required placeholder="soporte@thinkstore.com.ve" autocomplete="email" />
+      <label>Contraseña</label><input id="loginPass" type="password" required placeholder="Contraseña" autocomplete="current-password" />
       <button>Ingresar</button>
       <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+    </form>
+  </div>
+
+
+  <div id="passwordSetupModal" class="modal">
+    <form class="card" onsubmit="TSService.saveNewPassword(event)">
+      <h2>Crear contraseña</h2>
+      <p>Define tu contraseña para acceder al panel de soporte ThinkStore.</p>
+      <label>Nueva contraseña</label><input id="newPassword" type="password" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
+      <label>Confirmar contraseña</label><input id="confirmPassword" type="password" required minlength="8" placeholder="Repite la contraseña" autocomplete="new-password" />
+      <button>Guardar contraseña</button>
+      <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+      <p id="passwordSetupMsg"></p>
     </form>
   </div>
 
@@ -79,6 +92,7 @@
     </form>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
 </body>
 </html>
