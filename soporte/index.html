@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soporte ThinkStore | Service Center</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="ts-service-app">
+    <section class="hero">
+      <p class="eyebrow">soporte.thinkstore.com.ve</p>
+      <h1>ThinkStore Service Center</h1>
+      <p>Extensión independiente para soporte técnico: recepción, diagnóstico, bitácora, presupuestos, archivos, correos y seguimiento por QR.</p>
+      <div class="hero-actions">
+        <button onclick="TSService.openLogin()">Ingresar al panel</button>
+        <button class="secondary" onclick="TSService.openClientLookup()">Consultar reparación</button>
+      </div>
+    </section>
+
+    <section id="roleDashboard" class="dashboard hidden">
+      <aside class="sidebar">
+        <h2>ThinkStore</h2>
+        <small>Service Center</small>
+        <nav id="roleMenu"></nav>
+        <button class="logout" onclick="TSService.logout()">Cerrar sesión</button>
+      </aside>
+      <section class="workspace">
+        <div class="topline">
+          <div>
+            <p class="eyebrow">Panel privado</p>
+            <h2 id="panelTitle">Dashboard</h2>
+          </div>
+          <button onclick="TSService.openServiceOrder()">Nueva orden</button>
+        </div>
+        <div id="panelContent"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="loginModal" class="modal">
+    <form class="card" onsubmit="TSService.login(event)">
+      <h2>Acceso privado</h2>
+      <p>Solo personal autorizado. Los clientes consultan por código o QR.</p>
+      <label>Usuario</label><input id="loginUser" required placeholder="admin / tecnico / recepcion" />
+      <label>Contraseña</label><input id="loginPass" type="password" required placeholder="Contraseña" />
+      <button>Ingresar</button>
+      <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+    </form>
+  </div>
+
+  <div id="orderModal" class="modal">
+    <form class="card wide" onsubmit="TSService.saveOrder(event)">
+      <h2>Nueva orden de servicio</h2>
+      <div class="grid2">
+        <label>Cliente<input id="oClient" required /></label>
+        <label>Teléfono<input id="oPhone" required /></label>
+        <label>Correo<input id="oEmail" type="email" /></label>
+        <label>Equipo<input id="oDevice" required placeholder="iPhone 15 Pro Max / MacBook Air" /></label>
+        <label>Serial / IMEI<input id="oSerial" /></label>
+        <label>Prioridad<select id="oPriority"><option>Normal</option><option>Alta</option><option>Urgente</option></select></label>
+      </div>
+      <label>Falla reportada<textarea id="oIssue" required></textarea></label>
+      <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, caja, funda..."></textarea></label>
+      <label>Observaciones visuales<textarea id="oVisual" placeholder="Rayas, golpes, pantalla rota..."></textarea></label>
+      <div class="actions"><button>Guardar orden</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
+    </form>
+  </div>
+
+  <div id="clientLookupModal" class="modal">
+    <form class="card" onsubmit="TSService.lookupOrder(event)">
+      <h2>Consultar estado</h2>
+      <p>Ingresa tu código de orden ThinkStore / Asistech.</p>
+      <input id="lookupCode" required placeholder="TS-SVC-2026-0001" />
+      <button>Consultar</button>
+      <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+      <div id="lookupResult"></div>
+    </form>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
