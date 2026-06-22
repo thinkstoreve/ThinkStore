@@ -1,2 +1,0 @@
-Reemplaza tu fondo actual por assets/repair-background.jpg.
-No cambia botones, textos ni funciones.
