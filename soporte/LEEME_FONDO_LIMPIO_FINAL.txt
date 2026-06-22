@@ -1,0 +1,22 @@
+Actualización final de fondo ThinkStore Service Center.
+
+Cambios aplicados:
+- Fondo limpio de reparación.
+- Se eliminó el cuadro/interfaz fantasma del fondo.
+- Se ocultó el logo Apple del fondo.
+- Se añadió ThinkStore visible en la manta.
+
+No se modificó:
+- Botones.
+- Textos.
+- Estructura visual del soporte.
+- app.js.
+- Login.
+- Supabase.
+
+Instalación:
+1. Descomprime este ZIP.
+2. Copia todo el contenido dentro de ThinkStore/soporte/.
+3. Reemplaza archivos.
+4. Commit + Push en GitHub.
+5. Espera Netlify y recarga con Cmd + Shift + R.
