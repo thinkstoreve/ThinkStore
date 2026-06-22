@@ -72,3 +72,12 @@ body,
   background-position: center center !important;
   background-repeat: no-repeat !important;
 }
+
+
+/* Limpieza final del fondo */
+.hero-logo{
+ opacity:1 !important;
+}
+.ts-service-app{
+ background-position:right center !important;
+}
