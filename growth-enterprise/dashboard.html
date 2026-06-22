@@ -1,1 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThinkStore Enterprise Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
+<div class="enterprise-layout">
+
+  <aside class="sidebar">
+    <h2>ThinkStore</h2>
+    <span>Growth Enterprise</span>
+
+    <nav>
+      <a class="active">📊 Dashboard</a>
+      <a>💰 Finanzas</a>
+      <a>🛒 Ventas</a>
+      <a>📦 Inventario</a>
+      <a>👥 Clientes</a>
+      <a>📣 Marketing</a>
+      <a>⚙️ Configuración</a>
+    </nav>
+  </aside>
+
+  <main class="enterprise-main">
+    <header>
+      <div>
+        <p class="badge">ADMINISTRADOR</p>
+        <h1>Panel Ejecutivo</h1>
+      </div>
+      <button onclick="window.location.href='index.html'">Salir</button>
+    </header>
+
+    <section class="cards">
+      <div class="card"><span>Ventas del mes</span><strong>$0.00</strong></div>
+      <div class="card"><span>Pedidos activos</span><strong>0</strong></div>
+      <div class="card"><span>Clientes registrados</span><strong>0</strong></div>
+      <div class="card"><span>Utilidad estimada</span><strong>$0.00</strong></div>
+    </section>
+
+    <section class="panel-grid">
+      <div class="panel large">
+        <h3>Crecimiento ThinkStore</h3>
+        <div class="fake-chart"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Alertas</h3>
+        <p>🟠 Pagos pendientes</p>
+        <p>🔴 Stock bajo</p>
+        <p>🔵 Preórdenes activas</p>
+      </div>
+    </section>
+  </main>
+
+</div>
+
+</body>
+</html>
