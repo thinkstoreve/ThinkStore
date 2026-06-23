@@ -11,14 +11,15 @@
     <div class="aurora"></div>
     <div class="lock-card">
       <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" class="lock-logo" />
-      <span class="pill">Acceso privado · Administrador</span>
+      <span class="pill">Acceso privado · Supabase Auth</span>
       <h1>Growth Enterprise</h1>
       <p>Panel ejecutivo para ventas, inventario, clientes, marketing, finanzas, reportes, integraciones y automatizaciones de ThinkStore.</p>
-      <div class="login-row">
-        <input id="adminKey" type="password" placeholder="Clave de administrador" autocomplete="current-password" />
-        <button id="unlockBtn">Entrar</button>
-      </div>
-      <small>Clave demo: <b>thinkstore2026</b></small>
+      <form id="loginForm" class="login-form">
+        <input id="adminEmail" type="email" placeholder="Correo de administrador" autocomplete="email" required />
+        <input id="adminPassword" type="password" placeholder="Contraseña" autocomplete="current-password" required />
+        <button id="unlockBtn" type="submit">Entrar</button>
+      </form>
+      <small id="loginMessage" class="login-message">Acceso validado con Supabase. Solo usuarios activos con rol administrador.</small>
     </div>
   </section>
 
@@ -35,6 +36,7 @@
         <button class="nav" data-view="products"><i>⬡</i>Productos</button>
         <button class="nav" data-view="inventory"><i>▣</i>Inventario</button>
         <button class="nav" data-view="clients"><i>♙</i>Clientes</button>
+        <button class="nav" data-view="staff"><i>👥</i>Accesos</button>
         <button class="nav" data-view="marketing"><i>📣</i>Marketing</button>
         <button class="nav" data-view="finance"><i>$</i>Finanzas</button>
         <button class="nav" data-view="reports"><i>▥</i>Reportes</button>
@@ -51,7 +53,7 @@
 
       <div class="admin-card">
         <div class="avatar">A</div>
-        <div><b>Administrador</b><span>admin@thinkstore.com.ve</span></div>
+        <div><b id="adminName">Administrador</b><span id="adminEmailLabel">admin@thinkstore.com.ve</span></div>
         <button title="Cerrar sesión" id="logoutMini">⌄</button>
       </div>
     </aside>
@@ -59,7 +61,7 @@
     <section class="workspace">
       <header class="topbar">
         <div class="title-block">
-          <p>Bienvenido, <span>Administrador</span></p>
+          <p>Bienvenido, <span id="welcomeName">Administrador</span></p>
           <h1 id="pageTitle">Panel Ejecutivo</h1>
           <small id="pageSubtitle">Resumen general de tu negocio en tiempo real.</small>
         </div>
@@ -124,6 +126,7 @@
       <section id="inventory" class="view module-view"></section>
       <section id="clients" class="view module-view"></section>
       <section id="marketing" class="view module-view"></section>
+      <section id="staff" class="view module-view"></section>
       <section id="finance" class="view module-view"></section>
       <section id="reports" class="view module-view"></section>
       <section id="integrations" class="view module-view"></section>

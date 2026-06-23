@@ -1,27 +1,81 @@
-async function loadEnterpriseStats() {
-  const stats = {
-    orders: 0,
-    customers: 0,
-    products: 0
-  };
+async function requireEnterpriseAdmin() {
+  const client = window.supabaseClient;
+  if (!client) throw new Error('Supabase no está inicializado');
 
-  const { count: ordersCount } = await supabase
-    .from("orders")
-    .select("*", { count: "exact", head: true });
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError || !user) {
+    window.location.href = 'index.html';
+    return null;
+  }
 
-  const { count: customersCount } = await supabase
-    .from("customers")
-    .select("*", { count: "exact", head: true });
+  let profile = null;
 
-  const { count: productsCount } = await supabase
-    .from("products")
-    .select("*", { count: "exact", head: true });
+  const profilesRes = await client
+    .from('profiles')
+    .select('id,email,full_name,role,active')
+    .eq('id', user.id)
+    .maybeSingle();
 
-  stats.orders = ordersCount || 0;
-  stats.customers = customersCount || 0;
-  stats.products = productsCount || 0;
+  if (!profilesRes.error && profilesRes.data) {
+    profile = profilesRes.data;
+  }
 
-  console.log("Enterprise Stats:", stats);
+  if (!profile) {
+    const rolesRes = await client
+      .from('roles_usuarios')
+      .select('id,email,nombre,rol,activo')
+      .ilike('email', user.email || '')
+      .maybeSingle();
+
+    if (!rolesRes.error && rolesRes.data) {
+      profile = {
+        id: rolesRes.data.id,
+        email: rolesRes.data.email,
+        full_name: rolesRes.data.nombre,
+        role: rolesRes.data.rol,
+        active: rolesRes.data.activo
+      };
+    }
+  }
+
+  if (!profile || profile.active === false || !['admin','administrator','super_admin'].includes(String(profile.role || '').toLowerCase())) {
+    await client.auth.signOut();
+    window.location.href = 'index.html';
+    return null;
+  }
+
+  return { user, profile };
 }
 
-loadEnterpriseStats();
+async function safeCount(tableNames) {
+  const names = Array.isArray(tableNames) ? tableNames : [tableNames];
+
+  for (const tableName of names) {
+    try {
+      const { count, error } = await window.supabaseClient
+        .from(tableName)
+        .select('*', { count: 'exact', head: true });
+      if (error) throw error;
+      return count || 0;
+    } catch (error) {
+      console.warn(`No se pudo leer ${tableName}:`, error.message);
+    }
+  }
+
+  return 0;
+}
+
+async function loadEnterpriseStats() {
+  await requireEnterpriseAdmin();
+
+  const stats = {
+    orders: await safeCount(['orders', 'pedidos']),
+    customers: await safeCount(['customers', 'clientes']),
+    products: await safeCount(['products', 'productos'])
+  };
+
+  console.log('Enterprise Stats:', stats);
+  return stats;
+}
+
+document.addEventListener('DOMContentLoaded', loadEnterpriseStats);
