@@ -31,3 +31,9 @@
 }
 .forgot-link:hover{color:#ffffff;text-decoration:underline;}
 .reset-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+
+/* Enterprise V1 Real / Control Comercial */
+.safe-panel{border-color:rgba(67,227,107,.28);background:linear-gradient(180deg,rgba(19,44,34,.66),rgba(7,15,26,.74));}
+.safe-tag{background:rgba(67,227,107,.12);color:#8cffac;}
+.control-cards{margin-top:18px;}
+.control-cards .module-card{min-height:150px;}

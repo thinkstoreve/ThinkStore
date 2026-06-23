@@ -1,5 +1,6 @@
 const titles = {
   executive:["Panel Ejecutivo","Resumen general de tu negocio en tiempo real."],
+  commercial:["Control Comercial ThinkStore","Ventas, clientes, inventario, pagos, notas de entrega y correos. Lectura segura sin tocar el flujo actual."],
   sales:["Ventas","Pedidos, ingresos, canales y rendimiento comercial."],
   products:["Productos","Catálogo estratégico, top ventas y rentabilidad por modelo."],
   inventory:["Inventario","Stock crítico, rotación, reposición y preórdenes."],
@@ -153,7 +154,7 @@ async function unlock(event){
     setLoginMessage(error.message || 'No se pudo iniciar sesión.', 'error');
   }
 }
-function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); renderHome(); renderModules(); renderStaffAccess(); }
+function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); renderHome(); renderModules(); renderStaffAccess(); loadEnterpriseV1Real(); }
 
 async function sendPasswordRecovery(){
   const email = qs('adminEmail')?.value.trim();
@@ -209,6 +210,7 @@ function switchView(id){
   qs(id)?.classList.add('active');
   if(titles[id]){ qs('pageTitle').textContent = titles[id][0]; qs('pageSubtitle').textContent = titles[id][1]; }
   if(id === 'staff') loadStaffAccess();
+  if(id === 'commercial') loadEnterpriseV1Real();
 }
 function exportCSV(id='executive'){
   const source = modules[id] || [['Ventas del mes','$124850','KPI'],['Pedidos totales','1248','KPI'],['Clientes activos','3682','KPI'],['Utilidad estimada','$28940','KPI']];
@@ -385,3 +387,186 @@ document.addEventListener('DOMContentLoaded',()=>{
   qs('searchInput')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase(); document.querySelectorAll('.module-card,.product-row,.activity-item,.status-row,.table-row').forEach(el=>{el.style.outline = q && el.textContent.toLowerCase().includes(q) ? '1px solid rgba(38,119,255,.7)' : ''})});
   bootAuth();
 });
+
+
+/* Enterprise V1 Real: lectura segura desde Supabase
+   No modifica tablas de pedidos, clientes, comprobantes, Resend ni notas de entrega. */
+const ENTERPRISE_TABLES = {
+  customers: ['clientes','customers'],
+  orders: ['pedidos','orders'],
+  payments: ['comprobantes','payments','payment_receipts'],
+  products: ['productos','products','catalogo']
+};
+let enterpriseRealCache = null;
+
+function setText(id, value){ const el = qs(id); if(el) el.textContent = value; }
+function formatNumber(n){ return new Intl.NumberFormat('es-VE').format(Number(n || 0)); }
+function formatUSD(n){ return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(Number(n || 0)); }
+function pick(obj, names){ for(const k of names){ if(obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k]; } return null; }
+function normalizeStatus(value){ return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function isPendingPayment(row){
+  const st = normalizeStatus(pick(row, ['estado','status','payment_status','estatus']));
+  return st.includes('pago por verificar') || st.includes('pendiente') || st.includes('verificar') || st.includes('pending');
+}
+function orderTotal(row){
+  const raw = pick(row, ['total_usd','totalUSD','total','monto','amount','precio_total','subtotal']);
+  const n = Number(String(raw || '0').replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n) ? n : 0;
+}
+function rowDate(row){ return pick(row, ['created_at','fecha','date','updated_at']) || ''; }
+function rowCustomerName(row){
+  const c = row?.clientes || row?.customer || {};
+  return pick(c, ['nombre','name','full_name']) || pick(row, ['nombre','cliente','customer_name','name']) || 'Cliente';
+}
+function rowCustomerEmail(row){
+  const c = row?.clientes || row?.customer || {};
+  return pick(c, ['correo','email']) || pick(row, ['correo','email','customer_email']) || '';
+}
+async function countFirstAvailable(tableNames){
+  const client = getClient();
+  for(const table of tableNames){
+    try{
+      const { count, error } = await client.from(table).select('*', { count:'exact', head:true });
+      if(!error) return { table, count: count || 0 };
+      console.warn(`Conteo ${table}:`, error.message || error);
+    }catch(error){ console.warn(`Conteo ${table}:`, error.message || error); }
+  }
+  return { table:null, count:0 };
+}
+async function selectFirstAvailable(tableNames, select='*', options={}){
+  const client = getClient();
+  for(const table of tableNames){
+    try{
+      let query = client.from(table).select(select);
+      if(options.order !== false) query = query.order(options.orderBy || 'created_at', { ascending: options.ascending ?? false });
+      if(options.limit) query = query.limit(options.limit);
+      const { data, error } = await query;
+      if(!error) return { table, data: data || [] };
+      console.warn(`Lectura ${table}:`, error.message || error);
+    }catch(error){ console.warn(`Lectura ${table}:`, error.message || error); }
+  }
+  return { table:null, data:[] };
+}
+async function loadEnterpriseV1Real(){
+  if(!window.supabaseClient || !currentProfile) return null;
+  try{
+    const [customersCount, ordersCount, paymentsCount, productsCount, ordersRows, customersRows, paymentsRows] = await Promise.all([
+      countFirstAvailable(ENTERPRISE_TABLES.customers),
+      countFirstAvailable(ENTERPRISE_TABLES.orders),
+      countFirstAvailable(ENTERPRISE_TABLES.payments),
+      countFirstAvailable(ENTERPRISE_TABLES.products),
+      selectFirstAvailable(ENTERPRISE_TABLES.orders, '*,clientes(*)', { limit: 80 }),
+      selectFirstAvailable(ENTERPRISE_TABLES.customers, '*', { limit: 8 }),
+      selectFirstAvailable(ENTERPRISE_TABLES.payments, '*', { limit: 80 })
+    ]);
+
+    const orders = ordersRows.data || [];
+    const payments = paymentsRows.data || [];
+    const salesTotal = orders.reduce((sum,row)=>sum + orderTotal(row), 0);
+    const pendingPayments = orders.filter(isPendingPayment).length || payments.filter(isPendingPayment).length || paymentsCount.count;
+
+    enterpriseRealCache = {
+      tables: { customers:customersCount.table, orders:ordersCount.table, payments:paymentsCount.table, products:productsCount.table },
+      counts: { customers:customersCount.count, orders:ordersCount.count, payments:paymentsCount.count, products:productsCount.count },
+      salesTotal,
+      pendingPayments,
+      recentOrders: orders.slice(0,8),
+      recentCustomers: (customersRows.data || []).slice(0,8),
+      recentPayments: payments.slice(0,8)
+    };
+
+    updateExecutiveReal(enterpriseRealCache);
+    renderCommercialControl(enterpriseRealCache);
+    renderRealModules(enterpriseRealCache);
+    return enterpriseRealCache;
+  }catch(error){
+    console.error('Enterprise V1 Real:', error);
+    renderCommercialError(error);
+    return null;
+  }
+}
+function updateExecutiveReal(data){
+  setText('metricSalesMonth', formatUSD(data.salesTotal));
+  setText('metricOrdersTotal', formatNumber(data.counts.orders));
+  setText('metricCustomersTotal', formatNumber(data.counts.customers));
+  setText('metricPendingPayments', formatNumber(data.pendingPayments));
+  setText('metricSalesNote', `Tabla: ${data.tables.orders || 'pedidos/orders no disponible'}`);
+  setText('metricOrdersNote', 'Lectura en modo seguro');
+  setText('metricCustomersNote', `Tabla: ${data.tables.customers || 'clientes no disponible'}`);
+  setText('metricPendingNote', 'Sin modificar validaciones');
+  setText('chartTooltipValue', `${formatUSD(data.salesTotal)} registrados`);
+  setText('stripRevenue', formatUSD(data.salesTotal));
+  setText('stripCustomers', formatNumber(data.counts.customers));
+  setText('stripOrders', formatNumber(data.counts.orders));
+  setText('stripPayments', formatNumber(data.counts.payments));
+
+  const realActivity = [];
+  data.recentOrders.slice(0,4).forEach((o,idx)=>{
+    realActivity.push([idx%2?'blue':'green','▢',`Pedido ${safe(pick(o,['codigo','code','id']) || 'reciente')}`, `${rowCustomerName(o)} · ${pick(o,['estado','status']) || 'Sin estado'}`, rowDate(o) ? new Date(rowDate(o)).toLocaleDateString('es-VE') : 'Reciente']);
+  });
+  if(realActivity.length && qs('activityList')){
+    qs('activityList').innerHTML = realActivity.map(([color,icon,title,sub,time]) => `<div class="activity-item"><div class="round ${color}">${icon}</div><div><b>${title}</b><span>${sub}</span></div><time>${time}</time></div>`).join('');
+  }
+}
+function renderCommercialControl(data){
+  const el = qs('commercial'); if(!el) return;
+  const recentOrders = data.recentOrders.map(o=>`
+    <div class="table-row">
+      <div><b>${safe(pick(o,['codigo','code','id']) || 'Pedido')}</b><br><small>${safe(rowCustomerName(o))} · ${safe(rowCustomerEmail(o))}</small></div>
+      <span>${safe(pick(o,['estado','status']) || 'Sin estado')}</span>
+      <i class="tag">${formatUSD(orderTotal(o))}</i>
+    </div>`).join('');
+  const recentCustomers = data.recentCustomers.map(c=>`
+    <div class="table-row">
+      <div><b>${safe(pick(c,['nombre','name','full_name']) || 'Cliente')}</b><br><small>${safe(pick(c,['correo','email']) || '')}</small></div>
+      <span>${safe(pick(c,['telefono','phone']) || '')}</span>
+      <i class="tag">Cliente</i>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <article class="panel safe-panel">
+      <div class="panel-head"><h3>Control Comercial ThinkStore</h3><span class="tag safe-tag">Modo seguro · solo lectura</span></div>
+      <p class="staff-help">Esta pestaña centraliza ventas, clientes, inventario, comprobantes, notas de entrega y correos como control comercial. No modifica Resend, no cambia estados, no toca notas de entrega y no altera el panel actual de la tienda.</p>
+    </article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Ventas registradas</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Calculado desde ${safe(data.tables.orders || 'pedidos/orders')}.</p></article>
+      <article class="module-card"><h3>Pedidos</h3><strong>${formatNumber(data.counts.orders)}</strong><p>Conteo real desde Supabase.</p></article>
+      <article class="module-card"><h3>Clientes registrados</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Clientes reales de la página.</p></article>
+      <article class="module-card"><h3>Comprobantes</h3><strong>${formatNumber(data.counts.payments)}</strong><p>Control visual; validación intacta.</p></article>
+      <article class="module-card"><h3>Productos / inventario</h3><strong>${data.tables.products ? formatNumber(data.counts.products) : 'Tienda'}</strong><p>${data.tables.products ? 'Tabla conectada.' : 'Catálogo principal se mantiene intacto en la tienda.'}</p></article>
+      <article class="module-card"><h3>Correos automáticos</h3><strong>Resend intacto</strong><p>ventas@ y soporte@ no se modifican.</p></article>
+    </div>
+    <div class="main-grid" style="margin-top:18px">
+      <article class="panel"><div class="panel-head"><h3>Pedidos recientes</h3><button onclick="loadEnterpriseV1Real()">Actualizar</button></div><div class="table">${recentOrders || '<div class="table-row"><div><b>Sin pedidos visibles</b><br><small>Revisa permisos RLS o tabla pedidos.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>
+      <article class="panel"><div class="panel-head"><h3>Clientes recientes</h3></div><div class="table">${recentCustomers || '<div class="table-row"><div><b>Sin clientes visibles</b><br><small>Revisa permisos RLS o tabla clientes.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>
+    </div>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Protección aplicada</h3></div><div class="table">
+      <div class="table-row"><div><b>No se toca el panel actual</b><br><small>El acceso por código y la administración existente quedan fuera de esta actualización.</small></div><span>Protegido</span><i class="tag">OK</i></div>
+      <div class="table-row"><div><b>No se tocan correos ni Resend</b><br><small>Bienvenida, recuperación, pedidos y cambios de estado siguen con su configuración actual.</small></div><span>Intacto</span><i class="tag">OK</i></div>
+      <div class="table-row"><div><b>No se alteran tablas críticas</b><br><small>clientes, pedidos, pedido_items, comprobantes y order_status_history se leen, no se escriben.</small></div><span>Solo lectura</span><i class="tag">Seguro</i></div>
+    </div></article>`;
+}
+function renderRealModules(data){
+  const salesEl = qs('sales');
+  if(salesEl){
+    salesEl.innerHTML = `<div class="module-grid">
+      <article class="module-card"><h3>Ventas registradas</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Lectura desde ${safe(data.tables.orders || 'pedidos/orders')}.</p></article>
+      <article class="module-card"><h3>Pedidos totales</h3><strong>${formatNumber(data.counts.orders)}</strong><p>Pedidos visibles para Enterprise.</p></article>
+      <article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>No cambia estados ni dispara correos.</p></article>
+    </div>`;
+  }
+  const clientsEl = qs('clients');
+  if(clientsEl){
+    const rows = data.recentCustomers.map(c=>`<div class="table-row"><div><b>${safe(pick(c,['nombre','name','full_name']) || 'Cliente')}</b><br><small>${safe(pick(c,['correo','email']) || '')}</small></div><span>${safe(pick(c,['telefono','phone']) || '')}</span><i class="tag">Registrado</i></div>`).join('');
+    clientsEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Clientes registrados</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Base real de clientes de ThinkStore.com.ve.</p></article><article class="module-card"><h3>Fuente</h3><strong>${safe(data.tables.customers || 'No disponible')}</strong><p>Lectura segura desde Supabase.</p></article><article class="module-card"><h3>Correos</h3><strong>Intactos</strong><p>No modifica recuperación ni bienvenida.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Clientes recientes</h3></div><div class="table">${rows}</div></article>`;
+  }
+  const inventoryEl = qs('inventory');
+  if(inventoryEl){
+    inventoryEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Productos conectados</h3><strong>${data.tables.products ? formatNumber(data.counts.products) : 'Pendiente'}</strong><p>${data.tables.products ? 'Tabla detectada en Supabase.' : 'No se detectó tabla productos; el catálogo actual sigue intacto en la tienda pública.'}</p></article><article class="module-card"><h3>Modo inventario</h3><strong>Lectura</strong><p>No modifica stock ni fichas actuales.</p></article><article class="module-card"><h3>Control comercial</h3><strong>Activo</strong><p>Preparado para migración gradual sin tocar ventas.</p></article></div>`;
+  }
+}
+function renderCommercialError(error){
+  const el = qs('commercial'); if(!el) return;
+  el.innerHTML = `<article class="panel"><div class="panel-head"><h3>Control Comercial ThinkStore</h3><span class="tag">Error</span></div><p class="staff-help">No se pudieron leer los datos reales: ${safe(error.message || error)}. No se modificó ninguna tabla ni configuración.</p></article>`;
+}
+window.loadEnterpriseV1Real = loadEnterpriseV1Real;

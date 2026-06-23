@@ -33,6 +33,7 @@
 
       <nav class="nav-list" aria-label="Módulos Growth Enterprise">
         <button class="nav active" data-view="executive"><i>▦</i>Panel Ejecutivo</button>
+        <button class="nav" data-view="commercial"><i>🏪</i>Control Comercial</button>
         <button class="nav" data-view="sales"><i>🛒</i>Ventas</button>
         <button class="nav" data-view="products"><i>⬡</i>Productos</button>
         <button class="nav" data-view="inventory"><i>▣</i>Inventario</button>
@@ -78,10 +79,10 @@
 
       <section id="executive" class="view active">
         <div class="metric-grid">
-          <article class="metric"><div class="icon purple">$</div><span>Ventas del mes</span><strong>$124,850.00</strong><small class="up">↑ 18.6% vs mes anterior</small><button>⋮</button></article>
-          <article class="metric"><div class="icon green">▢</div><span>Pedidos totales</span><strong>1,248</strong><small class="up">↑ 12.4% vs mes anterior</small><button>⋮</button></article>
-          <article class="metric"><div class="icon orange">♟</div><span>Clientes activos</span><strong>3,682</strong><small class="up">↑ 9.8% vs mes anterior</small><button>⋮</button></article>
-          <article class="metric"><div class="icon blue">⌁</div><span>Utilidad estimada</span><strong>$28,940.00</strong><small class="up">↑ 21.7% vs mes anterior</small><button>⋮</button></article>
+          <article class="metric"><div class="icon purple">$</div><span>Ventas del mes</span><strong id="metricSalesMonth">Cargando...</strong><small class="up" id="metricSalesNote">Lectura segura desde Supabase</small><button>⋮</button></article>
+          <article class="metric"><div class="icon green">▢</div><span>Pedidos totales</span><strong id="metricOrdersTotal">Cargando...</strong><small class="up" id="metricOrdersNote">Pedidos reales</small><button>⋮</button></article>
+          <article class="metric"><div class="icon orange">♟</div><span>Clientes registrados</span><strong id="metricCustomersTotal">Cargando...</strong><small class="up" id="metricCustomersNote">Clientes reales</small><button>⋮</button></article>
+          <article class="metric"><div class="icon blue">⌁</div><span>Pagos por revisar</span><strong id="metricPendingPayments">Cargando...</strong><small class="up" id="metricPendingNote">Validación pendiente</small><button>⋮</button></article>
         </div>
 
         <div class="main-grid">
@@ -97,7 +98,7 @@
                 <circle cx="760" cy="22" r="7" class="dot"/>
               </svg>
               <div class="months"><span>Ene</span><span>Feb</span><span>Mar</span><span>Abr</span><span>May</span><span>Jun</span></div>
-              <div class="tooltip">22 Jun, 2025<br><b>✦ $124,850.00</b></div>
+              <div class="tooltip">Enterprise V1<br><b id="chartTooltipValue">Leyendo datos reales</b></div>
             </div>
           </article>
 
@@ -114,14 +115,15 @@
         </div>
 
         <div class="strip-grid">
-          <article><div class="icon purple">$</div><span>Ingresos Totales</span><b>$1,248,850.00</b><small class="up">↑ 16.3% vs mes anterior</small></article>
-          <article><div class="icon indigo">📣</div><span>Gasto en Marketing</span><b>$24,850.00</b><small class="down">↓ 4.3% vs mes anterior</small></article>
-          <article><div class="icon teal">⌁</div><span>Retorno de Inversión (ROI)</span><b>312%</b><small class="up">↑ 22.5% vs mes anterior</small></article>
-          <article><div class="icon violet">🛒</div><span>Carritos Abandonados</span><b>128</b><small class="down">↓ 8.1% vs mes anterior</small></article>
-          <article><div class="icon purple">◇</div><span>Valor Promedio de Orden</span><b>$98.50</b><small class="up">↑ 7.8% vs mes anterior</small></article>
+          <article><div class="icon purple">$</div><span>Ingresos registrados</span><b id="stripRevenue">Cargando...</b><small class="up">Solo lectura</small></article>
+          <article><div class="icon indigo">📣</div><span>Correos / Resend</span><b>Intacto</b><small class="up">No se modifica</small></article>
+          <article><div class="icon teal">⌁</div><span>Clientes</span><b id="stripCustomers">Cargando...</b><small class="up">Registro real</small></article>
+          <article><div class="icon violet">🛒</div><span>Pedidos</span><b id="stripOrders">Cargando...</b><small class="up">Supabase</small></article>
+          <article><div class="icon purple">◇</div><span>Comprobantes</span><b id="stripPayments">Cargando...</b><small class="up">Sin alterar validación</small></article>
         </div>
       </section>
 
+      <section id="commercial" class="view module-view"></section>
       <section id="sales" class="view module-view"></section>
       <section id="products" class="view module-view"></section>
       <section id="inventory" class="view module-view"></section>
