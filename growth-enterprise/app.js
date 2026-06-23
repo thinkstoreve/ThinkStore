@@ -58,52 +58,62 @@ function getClient(){
 }
 async function getAdminProfile(user){
   const client = getClient();
+  const email = String(user?.email || '').trim();
 
-  // 1) Nuevo esquema recomendado: public.profiles
   let profile = null;
-  let source = 'profiles';
 
-  const profilesRes = await client
-    .from('profiles')
-    .select('id,email,full_name,role,active')
-    .eq('id', user.id)
+  // 1) Esquema actual de ThinkStore: public.roles_usuarios
+  //    Columnas: id, email, nombre, rol, activo
+  //    Se consulta primero para evitar el error 500/RLS de public.profiles.
+  const rolesRes = await client
+    .from('roles_usuarios')
+    .select('id,email,nombre,rol,activo')
+    .ilike('email', email)
     .maybeSingle();
 
-  if(!profilesRes.error && profilesRes.data){
-    profile = profilesRes.data;
+  if(rolesRes.error){
+    console.warn('No se pudo consultar roles_usuarios:', rolesRes.error.message || rolesRes.error);
   }
 
-  // 2) Compatibilidad con tu esquema actual: public.roles_usuarios
-  //    Columnas vistas en Supabase: id, email, nombre, rol, activo
+  if(rolesRes.data){
+    profile = {
+      id: rolesRes.data.id,
+      email: rolesRes.data.email,
+      full_name: rolesRes.data.nombre,
+      role: rolesRes.data.rol,
+      active: rolesRes.data.activo,
+      source: 'roles_usuarios'
+    };
+  }
+
+  // 2) Respaldo opcional: public.profiles.
+  //    Solo se usa si roles_usuarios no tiene el correo.
+  //    Si profiles tiene políticas RLS recursivas, el error se ignora para no bloquear Enterprise.
   if(!profile){
-    source = 'roles_usuarios';
-    const rolesRes = await client
-      .from('roles_usuarios')
-      .select('id,email,nombre,rol,activo')
-      .ilike('email', user.email || '')
+    const profilesRes = await client
+      .from('profiles')
+      .select('id,email,full_name,role,active')
+      .eq('id', user.id)
       .maybeSingle();
 
-    if(rolesRes.error){
-      console.error('Error consultando roles_usuarios:', rolesRes.error);
+    if(profilesRes.error){
+      console.warn('No se pudo consultar profiles:', profilesRes.error.message || profilesRes.error);
     }
 
-    if(rolesRes.data){
+    if(profilesRes.data){
       profile = {
-        id: rolesRes.data.id,
-        email: rolesRes.data.email,
-        full_name: rolesRes.data.nombre,
-        role: rolesRes.data.rol,
-        active: rolesRes.data.activo,
-        source
+        ...profilesRes.data,
+        source: 'profiles'
       };
     }
   }
 
   if(!profile){
-    throw new Error('Este usuario no tiene perfil/rol asignado en Supabase. Revisa profiles o roles_usuarios.');
+    throw new Error('Este usuario no tiene perfil/rol asignado en Supabase. Revisa roles_usuarios o profiles.');
   }
 
-  if(profile.active === false){
+  const isActive = profile.active !== false && profile.active !== null && profile.active !== 'false';
+  if(!isActive){
     throw new Error('Este usuario está desactivado.');
   }
 
@@ -144,6 +154,28 @@ async function unlock(event){
   }
 }
 function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); renderHome(); renderModules(); renderStaffAccess(); }
+
+async function sendPasswordRecovery(){
+  const email = qs('adminEmail')?.value.trim();
+  if(!email){
+    setLoginMessage('Escribe tu correo para enviar el enlace de recuperación.', 'error');
+    qs('adminEmail')?.focus();
+    return;
+  }
+
+  try{
+    setLoginMessage('Enviando enlace de recuperación...', '');
+    const { error } = await getClient().auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://enterprise.thinkstore.com.ve/reset-password'
+    });
+    if(error) throw error;
+    setLoginMessage('Te enviamos un enlace para restablecer tu contraseña.', 'success');
+  }catch(error){
+    console.error(error);
+    setLoginMessage(error.message || 'No se pudo enviar el enlace.', 'error');
+  }
+}
+
 async function logout(){ await window.supabaseClient?.auth?.signOut(); location.reload(); }
 async function bootAuth(){
   try{
@@ -283,29 +315,22 @@ async function loadStaffAccess(){
   const table = qs('staffTable'); if(!table) return;
   const client = getClient();
   try{
-    const [profilesRes, rolesRes, invitesRes] = await Promise.all([
-      client.from('profiles').select('id,email,full_name,role,active,created_at').order('created_at',{ascending:false}).limit(30),
-      client.from('roles_usuarios').select('id,email,nombre,rol,activo,created_at').order('created_at',{ascending:false}).limit(30),
-      client.from('staff_invitations').select('id,email,full_name,role,status,created_at,notes').order('created_at',{ascending:false}).limit(30)
+    // Usamos roles_usuarios como fuente principal para evitar errores 500/RLS de profiles.
+    const [rolesRes, invitesRes] = await Promise.all([
+      client.from('roles_usuarios').select('id,email,nombre,rol,activo,created_at').order('created_at',{ascending:false}).limit(50),
+      client.from('staff_invitations').select('id,email,full_name,role,status,created_at,notes').order('created_at',{ascending:false}).limit(50)
     ]);
 
-    const profiles = profilesRes.error ? [] : (profilesRes.data || []).map(p=>({
-      id:p.id, email:p.email, full_name:p.full_name, role:p.role, active:p.active, table:'profiles'
-    }));
+    if(rolesRes.error) console.warn('No se pudieron cargar roles_usuarios:', rolesRes.error.message || rolesRes.error);
+    if(invitesRes.error) console.warn('No se pudieron cargar staff_invitations:', invitesRes.error.message || invitesRes.error);
 
-    const legacyRoles = rolesRes.error ? [] : (rolesRes.data || []).map(p=>({
+    const staff = rolesRes.error ? [] : (rolesRes.data || []).map(p=>({
       id:p.id, email:p.email, full_name:p.nombre, role:p.rol, active:p.activo, table:'roles_usuarios'
     }));
 
     const invites = invitesRes.error ? [] : (invitesRes.data || []);
 
-    const byEmail = new Map();
-    [...profiles, ...legacyRoles].forEach(p => {
-      const key = String(p.email || p.id).toLowerCase();
-      if(!byEmail.has(key)) byEmail.set(key, p);
-    });
-
-    const staffRows = [...byEmail.values()].map(p=>`
+    const staffRows = staff.map(p=>`
       <div class="table-row staff-row">
         <div><b>${safe(p.full_name || p.email)}</b><br><small>${safe(p.email)} · ${safe(p.table)}</small></div>
         <select onchange="updateStaffRole('${p.table}','${p.id}', this.value)">${roleOptions(p.role)}</select>
@@ -353,6 +378,7 @@ window.loadStaffAccess = loadStaffAccess;
 
 document.addEventListener('DOMContentLoaded',()=>{
   qs('loginForm')?.addEventListener('submit', unlock);
+  qs('forgotPasswordBtn')?.addEventListener('click', sendPasswordRecovery);
   qs('logoutBtn')?.addEventListener('click',logout);
   qs('logoutMini')?.addEventListener('click',logout);
   document.querySelectorAll('.nav').forEach(btn=>btn.addEventListener('click',()=>switchView(btn.dataset.view)));

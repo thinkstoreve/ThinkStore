@@ -8,32 +8,39 @@ async function requireEnterpriseAdmin() {
     return null;
   }
 
+  const email = String(user.email || '').trim();
   let profile = null;
 
-  const profilesRes = await client
-    .from('profiles')
-    .select('id,email,full_name,role,active')
-    .eq('id', user.id)
+  // Fuente principal actual de ThinkStore.
+  const rolesRes = await client
+    .from('roles_usuarios')
+    .select('id,email,nombre,rol,activo')
+    .ilike('email', email)
     .maybeSingle();
 
-  if (!profilesRes.error && profilesRes.data) {
-    profile = profilesRes.data;
+  if (!rolesRes.error && rolesRes.data) {
+    profile = {
+      id: rolesRes.data.id,
+      email: rolesRes.data.email,
+      full_name: rolesRes.data.nombre,
+      role: rolesRes.data.rol,
+      active: rolesRes.data.activo,
+      source: 'roles_usuarios'
+    };
   }
 
+  // Respaldo opcional. Si profiles tiene RLS recursivo, se ignora el error.
   if (!profile) {
-    const rolesRes = await client
-      .from('roles_usuarios')
-      .select('id,email,nombre,rol,activo')
-      .ilike('email', user.email || '')
+    const profilesRes = await client
+      .from('profiles')
+      .select('id,email,full_name,role,active')
+      .eq('id', user.id)
       .maybeSingle();
 
-    if (!rolesRes.error && rolesRes.data) {
+    if (!profilesRes.error && profilesRes.data) {
       profile = {
-        id: rolesRes.data.id,
-        email: rolesRes.data.email,
-        full_name: rolesRes.data.nombre,
-        role: rolesRes.data.rol,
-        active: rolesRes.data.activo
+        ...profilesRes.data,
+        source: 'profiles'
       };
     }
   }
