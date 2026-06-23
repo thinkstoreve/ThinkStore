@@ -82,3 +82,847 @@ dialog::backdrop {
   border: 1px solid rgba(255,255,255,.20) !important;
   box-shadow: 0 32px 100px rgba(0,0,0,.56) !important;
 }
+
+
+/* === ThinkStore Service Center: Responsive Pro UI + Bitácora === */
+:root{
+  --glass: rgba(10,16,29,.72);
+  --glass-2: rgba(15,22,37,.88);
+  --accent:#0a84ff;
+}
+
+.workspace{
+  max-width: 1440px;
+  width: 100%;
+}
+
+.sidebar{
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+nav button{
+  min-height: 48px;
+  display:flex;
+  align-items:center;
+}
+
+.topline button,
+.hero-actions button,
+.actions button{
+  box-shadow: 0 14px 38px rgba(0,113,227,.24);
+}
+
+.metric,
+.tablewrap,
+.card{
+  background: linear-gradient(180deg, rgba(17,25,42,.86), rgba(9,14,24,.78));
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.tablewrap{
+  margin-top: 16px;
+  overflow-x:auto;
+}
+
+.tablewrap table{
+  min-width: 760px;
+}
+
+.metric span,
+.tablewrap p,
+small{
+  color: var(--muted);
+}
+
+.bitacora-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  background:var(--glass);
+  border:1px solid var(--line);
+  border-radius:28px;
+  padding:20px;
+  margin-bottom:16px;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.bitacora-header h3{
+  margin:0 0 6px;
+}
+
+.bitacora-header p{
+  margin:0;
+  color:var(--muted);
+}
+
+.bitacora-stats{
+  margin-bottom:16px;
+}
+
+.modal .card{
+  max-height: calc(100vh - 42px);
+  overflow:auto;
+}
+
+@media (min-width: 1100px){
+  .dashboard{
+    grid-template-columns: 300px minmax(0,1fr);
+  }
+
+  .workspace{
+    padding: 34px;
+  }
+
+  .cards{
+    grid-template-columns: repeat(4,minmax(180px,1fr));
+  }
+}
+
+@media (max-width: 900px){
+  body{
+    background-attachment: scroll !important;
+  }
+
+  .dashboard{
+    display:block;
+  }
+
+  .sidebar{
+    position:relative;
+    height:auto;
+    border-right:0;
+    border-bottom:1px solid var(--line);
+    padding:22px 18px;
+  }
+
+  .sidebar h2,
+  .sidebar small{
+    text-align:left;
+  }
+
+  nav{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    margin:22px 0;
+  }
+
+  nav button{
+    border-radius:18px;
+    padding:15px 18px;
+    font-size:1rem;
+  }
+
+  .logout{
+    width:100%;
+    margin-top:4px;
+  }
+
+  .workspace{
+    padding:22px 16px 96px;
+  }
+
+  .topline{
+    position:sticky;
+    top:0;
+    z-index:5;
+    padding:12px 0;
+    background:linear-gradient(180deg,rgba(5,8,15,.94),rgba(5,8,15,.72));
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+  }
+
+  .cards{
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap:12px;
+  }
+
+  .metric{
+    border-radius:22px;
+    padding:16px;
+  }
+
+  .metric b{
+    font-size:1.72rem;
+  }
+
+  .tablewrap{
+    border-radius:22px;
+    padding:16px;
+  }
+
+  .bitacora-header{
+    flex-direction:column;
+    align-items:stretch;
+    border-radius:22px;
+  }
+
+  .bitacora-header button{
+    width:100%;
+  }
+
+  .card{
+    border-radius:24px;
+    width:min(94vw,520px);
+  }
+
+  .modal{
+    padding:14px;
+    align-items:flex-end;
+  }
+
+  .modal .card{
+    width:100%;
+  }
+}
+
+@media (max-width: 520px){
+  .hero{
+    min-height:100svh;
+    padding:38px 22px;
+  }
+
+  .hero-logo{
+    width:min(250px,74vw);
+    margin-bottom:42px;
+  }
+
+  .hero h1{
+    font-size: clamp(2.1rem, 13vw, 3.7rem);
+  }
+
+  .hero p{
+    font-size:1rem;
+  }
+
+  .hero-actions button{
+    width:100%;
+  }
+
+  .cards{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .cards .metric:first-child{
+    grid-column:1 / -1;
+  }
+
+  .grid2{
+    grid-template-columns:1fr;
+  }
+
+  th,td{
+    padding:10px 9px;
+    font-size:.9rem;
+  }
+
+  input,select,textarea{
+    min-height:48px;
+    font-size:16px;
+  }
+}
+
+/* === Biblioteca Apple: buscador compacto + vista de equipo === */
+.device-preview-mini{display:flex;align-items:center;justify-content:space-between;gap:16px;grid-column:1/-1;background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:22px;padding:14px 16px;margin:4px 0 8px}
+.device-preview-mini small,.apple-model-search small{display:block;color:var(--muted);margin-top:6px}
+.device-preview-mini strong{display:block;font-size:1.05rem;margin-top:3px}.device-preview-mini p{margin:.25rem 0 0;color:var(--muted)}
+.apple-model-panel{background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:26px;padding:16px;margin:14px 0}
+.apple-model-search label{margin:0}
+.apple-device-visual{display:grid;grid-template-columns:minmax(180px,300px) 1fr;gap:18px;align-items:center;margin-top:14px;background:radial-gradient(circle at 35% 40%,rgba(10,132,255,.16),transparent 40%),rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:18px}
+.apple-device-visual h3{margin:0 0 8px}.apple-device-visual p{color:var(--muted)}
+.device-view-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.device-view-pills span{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:999px;padding:7px 11px;color:#dbe7ff;font-size:.82rem}
+.device-art,.device-art-large{position:relative;flex:0 0 auto;background:linear-gradient(145deg,#182235,#05070c);border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 0 0 2px rgba(255,255,255,.035),0 18px 40px rgba(0,0,0,.32)}
+.device-art{width:58px;height:76px;border-radius:16px}.device-art-large{width:min(100%,285px);min-height:230px;margin:auto;display:flex;align-items:center;justify-content:center}
+.device-art:before,.device-art-large:before,.device-art:after,.device-art-large:after{content:"";position:absolute;display:block}
+.device-iphone,.device-generic{border-radius:28px;aspect-ratio:9/18}.device-iphone:before,.device-generic:before{width:34%;height:5%;top:5%;left:33%;border-radius:999px;background:#05070c}
+.device-iphone:after,.device-generic:after{width:27%;height:13%;top:10%;left:10%;border-radius:14px;background:radial-gradient(circle at 28% 32%,#dce8ff 0 13%,#0c1018 14% 28%,transparent 29%),radial-gradient(circle at 70% 32%,#dce8ff 0 13%,#0c1018 14% 28%,transparent 29%),radial-gradient(circle at 48% 72%,#dce8ff 0 13%,#0c1018 14% 28%,transparent 29%),rgba(255,255,255,.12)}
+.device-ipad{border-radius:22px;aspect-ratio:4/5.4}.device-ipad:before{inset:10%;border:1px solid rgba(255,255,255,.20);border-radius:14px}.device-ipad:after{width:8px;height:8px;border-radius:50%;bottom:5%;left:calc(50% - 4px);background:rgba(255,255,255,.4)}
+.device-airpods{border-radius:28px;aspect-ratio:1.2/1}.device-airpods:before{width:38%;height:44%;left:16%;top:18%;border-radius:999px;background:#dfe6f2;box-shadow:52px 0 0 #dfe6f2}.device-airpods:after{width:60%;height:38%;left:20%;bottom:12%;border-radius:16px;background:rgba(255,255,255,.18)}
+.device-watch{border-radius:28px;aspect-ratio:1/1.25}.device-watch:before{width:44%;height:125%;left:28%;top:-12%;border-radius:999px;background:rgba(255,255,255,.10)}.device-watch:after{inset:18% 13%;border-radius:22px;background:#05070c;border:2px solid rgba(255,255,255,.30)}
+.device-macbook{width:min(100%,300px);min-height:190px;border-radius:16px}.device-macbook:before{width:78%;height:58%;left:11%;top:13%;border-radius:10px;border:2px solid rgba(255,255,255,.25);background:#06101d}.device-macbook:after{width:96%;height:12%;left:2%;bottom:13%;border-radius:0 0 18px 18px;background:linear-gradient(90deg,#8b95a8,#d6dce8,#8b95a8)}
+.device-imac{width:min(100%,290px);min-height:230px;border-radius:18px}.device-imac:before{width:82%;height:58%;left:9%;top:10%;border-radius:12px;border:2px solid rgba(255,255,255,.25);background:#06101d}.device-imac:after{width:34%;height:21%;left:33%;bottom:10%;background:linear-gradient(#aeb7c8,#596273);clip-path:polygon(38% 0,62% 0,75% 78%,100% 78%,100% 100%,0 100%,0 78%,25% 78%)}
+.device-mini,.device-studio{width:min(100%,250px);min-height:145px;border-radius:24px}.device-mini:before,.device-studio:before{inset:22% 13%;border-radius:22px;background:rgba(255,255,255,.14)}.device-studio{min-height:190px}
+.device-macpro{width:min(100%,220px);min-height:260px;border-radius:22px}.device-macpro:before{inset:10%;border-radius:18px;background:radial-gradient(circle,#657083 0 16%,transparent 17%) 0 0/24px 24px,rgba(255,255,255,.13)}.device-macpro:after{width:48%;height:4%;left:26%;top:3%;border-radius:999px;background:rgba(255,255,255,.25)}
+@media(max-width:780px){.device-preview-mini{align-items:flex-start}.apple-device-visual{grid-template-columns:1fr;text-align:center}.device-view-pills{justify-content:center}}
+
+
+/* === V5 Orden de servicio en pestaña completa + esquema técnico marcable === */
+.order-fullscreen{
+  align-items:stretch!important;
+  justify-content:stretch!important;
+  padding:0!important;
+  background:rgba(2,6,12,.96)!important;
+}
+.order-fullscreen.open{
+  display:block!important;
+}
+.order-sheet{
+  min-height:100vh;
+  width:100vw;
+  max-width:none;
+  margin:0;
+  padding:22px;
+  background:linear-gradient(135deg,rgba(5,10,18,.98),rgba(5,13,24,.94));
+  overflow:auto;
+}
+.order-sheet-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+  margin-bottom:18px;
+}
+.order-sheet-head h2{
+  margin:0;
+  font-size:clamp(1.7rem,2.5vw,2.8rem);
+}
+.order-sheet-head p{
+  margin:.35rem 0 0;
+  color:var(--muted);
+}
+.order-close{
+  width:46px;
+  height:46px;
+  border-radius:14px;
+  background:transparent;
+  border:1px solid var(--line);
+  font-size:2rem;
+  line-height:1;
+}
+.order-layout{
+  display:grid;
+  grid-template-columns:300px minmax(460px,1fr) 360px;
+  gap:16px;
+  align-items:start;
+}
+.order-left,.order-right,.order-center{
+  display:grid;
+  gap:14px;
+}
+.order-box{
+  background:linear-gradient(180deg,rgba(18,27,45,.78),rgba(7,13,24,.74));
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  padding:16px;
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+.order-box h3{
+  margin:0 0 12px;
+  font-size:1rem;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+}
+.grid2.compact{
+  gap:10px;
+}
+.grid2.compact label{
+  margin:0 0 8px;
+}
+.order-box textarea{
+  min-height:74px;
+}
+.model-search-wrap{
+  position:relative;
+}
+.model-search-wrap input{
+  padding-left:42px;
+  border-color:rgba(10,132,255,.75);
+  box-shadow:0 0 0 3px rgba(10,132,255,.12);
+}
+.model-search-wrap:before{
+  content:"⌕";
+  position:absolute;
+  left:15px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#dce9ff;
+  z-index:2;
+}
+.model-search-wrap span{
+  position:absolute;
+  right:16px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#dce9ff;
+}
+.selected-device-summary{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-top:12px;
+  padding:12px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  background:rgba(0,0,0,.18);
+}
+.diagram-toolbar{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  align-items:flex-start;
+  margin-bottom:12px;
+}
+.diagram-toolbar h3{
+  margin-bottom:5px;
+}
+.diagram-toolbar p{
+  margin:0;
+  color:var(--muted);
+}
+.mark-tools{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  justify-content:flex-end;
+}
+.mark-tool{
+  padding:9px 11px;
+  border-radius:12px;
+  background:rgba(255,255,255,.08);
+  border:1px solid var(--line);
+}
+.mark-tool.active{
+  background:rgba(10,132,255,.28);
+  border-color:#0a84ff;
+}
+.mark-dot{
+  width:34px;height:34px;border-radius:50%;
+  padding:0;border:2px solid rgba(255,255,255,.18);
+}
+.mark-dot.active{
+  outline:3px solid rgba(10,132,255,.45);
+}
+.mark-yellow{background:#ffd21f}.mark-red{background:#ff3434}.mark-purple{background:#8b35ff}
+.device-diagram{
+  position:relative;
+  min-height:500px;
+  border-radius:18px;
+  background:radial-gradient(circle at 50% 45%,rgba(10,132,255,.12),transparent 56%),rgba(0,0,0,.16);
+  border:1px solid rgba(255,255,255,.08);
+  overflow:hidden;
+}
+.diagram-front,.diagram-back,.diagram-side,.diagram-top,.diagram-bottom{
+  position:absolute;
+  border:3px solid rgba(245,249,255,.88);
+  background:linear-gradient(145deg,rgba(255,255,255,.025),rgba(255,255,255,.08));
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.35),0 12px 28px rgba(0,0,0,.22);
+}
+.diagram-front{
+  width:21%;height:62%;left:25%;top:24%;border-radius:34px;
+}
+.diagram-back{
+  width:24%;height:62%;left:61%;top:24%;border-radius:34px;
+}
+.diagram-left{width:4.8%;height:62%;left:17%;top:24%;border-radius:18px}
+.diagram-right{width:4.8%;height:62%;left:51%;top:24%;border-radius:18px}
+.diagram-top{width:30%;height:4.5%;left:35%;top:10%;border-radius:18px}
+.diagram-bottom{width:30%;height:4.5%;left:35%;bottom:5%;border-radius:18px}
+.diagram-front:before{
+  content:"";position:absolute;width:28%;height:2.6%;left:36%;top:8%;border-radius:999px;background:rgba(245,249,255,.85);
+}
+.diagram-front:after{
+  content:"";position:absolute;width:14%;height:7%;left:43%;bottom:4%;border-radius:50%;border:3px solid rgba(245,249,255,.88);
+}
+.diagram-front span{
+  position:absolute;inset:18% 12%;border:2px solid rgba(245,249,255,.78);border-radius:2px;
+}
+.diagram-back:before{
+  content:"";position:absolute;width:26%;height:13%;left:8%;top:7%;border-radius:18px;border:3px solid rgba(245,249,255,.88);
+  background:radial-gradient(circle at 30% 38%,#f5f9ff 0 12%,#0b1018 13% 27%,transparent 28%),
+             radial-gradient(circle at 70% 38%,#f5f9ff 0 12%,#0b1018 13% 27%,transparent 28%),
+             radial-gradient(circle at 50% 72%,#f5f9ff 0 12%,#0b1018 13% 27%,transparent 28%);
+}
+.diagram-back:after{
+  content:"";position:absolute;width:38px;height:48px;left:calc(50% - 19px);top:42%;
+  background:rgba(245,249,255,.8);
+  clip-path:path("M20 0 C12 6 9 13 12 20 C6 23 2 30 4 39 C6 48 13 51 20 45 C27 51 35 48 38 39 C40 31 35 23 29 20 C32 12 28 5 20 0 Z");
+}
+.diagram-help{
+  text-align:center;
+  color:var(--muted);
+  font-size:.9rem;
+  margin:12px 0 0;
+}
+.damage-layer{
+  position:absolute;inset:0;pointer-events:none;
+}
+.damage-mark{
+  position:absolute;
+  width:26px;height:26px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  display:grid;place-items:center;
+  color:white;
+  font-size:.72rem;
+  font-weight:900;
+  border:2px solid rgba(255,255,255,.85);
+  box-shadow:0 8px 20px rgba(0,0,0,.4);
+}
+.damage-detalle{background:#0a84ff}.damage-rayon{background:#ffd21f;color:#111}.damage-golpe{background:#ff3434}.damage-pantalla{background:#8b35ff}
+.checklist-grid{
+  display:grid;
+  gap:8px;
+}
+.checklist-grid label{
+  grid-template-columns:auto 1fr auto;
+  display:grid;
+  align-items:center;
+  gap:8px;
+  margin:0;
+  color:#fff;
+}
+.checklist-grid input[type="checkbox"]{
+  width:18px;height:18px;
+}
+.checklist-grid select{
+  min-width:118px;
+  padding:7px 9px;
+  border-radius:10px;
+  color:#28e070;
+}
+.order-signatures{
+  margin-top:16px;
+}
+.signature-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+}
+.signature-grid label{
+  margin:0;
+}
+.signature-grid button{
+  width:100%;
+  margin-top:8px;
+  border-style:dashed;
+}
+.order-actions{
+  position:sticky;
+  bottom:0;
+  display:flex;
+  justify-content:flex-end;
+  gap:12px;
+  padding:16px 0 0;
+  background:linear-gradient(180deg,transparent,rgba(5,10,18,.96) 32%);
+}
+
+/* Diagram category adaptations */
+.device-diagram-ipad .diagram-front{width:28%;height:66%;left:24%;border-radius:24px}
+.device-diagram-ipad .diagram-back{width:28%;height:66%;left:58%;border-radius:24px}
+.device-diagram-ipad .diagram-left,.device-diagram-ipad .diagram-right{height:66%}
+.device-diagram-ipad .diagram-front:after{display:none}
+.device-diagram-macbook .diagram-side,.device-diagram-macbook .diagram-top,.device-diagram-macbook .diagram-bottom,.device-diagram-macbook .diagram-back{display:none}
+.device-diagram-macbook .diagram-front{width:64%;height:45%;left:18%;top:22%;border-radius:18px}
+.device-diagram-macbook .diagram-front span{inset:10%;border-radius:8px}
+.device-diagram-macbook .diagram-front:before{display:none}
+.device-diagram-macbook .diagram-front:after{width:92%;height:10%;left:4%;bottom:-18%;border:0;border-radius:0 0 18px 18px;background:linear-gradient(90deg,#8b95a8,#eef3fb,#8b95a8)}
+.device-diagram-imac .diagram-side,.device-diagram-imac .diagram-top,.device-diagram-imac .diagram-bottom,.device-diagram-imac .diagram-back{display:none}
+.device-diagram-imac .diagram-front{width:62%;height:48%;left:19%;top:16%;border-radius:18px}
+.device-diagram-imac .diagram-front:after{width:28%;height:24%;left:36%;bottom:-36%;border:0;border-radius:0;background:linear-gradient(#aeb7c8,#596273);clip-path:polygon(38% 0,62% 0,75% 78%,100% 78%,100% 100%,0 100%,0 78%,25% 78%)}
+.device-diagram-airpods .diagram-side,.device-diagram-airpods .diagram-top,.device-diagram-airpods .diagram-bottom,.device-diagram-airpods .diagram-front span{display:none}
+.device-diagram-airpods .diagram-front{width:26%;height:38%;left:24%;top:27%;border-radius:999px}
+.device-diagram-airpods .diagram-back{width:34%;height:30%;left:52%;top:44%;border-radius:28px}
+.device-diagram-watch .diagram-side,.device-diagram-watch .diagram-top,.device-diagram-watch .diagram-bottom,.device-diagram-watch .diagram-back{display:none}
+.device-diagram-watch .diagram-front{width:32%;height:45%;left:34%;top:27%;border-radius:30px}
+.device-diagram-watch .diagram-front:before{width:38%;height:150%;left:31%;top:-25%;background:rgba(255,255,255,.16)}
+.device-diagram-watch .diagram-front span{inset:18%;border-radius:20px}
+.device-diagram-mini .diagram-side,.device-diagram-mini .diagram-top,.device-diagram-mini .diagram-bottom,.device-diagram-mini .diagram-back,.device-diagram-studio .diagram-side,.device-diagram-studio .diagram-top,.device-diagram-studio .diagram-bottom,.device-diagram-studio .diagram-back{display:none}
+.device-diagram-mini .diagram-front,.device-diagram-studio .diagram-front{width:48%;height:28%;left:26%;top:36%;border-radius:34px}
+.device-diagram-studio .diagram-front{height:38%;top:31%}
+.device-diagram-macpro .diagram-side,.device-diagram-macpro .diagram-top,.device-diagram-macpro .diagram-bottom,.device-diagram-macpro .diagram-back{display:none}
+.device-diagram-macpro .diagram-front{width:32%;height:66%;left:34%;top:18%;border-radius:24px;background:radial-gradient(circle,#657083 0 16%,transparent 17%) 0 0/28px 28px,rgba(255,255,255,.08)}
+.device-diagram-macpro .diagram-front span,.device-diagram-macpro .diagram-front:before,.device-diagram-macpro .diagram-front:after{display:none}
+
+@media(max-width:1200px){
+  .order-layout{grid-template-columns:1fr}
+  .order-left,.order-right{grid-template-columns:repeat(2,1fr)}
+  .diagram-box{order:-1}
+}
+@media(max-width:760px){
+  .order-sheet{padding:14px}
+  .order-left,.order-right{grid-template-columns:1fr}
+  .diagram-toolbar{flex-direction:column}
+  .mark-tools{justify-content:flex-start}
+  .device-diagram{min-height:430px}
+  .signature-grid{grid-template-columns:1fr}
+  .order-actions{justify-content:stretch}
+  .order-actions button{flex:1}
+  .checklist-grid label{grid-template-columns:auto 1fr}
+  .checklist-grid select{grid-column:2}
+}
+
+
+/* === V6 Corrección scroll + esquemas por modelo seleccionado === */
+html,body{
+  height:auto !important;
+  min-height:100%;
+  overflow-x:hidden;
+}
+.sidebar{
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.sidebar nav{
+  padding-bottom:18px;
+}
+.order-fullscreen.open{
+  overflow:auto!important;
+}
+.order-sheet{
+  height:auto;
+  min-height:100svh;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+}
+.order-layout{
+  min-height:0;
+}
+.order-left,.order-right,.order-center{
+  min-height:0;
+}
+.order-left,.order-right{
+  max-height:calc(100svh - 130px);
+  overflow-y:auto;
+  padding-right:4px;
+}
+.order-left::-webkit-scrollbar,
+.order-right::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar{
+  width:8px;
+}
+.order-left::-webkit-scrollbar-thumb,
+.order-right::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.22);
+  border-radius:999px;
+}
+.device-view-tabs{
+  display:flex;
+  gap:8px;
+  margin:8px 0 12px;
+}
+.device-view-tabs button{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  padding:8px 14px;
+  border-radius:12px;
+}
+.device-view-tabs button.active{
+  background:#0a84ff;
+  box-shadow:0 12px 28px rgba(10,132,255,.22);
+}
+.device-diagram{
+  min-height:520px;
+  isolation:isolate;
+  background:
+    radial-gradient(circle at 50% 45%,rgba(10,132,255,.18),transparent 54%),
+    linear-gradient(180deg,rgba(10,16,29,.82),rgba(3,8,15,.9));
+}
+.device-diagram::before{
+  content:attr(data-model);
+  position:absolute;
+  left:18px;
+  top:14px;
+  color:rgba(255,255,255,.28);
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  font-size:.72rem;
+}
+.diagram-front,.diagram-back,.diagram-side,.diagram-top,.diagram-bottom{
+  transition:all .25s ease;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.015)),
+    linear-gradient(90deg,rgba(255,255,255,.13),rgba(255,255,255,.02) 45%,rgba(0,0,0,.18));
+}
+.diagram-front{
+  overflow:hidden;
+}
+.diagram-front span{
+  background:
+    radial-gradient(circle at 60% 20%,rgba(255,255,255,.18),transparent 30%),
+    linear-gradient(145deg,rgba(18,25,41,.78),rgba(3,7,13,.9));
+  overflow:hidden;
+}
+.diagram-front span::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(135deg,transparent 0 45%,rgba(255,255,255,.08) 48%,transparent 52% 100%);
+}
+.model-classic .diagram-front{
+  border-radius:32px;
+}
+.model-classic .diagram-front:before{
+  width:22%;
+  height:2%;
+  left:39%;
+  top:9%;
+}
+.model-classic .diagram-front:after{
+  display:block;
+}
+.model-notch .diagram-front:after,
+.model-notch-flat .diagram-front:after,
+.model-dynamic .diagram-front:after{
+  display:none;
+}
+.model-notch .diagram-front:before,
+.model-notch-flat .diagram-front:before{
+  width:40%;
+  height:6%;
+  left:30%;
+  top:4%;
+  border-radius:0 0 14px 14px;
+  background:#03070d;
+}
+.model-dynamic .diagram-front:before{
+  width:30%;
+  height:5.8%;
+  left:35%;
+  top:5%;
+  border-radius:999px;
+  background:#03070d;
+}
+.model-notch-flat .diagram-front,
+.model-dynamic .diagram-front{
+  border-radius:28px;
+}
+.model-dynamic .diagram-front span,
+.model-notch .diagram-front span,
+.model-notch-flat .diagram-front span{
+  inset:9% 7% 6%;
+  border-radius:20px;
+}
+.finish-pro .diagram-back:before{
+  width:29%;
+  height:16%;
+  left:8%;
+  top:7%;
+  border-radius:20px;
+  background:
+    radial-gradient(circle at 28% 30%,#f5f9ff 0 12%,#0b1018 13% 27%,transparent 28%),
+    radial-gradient(circle at 72% 30%,#f5f9ff 0 12%,#0b1018 13% 27%,transparent 28%),
+    radial-gradient(circle at 50% 72%,#f5f9ff 0 12%,#0b1018 13% 27%,transparent 28%),
+    rgba(255,255,255,.14);
+}
+.finish-base .diagram-back:before,
+.finish-air .diagram-back:before,
+.finish-mini .diagram-back:before{
+  width:24%;
+  height:12%;
+  left:8%;
+  top:7%;
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 32% 50%,#f5f9ff 0 16%,#0b1018 17% 34%,transparent 35%),
+    radial-gradient(circle at 72% 50%,#f5f9ff 0 16%,#0b1018 17% 34%,transparent 35%),
+    rgba(255,255,255,.12);
+}
+.model-classic .diagram-back:before{
+  width:20%;
+  height:10%;
+  background:
+    radial-gradient(circle at 38% 50%,#f5f9ff 0 20%,#0b1018 21% 42%,transparent 43%),
+    rgba(255,255,255,.12);
+}
+.device-diagram-iphone.finish-air .diagram-back{
+  width:18%;
+}
+.device-diagram-iphone.finish-mini .diagram-front{
+  width:18%;
+  left:27%;
+}
+.device-diagram-iphone.finish-mini .diagram-back{
+  width:20%;
+  left:63%;
+}
+.device-diagram-iphone.finish-pro .diagram-back,
+.device-diagram-iphone.finish-pro .diagram-front{
+  border-color:rgba(222,214,199,.95);
+}
+.device-diagram-iphone.finish-base .diagram-back,
+.device-diagram-iphone.finish-base .diagram-front{
+  border-color:rgba(225,232,242,.96);
+}
+/* iPad */
+.device-diagram-ipad .diagram-front span{
+  inset:8%;
+  border-radius:12px;
+}
+.device-diagram-ipad .diagram-front:before{
+  width:4px;height:4px;border-radius:50%;left:50%;top:4%;
+}
+.device-diagram-ipad .diagram-back:before{
+  width:8%;height:5%;border-radius:50%;left:8%;top:8%;
+  background:#f5f9ff;
+}
+/* MacBook */
+.device-diagram-macbook .diagram-front span{
+  background:
+    radial-gradient(circle at 65% 28%,rgba(10,132,255,.32),transparent 28%),
+    linear-gradient(135deg,#111a2a,#010409);
+}
+.device-diagram-macbook .diagram-front:before{
+  display:block;
+  width:3px;height:3px;border-radius:50%;left:50%;top:4%;
+  background:rgba(255,255,255,.7);
+}
+.device-diagram-macbook.finish-air .diagram-front:after{
+  background:linear-gradient(90deg,#7d8798,#eef3fb,#7d8798);
+  height:9%;
+}
+.device-diagram-macbook.finish-pro .diagram-front:after{
+  background:linear-gradient(90deg,#515b68,#d5dae4,#515b68);
+  height:13%;
+}
+/* AirPods */
+.model-headphones .diagram-front{
+  width:44%;height:48%;left:28%;top:24%;border-radius:22px;
+  border-color:rgba(245,249,255,.85);
+}
+.model-headphones .diagram-front:before{
+  width:70%;height:55%;left:15%;top:-26%;border:4px solid rgba(245,249,255,.85);border-bottom:0;border-radius:90px 90px 0 0;background:transparent;
+}
+.model-headphones .diagram-front:after{
+  display:block;width:18%;height:38%;left:8%;top:48%;border-radius:999px;background:rgba(245,249,255,.86);box-shadow:185px 0 0 rgba(245,249,255,.86);border:0;
+}
+.model-pods .diagram-front,
+.model-pods .diagram-back{
+  border-color:rgba(245,249,255,.95);
+}
+/* view modes */
+.device-diagram[data-view="front"] .diagram-back,
+.device-diagram[data-view="front"] .diagram-side,
+.device-diagram[data-view="front"] .diagram-top,
+.device-diagram[data-view="front"] .diagram-bottom{
+  opacity:.16;
+}
+.device-diagram[data-view="back"] .diagram-front,
+.device-diagram[data-view="back"] .diagram-side,
+.device-diagram[data-view="back"] .diagram-top,
+.device-diagram[data-view="back"] .diagram-bottom{
+  opacity:.16;
+}
+.device-diagram[data-view="side"] .diagram-front,
+.device-diagram[data-view="side"] .diagram-back{
+  opacity:.18;
+}
+@media(max-width:1200px){
+  .order-left,.order-right{
+    max-height:none;
+    overflow:visible;
+  }
+}
+@media(max-width:760px){
+  .device-diagram{min-height:390px}
+  .diagram-front{width:22%;height:55%;left:24%;top:27%}
+  .diagram-back{width:25%;height:55%;left:60%;top:27%}
+  .diagram-left{left:14%;height:55%;top:27%}
+  .diagram-right{left:50%;height:55%;top:27%}
+}

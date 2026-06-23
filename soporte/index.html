@@ -63,21 +63,186 @@
     </form>
   </div>
 
-  <div id="orderModal" class="modal">
-    <form class="card wide" onsubmit="TSService.saveOrder(event)">
-      <h2>Nueva orden de servicio</h2>
+  <div id="orderModal" class="modal order-fullscreen">
+    <form class="order-sheet" onsubmit="TSService.saveOrder(event)">
+      <header class="order-sheet-head">
+        <div>
+          <h2>Nueva orden de servicio</h2>
+          <p>Complete la recepción del equipo, seleccione el modelo y marque detalles visibles sobre el esquema.</p>
+        </div>
+        <button type="button" class="order-close" onclick="TSService.closeModals()">×</button>
+      </header>
+
+      <datalist id="appleDeviceModels"></datalist>
+
+      <section class="order-layout">
+        <aside class="order-left">
+          <div class="order-box">
+            <h3>Datos del cliente</h3>
+            <div class="grid2 compact">
+              <label>Cliente<input id="oClient" required placeholder="Nombre del cliente" /></label>
+              <label>Teléfono<input id="oPhone" required placeholder="0414-0000000" /></label>
+              <label>Correo<input id="oEmail" type="email" placeholder="cliente@email.com" /></label>
+              <label>Prioridad<select id="oPriority"><option>Normal</option><option>Alta</option><option>Urgente</option></select></label>
+            </div>
+          </div>
+
+          <div class="order-box">
+            <h3>Datos del equipo</h3>
+            <div class="grid2 compact">
+              <label>Marca<select id="oBrand"><option>Apple</option></select></label>
+              <label>Categoría<select id="oCategory" onchange="TSService.filterDeviceCategory(this.value)">
+                <option value="">Todas</option><option>iPhone</option><option>iPad</option><option>AirPods</option><option>Apple Watch</option><option>MacBook Air</option><option>MacBook Pro</option><option>iMac</option><option>Mac mini</option><option>Mac Studio</option><option>Mac Pro</option>
+              </select></label>
+            </div>
+            <label>Modelo<input id="oDevice" required list="appleDeviceModels" placeholder="Buscar modelo Apple..." oninput="TSService.previewSelectedDevice(this.value)" /></label>
+            <div class="grid2 compact">
+              <label>Serial / IMEI<input id="oSerial" placeholder="Serial / IMEI" /></label>
+              <label>Contraseña<select id="oPasswordFlag"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
+            </div>
+            <label>Color<input id="oColor" placeholder="Ej: Space Black, Natural Titanium..." /></label>
+            <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, cable, caja, funda..."></textarea></label>
+          </div>
+
+          <div class="order-box">
+            <h3>Condición reportada por el cliente</h3>
+            <label><textarea id="oIssue" required placeholder="Describe detalladamente la falla reportada..."></textarea></label>
+          </div>
+        </aside>
+
+        <main class="order-center">
+          <div class="order-box model-selector-box">
+            <h3>Seleccione el modelo del equipo</h3>
+            <div class="model-search-wrap">
+              <input id="deviceModelSearch" list="appleDeviceModels" placeholder="Buscar modelo de iPhone, iPad, Mac, AirPods, Apple Watch..." oninput="TSService.selectDeviceFromSearch(this.value)" />
+              <span>⌄</span>
+            </div>
+            <small>La lista se despliega hacia abajo desde el buscador, sin ocupar espacio fijo.</small>
+
+            <div class="selected-device-summary">
+              <div id="selectedDeviceArt" class="device-art device-generic"></div>
+              <div>
+                <strong id="selectedDeviceName">Seleccione un modelo Apple</strong>
+                <p id="selectedDeviceMeta">Se cargará un esquema referencial según la categoría seleccionada.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="order-box diagram-box">
+            <div class="diagram-toolbar">
+              <div>
+                <h3 id="serviceDeviceTitle">Detalles del equipo</h3>
+                <p id="serviceDeviceDesc">Marque en el diagrama las áreas con rayas, golpes, pantalla rota, humedad o fallas visibles.</p>
+              </div>
+              <div class="mark-tools">
+                <button type="button" class="mark-tool active" data-mark="detalle" onclick="TSService.setDamageTool('detalle')">Marcar</button>
+                <button type="button" class="mark-dot mark-yellow" data-mark="rayon" onclick="TSService.setDamageTool('rayon')" title="Rayón"></button>
+                <button type="button" class="mark-dot mark-red" data-mark="golpe" onclick="TSService.setDamageTool('golpe')" title="Golpe"></button>
+                <button type="button" class="mark-dot mark-purple" data-mark="pantalla" onclick="TSService.setDamageTool('pantalla')" title="Pantalla rota"></button>
+                <button type="button" class="mark-tool" onclick="TSService.clearDamageMarks()">Borrar</button>
+              </div>
+            </div>
+
+            <div class="device-view-tabs">
+              <button type="button" class="active" data-view="all" onclick="TSService.setDeviceView('all')">Completo</button>
+              <button type="button" data-view="front" onclick="TSService.setDeviceView('front')">Frontal</button>
+              <button type="button" data-view="side" onclick="TSService.setDeviceView('side')">Lateral</button>
+              <button type="button" data-view="back" onclick="TSService.setDeviceView('back')">Trasera</button>
+            </div>
+            <div id="deviceDiagram" class="device-diagram device-diagram-generic" onclick="TSService.addDamageMark(event)">
+              <div class="diagram-side diagram-left"></div>
+              <div class="diagram-front"><span></span></div>
+              <div class="diagram-side diagram-right"></div>
+              <div class="diagram-back"><span></span></div>
+              <div class="diagram-top"></div>
+              <div class="diagram-bottom"></div>
+              <div id="damageLayer" class="damage-layer"></div>
+            </div>
+
+            <p class="diagram-help">Haz clic sobre el esquema para marcar detalles del equipo. El diseño cambia según el modelo seleccionado.</p>
+            <input id="oVisual" type="hidden" />
+          </div>
+        </main>
+
+        <aside class="order-right">
+          <div class="order-box checklist-box">
+            <h3>Checklist de recepción</h3>
+            <div id="receptionChecklist" class="checklist-grid">
+              <label><input type="checkbox" checked /> Pantalla <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Táctil <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Botones <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Cámara frontal <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Cámara trasera <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Flash <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Altavoz <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Micrófono <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Auricular <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> WiFi <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" checked /> Bluetooth <select><option>Funciona</option><option>No funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" /> Red celular <select><option>No aplica</option><option>Funciona</option><option>No funciona</option></select></label>
+              <label><input type="checkbox" /> Batería <select><option>No retiene carga</option><option>Funciona</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" /> Cargador <select><option>Incluido</option><option>No incluido</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" /> Face ID / Touch ID <select><option>No aplica</option><option>Funciona</option><option>No funciona</option></select></label>
+              <label><input type="checkbox" /> iCloud / Cuenta <select><option>Cerrada</option><option>Abierta</option><option>No aplica</option></select></label>
+              <label><input type="checkbox" /> SIM <select><option>Incluida</option><option>No incluida</option><option>No aplica</option></select></label>
+            </div>
+          </div>
+
+          <div class="order-box">
+            <h3>Observaciones técnicas</h3>
+            <label><textarea id="oTechNotes" placeholder="Observaciones adicionales, condiciones de recepción, acuerdos con el cliente..."></textarea></label>
+          </div>
+        </aside>
+      </section>
+
+      <section class="order-signatures order-box">
+        <h3>Firmas</h3>
+        <div class="signature-grid">
+          <label>Recibido por (Recepción)<input id="sigReceptionName" placeholder="Nombre del técnico" /><button type="button" class="secondary">Firmar</button></label>
+          <label>Cliente<input id="sigClientName" placeholder="Nombre del cliente" /><button type="button" class="secondary">Firmar</button></label>
+          <label>Diagnóstico por (Técnico)<input id="sigTechName" placeholder="Nombre del técnico" /><button type="button" class="secondary">Firmar</button></label>
+          <label>Revisado por (Supervisor)<input id="sigSupervisorName" placeholder="Nombre del supervisor" /><button type="button" class="secondary">Firmar</button></label>
+        </div>
+      </section>
+
+      <footer class="order-actions">
+        <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+        <button>Guardar orden</button>
+      </footer>
+    </form>
+  </div>
+
+  <div id="bitacoraModal" class="modal">
+    <form class="card wide bitacora-form" onsubmit="TSService.saveBitacora(event)">
+      <h2>Nueva entrada de bitácora</h2>
+      <p>Registra diagnóstico, pruebas, repuestos, presupuesto o seguimiento interno de una orden.</p>
       <div class="grid2">
-        <label>Cliente<input id="oClient" required /></label>
-        <label>Teléfono<input id="oPhone" required /></label>
-        <label>Correo<input id="oEmail" type="email" /></label>
-        <label>Equipo<input id="oDevice" required placeholder="iPhone 15 Pro Max / MacBook Air" /></label>
-        <label>Serial / IMEI<input id="oSerial" /></label>
-        <label>Prioridad<select id="oPriority"><option>Normal</option><option>Alta</option><option>Urgente</option></select></label>
+        <label>Código de orden<input id="bOrderCode" required placeholder="TS-SVC-2026-0001" /></label>
+        <label>Tipo<select id="bType">
+          <option>Diagnóstico</option>
+          <option>Prueba realizada</option>
+          <option>Presupuesto</option>
+          <option>Repuesto</option>
+          <option>Seguimiento</option>
+          <option>Entrega</option>
+          <option>Nota interna</option>
+        </select></label>
+        <label>Responsable<input id="bAuthor" placeholder="Técnico / Recepción" /></label>
+        <label>Estado<select id="bStatus">
+          <option>Recibido</option>
+          <option>En diagnóstico</option>
+          <option>Cotización enviada</option>
+          <option>Aprobado por cliente</option>
+          <option>En reparación</option>
+          <option>Esperando repuesto</option>
+          <option>Listo para entregar</option>
+          <option>Entregado</option>
+          <option>No aprobado</option>
+        </select></label>
       </div>
-      <label>Falla reportada<textarea id="oIssue" required></textarea></label>
-      <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, caja, funda..."></textarea></label>
-      <label>Observaciones visuales<textarea id="oVisual" placeholder="Rayas, golpes, pantalla rota..."></textarea></label>
-      <div class="actions"><button>Guardar orden</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
+      <label>Detalle<textarea id="bDetail" required placeholder="Describe lo realizado, hallazgos, pruebas, observaciones o acuerdos con el cliente..."></textarea></label>
+      <label>Archivos / fotos<textarea id="bFiles" placeholder="Enlaces de fotos, comprobantes o archivos separados por coma..."></textarea></label>
+      <div class="actions"><button>Guardar bitácora</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
     </form>
   </div>
 
