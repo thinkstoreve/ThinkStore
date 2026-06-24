@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Instalar ThinkStore Enterprise</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#07111d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ThinkStore Enterprise" />
+  <link rel="apple-touch-icon" sizes="192x192" href="assets/app-icon-192.png" />
+  <link rel="apple-touch-icon" sizes="512x512" href="assets/app-icon-512.png" />
+  <link rel="icon" type="image/png" href="assets/app-icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <section class="lock-screen install-page-screen">
+    <div class="aurora"></div>
+    <div class="lock-card install-card-v95">
+      <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" class="lock-logo" />
+      <span class="pill">V9.5 · App instalable</span>
+      <h1>Instalar Enterprise</h1>
+      <p>Instala ThinkStore Growth Enterprise en iPhone, iPad o Android para usarlo como app de trabajo en pantalla completa.</p>
+      <div class="mobile-checklist install-steps-v95">
+        <div><b>1</b><span><strong>iPhone/iPad:</strong> abre Safari, toca Compartir y elige “Añadir a pantalla de inicio”.</span></div>
+        <div><b>2</b><span><strong>Android:</strong> abre Chrome y toca “Instalar aplicación” o “Añadir a pantalla principal”.</span></div>
+        <div><b>3</b><span>Inicia sesión con tu usuario autorizado de Supabase Enterprise.</span></div>
+      </div>
+      <button id="installPwaBtn" onclick="installEnterpriseApp()">Instalar app ahora</button>
+      <button class="forgot-link" onclick="location.href='index.html'">Volver a Enterprise</button>
+      <small id="installStatus" class="login-message">Si el botón no instala en iPhone, usa Compartir → Añadir a pantalla de inicio.</small>
+    </div>
+  </section>
+  <script src="app.js"></script>
+</body>
+</html>

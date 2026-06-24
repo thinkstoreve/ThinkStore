@@ -1,2 +1,5 @@
 /reset-password /reset-password.html 200
 /login /index.html 200
+
+/app /install.html 200
+/install /install.html 200

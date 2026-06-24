@@ -2,11 +2,31 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>ThinkStore Growth Enterprise</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#07111d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ThinkStore Enterprise" />
+  <link rel="apple-touch-icon" sizes="192x192" href="assets/app-icon-192.png" />
+  <link rel="apple-touch-icon" sizes="512x512" href="assets/app-icon-512.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/app-icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/app-icon-512.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="ThinkStore" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+  <div id="pwaInstallBanner" class="pwa-install-banner hidden" role="region" aria-label="Instalar ThinkStore Enterprise">
+    <div>
+      <b>📱 Instalar ThinkStore Enterprise</b>
+      <span>Acceso rápido desde iPhone, iPad o Android en pantalla completa.</span>
+    </div>
+    <button type="button" onclick="installEnterpriseApp()">Instalar</button>
+    <button type="button" class="pwa-close" onclick="dismissPwaBanner()" aria-label="Cerrar">×</button>
+  </div>
   <section id="lockScreen" class="lock-screen">
     <div class="aurora"></div>
     <div class="lock-card">
@@ -33,6 +53,8 @@
 
       <nav class="nav-list" aria-label="Módulos Growth Enterprise">
         <button class="nav active" data-view="executive"><i>▦</i>Panel Ejecutivo</button>
+        <button class="nav" data-view="operations"><i>🌎</i>Centro Operaciones</button>
+        <button class="nav" data-view="mobile"><i>📱</i>Mobile/PWA</button>
         <button class="nav" data-view="commercial"><i>🏪</i>Control Comercial</button>
         <button class="nav" data-view="sales"><i>🛒</i>Ventas</button>
         <button class="nav" data-view="products"><i>⬡</i>Productos</button>
@@ -129,6 +151,8 @@
         </div>
       </section>
 
+      <section id="operations" class="view module-view"></section>
+      <section id="mobile" class="view module-view"></section>
       <section id="commercial" class="view module-view"></section>
       <section id="sales" class="view module-view"></section>
       <section id="products" class="view module-view"></section>
@@ -152,6 +176,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.js"></script>
+<script src="support-config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -19,6 +19,8 @@ const titles = {
 };
 
 let currentProfile = null;
+let deferredPwaPrompt = null;
+let pwaReady = false;
 
 const activity = [
   ["green","▢","Nuevo pedido #TS-1048","Cliente: Juan Pérez","Hace 2 min"],
@@ -383,6 +385,20 @@ window.updateStaffRole = updateStaffRole;
 window.toggleStaffActive = toggleStaffActive;
 window.loadStaffAccess = loadStaffAccess;
 
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredPwaPrompt = event;
+  pwaReady = true;
+  const btn = qs('installPwaBtn');
+  if(btn) btn.textContent = 'Instalar app ahora';
+});
+window.addEventListener('appinstalled', () => {
+  deferredPwaPrompt = null;
+  pwaReady = true;
+  console.log('ThinkStore Enterprise instalada como PWA');
+});
+
 document.addEventListener('DOMContentLoaded',()=>{
   qs('loginForm')?.addEventListener('submit', unlock);
   qs('forgotPasswordBtn')?.addEventListener('click', sendPasswordRecovery);
@@ -390,6 +406,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   qs('logoutMini')?.addEventListener('click',logout);
   document.querySelectorAll('.nav').forEach(btn=>btn.addEventListener('click',()=>switchView(btn.dataset.view)));
   qs('searchInput')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase(); document.querySelectorAll('.module-card,.product-row,.activity-item,.status-row,.table-row').forEach(el=>{el.style.outline = q && el.textContent.toLowerCase().includes(q) ? '1px solid rgba(38,119,255,.7)' : ''})});
+  const initialView = new URLSearchParams(location.search).get('view');
+  if(initialView && qs(initialView)) setTimeout(()=>switchView(initialView), 350);
   bootAuth();
 });
 
@@ -1859,4 +1877,507 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     if(id === 'financeAdvanced') renderFinanceAdvanced(enterpriseRealCache);
     if(id === 'ai') renderThinkStoreAI(enterpriseRealCache);
   };
+})();
+
+/* ==========================================================
+   Enterprise V9 · Ecosistema ThinkStore + datos reales por pantalla
+   - Centro de Operaciones unificado
+   - PWA para móviles/tabletas
+   - Refuerzo de pantallas con datos visibles de Supabase
+   - Soporte externo opcional vía support-config.js
+   - Sin tocar Resend, correos, notas, pedidos ni panel actual
+   ========================================================== */
+(function(){
+  const V9_TABLES = {
+    customers: ['clientes','customers','profiles_clientes','usuarios_clientes'],
+    orders: ['pedidos','orders','ordenes','compras'],
+    orderItems: ['pedido_items','order_items','items_pedido'],
+    payments: ['comprobantes','payments','payment_receipts','pagos'],
+    products: ['productos','products','catalogo','inventory','inventario'],
+    preorders: ['preordenes','preorders','orders_preorder','pre_orders'],
+    orderHistory: ['order_status_history','historial_estados','pedido_historial'],
+    serviceOrders: ['service_orders','ordenes_servicio','support_orders','repair_orders'],
+    serviceNotes: ['service_order_notes','bitacora_servicio','service_notes','repair_notes'],
+    serviceUsers: ['service_users','support_users'],
+    staff: ['roles_usuarios','profiles'],
+    invitations: ['staff_invitations']
+  };
+
+  let v9Cache = null;
+  let externalSupportClient = null;
+
+  function v9StatusKind(status){
+    const st = normalizeStatus(status);
+    if(st.includes('entreg') || st.includes('pagado') || st.includes('aprob') || st.includes('listo')) return 'ok';
+    if(st.includes('pend') || st.includes('verif') || st.includes('diag') || st.includes('proceso') || st.includes('repar')) return 'warn';
+    if(st.includes('cancel') || st.includes('rechaz') || st.includes('venc')) return 'bad';
+    return 'info';
+  }
+  function v9Date(row){ return pick(row, ['created_at','fecha','date','updated_at','createdAt']) || ''; }
+  function v9RecentDateLabel(value){
+    if(!value) return 'Sin fecha';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('es-VE', {dateStyle:'short', timeStyle:'short'});
+  }
+  function v9MonthKey(value){
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? 'Sin fecha' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+  function v9ThisMonth(value){
+    const d = new Date(value); const n = new Date();
+    return !Number.isNaN(d.getTime()) && d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth();
+  }
+  function v9LastDays(value, days){
+    const d = new Date(value);
+    return !Number.isNaN(d.getTime()) && (Date.now() - d.getTime()) <= days * 86400000;
+  }
+  function v9Unique(arr){ return Array.from(new Set(arr.filter(Boolean))); }
+  function v9AsRows(rows, empty='Sin datos visibles'){
+    return rows && rows.length ? rows.join('') : `<div class="table-row"><div><b>${safe(empty)}</b><br><small>Puede ser una tabla vacía, RLS o un nombre diferente.</small></div><span>Solo lectura</span><i class="tag">Info</i></div>`;
+  }
+  function v9ActionButton(label, view){
+    return `<button onclick="switchView('${view}')">${safe(label)}</button>`;
+  }
+  async function v9Read(tableNames, options={}){
+    const client = options.client || getClient();
+    const names = Array.isArray(tableNames) ? tableNames : [tableNames];
+    const select = options.select || '*';
+    const limit = options.limit ?? 150;
+    for(const table of names){
+      try{
+        let query = client.from(table).select(select).limit(limit);
+        if(options.order !== false){
+          query = query.order(options.orderBy || 'created_at', { ascending: options.ascending ?? false });
+        }
+        let { data, error } = await query;
+        if(error && options.order !== false){
+          const retry = await client.from(table).select(select).limit(limit);
+          data = retry.data; error = retry.error;
+        }
+        if(!error) return { table, data:data || [] };
+        console.warn(`[Enterprise V9] Lectura ${table}:`, error.message || error);
+      }catch(error){ console.warn(`[Enterprise V9] Lectura ${table}:`, error.message || error); }
+    }
+    return { table:null, data:[] };
+  }
+  async function v9Count(tableNames, client=getClient()){
+    for(const table of (Array.isArray(tableNames) ? tableNames : [tableNames])){
+      try{
+        const { count, error } = await client.from(table).select('*', { count:'exact', head:true });
+        if(!error) return { table, count:count || 0 };
+      }catch(error){ console.warn(`[Enterprise V9] Conteo ${table}:`, error.message || error); }
+    }
+    return { table:null, count:0 };
+  }
+  function v9GetSupportClient(){
+    const cfg = window.THINKSTORE_SUPPORT_SUPABASE;
+    if(!cfg?.enabled || !cfg.url || !cfg.anonKey || !window.supabase) return null;
+    if(!externalSupportClient){
+      externalSupportClient = window.supabase.createClient(cfg.url, cfg.anonKey);
+    }
+    return externalSupportClient;
+  }
+  async function v9LoadData(){
+    const supportClient = v9GetSupportClient();
+    const [customers, orders, payments, products, preorders, orderItems, history, staff, invitations, internalSupport, internalNotes, internalTechs, externalSupport] = await Promise.all([
+      v9Read(V9_TABLES.customers, { limit:240 }),
+      v9Read(V9_TABLES.orders, { limit:260 }),
+      v9Read(V9_TABLES.payments, { limit:180 }),
+      v9Read(V9_TABLES.products, { limit:220 }),
+      v9Read(V9_TABLES.preorders, { limit:160 }),
+      v9Read(V9_TABLES.orderItems, { limit:260 }),
+      v9Read(V9_TABLES.orderHistory, { limit:180 }),
+      v9Read(V9_TABLES.staff, { limit:120 }),
+      v9Read(V9_TABLES.invitations, { limit:120 }),
+      v9Read(V9_TABLES.serviceOrders, { limit:220 }),
+      v9Read(V9_TABLES.serviceNotes, { limit:160 }),
+      v9Read(V9_TABLES.serviceUsers, { limit:120 }),
+      supportClient ? v9Read(V9_TABLES.serviceOrders, { client:supportClient, limit:220 }) : Promise.resolve({ table:null, data:[] })
+    ]);
+    const serviceSource = externalSupport.table ? externalSupport : internalSupport;
+    const data = {
+      version:'V9',
+      tables:{
+        customers:customers.table, orders:orders.table, payments:payments.table, products:products.table,
+        preorders:preorders.table, orderItems:orderItems.table, orderHistory:history.table,
+        staff:staff.table, invitations:invitations.table,
+        support:serviceSource.table, supportExternal:!!externalSupport.table,
+        supportNotes:internalNotes.table, supportUsers:internalTechs.table
+      },
+      customers: customers.data || [],
+      orders: orders.data || [],
+      payments: payments.data || [],
+      products: products.data || [],
+      preorders: preorders.data || [],
+      orderItems: orderItems.data || [],
+      orderHistory: history.data || [],
+      staff: staff.data || [],
+      invitations: invitations.data || [],
+      serviceOrders: serviceSource.data || [],
+      serviceNotes: internalNotes.data || [],
+      serviceUsers: internalTechs.data || []
+    };
+    data.salesTotal = data.orders.reduce((s,o)=>s+orderTotal(o),0);
+    data.salesMonth = data.orders.filter(o=>v9ThisMonth(v2OrderDate(o))).reduce((s,o)=>s+orderTotal(o),0);
+    data.salesToday = data.orders.filter(o=>v9LastDays(v2OrderDate(o),1)).reduce((s,o)=>s+orderTotal(o),0);
+    data.pendingOrders = data.orders.filter(o=>v9StatusKind(v2OrderStatus(o)) === 'warn').length;
+    data.pendingPayments = data.orders.filter(isPendingPayment).length || data.payments.filter(isPendingPayment).length;
+    data.lowStock = data.products.filter(p=>{ const stock = v2ProductStock(p); return stock !== null && stock <= 2; }).length;
+    data.outOfStock = data.products.filter(p=>v2ProductStock(p) === 0).length;
+    data.supportOpen = data.serviceOrders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado'])).length;
+    data.supportReady = data.serviceOrders.filter(o=>statusMatches(supportStatus(o), ['Listo','Listo para entregar'])).length;
+    data.supportDelayed = data.serviceOrders.filter(isSupportDelayed).length;
+    data.preordersOpen = data.preorders.filter(o=>!statusMatches(v2OrderStatus(o), ['Entregado','Cancelado','Cerrado'])).length;
+    v9Cache = data;
+    window.enterpriseV9Cache = data;
+    return data;
+  }
+
+  function v9BuildCustomerProfiles(data){
+    const map = new Map();
+    function ensure(key, base={}){
+      const id = (key || base.email || base.phone || base.name || Math.random()).toString().toLowerCase();
+      if(!map.has(id)) map.set(id, { key:id, name:base.name||'Cliente', email:base.email||'', phone:base.phone||'', orders:[], support:[], total:0, last:null });
+      const item = map.get(id);
+      if(base.name && item.name === 'Cliente') item.name = base.name;
+      if(base.email && !item.email) item.email = base.email;
+      if(base.phone && !item.phone) item.phone = base.phone;
+      return item;
+    }
+    data.customers.forEach(c=>ensure(v2CustomerEmail(c)||v2CustomerPhone(c)||v2CustomerName(c), { name:v2CustomerName(c), email:v2CustomerEmail(c), phone:v2CustomerPhone(c)}));
+    data.orders.forEach(o=>{
+      const base = { name:rowCustomerName(o), email:rowCustomerEmail(o), phone:pick(o,['telefono','phone','whatsapp'])||'' };
+      const item = ensure(base.email||base.phone||base.name, base);
+      item.orders.push(o); item.total += orderTotal(o);
+      const d = new Date(v2OrderDate(o)); if(!Number.isNaN(d.getTime()) && (!item.last || d > item.last)) item.last = d;
+    });
+    data.serviceOrders.forEach(s=>{
+      const base = { name:supportClient(s), email:supportEmail(s), phone:supportPhone(s) };
+      const item = ensure(base.email||base.phone||base.name, base);
+      item.support.push(s);
+      const d = new Date(supportDate(s)); if(!Number.isNaN(d.getTime()) && (!item.last || d > item.last)) item.last = d;
+    });
+    return Array.from(map.values()).sort((a,b)=>b.total-a.total);
+  }
+  function v9SegmentCustomer(profile){
+    if(profile.total >= 2000 || profile.orders.length >= 4) return 'VIP';
+    if(profile.orders.length >= 2) return 'Frecuente';
+    if(profile.last && (Date.now() - profile.last.getTime()) > 90*86400000) return 'Inactivo';
+    return 'Nuevo';
+  }
+  function v9ProductRanking(data){
+    const counts = new Map();
+    data.orderItems.forEach(item=>{
+      const name = pick(item, ['producto','product_name','nombre','name','title','modelo']) || 'Producto';
+      counts.set(name, (counts.get(name)||0) + (Number(pick(item,['cantidad','quantity','qty'])||1) || 1));
+    });
+    if(!counts.size){
+      data.products.slice(0,12).forEach((p,idx)=>counts.set(v2ProductName(p), Math.max(1, 12-idx)));
+    }
+    return Array.from(counts.entries()).sort((a,b)=>b[1]-a[1]);
+  }
+  function v9StatusBreakdown(rows, getStatus){
+    const map = new Map();
+    rows.forEach(r=>{ const st = getStatus(r) || 'Sin estado'; map.set(st, (map.get(st)||0)+1); });
+    return Array.from(map.entries()).sort((a,b)=>b[1]-a[1]);
+  }
+
+  function renderV9Operations(data){
+    const el = qs('operations'); if(!el) return;
+    const profiles = v9BuildCustomerProfiles(data);
+    const topCustomers = profiles.slice(0,6).map(c=>`<div class="table-row v9-row"><div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')} · ${c.last ? c.last.toLocaleDateString('es-VE') : 'Sin fecha'}</small></div><span>${formatUSD(c.total)}</span><i class="tag">${v9SegmentCustomer(c)}</i></div>`).join('');
+    const alerts = [
+      ['Pagos pendientes', `${data.pendingPayments}`, 'Comprobantes o pedidos por revisar', data.pendingPayments ? 'warn':'ok', 'finance'],
+      ['Pedidos pendientes', `${data.pendingOrders}`, 'Órdenes sin cierre operativo', data.pendingOrders ? 'warn':'ok', 'sales'],
+      ['Stock crítico', `${data.lowStock}`, 'Productos con 2 unidades o menos', data.lowStock ? 'bad':'ok', 'inventory'],
+      ['Soporte abierto', `${data.supportOpen}`, 'Equipos en proceso técnico', data.supportOpen ? 'warn':'ok', 'support'],
+      ['Equipos listos', `${data.supportReady}`, 'Oportunidad de entrega', data.supportReady ? 'info':'ok', 'support'],
+      ['Preórdenes abiertas', `${data.preordersOpen}`, 'Control de entregas futuras', data.preordersOpen ? 'info':'ok', 'commercial']
+    ].map(([t,v,d,k,view])=>`<div class="table-row v9-row"><div><b>${safe(t)}</b><br><small>${safe(d)}</small></div><span class="status-dot ${k}">${safe(v)}</span><button class="mini-action" onclick="switchView('${view}')">Abrir</button></div>`).join('');
+    const recentOrders = data.orders.slice(0,8).map(o=>`<div class="table-row v9-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span class="status-dot ${v9StatusKind(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    el.innerHTML = `
+      <article class="panel v9-hero"><div class="panel-head"><h3>Centro de Operaciones ThinkStore</h3><span class="tag safe-tag">V9 · ecosistema conectado</span></div><p class="staff-help">Vista única de ventas, soporte, clientes, inventario, finanzas y alertas. Todo en modo lectura: no valida pagos, no cambia estados, no toca Resend ni notas de entrega.</p><div class="v2-toolbar"><button onclick="loadEnterpriseV9()">Actualizar ecosistema</button>${v9ActionButton('Abrir CRM','clients')}${v9ActionButton('Abrir Soporte','support')}</div></article>
+      <div class="module-grid control-cards">
+        <article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(data.salesMonth)}</strong><p>${formatNumber(data.orders.length)} pedidos visibles.</p></article>
+        <article class="module-card"><h3>Clientes 360</h3><strong>${formatNumber(profiles.length)}</strong><p>Clientes cruzados con pedidos y soporte.</p></article>
+        <article class="module-card"><h3>Soporte abierto</h3><strong>${formatNumber(data.supportOpen)}</strong><p>Fuente: ${safe(data.tables.support || 'pendiente')}</p></article>
+        <article class="module-card"><h3>Alertas críticas</h3><strong>${formatNumber(data.pendingPayments + data.lowStock + data.supportDelayed)}</strong><p>Pagos, stock y soporte.</p></article>
+        <article class="module-card"><h3>Preórdenes</h3><strong>${formatNumber(data.preordersOpen)}</strong><p>Seguimiento ejecutivo.</p></article>
+        <article class="module-card"><h3>PWA móvil</h3><strong>Lista</strong><p>Instalable en iPhone, iPad y Android.</p></article>
+      </div>
+      <div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Alertas prioritarias</h3><span class="tag">V9</span></div><div class="table">${alerts}</div></article><article class="panel"><div class="panel-head"><h3>Top clientes 360</h3></div><div class="table">${v9AsRows([topCustomers].filter(Boolean),'Sin clientes para cruzar')}</div></article></div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Pedidos recientes del ecosistema</h3><span class="tag">Solo lectura</span></div><div class="table">${v9AsRows([recentOrders].filter(Boolean),'Sin pedidos visibles')}</div></article>`;
+  }
+
+  function renderV9Mobile(data){
+    const el = qs('mobile'); if(!el) return;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const installSteps = isIOS
+      ? 'Safari → Compartir → Añadir a pantalla de inicio.'
+      : 'Chrome/Edge → Instalar aplicación o Añadir a pantalla principal.';
+    const canInstall = !!deferredPwaPrompt && !standalone;
+    const appStatus = standalone ? 'Instalada' : (canInstall ? 'Lista para instalar' : 'Preparada');
+    el.innerHTML = `
+      <article class="panel v9-hero mobile-app-hero">
+        <div class="panel-head"><h3>ThinkStore Enterprise Mobile App</h3><span class="tag safe-tag">PWA V1 · iPhone · iPad · Android</span></div>
+        <p class="staff-help">La versión móvil usa el mismo Enterprise, Supabase Auth y roles. Es instalable como app sin tocar ThinkStore público, Resend, pedidos ni notas de entrega.</p>
+        <div class="v2-toolbar mobile-actions">
+          <button id="installPwaBtn" onclick="installEnterpriseApp()">${canInstall ? 'Instalar app ahora' : (standalone ? 'App instalada' : 'Ver instrucciones')}</button>
+          <button onclick="switchView('operations')">Abrir Centro Operaciones</button>
+          <button onclick="switchView('alerts')">Ver Alertas</button>
+        </div>
+      </article>
+      <div class="mobile-preview-grid enterprise-app-grid">
+        <article class="phone-preview"><div class="phone-notch"></div><div class="phone-card mobile-app-screen">
+          <img src="assets/thinkstore-logo-white.png" alt="ThinkStore">
+          <span class="mobile-status-pill">${safe(appStatus)}</span>
+          <h3>Enterprise Mobile</h3>
+          <p>Panel rápido</p>
+          <strong>${formatUSD(data.salesMonth)}</strong>
+          <small>${formatNumber(data.pendingPayments)} pagos pendientes · ${formatNumber(data.supportOpen)} soportes abiertos · ${formatNumber(data.lowStock)} stock crítico</small>
+          <div class="mobile-quick-grid">
+            <button onclick="switchView('clients')">CRM</button>
+            <button onclick="switchView('support')">Soporte</button>
+            <button onclick="switchView('inventory')">Stock</button>
+            <button onclick="switchView('financeAdvanced')">Finanzas</button>
+          </div>
+        </div></article>
+        <article class="panel"><div class="panel-head"><h3>Estado de la app</h3><span class="tag">Mobile V1</span></div><div class="table">
+          <div class="table-row"><div><b>Instalación</b><br><small>${safe(installSteps)}</small></div><span>${safe(appStatus)}</span><i class="tag safe-tag">PWA</i></div>
+          <div class="table-row"><div><b>Modo pantalla completa</b><br><small>Manifest, theme-color, iconos y service worker preparados.</small></div><span>Activo</span><i class="tag">Mobile</i></div>
+          <div class="table-row"><div><b>Acceso seguro</b><br><small>Mismo login Supabase, mismo rol super_admin/admin y misma sesión.</small></div><span>Seguro</span><i class="tag">Auth</i></div>
+          <div class="table-row"><div><b>Offline básico</b><br><small>Pantalla de respaldo cuando no hay conexión.</small></div><span>Activo</span><i class="tag">Cache</i></div>
+          <div class="table-row"><div><b>Notificaciones push</b><br><small>Preparado para V10 con permisos y función de envío.</small></div><span>Preparado</span><i class="tag">Next</i></div>
+        </div></article>
+      </div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Checklist para instalar</h3><span class="tag">iOS / Android</span></div>
+        <div class="mobile-checklist">
+          <div><b>1</b><span>Abre enterprise.thinkstore.com.ve en Safari o Chrome.</span></div>
+          <div><b>2</b><span>Inicia sesión con tu usuario autorizado.</span></div>
+          <div><b>3</b><span>Usa Compartir → Añadir a pantalla de inicio o Instalar app.</span></div>
+          <div><b>4</b><span>Entra desde el icono ThinkStore como app de trabajo.</span></div>
+        </div>
+      </article>`;
+  }
+
+  async function installEnterpriseApp(){
+    if(deferredPwaPrompt){
+      deferredPwaPrompt.prompt();
+      const choice = await deferredPwaPrompt.userChoice.catch(()=>null);
+      deferredPwaPrompt = null;
+      if(choice?.outcome === 'accepted') alert('ThinkStore Enterprise se está instalando.');
+      else alert('Instalación cancelada. Puedes instalarla luego desde Mobile/PWA.');
+      if(enterpriseRealCache) renderV9Mobile(window.__v9Cache || enterpriseRealCache);
+      return;
+    }
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    alert(isIOS ? 'En iPhone/iPad: toca Compartir y luego Añadir a pantalla de inicio.' : 'En Chrome/Edge: abre el menú del navegador y toca Instalar aplicación o Añadir a pantalla principal.');
+  }
+  window.installEnterpriseApp = installEnterpriseApp;
+
+
+  function renderV9RealClients(data){
+    const el = qs('clients'); if(!el) return;
+    const profiles = v9BuildCustomerProfiles(data);
+    const vip = profiles.filter(c=>v9SegmentCustomer(c)==='VIP');
+    const inactive = profiles.filter(c=>v9SegmentCustomer(c)==='Inactivo');
+    const rows = profiles.slice(0,50).map(c=>`<div class="table-row v9-row"><div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')}</small></div><span>${formatNumber(c.orders.length)} pedidos · ${formatNumber(c.support.length)} soporte</span><i class="tag">${v9SegmentCustomer(c)} · ${formatUSD(c.total)}</i></div>`).join('');
+    el.innerHTML = `<article class="panel v9-hero"><div class="panel-head"><h3>CRM Clientes Real</h3><span class="tag safe-tag">Cliente 360</span></div><p class="staff-help">CRM cruzado con clientes, pedidos y soporte. Solo lectura.</p></article><div class="module-grid control-cards"><article class="module-card"><h3>Clientes unificados</h3><strong>${formatNumber(profiles.length)}</strong><p>Base visible total.</p></article><article class="module-card"><h3>VIP</h3><strong>${formatNumber(vip.length)}</strong><p>Alto valor o compra frecuente.</p></article><article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive.length)}</strong><p>Más de 90 días sin movimiento.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Clientes 360</h3><button onclick="loadEnterpriseV9()">Actualizar</button></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin clientes visibles')}</div></article>`;
+  }
+
+  function renderV9RealSales(data){
+    const el = qs('sales'); if(!el) return;
+    const statuses = v9StatusBreakdown(data.orders, v2OrderStatus).slice(0,8).map(([st,n])=>`<div class="table-row v9-row"><div><b>${safe(st)}</b><br><small>Estado visible de pedidos.</small></div><span>${formatNumber(n)}</span><i class="tag">Pedidos</i></div>`).join('');
+    const rows = data.orders.slice(0,30).map(o=>`<div class="table-row v9-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span class="status-dot ${v9StatusKind(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(data.salesToday)}</strong><p>Últimas 24 horas.</p></article><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(data.salesMonth)}</strong><p>Mes actual visible.</p></article><article class="module-card"><h3>Pedidos pendientes</h3><strong>${formatNumber(data.pendingOrders)}</strong><p>Estados por cerrar.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Pedidos reales</h3><span class="tag">${safe(data.tables.orders || 'sin tabla')}</span></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin pedidos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Pedidos por estado</h3></div><div class="table">${v9AsRows([statuses].filter(Boolean),'Sin estados visibles')}</div></article></div>`;
+  }
+
+  function renderV9RealInventory(data){
+    const el = qs('inventory'); if(!el) return;
+    const ranking = v9ProductRanking(data).slice(0,8).map(([name,count])=>`<div class="table-row v9-row"><div><b>${safe(name)}</b><br><small>Estimado por items/pedidos visibles.</small></div><span>${formatNumber(count)}</span><i class="tag">Rotación</i></div>`).join('');
+    const rows = data.products.slice(0,50).map(p=>{ const stock=v2ProductStock(p); const kind = stock===0?'bad':stock!==null&&stock<=2?'warn':'ok'; return `<div class="table-row v9-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span class="status-dot ${kind}">${stock===null?'Sin stock':stock}</span><i class="tag">${formatUSD(v2ProductPrice(p))}</i></div>`; }).join('');
+    el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Productos visibles</h3><strong>${formatNumber(data.products.length)}</strong><p>Fuente: ${safe(data.tables.products || 'pendiente')}.</p></article><article class="module-card"><h3>Stock bajo</h3><strong>${formatNumber(data.lowStock)}</strong><p>2 unidades o menos.</p></article><article class="module-card"><h3>Agotados</h3><strong>${formatNumber(data.outOfStock)}</strong><p>Stock igual a 0.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Inventario real</h3></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin productos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Rotación estimada</h3></div><div class="table">${v9AsRows([ranking].filter(Boolean),'Sin items de pedido visibles')}</div></article></div>`;
+  }
+
+  function renderV9RealMarketing(data){
+    const el = qs('marketing'); if(!el) return;
+    const profiles = v9BuildCustomerProfiles(data);
+    const segments = ['VIP','Frecuente','Nuevo','Inactivo'].map(seg=>{
+      const list = profiles.filter(p=>v9SegmentCustomer(p)===seg);
+      return `<div class="table-row v9-row"><div><b>Clientes ${safe(seg)}</b><br><small>Audiencia preparada; no envía correos ni toca Resend.</small></div><span>${formatNumber(list.length)}</span><i class="tag">Audiencia</i></div>`;
+    }).join('');
+    const campaigns = [
+      ['Lanzamientos Apple', profiles.filter(p=>['VIP','Frecuente'].includes(v9SegmentCustomer(p))).length],
+      ['Recuperación de clientes', profiles.filter(p=>v9SegmentCustomer(p)==='Inactivo').length],
+      ['Preórdenes', data.preordersOpen],
+      ['Stock crítico', data.lowStock]
+    ].map(([name,n])=>`<div class="table-row v9-row"><div><b>${safe(name)}</b><br><small>Campaña preparada en modo borrador.</small></div><span>${formatNumber(n)} objetivos</span><i class="tag">Borrador</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel"><div class="panel-head"><h3>Marketing Center Real</h3><span class="tag safe-tag">Sin envío</span></div><p class="staff-help">Segmenta clientes reales y prepara campañas. No toca Resend, no envía correos y no modifica plantillas.</p></article><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Audiencias reales</h3></div><div class="table">${segments}</div></article><article class="panel"><div class="panel-head"><h3>Campañas preparadas</h3></div><div class="table">${campaigns}</div></article></div>`;
+  }
+
+  function renderV9RealFinance(data){
+    const el = qs('finance'); if(!el) return;
+    const byMonth = new Map();
+    data.orders.forEach(o=>{ const key=v9MonthKey(v2OrderDate(o)); byMonth.set(key,(byMonth.get(key)||0)+orderTotal(o)); });
+    const monthly = Array.from(byMonth.entries()).slice(0,12).map(([m,v])=>`<div class="table-row v9-row"><div><b>${safe(m)}</b><br><small>Ventas visibles del período.</small></div><span>${formatUSD(v)}</span><i class="tag">Mes</i></div>`).join('');
+    const avg = data.orders.length ? data.salesTotal / data.orders.length : 0;
+    el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ventas totales</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Pedidos visibles.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(avg)}</strong><p>Promedio por pedido.</p></article><article class="module-card"><h3>Pagos pendientes</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>Sin cambiar validación.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Ventas por mes</h3><span class="tag">Real</span></div><div class="table">${v9AsRows([monthly].filter(Boolean),'Sin ventas visibles')}</div></article>`;
+  }
+
+  function renderV9BI(data){
+    const el = qs('reports'); if(!el) return;
+    const topProducts = v9ProductRanking(data).slice(0,8).map(([name,count])=>`<div class="table-row v9-row"><div><b>${safe(name)}</b><br><small>Ranking por items/pedidos visibles.</small></div><span>${formatNumber(count)}</span><i class="tag">Producto</i></div>`).join('');
+    const topCustomers = v9BuildCustomerProfiles(data).slice(0,8).map(c=>`<div class="table-row v9-row"><div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')}</small></div><span>${formatUSD(c.total)}</span><i class="tag">${v9SegmentCustomer(c)}</i></div>`).join('');
+    el.innerHTML = `<article class="panel v9-hero"><div class="panel-head"><h3>Inteligencia Comercial V9</h3><span class="tag safe-tag">BI real</span></div><p class="staff-help">Lectura cruzada de ventas, productos, clientes, soporte e inventario.</p></article><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Top productos</h3></div><div class="table">${v9AsRows([topProducts].filter(Boolean),'Sin ranking visible')}</div></article><article class="panel"><div class="panel-head"><h3>Top clientes</h3></div><div class="table">${v9AsRows([topCustomers].filter(Boolean),'Sin clientes visibles')}</div></article></div>`;
+  }
+
+  function renderV9AI2(data){
+    const el = qs('ai'); if(!el) return;
+    const profiles = v9BuildCustomerProfiles(data);
+    const inactive = profiles.filter(p=>v9SegmentCustomer(p)==='Inactivo').length;
+    const topProduct = v9ProductRanking(data)[0]?.[0] || 'Pendiente';
+    const recs = [
+      ['Qué debo reponer', `${data.lowStock + data.outOfStock} productos`, data.lowStock+data.outOfStock ? 'Revisar inventario crítico antes de promoción.' : 'No hay stock crítico visible.', data.lowStock+data.outOfStock?'bad':'ok'],
+      ['Qué clientes recuperar', `${inactive} clientes`, 'Audiencia lista para Marketing Center, sin enviar correos.', inactive?'warn':'ok'],
+      ['Producto con mejor señal', topProduct, 'Úsalo como foco comercial.', 'info'],
+      ['Riesgo operativo', `${data.pendingPayments + data.supportDelayed} alertas`, 'Pagos pendientes y soporte retrasado.', data.pendingPayments+data.supportDelayed?'warn':'ok'],
+      ['Prioridad de hoy', data.supportReady ? `${data.supportReady} equipos listos` : `${data.pendingOrders} pedidos pendientes`, 'Revisar Centro de Operaciones.', 'info']
+    ].map(([t,v,d,k])=>`<div class="table-row v9-row"><div><b>${safe(t)}</b><br><small>${safe(d)}</small></div><span class="status-dot ${k}">${safe(v)}</span><i class="tag">AI 2.0</i></div>`).join('');
+    el.innerHTML = `<article class="panel v8-hero"><div class="panel-head"><h3>ThinkStore AI 2.0</h3><span class="tag safe-tag">V9</span></div><p class="staff-help">Recomendaciones cruzadas del ecosistema. No ejecuta acciones automáticas.</p></article><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Preguntas ejecutivas</h3><button onclick="loadEnterpriseV9()">Actualizar</button></div><div class="table">${recs}</div></article>`;
+  }
+
+  function renderV9Support(data){
+    // Si V6 ya tiene más detalles, reforzamos cuando haya datos externos/internos visibles.
+    if(typeof renderV6Support === 'function'){
+      try{
+        const v6data = { serviceTable:data.tables.support, notesTable:data.tables.supportNotes, serviceUsersTable:data.tables.supportUsers, serviceOrders:data.serviceOrders, notes:data.serviceNotes, serviceUsers:data.serviceUsers, customers:data.customers, orders:data.orders, payments:data.payments, productsCount:data.products.length, productsTable:data.tables.products };
+        renderV6Support(v6data); renderV6Client360(v6data); renderV6Warranties(v6data); renderV6Alerts(v6data);
+      }catch(error){ console.warn('[V9 soporte] Refuerzo V6:', error.message || error); }
+    }
+  }
+
+  function renderV9All(data){
+    renderV9Operations(data);
+    renderV9Mobile(data);
+    renderV9RealClients(data);
+    renderV9RealSales(data);
+    renderV9RealInventory(data);
+    renderV9RealMarketing(data);
+    renderV9RealFinance(data);
+    renderV9BI(data);
+    renderV9AI2(data);
+    renderV9Support(data);
+    if(qs('statusList')){
+      qs('statusList').innerHTML = [
+        ['✓','Ecosistema V9','Operativo'],
+        ['▣','PWA móvil','Lista'],
+        ['⚠','Alertas críticas',`${formatNumber(data.pendingPayments + data.lowStock + data.supportDelayed)}`],
+        ['↗','Soporte abierto',`${formatNumber(data.supportOpen)}`],
+        ['◇','Resend','Intacto']
+      ].map(([i,n,s])=>`<div class="status-row"><i>${i}</i><b>${safe(n)}</b><span>${safe(s)}</span></div>`).join('');
+    }
+  }
+  async function loadEnterpriseV9(){
+    if(!window.supabaseClient || !currentProfile) return null;
+    try{
+      const data = await v9LoadData();
+      renderV9All(data);
+      return data;
+    }catch(error){
+      console.error('[Enterprise V9]', error);
+      const el = qs('operations');
+      if(el) el.innerHTML = `<article class="panel"><div class="panel-head"><h3>Enterprise V9</h3><span class="tag">Error</span></div><p class="staff-help">No se pudo cargar el ecosistema: ${safe(error.message || error)}. No se modificó ninguna tabla.</p></article>`;
+      return null;
+    }
+  }
+  window.loadEnterpriseV9 = loadEnterpriseV9;
+
+  const prevLoad = window.loadEnterpriseV1Real || loadEnterpriseV1Real;
+  window.loadEnterpriseV1Real = loadEnterpriseV1Real = async function(){
+    const data = await prevLoad();
+    try{ await loadEnterpriseV9(); }catch(error){ console.warn('[V9] carga adicional:', error.message || error); }
+    return data;
+  };
+  const prevSwitch = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    prevSwitch(id);
+    if(v9Cache){
+      if(id === 'operations') renderV9Operations(v9Cache);
+      if(id === 'mobile') renderV9Mobile(v9Cache);
+      if(id === 'clients') renderV9RealClients(v9Cache);
+      if(id === 'sales') renderV9RealSales(v9Cache);
+      if(id === 'inventory') renderV9RealInventory(v9Cache);
+      if(id === 'marketing') renderV9RealMarketing(v9Cache);
+      if(id === 'finance') renderV9RealFinance(v9Cache);
+      if(id === 'reports') renderV9BI(v9Cache);
+      if(id === 'ai') renderV9AI2(v9Cache);
+    }
+  };
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(error=>console.warn('PWA service worker:', error.message || error));
+    });
+  }
+})();
+
+/* ThinkStore Enterprise V9.5 · PWA descargable */
+(function(){
+  function isStandalone(){
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function isDismissed(){
+    return localStorage.getItem('thinkstore_pwa_banner_dismissed') === '1';
+  }
+  function showPwaBanner(){
+    const banner = document.getElementById('pwaInstallBanner');
+    if(!banner || isStandalone() || isDismissed()) return;
+    banner.classList.remove('hidden');
+  }
+  window.dismissPwaBanner = function(){
+    localStorage.setItem('thinkstore_pwa_banner_dismissed','1');
+    document.getElementById('pwaInstallBanner')?.classList.add('hidden');
+  };
+  function updateInstallStatus(text){
+    const el = document.getElementById('installStatus');
+    if(el) el.textContent = text;
+  }
+  const oldInstall = window.installEnterpriseApp;
+  window.installEnterpriseApp = async function(){
+    if(typeof oldInstall === 'function'){
+      await oldInstall();
+      updateInstallStatus('Proceso de instalación iniciado. En iPhone usa Compartir → Añadir a pantalla de inicio.');
+      return;
+    }
+    updateInstallStatus('En iPhone/iPad usa Compartir → Añadir a pantalla de inicio. En Android usa Instalar aplicación.');
+  };
+  window.addEventListener('appinstalled', ()=>{
+    localStorage.setItem('thinkstore_pwa_banner_dismissed','1');
+    document.getElementById('pwaInstallBanner')?.classList.add('hidden');
+    updateInstallStatus('ThinkStore Enterprise ya está instalada.');
+  });
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(showPwaBanner, 1200);
+    if(isStandalone()) document.body.classList.add('pwa-standalone');
+  });
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', async ()=>{
+      try{
+        const reg = await navigator.serviceWorker.register('sw.js');
+        reg.addEventListener('updatefound', ()=>{
+          const worker = reg.installing;
+          if(!worker) return;
+          worker.addEventListener('statechange', ()=>{
+            if(worker.state === 'installed' && navigator.serviceWorker.controller){
+              const toast = document.createElement('div');
+              toast.className = 'pwa-update-toast';
+              toast.innerHTML = '<b>Nueva versión disponible</b><span>Actualiza para usar la última versión de ThinkStore Enterprise.</span><button onclick="location.reload()">Actualizar ahora</button>';
+              document.body.appendChild(toast);
+            }
+          });
+        });
+      }catch(error){ console.warn('PWA V9.5:', error.message || error); }
+    });
+  }
 })();

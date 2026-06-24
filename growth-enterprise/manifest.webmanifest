@@ -1,0 +1,27 @@
+{
+  "name": "ThinkStore Growth Enterprise",
+  "short_name": "ThinkStore",
+  "description": "App empresarial ThinkStore para ventas, soporte, CRM, finanzas, inventario y alertas.",
+  "id": "https://enterprise.thinkstore.com.ve/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "launch_handler": { "client_mode": "navigate-existing" },
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "browser"],
+  "orientation": "portrait-primary",
+  "background_color": "#07111d",
+  "theme_color": "#07111d",
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "es-VE",
+  "icons": [
+    { "src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Centro de Operaciones", "short_name": "Operaciones", "url": "/?view=operations", "description": "Ventas, clientes, soporte y alertas.", "icons": [{ "src": "assets/app-icon-192.png", "sizes": "192x192" }] },
+    { "name": "CRM Clientes", "short_name": "CRM", "url": "/?view=clients", "description": "Clientes 360 y segmentos.", "icons": [{ "src": "assets/app-icon-192.png", "sizes": "192x192" }] },
+    { "name": "Centro de Soporte", "short_name": "Soporte", "url": "/?view=support", "description": "Órdenes y estados de soporte.", "icons": [{ "src": "assets/app-icon-192.png", "sizes": "192x192" }] },
+    { "name": "Finanzas", "short_name": "Finanzas", "url": "/?view=financeAdvanced", "description": "Flujo de caja y metas comerciales.", "icons": [{ "src": "assets/app-icon-192.png", "sizes": "192x192" }] }
+  ]
+}
