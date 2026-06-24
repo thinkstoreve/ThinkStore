@@ -3,12 +3,16 @@ const titles = {
   commercial:["Control Comercial ThinkStore","Ventas, clientes, inventario, pagos, notas de entrega y correos. Lectura segura sin tocar el flujo actual."],
   sales:["Ventas","Pedidos, ingresos, canales y rendimiento comercial."],
   products:["Productos","Catálogo estratégico, top ventas y rentabilidad por modelo."],
-  inventory:["Inventario","Stock crítico, rotación, reposición y preórdenes."],
-  clients:["Clientes","CRM, clientes VIP, recurrencia y segmentos."],
+  inventory:["Inventario Pro","Stock crítico, agotados, rotación y reposición preparada."],
+  clients:["CRM Clientes","Clientes VIP, frecuentes, inactivos y valor comercial."],
   staff:["Accesos de vendedores","Crea, administra y limita accesos del equipo como Shopify Staff."],
-  marketing:["Marketing","Campañas, ROI, audiencias y automatizaciones."],
-  finance:["Finanzas","Utilidad, costos, flujo de caja y pagos pendientes."],
-  reports:["Reportes","Exportaciones ejecutivas y análisis por período."],
+  marketing:["Marketing Center","Audiencias, segmentos y campañas preparadas sin enviar correos."],
+  finance:["Finanzas Pro","Ventas, ticket promedio, pagos pendientes y control financiero."],
+  reports:["Inteligencia Comercial","BI, segmentos, top clientes, productos y reportes ejecutivos."],
+  support:["Centro de Soporte","Control ejecutivo de soporte.thinkstore.com.ve: órdenes, diagnósticos, técnicos y entregas."],
+  client360:["Cliente 360","Ficha consolidada de cliente con compras, soporte, garantías y alertas."],
+  warranties:["Garantías","Garantías activas, vencidas y próximas a vencer por cliente/equipo."],
+  alerts:["Centro de Alertas","Alertas comerciales, soporte, pagos, inventario y seguimiento ejecutivo."],
   integrations:["Integraciones","Conexiones con Supabase, Stripe, Shopify, correo y logística."],
   automations:["Automatizaciones","Flujos inteligentes para ventas, soporte y marketing."],
   settings:["Configuración","Permisos, roles, accesos y seguridad del panel."]
@@ -154,7 +158,7 @@ async function unlock(event){
     setLoginMessage(error.message || 'No se pudo iniciar sesión.', 'error');
   }
 }
-function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); renderHome(); renderModules(); renderStaffAccess(); loadEnterpriseV1Real(); }
+function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); renderHome(); renderModules(); renderStaffAccess(); loadEnterpriseV1Real(); loadEnterpriseV6Support(); }
 
 async function sendPasswordRecovery(){
   const email = qs('adminEmail')?.value.trim();
@@ -211,6 +215,7 @@ function switchView(id){
   if(titles[id]){ qs('pageTitle').textContent = titles[id][0]; qs('pageSubtitle').textContent = titles[id][1]; }
   if(id === 'staff') loadStaffAccess();
   if(id === 'commercial') loadEnterpriseV1Real();
+  if(['support','client360','warranties','alerts'].includes(id)) loadEnterpriseV6Support();
 }
 function exportCSV(id='executive'){
   const source = modules[id] || [['Ventas del mes','$124850','KPI'],['Pedidos totales','1248','KPI'],['Clientes activos','3682','KPI'],['Utilidad estimada','$28940','KPI']];
@@ -570,3 +575,1288 @@ function renderCommercialError(error){
   el.innerHTML = `<article class="panel"><div class="panel-head"><h3>Control Comercial ThinkStore</h3><span class="tag">Error</span></div><p class="staff-help">No se pudieron leer los datos reales: ${safe(error.message || error)}. No se modificó ninguna tabla ni configuración.</p></article>`;
 }
 window.loadEnterpriseV1Real = loadEnterpriseV1Real;
+
+/* ==========================================================
+   Enterprise V2 Real · módulos vivos en modo seguro
+   - Solo lectura sobre Supabase
+   - No modifica Resend, pedidos, notas de entrega ni panel actual
+   ========================================================== */
+const V2_TABLES = {
+  customers: ['clientes','customers','profiles_clientes','usuarios_clientes'],
+  orders: ['pedidos','orders','ordenes','compras'],
+  payments: ['comprobantes','payments','payment_receipts','pagos'],
+  products: ['productos','products','catalogo','inventory','inventario'],
+  preorders: ['preordenes','preorders','orders_preorder','pre_orders']
+};
+
+function v2Date(value){
+  if(!value) return 'Sin fecha';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('es-VE');
+}
+function v2Short(value, fallback='—'){
+  const text = String(value ?? '').trim();
+  if(!text) return fallback;
+  return text.length > 42 ? `${text.slice(0,39)}...` : text;
+}
+function v2StatusClass(value){
+  const status = normalizeStatus(value);
+  if(status.includes('pag') || status.includes('entreg') || status.includes('aprob')) return 'ok';
+  if(status.includes('pend') || status.includes('verif') || status.includes('proces')) return 'warn';
+  if(status.includes('cancel') || status.includes('rechaz')) return 'bad';
+  return 'info';
+}
+function v2ProductName(row){ return pick(row,['nombre','name','titulo','title','modelo','model','product_name']) || 'Producto'; }
+function v2ProductCategory(row){ return pick(row,['categoria','category','tipo','type']) || 'Catálogo'; }
+function v2ProductPrice(row){ return Number(String(pick(row,['precio','price','precio_usd','price_usd','amount']) || '0').replace(/[^0-9.-]/g,'')) || 0; }
+function v2ProductStock(row){
+  const raw = pick(row,['stock','cantidad','quantity','qty','existencia','inventory']);
+  const n = Number(String(raw ?? '').replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n) ? n : null;
+}
+function v2CustomerName(row){ return pick(row,['nombre','name','full_name','cliente','display_name']) || 'Cliente'; }
+function v2CustomerEmail(row){ return pick(row,['correo','email','customer_email']) || 'Sin correo'; }
+function v2CustomerPhone(row){ return pick(row,['telefono','phone','whatsapp','celular']) || '—'; }
+function v2OrderCode(row){ return pick(row,['codigo','code','order_code','numero','number','id']) || 'Pedido'; }
+function v2OrderStatus(row){ return pick(row,['estado','status','estatus','payment_status']) || 'Sin estado'; }
+function v2OrderDate(row){ return rowDate(row) || pick(row,['fecha_creacion','createdAt','created']) || ''; }
+function v2PaymentStatus(row){ return pick(row,['estado','status','estatus','payment_status']) || 'Pendiente'; }
+
+async function v2Count(tableNames){
+  for(const table of tableNames){
+    try{
+      const { count, error } = await getClient().from(table).select('*', { count:'exact', head:true });
+      if(!error) return { table, count: count || 0 };
+      console.warn(`[Enterprise V2] Conteo ${table}:`, error.message || error);
+    }catch(error){ console.warn(`[Enterprise V2] Conteo ${table}:`, error.message || error); }
+  }
+  return { table:null, count:0 };
+}
+async function v2Read(tableNames, limit=80){
+  for(const table of tableNames){
+    try{
+      let res = await getClient().from(table).select('*').order('created_at', { ascending:false }).limit(limit);
+      if(res.error){
+        res = await getClient().from(table).select('*').limit(limit);
+      }
+      if(!res.error) return { table, data: res.data || [] };
+      console.warn(`[Enterprise V2] Lectura ${table}:`, res.error.message || res.error);
+    }catch(error){ console.warn(`[Enterprise V2] Lectura ${table}:`, error.message || error); }
+  }
+  return { table:null, data:[] };
+}
+
+function renderV2Table(rows, emptyText='Sin datos visibles'){
+  return rows.length ? rows.join('') : `<div class="table-row"><div><b>${safe(emptyText)}</b><br><small>Puede ser una tabla vacía, RLS o nombre diferente.</small></div><span>Solo lectura</span><i class="tag">Info</i></div>`;
+}
+
+async function loadEnterpriseV1Real(){
+  if(!window.supabaseClient || !currentProfile) return null;
+  try{
+    const [customersCount, ordersCount, paymentsCount, productsCount, preordersCount, customersRows, ordersRows, paymentsRows, productsRows] = await Promise.all([
+      v2Count(V2_TABLES.customers),
+      v2Count(V2_TABLES.orders),
+      v2Count(V2_TABLES.payments),
+      v2Count(V2_TABLES.products),
+      v2Count(V2_TABLES.preorders),
+      v2Read(V2_TABLES.customers, 60),
+      v2Read(V2_TABLES.orders, 100),
+      v2Read(V2_TABLES.payments, 80),
+      v2Read(V2_TABLES.products, 80)
+    ]);
+
+    const orders = ordersRows.data || [];
+    const payments = paymentsRows.data || [];
+    const productsData = productsRows.data || [];
+    const salesTotal = orders.reduce((sum,row)=>sum + orderTotal(row), 0);
+    const pendingPayments = orders.filter(isPendingPayment).length || payments.filter(isPendingPayment).length;
+    const lowStock = productsData.filter(p => {
+      const stock = v2ProductStock(p);
+      return stock !== null && stock <= 2;
+    }).length;
+
+    enterpriseRealCache = {
+      version:'V2',
+      tables: {
+        customers: customersCount.table,
+        orders: ordersCount.table,
+        payments: paymentsCount.table,
+        products: productsCount.table,
+        preorders: preordersCount.table
+      },
+      counts: {
+        customers: customersCount.count,
+        orders: ordersCount.count,
+        payments: paymentsCount.count,
+        products: productsCount.count,
+        preorders: preordersCount.count
+      },
+      salesTotal,
+      pendingPayments,
+      lowStock,
+      recentOrders: orders.slice(0,12),
+      recentCustomers: (customersRows.data || []).slice(0,12),
+      recentPayments: payments.slice(0,12),
+      products: productsData.slice(0,40)
+    };
+
+    updateExecutiveReal(enterpriseRealCache);
+    renderCommercialControl(enterpriseRealCache);
+    renderRealModules(enterpriseRealCache);
+    renderV2Reports(enterpriseRealCache);
+    return enterpriseRealCache;
+  }catch(error){
+    console.error('Enterprise V2 Real:', error);
+    renderCommercialError(error);
+    return null;
+  }
+}
+
+function updateExecutiveReal(data){
+  setText('metricSalesMonth', formatUSD(data.salesTotal));
+  setText('metricOrdersTotal', formatNumber(data.counts.orders));
+  setText('metricCustomersTotal', formatNumber(data.counts.customers));
+  setText('metricPendingPayments', formatNumber(data.pendingPayments));
+  setText('metricSalesNote', `Fuente: ${data.tables.orders || 'pedidos/orders no disponible'}`);
+  setText('metricOrdersNote', `${formatNumber(data.counts.preorders)} preórdenes detectadas`);
+  setText('metricCustomersNote', `Fuente: ${data.tables.customers || 'clientes no disponible'}`);
+  setText('metricPendingNote', 'No cambia validaciones ni correos');
+  setText('chartTooltipValue', `${formatUSD(data.salesTotal)} registrados`);
+  setText('stripRevenue', formatUSD(data.salesTotal));
+  setText('stripCustomers', formatNumber(data.counts.customers));
+  setText('stripOrders', formatNumber(data.counts.orders));
+  setText('stripPayments', formatNumber(data.counts.payments));
+
+  const realActivity = [];
+  data.recentOrders.slice(0,5).forEach((o,idx)=>{
+    realActivity.push([idx%2?'blue':'green','▢',`Pedido ${v2Short(v2OrderCode(o),'reciente')}`, `${rowCustomerName(o)} · ${v2OrderStatus(o)}`, v2Date(v2OrderDate(o))]);
+  });
+  data.recentCustomers.slice(0,2).forEach((c)=>{
+    realActivity.push(['purple','♙',`Cliente registrado`, `${v2CustomerName(c)} · ${v2CustomerEmail(c)}`, v2Date(rowDate(c))]);
+  });
+  if(qs('activityList')){
+    qs('activityList').innerHTML = renderV2Table(realActivity.map(([color,icon,title,sub,time]) => `<div class="activity-item"><div class="round ${color}">${icon}</div><div><b>${safe(title)}</b><span>${safe(sub)}</span></div><time>${safe(time)}</time></div>`), 'Sin actividad visible');
+  }
+
+  if(qs('topProducts')){
+    const productRows = data.products.slice(0,5).map((p,idx)=>{
+      const stock = v2ProductStock(p);
+      const percent = Math.max(8, Math.min(100, stock === null ? 32 + idx*10 : stock*12));
+      return `<div class="product-row"><div class="product-img">📱</div><div><b>${safe(v2ProductName(p))}</b><small>${safe(v2ProductCategory(p))}${stock !== null ? ` · Stock: ${stock}` : ''}</small><div class="barline"><i style="width:${percent}%"></i></div></div><strong>${formatUSD(v2ProductPrice(p))}</strong></div>`;
+    }).join('');
+    if(productRows) qs('topProducts').innerHTML = productRows;
+  }
+}
+
+function renderCommercialControl(data){
+  const el = qs('commercial'); if(!el) return;
+  const recentOrders = data.recentOrders.map(o=>`
+    <div class="table-row v2-row" data-search="${safe(`${v2OrderCode(o)} ${rowCustomerName(o)} ${v2OrderStatus(o)} ${rowCustomerEmail(o)}`)}">
+      <div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(rowCustomerEmail(o))}</small></div>
+      <span class="status-dot ${v2StatusClass(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span>
+      <i class="tag">${formatUSD(orderTotal(o))}</i>
+    </div>`).join('');
+  const recentCustomers = data.recentCustomers.map(c=>`
+    <div class="table-row v2-row" data-search="${safe(`${v2CustomerName(c)} ${v2CustomerEmail(c)} ${v2CustomerPhone(c)}`)}">
+      <div><b>${safe(v2CustomerName(c))}</b><br><small>${safe(v2CustomerEmail(c))}</small></div>
+      <span>${safe(v2CustomerPhone(c))}</span>
+      <i class="tag">${v2Date(rowDate(c))}</i>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <article class="panel safe-panel">
+      <div class="panel-head"><h3>Control Comercial ThinkStore</h3><span class="tag safe-tag">V2 · solo lectura</span></div>
+      <p class="staff-help">Centro de control para ventas, clientes, inventario, comprobantes, notas de entrega y correos. Esta versión lee datos reales de Supabase, pero no modifica Resend, estados, notas de entrega, pedidos ni el panel actual.</p>
+    </article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Ventas registradas</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Calculado desde ${safe(data.tables.orders || 'pedidos/orders')}.</p></article>
+      <article class="module-card"><h3>Pedidos</h3><strong>${formatNumber(data.counts.orders)}</strong><p>Conteo real desde Supabase.</p></article>
+      <article class="module-card"><h3>Clientes registrados</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Clientes reales de la página.</p></article>
+      <article class="module-card"><h3>Comprobantes</h3><strong>${formatNumber(data.counts.payments)}</strong><p>Control visual; validación intacta.</p></article>
+      <article class="module-card"><h3>Preórdenes</h3><strong>${formatNumber(data.counts.preorders)}</strong><p>Lectura segura si la tabla existe.</p></article>
+      <article class="module-card"><h3>Inventario bajo</h3><strong>${formatNumber(data.lowStock)}</strong><p>Alerta visual sin modificar stock.</p></article>
+    </div>
+    <div class="v2-toolbar"><input id="commercialSearch" type="search" placeholder="Buscar clientes, pedidos o estados..." /><button onclick="loadEnterpriseV1Real()">Actualizar datos</button></div>
+    <div class="main-grid" style="margin-top:18px">
+      <article class="panel"><div class="panel-head"><h3>Pedidos recientes</h3><span class="tag">${safe(data.tables.orders || 'sin tabla')}</span></div><div class="table searchable-commercial">${renderV2Table([recentOrders].filter(Boolean), 'Sin pedidos visibles')}</div></article>
+      <article class="panel"><div class="panel-head"><h3>Clientes recientes</h3><span class="tag">${safe(data.tables.customers || 'sin tabla')}</span></div><div class="table searchable-commercial">${renderV2Table([recentCustomers].filter(Boolean), 'Sin clientes visibles')}</div></article>
+    </div>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Blindaje de seguridad</h3></div><div class="table">
+      <div class="table-row"><div><b>Panel actual intacto</b><br><small>Se mantiene como respaldo operativo de ventas, notas, pagos y correos.</small></div><span>Protegido</span><i class="tag">OK</i></div>
+      <div class="table-row"><div><b>Resend intacto</b><br><small>ventas@thinkstore.com.ve y soporte@thinkstore.com.ve no se tocan.</small></div><span>Sin cambios</span><i class="tag">OK</i></div>
+      <div class="table-row"><div><b>Modo lectura</b><br><small>Enterprise V2 no escribe en clientes, pedidos, comprobantes ni estados.</small></div><span>Seguro</span><i class="tag">V2</i></div>
+    </div></article>`;
+
+  qs('commercialSearch')?.addEventListener('input', (event)=>{
+    const q = event.target.value.toLowerCase();
+    document.querySelectorAll('#commercial .v2-row').forEach(row=>{
+      row.style.display = row.textContent.toLowerCase().includes(q) || (row.dataset.search || '').toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+}
+
+function renderRealModules(data){
+  const salesEl = qs('sales');
+  if(salesEl){
+    const rows = data.recentOrders.map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${v2Date(v2OrderDate(o))}</small></div><span class="status-dot ${v2StatusClass(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    salesEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ventas registradas</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Lectura desde ${safe(data.tables.orders || 'pedidos/orders')}.</p></article><article class="module-card"><h3>Pedidos totales</h3><strong>${formatNumber(data.counts.orders)}</strong><p>Pedidos visibles para Enterprise.</p></article><article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>No cambia estados ni dispara correos.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Pedidos recientes</h3><span class="tag">Solo lectura</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin pedidos visibles')}</div></article>`;
+  }
+
+  const clientsEl = qs('clients');
+  if(clientsEl){
+    const rows = data.recentCustomers.map(c=>`<div class="table-row v2-client"><div><b>${safe(v2CustomerName(c))}</b><br><small>${safe(v2CustomerEmail(c))}</small></div><span>${safe(v2CustomerPhone(c))}</span><i class="tag">${v2Date(rowDate(c))}</i></div>`).join('');
+    clientsEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Clientes registrados</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Base real de clientes de ThinkStore.com.ve.</p></article><article class="module-card"><h3>Fuente</h3><strong>${safe(data.tables.customers || 'No disponible')}</strong><p>Lectura segura desde Supabase.</p></article><article class="module-card"><h3>Correos</h3><strong>Intactos</strong><p>No modifica recuperación ni bienvenida.</p></article></div><div class="v2-toolbar"><input id="clientSearchV2" type="search" placeholder="Buscar cliente, correo o teléfono..." /></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Clientes recientes</h3></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin clientes visibles')}</div></article>`;
+    qs('clientSearchV2')?.addEventListener('input', e=>{const q=e.target.value.toLowerCase(); document.querySelectorAll('.v2-client').forEach(r=>r.style.display = r.textContent.toLowerCase().includes(q)?'':'none')});
+  }
+
+  const inventoryEl = qs('inventory');
+  if(inventoryEl){
+    const rows = data.products.map(p=>{ const stock = v2ProductStock(p); const label = stock === null ? 'Sin stock' : stock <= 0 ? 'Agotado' : stock <= 2 ? 'Stock bajo' : 'Disponible'; return `<div class="table-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span class="status-dot ${stock === null ? 'info' : stock <= 2 ? 'warn':'ok'}">${safe(label)}</span><i class="tag">${stock === null ? formatUSD(v2ProductPrice(p)) : `Stock ${stock}`}</i></div>`; }).join('');
+    inventoryEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Productos conectados</h3><strong>${data.tables.products ? formatNumber(data.counts.products) : 'Pendiente'}</strong><p>${data.tables.products ? 'Tabla detectada en Supabase.' : 'No se detectó tabla productos; el catálogo actual sigue intacto en la tienda pública.'}</p></article><article class="module-card"><h3>Alertas de stock</h3><strong>${formatNumber(data.lowStock)}</strong><p>Visual, no cambia inventario.</p></article><article class="module-card"><h3>Modo inventario</h3><strong>Lectura</strong><p>No modifica stock ni fichas actuales.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Inventario visible</h3><span class="tag">Solo lectura</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin productos visibles')}</div></article>`;
+  }
+
+  const productsEl = qs('products');
+  if(productsEl){
+    const rows = data.products.slice(0,20).map(p=>`<div class="table-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span>${formatUSD(v2ProductPrice(p))}</span><i class="tag">${v2ProductStock(p) === null ? 'Catálogo' : `Stock ${v2ProductStock(p)}`}</i></div>`).join('');
+    productsEl.innerHTML = `<article class="panel"><div class="panel-head"><h3>Productos / catálogo</h3><span class="tag">No edita la tienda</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin productos visibles')}</div></article>`;
+  }
+
+  const financeEl = qs('finance');
+  if(financeEl){
+    financeEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ingresos registrados</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Estimado desde pedidos visibles.</p></article><article class="module-card"><h3>Comprobantes</h3><strong>${formatNumber(data.counts.payments)}</strong><p>Solo lectura; validación intacta.</p></article><article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>No dispara correos ni estados.</p></article></div>`;
+  }
+
+  const marketingEl = qs('marketing');
+  if(marketingEl){
+    marketingEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Base para campañas</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Clientes registrados disponibles para futuras segmentaciones.</p></article><article class="module-card"><h3>Resend</h3><strong>Intacto</strong><p>No se modifican API keys ni plantillas.</p></article><article class="module-card"><h3>Próxima fase</h3><strong>V4</strong><p>Campañas, VIP e inactivos con aprobación previa.</p></article></div>`;
+  }
+}
+
+function renderV2Reports(data){
+  const reportsEl = qs('reports');
+  if(reportsEl){
+    reportsEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Reporte ejecutivo</h3><strong>Listo</strong><p>Exporta métricas visibles de Enterprise.</p></article><article class="module-card"><h3>Tablas detectadas</h3><strong>${Object.values(data.tables).filter(Boolean).length}</strong><p>${safe(Object.entries(data.tables).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`).join(' · ') || 'Sin tablas detectadas')}</p></article><article class="module-card"><h3>Modo seguro</h3><strong>Activo</strong><p>Lectura únicamente.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Exportaciones</h3><button onclick="exportCSV('executive')">Exportar CSV</button></div><p class="staff-help">La exportación usa los datos visibles del panel y no modifica Supabase.</p></article>`;
+  }
+}
+
+
+/* ==========================================================
+   Enterprise V4 Funcional · CRM Real + Staff Manager + Finanzas + Inventario
+   - Sigue en modo seguro: solo lectura sobre Supabase
+   - No toca Resend, correos, notas de entrega, pagos ni estados
+   ========================================================== */
+(function(){
+  const DAY = 24 * 60 * 60 * 1000;
+  const todayStart = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+  const monthStart = () => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; };
+  const weekStart = () => { const d = todayStart(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d; };
+  const toDate = (value) => { const d = new Date(value || ''); return Number.isNaN(d.getTime()) ? null : d; };
+  const within = (row, start) => { const d = toDate(v2OrderDate(row) || rowDate(row)); return d ? d >= start : false; };
+  const emailKey = (value) => String(value || '').trim().toLowerCase();
+
+  window.enterpriseV3State = { customerProfiles: [], selectedCustomerEmail: null };
+
+  function getOrderCustomerEmail(row){ return emailKey(rowCustomerEmail(row) || pick(row,['cliente_email','customerEmail','email_cliente'])); }
+  function getOrderCustomerName(row){ return rowCustomerName(row) || pick(row,['cliente_nombre','customerName']) || 'Cliente'; }
+
+  function buildCustomerProfiles(data){
+    const customerMap = new Map();
+    (data.recentCustomers || []).forEach(c => {
+      const email = emailKey(v2CustomerEmail(c));
+      const key = email || `cliente-${pick(c,['id','uid','uuid']) || customerMap.size}`;
+      customerMap.set(key, {
+        id: pick(c,['id','uid','uuid']) || key,
+        name: v2CustomerName(c),
+        email: email || v2CustomerEmail(c),
+        phone: v2CustomerPhone(c),
+        createdAt: rowDate(c) || pick(c,['createdAt','fecha_registro','fecha']),
+        orders: [],
+        totalSpent: 0,
+        lastOrderDate: null,
+        status: 'Nuevo'
+      });
+    });
+
+    (data.recentOrders || []).forEach(order => {
+      const email = getOrderCustomerEmail(order);
+      const key = email || `pedido-cliente-${getOrderCustomerName(order)}`;
+      if(!customerMap.has(key)){
+        customerMap.set(key, {
+          id: key,
+          name: getOrderCustomerName(order),
+          email: email || rowCustomerEmail(order) || 'Sin correo',
+          phone: pick(order,['telefono','phone','whatsapp']) || '—',
+          createdAt: rowDate(order),
+          orders: [],
+          totalSpent: 0,
+          lastOrderDate: null,
+          status: 'Cliente'
+        });
+      }
+      const profile = customerMap.get(key);
+      const amount = orderTotal(order);
+      const date = toDate(v2OrderDate(order));
+      profile.orders.push(order);
+      profile.totalSpent += amount;
+      if(date && (!profile.lastOrderDate || date > profile.lastOrderDate)) profile.lastOrderDate = date;
+    });
+
+    return Array.from(customerMap.values()).map(profile => {
+      const daysSince = profile.lastOrderDate ? Math.floor((Date.now() - profile.lastOrderDate.getTime()) / DAY) : null;
+      const orderCount = profile.orders.length;
+      if(profile.totalSpent >= 1000 || orderCount >= 3) profile.status = 'VIP';
+      else if(daysSince !== null && daysSince > 90) profile.status = 'Inactivo';
+      else if(orderCount >= 2) profile.status = 'Frecuente';
+      else if(orderCount === 1) profile.status = 'Nuevo comprador';
+      else profile.status = 'Registrado';
+      profile.daysSince = daysSince;
+      return profile;
+    }).sort((a,b)=> b.totalSpent - a.totalSpent || b.orders.length - a.orders.length);
+  }
+
+  function calcV3Finance(data){
+    const orders = data.recentOrders || [];
+    const total = orders.reduce((sum,o)=>sum + orderTotal(o),0);
+    const today = orders.filter(o=>within(o,todayStart())).reduce((sum,o)=>sum + orderTotal(o),0);
+    const week = orders.filter(o=>within(o,weekStart())).reduce((sum,o)=>sum + orderTotal(o),0);
+    const month = orders.filter(o=>within(o,monthStart())).reduce((sum,o)=>sum + orderTotal(o),0);
+    const average = orders.length ? total / orders.length : 0;
+    return { total, today, week, month, average };
+  }
+
+  function statusBadge(status){
+    const cls = status === 'VIP' ? 'ok' : status === 'Inactivo' ? 'bad' : status === 'Frecuente' ? 'warn' : 'info';
+    return `<span class="status-dot ${cls}">${safe(status)}</span>`;
+  }
+
+  function renderCRM(data){
+    const el = qs('clients'); if(!el) return;
+    const profiles = buildCustomerProfiles(data);
+    window.enterpriseV3State.customerProfiles = profiles;
+    const vip = profiles.filter(c=>c.status === 'VIP').length;
+    const inactive = profiles.filter(c=>c.status === 'Inactivo').length;
+    const frequent = profiles.filter(c=>c.status === 'Frecuente' || c.status === 'VIP').length;
+    const totalSpent = profiles.reduce((sum,c)=>sum + c.totalSpent,0);
+    const rows = profiles.slice(0,80).map((c,idx)=>`
+      <div class="table-row crm-row v3-row" data-filter="${safe(c.status)}" data-search="${safe(`${c.name} ${c.email} ${c.phone} ${c.status}`)}" onclick="openCRMProfile(${idx})">
+        <div><b>${safe(c.name)}</b><br><small>${safe(c.email)} · ${safe(c.phone)}</small></div>
+        <span>${formatUSD(c.totalSpent)} · ${c.orders.length} pedidos</span>
+        ${statusBadge(c.status)}
+      </div>`).join('');
+    el.innerHTML = `
+      <article class="panel safe-panel v3-hero">
+        <div class="panel-head"><h3>CRM Clientes ThinkStore</h3><span class="tag safe-tag">V4 · CRM real</span></div>
+        <p class="staff-help">Ficha comercial de clientes reales: compras, valor acumulado, segmento y última actividad. No modifica clientes, pedidos, correos ni Resend.</p>
+      </article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>Clientes CRM</h3><strong>${formatNumber(profiles.length || data.counts.customers)}</strong><p>Clientes detectados desde Supabase.</p></article>
+        <article class="module-card"><h3>Clientes VIP</h3><strong>${formatNumber(vip)}</strong><p>Alto valor o 3+ pedidos.</p></article>
+        <article class="module-card"><h3>Frecuentes</h3><strong>${formatNumber(frequent)}</strong><p>Clientes con recompra.</p></article>
+        <article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive)}</strong><p>Sin compra reciente.</p></article>
+        <article class="module-card"><h3>Valor visible</h3><strong>${formatUSD(totalSpent)}</strong><p>Sobre pedidos visibles por RLS.</p></article>
+        <article class="module-card"><h3>Marketing futuro</h3><strong>Preparado</strong><p>Segmentos listos sin enviar correos.</p></article>
+      </div>
+      <div class="v2-toolbar crm-toolbar">
+        <input id="crmSearch" type="search" placeholder="Buscar cliente, correo, teléfono o estado..." />
+        <button data-crm-filter="Todos">Todos</button>
+        <button data-crm-filter="VIP">VIP</button>
+        <button data-crm-filter="Frecuente">Frecuentes</button>
+        <button data-crm-filter="Inactivo">Inactivos</button>
+      </div>
+      <div class="main-grid" style="margin-top:18px">
+        <article class="panel"><div class="panel-head"><h3>Clientes y segmentos</h3><span class="tag">Lectura</span></div><div class="table" id="crmTable">${renderV2Table([rows].filter(Boolean),'Sin clientes visibles')}</div></article>
+        <article class="panel crm-profile-panel"><div class="panel-head"><h3>Ficha del cliente</h3><span class="tag">CRM</span></div><div id="crmProfileDetail" class="crm-detail-empty">Selecciona un cliente para ver compras, valor total y estado comercial.</div></article>
+      </div>`;
+
+    qs('crmSearch')?.addEventListener('input', filterCRMRows);
+    document.querySelectorAll('[data-crm-filter]').forEach(btn=>btn.addEventListener('click',()=>filterCRMRows(btn.dataset.crmFilter)));
+  }
+
+  window.openCRMProfile = function(index){
+    const c = window.enterpriseV3State.customerProfiles[index];
+    const detail = qs('crmProfileDetail'); if(!detail || !c) return;
+    const orders = c.orders.slice(0,8).map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${v2Date(v2OrderDate(o))} · ${safe(v2OrderStatus(o))}</small></div><span>${formatUSD(orderTotal(o))}</span><i class="tag">Pedido</i></div>`).join('');
+    detail.innerHTML = `
+      <div class="crm-detail-head">
+        <div class="crm-avatar">${safe((c.name || c.email || 'C').charAt(0).toUpperCase())}</div>
+        <div><h2>${safe(c.name)}</h2><p>${safe(c.email)} · ${safe(c.phone)}</p></div>
+      </div>
+      <div class="crm-mini-grid">
+        <article><span>Total gastado</span><b>${formatUSD(c.totalSpent)}</b></article>
+        <article><span>Pedidos</span><b>${formatNumber(c.orders.length)}</b></article>
+        <article><span>Última compra</span><b>${c.lastOrderDate ? v2Date(c.lastOrderDate) : 'Sin compra'}</b></article>
+        <article><span>Estado</span><b>${safe(c.status)}</b></article>
+      </div>
+      <div class="panel-head" style="margin-top:18px"><h3>Pedidos del cliente</h3><span class="tag">Solo lectura</span></div>
+      <div class="table">${orders || '<div class="table-row"><div><b>Sin pedidos visibles</b><br><small>Puede no tener compras o falta permiso de lectura.</small></div><span>—</span><i class="tag">Info</i></div>'}</div>
+      <p class="staff-help">Preparado para conectar garantías, soporte técnico e historial de reparaciones en una fase posterior.</p>`;
+  };
+
+  function filterCRMRows(forcedFilter){
+    const query = (qs('crmSearch')?.value || '').toLowerCase();
+    const active = forcedFilter || 'Todos';
+    document.querySelectorAll('#crmTable .crm-row').forEach(row=>{
+      const text = `${row.textContent} ${row.dataset.search || ''}`.toLowerCase();
+      const filter = row.dataset.filter || '';
+      const matchText = !query || text.includes(query);
+      const matchFilter = active === 'Todos' || filter === active || (active === 'Frecuente' && (filter === 'Frecuente' || filter === 'VIP'));
+      row.style.display = matchText && matchFilter ? '' : 'none';
+    });
+  }
+
+  function renderFinancePro(data){
+    const el = qs('finance'); if(!el) return;
+    const f = calcV3Finance(data);
+    const rows = (data.recentOrders || []).slice(0,15).map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${v2Date(v2OrderDate(o))}</small></div><span class="status-dot ${v2StatusClass(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v3-hero"><div class="panel-head"><h3>Finanzas Pro</h3><span class="tag safe-tag">Solo lectura</span></div><p class="staff-help">Indicadores financieros sobre pedidos visibles. No valida pagos, no cambia estados y no dispara correos.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(f.today)}</strong><p>Pedidos visibles del día.</p></article><article class="module-card"><h3>Ventas semana</h3><strong>${formatUSD(f.week)}</strong><p>Desde el lunes actual.</p></article><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(f.month || data.salesTotal)}</strong><p>Mes actual o total visible.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(f.average)}</strong><p>Promedio por pedido visible.</p></article><article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>Validación intacta.</p></article><article class="module-card"><h3>Comprobantes</h3><strong>${formatNumber(data.counts.payments)}</strong><p>Lectura desde Supabase.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Movimientos recientes</h3><span class="tag">No editable</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin movimientos visibles')}</div></article>`;
+  }
+
+  function renderInventoryPro(data){
+    const el = qs('inventory'); if(!el) return;
+    const products = data.products || [];
+    const low = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s > 0 && s <= 2; });
+    const zero = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s <= 0; });
+    const unknown = products.filter(p=>v2ProductStock(p) === null);
+    const rows = products.slice(0,80).map(p=>{
+      const stock = v2ProductStock(p);
+      const label = stock === null ? 'Sin campo stock' : stock <= 0 ? 'Agotado' : stock <= 2 ? 'Stock bajo' : 'Disponible';
+      return `<div class="table-row v3-inventory-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))} · ${formatUSD(v2ProductPrice(p))}</small></div><span class="status-dot ${stock === null ? 'info' : stock <= 0 ? 'bad' : stock <= 2 ? 'warn':'ok'}">${safe(label)}</span><i class="tag">${stock === null ? 'Catálogo' : `Stock ${stock}`}</i></div>`;
+    }).join('');
+    el.innerHTML = `<article class="panel safe-panel v3-hero"><div class="panel-head"><h3>Inventario Pro</h3><span class="tag safe-tag">Lectura segura</span></div><p class="staff-help">Alertas visuales de stock y catálogo. No modifica productos, precios ni existencias.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Productos visibles</h3><strong>${formatNumber(products.length || data.counts.products)}</strong><p>Fuente: ${safe(data.tables.products || 'no detectada')}.</p></article><article class="module-card"><h3>Stock bajo</h3><strong>${formatNumber(low.length)}</strong><p>Productos con 1-2 unidades.</p></article><article class="module-card"><h3>Agotados</h3><strong>${formatNumber(zero.length)}</strong><p>Stock en 0 o menor.</p></article><article class="module-card"><h3>Sin campo stock</h3><strong>${formatNumber(unknown.length)}</strong><p>Productos de catálogo sin cantidad.</p></article><article class="module-card"><h3>Modo edición</h3><strong>Desactivado</strong><p>Protegemos la tienda actual.</p></article><article class="module-card"><h3>Reposición</h3><strong>Preparada</strong><p>Próxima fase con aprobación.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Inventario y alertas</h3><span class="tag">Solo lectura</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin productos visibles')}</div></article>`;
+  }
+
+  function renderMarketingPrepared(data){
+    const el = qs('marketing'); if(!el) return;
+    const profiles = window.enterpriseV3State.customerProfiles?.length ? window.enterpriseV3State.customerProfiles : buildCustomerProfiles(data);
+    const vip = profiles.filter(c=>c.status === 'VIP').length;
+    const inactive = profiles.filter(c=>c.status === 'Inactivo').length;
+    const newBuyers = profiles.filter(c=>c.status === 'Nuevo comprador' || c.status === 'Registrado').length;
+    el.innerHTML = `<article class="panel safe-panel v3-hero"><div class="panel-head"><h3>Marketing Center</h3><span class="tag safe-tag">Preparado · sin envío</span></div><p class="staff-help">Segmentación lista para campañas futuras. No toca Resend, API keys ni plantillas actuales.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Audiencia total</h3><strong>${formatNumber(profiles.length || data.counts.customers)}</strong><p>Clientes visibles para segmentación.</p></article><article class="module-card"><h3>Clientes VIP</h3><strong>${formatNumber(vip)}</strong><p>Campaña premium futura.</p></article><article class="module-card"><h3>Clientes inactivos</h3><strong>${formatNumber(inactive)}</strong><p>Recuperación futura.</p></article><article class="module-card"><h3>Nuevos clientes</h3><strong>${formatNumber(newBuyers)}</strong><p>Bienvenida y fidelización futura.</p></article><article class="module-card"><h3>Resend</h3><strong>Intacto</strong><p>ventas@ y soporte@ sin cambios.</p></article><article class="module-card"><h3>Envíos</h3><strong>Bloqueados</strong><p>Solo diseño y preparación.</p></article></div>`;
+  }
+
+  function renderBIReports(data){
+    const el = qs('reports'); if(!el) return;
+    const profiles = window.enterpriseV3State.customerProfiles || buildCustomerProfiles(data);
+    const topCustomer = profiles[0];
+    const topProduct = (data.products || []).slice().sort((a,b)=> (v2ProductPrice(b)||0) - (v2ProductPrice(a)||0))[0];
+    el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Cliente de mayor valor</h3><strong>${safe(topCustomer?.name || 'Pendiente')}</strong><p>${topCustomer ? `${formatUSD(topCustomer.totalSpent)} visibles` : 'Sin datos visibles'}.</p></article><article class="module-card"><h3>Producto premium</h3><strong>${safe(topProduct ? v2ProductName(topProduct) : 'Pendiente')}</strong><p>${topProduct ? formatUSD(v2ProductPrice(topProduct)) : 'Sin catálogo visible'}.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(calcV3Finance(data).average)}</strong><p>Pedidos visibles.</p></article><article class="module-card"><h3>Clientes VIP</h3><strong>${formatNumber(profiles.filter(c=>c.status==='VIP').length)}</strong><p>Segmento de alto valor.</p></article><article class="module-card"><h3>Modo seguro</h3><strong>Activo</strong><p>Reportes sin escritura.</p></article><article class="module-card"><h3>Exportación</h3><strong>Lista</strong><p>CSV ejecutivo disponible.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Business Intelligence preparado</h3><button onclick="exportCSV('executive')">Exportar CSV</button></div><p class="staff-help">Los indicadores se calculan sobre datos que Enterprise puede leer por permisos actuales. No modifica base de datos.</p></article>`;
+  }
+
+  const previousLoadEnterprise = window.loadEnterpriseV1Real || loadEnterpriseV1Real;
+  window.loadEnterpriseV1Real = loadEnterpriseV1Real = async function(){
+    const data = await previousLoadEnterprise();
+    if(!data) return data;
+    data.version = 'V4';
+    renderCRM(data);
+    renderFinancePro(data);
+    renderInventoryPro(data);
+    renderMarketingPrepared(data);
+    renderBIReports(data);
+    return data;
+  };
+
+  const oldSwitchView = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    oldSwitchView(id);
+    if(enterpriseRealCache){
+      if(id === 'clients') renderCRM(enterpriseRealCache);
+      if(id === 'finance') renderFinancePro(enterpriseRealCache);
+      if(id === 'inventory') renderInventoryPro(enterpriseRealCache);
+      if(id === 'marketing') renderMarketingPrepared(enterpriseRealCache);
+      if(id === 'reports') renderBIReports(enterpriseRealCache);
+    }
+  };
+})();
+
+
+/* ==========================================================
+   Enterprise V4 Funcional · Estado de activación
+   Módulos activos en modo seguro: CRM real, Staff Manager, Finanzas e Inventario.
+   No toca Resend, correos, notas de entrega ni panel administrador actual.
+   ========================================================== */
+(function(){
+  function renderV4SecurityStatus(){
+    const el = qs('settings');
+    if(!el) return;
+    el.innerHTML = `
+      <article class="panel safe-panel v3-hero">
+        <div class="panel-head"><h3>Seguridad y activación Enterprise V4</h3><span class="tag safe-tag">Operativo seguro</span></div>
+        <p class="staff-help">Enterprise funciona con Supabase Auth y roles. Esta versión mantiene protegidos Resend, pedidos, notas de entrega, recuperación de contraseña y el panel administrador actual.</p>
+      </article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>CRM Clientes</h3><strong>Activo</strong><p>Lee clientes y pedidos visibles sin modificar datos.</p></article>
+        <article class="module-card"><h3>Staff Manager</h3><strong>Activo</strong><p>Gestiona roles_usuarios y staff_invitations.</p></article>
+        <article class="module-card"><h3>Finanzas Pro</h3><strong>Activo</strong><p>Calcula métricas sobre pedidos visibles.</p></article>
+        <article class="module-card"><h3>Inventario Pro</h3><strong>Activo</strong><p>Lee productos/inventario si la tabla existe.</p></article>
+        <article class="module-card"><h3>Correos / Resend</h3><strong>Intacto</strong><p>No se tocan API keys, plantillas ni funciones.</p></article>
+        <article class="module-card"><h3>Panel actual</h3><strong>Respaldo</strong><p>La administración principal de ThinkStore no se modifica.</p></article>
+      </div>
+      <article class="panel" style="margin-top:18px">
+        <div class="panel-head"><h3>Reglas de seguridad aplicadas</h3><span class="tag">V4</span></div>
+        <div class="table">
+          <div class="table-row"><div><b>Sin migración de datos</b><br><small>Enterprise lee las tablas existentes: clientes, pedidos, comprobantes, roles_usuarios y staff_invitations.</small></div><span>Seguro</span><i class="tag">OK</i></div>
+          <div class="table-row"><div><b>Sin cambios en correos</b><br><small>ventas@thinkstore.com.ve y soporte@thinkstore.com.ve quedan con su configuración actual.</small></div><span>Intacto</span><i class="tag">OK</i></div>
+          <div class="table-row"><div><b>Staff controlado</b><br><small>Los accesos se administran desde roles_usuarios y staff_invitations.</small></div><span>Activo</span><i class="tag">OK</i></div>
+        </div>
+      </article>`;
+  }
+  const previousSwitchViewV4 = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    previousSwitchViewV4(id);
+    if(id === 'settings') renderV4SecurityStatus();
+  };
+})();
+
+
+/* ==========================================================
+   Enterprise V5 Completa · BI + CRM + Marketing Center
+   - Modo seguro: lectura sobre Supabase
+   - No modifica Resend, correos, pedidos, notas, comprobantes ni estados
+   ========================================================== */
+(function(){
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = () => new Date();
+  const startOfDay = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+  const startOfWeek = () => { const d = startOfDay(); const day = (d.getDay()+6)%7; d.setDate(d.getDate()-day); return d; };
+  const startOfMonth = () => { const d = startOfDay(); d.setDate(1); return d; };
+  const startOfYear = () => { const d = startOfDay(); d.setMonth(0,1); return d; };
+  const toDateV5 = (value) => { const d = new Date(value || ''); return Number.isNaN(d.getTime()) ? null : d; };
+  const emailKeyV5 = (value) => String(value || '').trim().toLowerCase();
+  const isAfterV5 = (value, start) => { const d = toDateV5(value); return d ? d >= start : false; };
+
+  const orderDateV5 = (o) => v2OrderDate(o) || rowDate(o) || pick(o,['fecha_creacion','createdAt','created']);
+  const customerDateV5 = (c) => rowDate(c) || pick(c,['createdAt','created','fecha_registro']);
+  const customerNameV5 = (c) => v2CustomerName(c) || pick(c,['nombre','name','full_name','cliente','customer_name']) || 'Cliente';
+  const customerEmailV5 = (c) => emailKeyV5(v2CustomerEmail(c) || pick(c,['email','correo','customer_email','cliente_email']));
+  const customerPhoneV5 = (c) => v2CustomerPhone(c) || pick(c,['telefono','phone','whatsapp','mobile']) || '—';
+  const orderEmailV5 = (o) => emailKeyV5(rowCustomerEmail(o) || pick(o,['email','correo','customer_email','cliente_email','email_cliente']));
+  const orderNameV5 = (o) => rowCustomerName(o) || pick(o,['cliente_nombre','customer_name','name','nombre']) || 'Cliente';
+
+  async function v5ReadTables(tableNames, limit=300){
+    for(const table of tableNames){
+      try{
+        let res = await getClient().from(table).select('*').order('created_at', { ascending:false }).limit(limit);
+        if(res.error) res = await getClient().from(table).select('*').limit(limit);
+        if(!res.error) return { table, data: res.data || [] };
+        console.warn(`[Enterprise V5] Lectura ${table}:`, res.error.message || res.error);
+      }catch(error){ console.warn(`[Enterprise V5] Lectura ${table}:`, error.message || error); }
+    }
+    return { table:null, data:[] };
+  }
+
+  function buildProfilesV5(data){
+    const map = new Map();
+    (data.recentCustomers || []).forEach(c=>{
+      const email = customerEmailV5(c) || `cliente-${pick(c,['id','uid']) || Math.random()}`;
+      if(!map.has(email)){
+        map.set(email, {
+          key: email,
+          name: customerNameV5(c),
+          email: customerEmailV5(c) || 'Sin correo',
+          phone: customerPhoneV5(c),
+          createdAt: customerDateV5(c),
+          orders: [],
+          totalSpent: 0,
+          lastOrderDate: null,
+          segment: 'Registrado',
+          notes: []
+        });
+      }
+    });
+    (data.recentOrders || []).forEach(o=>{
+      const email = orderEmailV5(o) || `pedido-${pick(o,['id','codigo','code']) || Math.random()}`;
+      if(!map.has(email)){
+        map.set(email, {
+          key: email,
+          name: orderNameV5(o),
+          email: orderEmailV5(o) || 'Sin correo',
+          phone: pick(o,['telefono','phone','whatsapp']) || '—',
+          createdAt: orderDateV5(o),
+          orders: [],
+          totalSpent: 0,
+          lastOrderDate: null,
+          segment: 'Cliente',
+          notes: []
+        });
+      }
+      const profile = map.get(email);
+      const amount = orderTotal(o);
+      const date = toDateV5(orderDateV5(o));
+      profile.orders.push(o);
+      profile.totalSpent += amount;
+      if(date && (!profile.lastOrderDate || date > profile.lastOrderDate)) profile.lastOrderDate = date;
+    });
+    return Array.from(map.values()).map(p=>{
+      const days = p.lastOrderDate ? Math.floor((Date.now() - p.lastOrderDate.getTime()) / DAY) : null;
+      const count = p.orders.length;
+      if(p.totalSpent >= 1200 || count >= 4) p.segment = 'VIP';
+      else if(count >= 2) p.segment = 'Frecuente';
+      else if(count === 1 && days !== null && days <= 45) p.segment = 'Nuevo comprador';
+      else if(days !== null && days > 90) p.segment = 'Inactivo';
+      else p.segment = p.email === 'Sin correo' ? 'Por identificar' : 'Registrado';
+      p.daysSince = days;
+      p.averageTicket = count ? p.totalSpent / count : 0;
+      return p;
+    }).sort((a,b)=> b.totalSpent - a.totalSpent || b.orders.length - a.orders.length || String(a.name).localeCompare(String(b.name)));
+  }
+
+  function v5Finance(data){
+    const orders = data.recentOrders || [];
+    const sum = (rows) => rows.reduce((total,o)=>total + orderTotal(o), 0);
+    const today = orders.filter(o=>isAfterV5(orderDateV5(o), startOfDay()));
+    const week = orders.filter(o=>isAfterV5(orderDateV5(o), startOfWeek()));
+    const month = orders.filter(o=>isAfterV5(orderDateV5(o), startOfMonth()));
+    const year = orders.filter(o=>isAfterV5(orderDateV5(o), startOfYear()));
+    const total = sum(orders);
+    const average = orders.length ? total / orders.length : 0;
+    return { today:sum(today), week:sum(week), month:sum(month), year:sum(year), total, average, todayCount:today.length, weekCount:week.length, monthCount:month.length, yearCount:year.length };
+  }
+
+  function orderStatusGroupsV5(data){
+    const groups = {};
+    (data.recentOrders || []).forEach(o=>{
+      const status = String(v2OrderStatus(o) || 'Sin estado').trim() || 'Sin estado';
+      groups[status] = (groups[status] || 0) + 1;
+    });
+    return Object.entries(groups).sort((a,b)=>b[1]-a[1]);
+  }
+
+  function productInsightsV5(data){
+    const products = data.products || [];
+    const items = data.orderItems || [];
+    const sold = new Map();
+    items.forEach(item=>{
+      const name = pick(item,['producto','producto_nombre','product_name','nombre','name','title','titulo','modelo','model']) || 'Producto';
+      const qty = Number(pick(item,['cantidad','qty','quantity','unidades']) || 1) || 1;
+      sold.set(name, (sold.get(name) || 0) + qty);
+    });
+    const topSold = Array.from(sold.entries()).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const low = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s > 0 && s <= 2; });
+    const zero = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s <= 0; });
+    const premium = products.slice().sort((a,b)=>v2ProductPrice(b)-v2ProductPrice(a)).slice(0,6);
+    return { topSold, low, zero, premium };
+  }
+
+  function renderV5CRM(data){
+    const el = qs('clients'); if(!el) return;
+    const profiles = buildProfilesV5(data);
+    window.enterpriseV5State = window.enterpriseV5State || {};
+    window.enterpriseV5State.profiles = profiles;
+    const totalSpent = profiles.reduce((sum,p)=>sum+p.totalSpent,0);
+    const vip = profiles.filter(p=>p.segment==='VIP').length;
+    const frequent = profiles.filter(p=>p.segment==='Frecuente' || p.segment==='VIP').length;
+    const inactive = profiles.filter(p=>p.segment==='Inactivo').length;
+    const newClients = profiles.filter(p=>isAfterV5(p.createdAt, startOfMonth())).length;
+    const rows = profiles.slice(0,120).map((p,idx)=>`
+      <div class="table-row crm-row v5-row" data-filter="${safe(p.segment)}" data-search="${safe(`${p.name} ${p.email} ${p.phone} ${p.segment}`)}" onclick="openV5CRMProfile(${idx})">
+        <div><b>${safe(p.name)}</b><br><small>${safe(p.email)} · ${safe(p.phone)}</small></div>
+        <span>${formatUSD(p.totalSpent)} · ${formatNumber(p.orders.length)} pedidos</span>
+        <i class="status-dot ${p.segment==='VIP'?'ok':p.segment==='Inactivo'?'bad':p.segment==='Frecuente'?'warn':'info'}">${safe(p.segment)}</i>
+      </div>`).join('');
+    el.innerHTML = `
+      <article class="panel safe-panel v5-hero"><div class="panel-head"><h3>CRM Clientes Completo</h3><span class="tag safe-tag">V5 · Operativo</span></div><p class="staff-help">Ficha única del cliente, valor comercial, segmentación y compras visibles. Modo lectura: no modifica clientes, pedidos, correos ni Resend.</p></article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>Clientes CRM</h3><strong>${formatNumber(profiles.length || data.counts.customers)}</strong><p>Clientes detectados en Supabase.</p></article>
+        <article class="module-card"><h3>VIP</h3><strong>${formatNumber(vip)}</strong><p>Alto valor o 4+ pedidos.</p></article>
+        <article class="module-card"><h3>Frecuentes</h3><strong>${formatNumber(frequent)}</strong><p>Clientes con recompra.</p></article>
+        <article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive)}</strong><p>Sin compra reciente.</p></article>
+        <article class="module-card"><h3>Nuevos este mes</h3><strong>${formatNumber(newClients)}</strong><p>Fecha de registro visible.</p></article>
+        <article class="module-card"><h3>Valor visible</h3><strong>${formatUSD(totalSpent)}</strong><p>Pedidos visibles por permisos actuales.</p></article>
+      </div>
+      <div class="v2-toolbar crm-toolbar"><input id="crmSearch" type="search" placeholder="Buscar cliente, correo, teléfono o segmento..." /><button data-v5-crm="Todos">Todos</button><button data-v5-crm="VIP">VIP</button><button data-v5-crm="Frecuente">Frecuentes</button><button data-v5-crm="Inactivo">Inactivos</button></div>
+      <div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Clientes y segmentos</h3><span class="tag">Lectura</span></div><div class="table" id="crmTable">${renderV2Table([rows].filter(Boolean),'Sin clientes visibles')}</div></article><article class="panel crm-profile-panel"><div class="panel-head"><h3>Ficha 360 del cliente</h3><span class="tag">CRM</span></div><div id="crmProfileDetail" class="crm-detail-empty">Selecciona un cliente para ver valor, compras, frecuencia, segmento y preparación para soporte.</div></article></div>`;
+    qs('crmSearch')?.addEventListener('input', filterV5CRM);
+    document.querySelectorAll('[data-v5-crm]').forEach(btn=>btn.addEventListener('click',()=>filterV5CRM(btn.dataset.v5Crm)));
+  }
+
+  window.openV5CRMProfile = function(index){
+    const p = window.enterpriseV5State?.profiles?.[index];
+    const detail = qs('crmProfileDetail'); if(!p || !detail) return;
+    const orders = p.orders.slice(0,10).map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${v2Date(orderDateV5(o))} · ${safe(v2OrderStatus(o))}</small></div><span>${formatUSD(orderTotal(o))}</span><i class="tag">Pedido</i></div>`).join('');
+    detail.innerHTML = `<div class="crm-detail-head"><div class="crm-avatar">${safe((p.name || p.email || 'C').charAt(0).toUpperCase())}</div><div><h2>${safe(p.name)}</h2><p>${safe(p.email)} · ${safe(p.phone)}</p></div></div><div class="crm-mini-grid"><article><span>Total gastado</span><b>${formatUSD(p.totalSpent)}</b></article><article><span>Ticket promedio</span><b>${formatUSD(p.averageTicket)}</b></article><article><span>Pedidos</span><b>${formatNumber(p.orders.length)}</b></article><article><span>Última compra</span><b>${p.lastOrderDate ? v2Date(p.lastOrderDate) : 'Sin compra'}</b></article><article><span>Segmento</span><b>${safe(p.segment)}</b></article><article><span>Días sin compra</span><b>${p.daysSince === null ? '—' : formatNumber(p.daysSince)}</b></article></div><div class="panel-head" style="margin-top:18px"><h3>Historial comercial</h3><span class="tag">Solo lectura</span></div><div class="table">${orders || '<div class="table-row"><div><b>Sin pedidos visibles</b><br><small>Puede no tener compras o falta permiso de lectura.</small></div><span>—</span><i class="tag">Info</i></div>'}</div><p class="staff-help">V6 conectará compras + garantías + reparaciones + historial técnico sin mezclar bases todavía.</p>`;
+  };
+
+  function filterV5CRM(forced){
+    const query = (qs('crmSearch')?.value || '').toLowerCase();
+    const active = forced || 'Todos';
+    document.querySelectorAll('#crmTable .crm-row').forEach(row=>{
+      const text = `${row.textContent} ${row.dataset.search || ''}`.toLowerCase();
+      const filter = row.dataset.filter || '';
+      const matchText = !query || text.includes(query);
+      const matchFilter = active === 'Todos' || filter === active || (active === 'Frecuente' && (filter === 'Frecuente' || filter === 'VIP'));
+      row.style.display = matchText && matchFilter ? '' : 'none';
+    });
+  }
+
+  function renderV5Finance(data){
+    const el = qs('finance'); if(!el) return;
+    const f = v5Finance(data);
+    const statusRows = orderStatusGroupsV5(data).slice(0,8).map(([status,count])=>`<div class="table-row"><div><b>${safe(status)}</b><br><small>Pedidos por estado visible</small></div><span>${formatNumber(count)}</span><i class="tag">Estado</i></div>`).join('');
+    const recent = (data.recentOrders || []).slice(0,12).map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(orderNameV5(o))} · ${v2Date(orderDateV5(o))}</small></div><span class="status-dot ${v2StatusClass(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Finanzas Completas</h3><span class="tag safe-tag">V5 · Solo lectura</span></div><p class="staff-help">Ventas por período, ticket promedio, pagos pendientes y estados. No valida pagos, no cambia estados y no dispara correos.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(f.today)}</strong><p>${formatNumber(f.todayCount)} pedidos visibles.</p></article><article class="module-card"><h3>Ventas semana</h3><strong>${formatUSD(f.week)}</strong><p>${formatNumber(f.weekCount)} pedidos visibles.</p></article><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(f.month || data.salesTotal)}</strong><p>${formatNumber(f.monthCount)} pedidos visibles.</p></article><article class="module-card"><h3>Ventas año</h3><strong>${formatUSD(f.year || data.salesTotal)}</strong><p>${formatNumber(f.yearCount)} pedidos visibles.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(f.average)}</strong><p>Promedio visible.</p></article><article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>Validación intacta.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Movimientos recientes</h3><span class="tag">No editable</span></div><div class="table">${renderV2Table([recent].filter(Boolean),'Sin movimientos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Pedidos por estado</h3><span class="tag">BI</span></div><div class="table">${renderV2Table([statusRows].filter(Boolean),'Sin estados visibles')}</div></article></div>`;
+  }
+
+  function renderV5Inventory(data){
+    const el = qs('inventory'); if(!el) return;
+    const products = data.products || [];
+    const insights = productInsightsV5(data);
+    const rows = products.slice(0,120).map(p=>{ const stock=v2ProductStock(p); const label=stock===null?'Sin campo stock':stock<=0?'Agotado':stock<=2?'Stock bajo':'Disponible'; return `<div class="table-row v3-inventory-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))} · ${formatUSD(v2ProductPrice(p))}</small></div><span class="status-dot ${stock===null?'info':stock<=0?'bad':stock<=2?'warn':'ok'}">${safe(label)}</span><i class="tag">${stock===null?'Catálogo':`Stock ${stock}`}</i></div>`; }).join('');
+    const topRows = insights.topSold.map(([name,qty])=>`<div class="table-row"><div><b>${safe(name)}</b><br><small>Detectado desde items de pedido si la tabla está disponible.</small></div><span>${formatNumber(qty)} unidades</span><i class="tag">Top</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Inventario Pro Completo</h3><span class="tag safe-tag">V5 · Lectura</span></div><p class="staff-help">Stock, agotados, alertas y rotación preparada. No modifica productos, precios, existencias ni catálogo público.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Productos visibles</h3><strong>${formatNumber(products.length || data.counts.products)}</strong><p>Fuente: ${safe(data.tables.products || 'no detectada')}.</p></article><article class="module-card"><h3>Stock bajo</h3><strong>${formatNumber(insights.low.length)}</strong><p>Productos con 1-2 unidades.</p></article><article class="module-card"><h3>Agotados</h3><strong>${formatNumber(insights.zero.length)}</strong><p>Stock en 0 o menor.</p></article><article class="module-card"><h3>Rotación detectada</h3><strong>${formatNumber(insights.topSold.length)}</strong><p>Si hay order_items/pedido_items.</p></article><article class="module-card"><h3>Producto premium</h3><strong>${safe(insights.premium[0] ? v2ProductName(insights.premium[0]) : 'Pendiente')}</strong><p>${insights.premium[0] ? formatUSD(v2ProductPrice(insights.premium[0])) : 'Sin catálogo visible'}.</p></article><article class="module-card"><h3>Edición</h3><strong>Bloqueada</strong><p>Protegemos operación actual.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Inventario y alertas</h3><span class="tag">Solo lectura</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin productos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Más vendidos / rotación</h3><span class="tag">BI</span></div><div class="table">${renderV2Table([topRows].filter(Boolean),'Sin datos de items todavía')}</div></article></div>`;
+  }
+
+  function renderV5Marketing(data){
+    const el = qs('marketing'); if(!el) return;
+    const profiles = buildProfilesV5(data);
+    const vip = profiles.filter(p=>p.segment==='VIP');
+    const frequent = profiles.filter(p=>p.segment==='Frecuente' || p.segment==='VIP');
+    const inactive = profiles.filter(p=>p.segment==='Inactivo');
+    const newer = profiles.filter(p=>isAfterV5(p.createdAt, startOfMonth()) || p.segment==='Nuevo comprador');
+    const preorders = data.counts?.preorders || 0;
+    const audienceRows = [
+      ['Clientes VIP', vip.length, 'Campañas premium y lanzamientos Apple'],
+      ['Clientes frecuentes', frequent.length, 'Recompra y accesorios'],
+      ['Clientes inactivos', inactive.length, 'Recuperación futura'],
+      ['Clientes nuevos', newer.length, 'Fidelización y bienvenida'],
+      ['Preórdenes', preorders, 'Seguimiento de expectativa']
+    ].map(([name,count,desc])=>`<div class="table-row"><div><b>${safe(name)}</b><br><small>${safe(desc)}</small></div><span>${formatNumber(count)}</span><i class="tag">Audiencia</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Marketing Center Completo</h3><span class="tag safe-tag">Preparado · sin envío</span></div><p class="staff-help">Audiencias, segmentos y campañas preparadas. No toca Resend, API keys, plantillas, ventas@ ni soporte@.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Audiencia total</h3><strong>${formatNumber(profiles.length || data.counts.customers)}</strong><p>Clientes visibles.</p></article><article class="module-card"><h3>VIP</h3><strong>${formatNumber(vip.length)}</strong><p>Alto valor.</p></article><article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive.length)}</strong><p>Recuperación futura.</p></article><article class="module-card"><h3>Nuevos</h3><strong>${formatNumber(newer.length)}</strong><p>Bienvenida y fidelización.</p></article><article class="module-card"><h3>Campañas</h3><strong>Preparadas</strong><p>Newsletter, promociones, lanzamientos.</p></article><article class="module-card"><h3>Resend</h3><strong>Intacto</strong><p>Sin envío automático.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Audiencias listas</h3><span class="tag">Segmentación</span></div><div class="table">${audienceRows}</div></article><article class="panel"><div class="panel-head"><h3>Campañas preparadas</h3><span class="tag">Bloqueadas</span></div><div class="table"><div class="table-row"><div><b>Lanzamientos Apple</b><br><small>iPhone, MacBook, AirPods y Watch.</small></div><span>Lista</span><i class="tag">Draft</i></div><div class="table-row"><div><b>Clientes VIP</b><br><small>Ofertas premium y acceso anticipado.</small></div><span>Lista</span><i class="tag">Draft</i></div><div class="table-row"><div><b>Recuperación de clientes</b><br><small>Clientes sin compra reciente.</small></div><span>Lista</span><i class="tag">Draft</i></div></div></article></div>`;
+  }
+
+  function renderV5BI(data){
+    const el = qs('reports'); if(!el) return;
+    const profiles = buildProfilesV5(data);
+    const f = v5Finance(data);
+    const products = productInsightsV5(data);
+    const topCustomer = profiles[0];
+    const statuses = orderStatusGroupsV5(data).slice(0,8).map(([s,c])=>`<div class="table-row"><div><b>${safe(s)}</b><br><small>Estado de pedido visible</small></div><span>${formatNumber(c)}</span><i class="tag">Estado</i></div>`).join('');
+    const topProducts = products.topSold.length ? products.topSold.map(([n,q])=>`<div class="table-row"><div><b>${safe(n)}</b><br><small>Rotación por items visibles</small></div><span>${formatNumber(q)}</span><i class="tag">Top</i></div>`).join('') : products.premium.map(p=>`<div class="table-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span>${formatUSD(v2ProductPrice(p))}</span><i class="tag">Catálogo</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Business Intelligence Completo</h3><span class="tag safe-tag">V5 · Lectura</span></div><p class="staff-help">KPIs, clientes top, productos, estados y reportes ejecutivos sobre datos visibles. No escribe en Supabase.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(f.month || data.salesTotal)}</strong><p>Periodo actual visible.</p></article><article class="module-card"><h3>Ventas año</h3><strong>${formatUSD(f.year || data.salesTotal)}</strong><p>Acumulado visible.</p></article><article class="module-card"><h3>Cliente top</h3><strong>${safe(topCustomer?.name || 'Pendiente')}</strong><p>${topCustomer ? formatUSD(topCustomer.totalSpent) : 'Sin datos visibles'}.</p></article><article class="module-card"><h3>Clientes VIP</h3><strong>${formatNumber(profiles.filter(p=>p.segment==='VIP').length)}</strong><p>Segmento premium.</p></article><article class="module-card"><h3>Stock crítico</h3><strong>${formatNumber(products.low.length + products.zero.length)}</strong><p>Bajo + agotado.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(f.average)}</strong><p>Pedidos visibles.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Productos / rotación</h3><span class="tag">BI</span></div><div class="table">${renderV2Table([topProducts].filter(Boolean),'Sin productos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Pedidos por estado</h3><span class="tag">BI</span></div><div class="table">${renderV2Table([statuses].filter(Boolean),'Sin estados visibles')}</div></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Exportación ejecutiva</h3><button onclick="exportCSV('executive')">Exportar CSV</button></div><p class="staff-help">Exporta datos visibles de Enterprise. No modifica ni sincroniza datos.</p></article>`;
+  }
+
+  function renderV5Settings(){
+    const el = qs('settings'); if(!el) return;
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Seguridad y activación Enterprise V5</h3><span class="tag safe-tag">Completa · modo seguro</span></div><p class="staff-help">V5 completa CRM, BI, Finanzas, Inventario, Marketing Center y Staff Manager sin tocar la operación actual de ThinkStore.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>CRM Completo</h3><strong>Activo</strong><p>Ficha cliente, segmentos y valor.</p></article><article class="module-card"><h3>BI Completo</h3><strong>Activo</strong><p>KPIs, top clientes/productos y estados.</p></article><article class="module-card"><h3>Finanzas</h3><strong>Activo</strong><p>Ventas por periodo y ticket promedio.</p></article><article class="module-card"><h3>Inventario Pro</h3><strong>Activo</strong><p>Alertas, agotados y rotación preparada.</p></article><article class="module-card"><h3>Marketing Center</h3><strong>Preparado</strong><p>Audiencias sin envío ni Resend.</p></article><article class="module-card"><h3>Panel actual</h3><strong>Respaldo</strong><p>ThinkStore principal queda intacto.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Blindaje aplicado</h3><span class="tag">V5</span></div><div class="table"><div class="table-row"><div><b>Sin escrituras en pedidos</b><br><small>No cambia estados, pagos, preórdenes ni notas de entrega.</small></div><span>Seguro</span><i class="tag">OK</i></div><div class="table-row"><div><b>Resend intacto</b><br><small>No toca API keys, dominios ni plantillas.</small></div><span>Intacto</span><i class="tag">OK</i></div><div class="table-row"><div><b>Modo lectura</b><br><small>CRM, BI, inventario, finanzas y marketing solo consultan información visible.</small></div><span>Activo</span><i class="tag">OK</i></div></div></article>`;
+  }
+
+  const previousLoad = window.loadEnterpriseV1Real || loadEnterpriseV1Real;
+  window.loadEnterpriseV1Real = loadEnterpriseV1Real = async function(){
+    const data = await previousLoad();
+    if(!data) return data;
+    try{
+      const [ordersFull, customersFull, productsFull, paymentsFull, orderItems] = await Promise.all([
+        v5ReadTables(['orders','pedidos'], 500),
+        v5ReadTables(['customers','clientes'], 500),
+        v5ReadTables(['products','productos'], 500),
+        v5ReadTables(['comprobantes','payments','pagos'], 300),
+        v5ReadTables(['order_items','pedido_items'], 500)
+      ]);
+      if(ordersFull.data.length){ data.recentOrders = ordersFull.data; data.tables.orders = data.tables.orders || ordersFull.table; data.counts.orders = Math.max(data.counts.orders || 0, ordersFull.data.length); }
+      if(customersFull.data.length){ data.recentCustomers = customersFull.data; data.tables.customers = data.tables.customers || customersFull.table; data.counts.customers = Math.max(data.counts.customers || 0, customersFull.data.length); }
+      if(productsFull.data.length){ data.products = productsFull.data; data.tables.products = data.tables.products || productsFull.table; data.counts.products = Math.max(data.counts.products || 0, productsFull.data.length); }
+      if(paymentsFull.data.length){ data.recentPayments = paymentsFull.data; data.tables.payments = data.tables.payments || paymentsFull.table; data.counts.payments = Math.max(data.counts.payments || 0, paymentsFull.data.length); }
+      data.orderItems = orderItems.data || [];
+      data.tables.orderItems = orderItems.table;
+      data.version = 'V5';
+      const f = v5Finance(data);
+      data.salesTotal = f.month || f.total || data.salesTotal;
+      updateExecutiveReal(data);
+      renderCommercialControl(data);
+      renderV5CRM(data);
+      renderV5Finance(data);
+      renderV5Inventory(data);
+      renderV5Marketing(data);
+      renderV5BI(data);
+    }catch(error){ console.warn('[Enterprise V5] Refuerzo de datos:', error.message || error); }
+    return data;
+  };
+
+  const previousSwitch = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    previousSwitch(id);
+    if(!enterpriseRealCache) return;
+    if(id === 'clients') renderV5CRM(enterpriseRealCache);
+    if(id === 'finance') renderV5Finance(enterpriseRealCache);
+    if(id === 'inventory') renderV5Inventory(enterpriseRealCache);
+    if(id === 'marketing') renderV5Marketing(enterpriseRealCache);
+    if(id === 'reports') renderV5BI(enterpriseRealCache);
+    if(id === 'settings') renderV5Settings();
+  };
+})();
+
+/* ==========================================================
+   Enterprise V6 · Centro de Soporte + Cliente 360
+   - Conecta Enterprise con soporte.thinkstore.com.ve en modo seguro
+   - Solo lectura sobre service_orders / service_order_notes / service_users
+   - No modifica Resend, pedidos, comprobantes, notas de entrega ni estados
+   ========================================================== */
+const V6_TABLES = {
+  serviceOrders: ['service_orders','ordenes_servicio','support_orders','repair_orders'],
+  serviceNotes: ['service_order_notes','bitacora_servicio','service_notes','repair_notes'],
+  serviceUsers: ['service_users','support_users'],
+  customers: ['clientes','customers'],
+  orders: ['pedidos','orders'],
+  payments: ['comprobantes','payments','payment_receipts'],
+  products: ['productos','products','catalogo']
+};
+let enterpriseV6Cache = null;
+
+async function readFirstAvailable(tableNames, options={}){
+  const client = getClient();
+  const names = Array.isArray(tableNames) ? tableNames : [tableNames];
+  const limit = options.limit ?? 80;
+  const select = options.select || '*';
+  const orderBy = options.orderBy || 'created_at';
+  for(const tableName of names){
+    try{
+      let query = client.from(tableName).select(select).limit(limit);
+      if(options.order !== false){ query = query.order(orderBy, { ascending:false }); }
+      const { data, error } = await query;
+      if(error) throw error;
+      return { table:tableName, data:data || [], error:null };
+    }catch(error){
+      console.warn(`V6: no se pudo leer ${tableName}:`, error.message || error);
+    }
+  }
+  return { table:null, data:[], error:'No disponible o sin permisos RLS' };
+}
+async function countFirstAvailable(tableNames){
+  const names = Array.isArray(tableNames) ? tableNames : [tableNames];
+  for(const tableName of names){
+    try{
+      const { count, error } = await getClient().from(tableName).select('*', { count:'exact', head:true });
+      if(error) throw error;
+      return { table:tableName, count:count || 0 };
+    }catch(error){ console.warn(`V6 count ${tableName}:`, error.message || error); }
+  }
+  return { table:null, count:0 };
+}
+function supportCode(row){ return pick(row,['code','codigo','order_code','numero','id']) || 'Orden'; }
+function supportClient(row){ return pick(row,['client_name','cliente','customer_name','nombre']) || 'Cliente'; }
+function supportEmail(row){ return pick(row,['client_email','email','correo','customer_email']) || ''; }
+function supportPhone(row){ return pick(row,['client_phone','telefono','phone','whatsapp']) || ''; }
+function supportDevice(row){
+  const type = pick(row,['device_type','tipo_equipo','type']) || '';
+  const model = pick(row,['device_model','modelo','model','device']) || 'Equipo';
+  return `${type ? type + ' · ' : ''}${model}`;
+}
+function supportIssue(row){ return pick(row,['reported_issue','falla','issue','diagnostico','description']) || 'Sin detalle'; }
+function supportStatus(row){ return pick(row,['status','estado','estatus']) || 'Sin estado'; }
+function supportDate(row){ return pick(row,['created_at','fecha','date','updated_at']) || ''; }
+function supportWarrantyDays(row){
+  const raw = pick(row,['warranty_days','garantia_dias','warranty','garantia']);
+  const n = Number(String(raw ?? '').replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n) ? n : 0;
+}
+function daysSince(value){
+  const d = new Date(value);
+  if(Number.isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+function statusMatches(value, terms){
+  const st = normalizeStatus(value);
+  return terms.some(t => st.includes(normalizeStatus(t)));
+}
+function isSupportDelayed(row){
+  const status = supportStatus(row);
+  if(statusMatches(status, ['Entregado','Cancelado','No aprobado'])) return false;
+  const days = daysSince(supportDate(row));
+  return days !== null && days >= 5;
+}
+function isWarrantyActive(row){
+  const days = supportWarrantyDays(row);
+  const created = new Date(supportDate(row));
+  if(!days || Number.isNaN(created.getTime())) return false;
+  const expires = new Date(created.getTime() + days * 86400000);
+  return Date.now() <= expires.getTime();
+}
+function warrantyExpires(row){
+  const days = supportWarrantyDays(row);
+  const created = new Date(supportDate(row));
+  if(!days || Number.isNaN(created.getTime())) return 'Sin fecha';
+  return new Date(created.getTime() + days * 86400000).toLocaleDateString('es-VE');
+}
+function customerKey(row){
+  return String(supportEmail(row) || rowCustomerEmail(row) || v2CustomerEmail(row) || supportPhone(row) || v2CustomerPhone(row) || supportClient(row) || v2CustomerName(row)).toLowerCase().trim();
+}
+function buildCustomer360(customers=[], orders=[], serviceOrders=[]){
+  const map = new Map();
+  function ensure(key, base={}){
+    const id = key || String(base.email || base.phone || base.name || Math.random());
+    if(!map.has(id)) map.set(id, { key:id, name:base.name || 'Cliente', email:base.email || '', phone:base.phone || '', orders:[], services:[], total:0, lastDate:null });
+    const item = map.get(id);
+    if(base.name && item.name === 'Cliente') item.name = base.name;
+    if(base.email && !item.email) item.email = base.email;
+    if(base.phone && !item.phone) item.phone = base.phone;
+    return item;
+  }
+  customers.forEach(c=>{
+    const base = { name:v2CustomerName(c), email:v2CustomerEmail(c), phone:v2CustomerPhone(c) };
+    ensure(String(base.email || base.phone || base.name).toLowerCase(), base);
+  });
+  orders.forEach(o=>{
+    const base = { name:rowCustomerName(o), email:rowCustomerEmail(o), phone:pick(o,['telefono','phone','whatsapp']) || '' };
+    const item = ensure(String(base.email || base.phone || base.name).toLowerCase(), base);
+    item.orders.push(o);
+    item.total += orderTotal(o);
+    const dt = new Date(rowDate(o));
+    if(!Number.isNaN(dt.getTime()) && (!item.lastDate || dt > item.lastDate)) item.lastDate = dt;
+  });
+  serviceOrders.forEach(s=>{
+    const base = { name:supportClient(s), email:supportEmail(s), phone:supportPhone(s) };
+    const item = ensure(String(base.email || base.phone || base.name).toLowerCase(), base);
+    item.services.push(s);
+    const dt = new Date(supportDate(s));
+    if(!Number.isNaN(dt.getTime()) && (!item.lastDate || dt > item.lastDate)) item.lastDate = dt;
+  });
+  return Array.from(map.values()).sort((a,b)=>(b.total || 0) - (a.total || 0));
+}
+async function loadEnterpriseV6Support(){
+  if(!window.supabaseClient) return;
+  try{
+    const [serviceRes, notesRes, techRes, customersRes, ordersRes, paymentsRes, productsCount] = await Promise.all([
+      readFirstAvailable(V6_TABLES.serviceOrders, { limit:120 }),
+      readFirstAvailable(V6_TABLES.serviceNotes, { limit:80 }),
+      readFirstAvailable(V6_TABLES.serviceUsers, { limit:60 }),
+      readFirstAvailable(V6_TABLES.customers, { limit:120 }),
+      readFirstAvailable(V6_TABLES.orders, { limit:120 }),
+      readFirstAvailable(V6_TABLES.payments, { limit:80 }),
+      countFirstAvailable(V6_TABLES.products)
+    ]);
+    const data = {
+      serviceTable: serviceRes.table,
+      notesTable: notesRes.table,
+      serviceUsersTable: techRes.table,
+      serviceOrders: serviceRes.data,
+      notes: notesRes.data,
+      serviceUsers: techRes.data,
+      customers: customersRes.data,
+      orders: ordersRes.data,
+      payments: paymentsRes.data,
+      productsCount: productsCount.count,
+      productsTable: productsCount.table
+    };
+    enterpriseV6Cache = data;
+    renderV6Support(data);
+    renderV6Client360(data);
+    renderV6Warranties(data);
+    renderV6Alerts(data);
+    renderV6ExecutiveSummary(data);
+  }catch(error){
+    console.error('V6 soporte:', error);
+    ['support','client360','warranties','alerts'].forEach(id=>{
+      const el = qs(id);
+      if(el) el.innerHTML = `<article class="panel"><div class="panel-head"><h3>Enterprise V6</h3><span class="tag">Error</span></div><p class="staff-help">No se pudo cargar V6: ${safe(error.message || error)}. No se modificó ninguna tabla.</p></article>`;
+    });
+  }
+}
+function renderV6ExecutiveSummary(data){
+  const delayed = data.serviceOrders.filter(isSupportDelayed).length;
+  const activeSupport = data.serviceOrders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado'])).length;
+  const ready = data.serviceOrders.filter(o=>statusMatches(supportStatus(o), ['Listo para entregar','Listo'])).length;
+  const pendingPayments = data.payments.filter(isPendingPayment).length;
+  const statusEl = qs('statusList');
+  if(statusEl){
+    statusEl.innerHTML = [
+      ['✓','Enterprise V6','Centro de Soporte activo'],
+      ['↗','Soporte abierto',`${activeSupport} órdenes`],
+      ['⚠','Equipos retrasados',`${delayed} alertas`],
+      ['▣','Listos para entrega',`${ready} equipos`],
+      ['◇','Pagos pendientes',`${pendingPayments} comprobantes`]
+    ].map(([i,n,s])=>`<div class="status-row"><i>${i}</i><b>${n}</b><span>${s}</span></div>`).join('');
+  }
+}
+function renderV6Support(data){
+  const el = qs('support'); if(!el) return;
+  const orders = data.serviceOrders || [];
+  const open = orders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado']));
+  const diagnosis = orders.filter(o=>statusMatches(supportStatus(o), ['Diagnóstico','diagnostico']));
+  const repair = orders.filter(o=>statusMatches(supportStatus(o), ['reparación','reparacion','aprobado']));
+  const ready = orders.filter(o=>statusMatches(supportStatus(o), ['Listo para entregar','Listo']));
+  const delayed = orders.filter(isSupportDelayed);
+  const recent = orders.slice(0,10).map(o=>`
+    <div class="table-row v6-row">
+      <div><b>${safe(supportCode(o))}</b><br><small>${safe(supportClient(o))} · ${safe(supportDevice(o))}</small></div>
+      <span class="status-dot ${v2StatusClass(supportStatus(o))}">${safe(supportStatus(o))}</span>
+      <i class="tag">${safe(v2Date(supportDate(o)))}</i>
+    </div>`).join('');
+  el.innerHTML = `
+    <article class="panel v6-hero">
+      <div class="panel-head"><h3>Centro de Soporte integrado</h3><span class="tag safe-tag">Solo lectura · soporte.thinkstore.com.ve</span></div>
+      <p class="staff-help">Enterprise V6 lee el estado del centro de soporte para llevar control ejecutivo. No cambia estados, no modifica bitácoras y no toca correos de soporte.</p>
+      <div class="v2-toolbar"><button onclick="window.open('https://soporte.thinkstore.com.ve','_blank','noopener')">Abrir Soporte Técnico</button><button onclick="loadEnterpriseV6Support()">Actualizar</button></div>
+    </article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Órdenes soporte</h3><strong>${formatNumber(orders.length)}</strong><p>Fuente: ${safe(data.serviceTable || 'service_orders no disponible')}</p></article>
+      <article class="module-card"><h3>Abiertas</h3><strong>${formatNumber(open.length)}</strong><p>En recepción, diagnóstico, reparación o logística.</p></article>
+      <article class="module-card"><h3>Diagnóstico</h3><strong>${formatNumber(diagnosis.length)}</strong><p>Equipos esperando revisión técnica.</p></article>
+      <article class="module-card"><h3>En reparación</h3><strong>${formatNumber(repair.length)}</strong><p>Aprobados o en proceso técnico.</p></article>
+      <article class="module-card"><h3>Listos</h3><strong>${formatNumber(ready.length)}</strong><p>Preparados para entregar al cliente.</p></article>
+      <article class="module-card"><h3>Retrasados</h3><strong>${formatNumber(delayed.length)}</strong><p>Más de 5 días sin entrega final.</p></article>
+    </div>
+    <div class="main-grid" style="margin-top:18px">
+      <article class="panel"><div class="panel-head"><h3>Órdenes recientes</h3><span class="tag">V6</span></div><div class="table">${recent || '<div class="table-row"><div><b>Sin órdenes visibles</b><br><small>Si soporte usa localStorage o RLS bloquea service_orders, Enterprise mostrará el enlace directo a Soporte.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>
+      <article class="panel"><div class="panel-head"><h3>Bitácora / técnicos</h3></div><div class="table">
+        <div class="table-row"><div><b>Notas técnicas</b><br><small>${safe(data.notesTable || 'service_order_notes no disponible')}</small></div><span>${formatNumber(data.notes.length)}</span><i class="tag">Notas</i></div>
+        <div class="table-row"><div><b>Usuarios soporte</b><br><small>${safe(data.serviceUsersTable || 'service_users no disponible')}</small></div><span>${formatNumber(data.serviceUsers.length)}</span><i class="tag">Equipo</i></div>
+        <div class="table-row"><div><b>Modo de integración</b><br><small>Lectura ejecutiva sin escribir en Soporte.</small></div><span>Seguro</span><i class="tag safe-tag">OK</i></div>
+      </div></article>
+    </div>`;
+}
+function renderV6Client360(data){
+  const el = qs('client360'); if(!el) return;
+  const list = buildCustomer360(data.customers, data.orders, data.serviceOrders).slice(0,12);
+  const rows = list.map(c=>`
+    <div class="table-row v6-row">
+      <div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')} · Último movimiento: ${c.lastDate ? c.lastDate.toLocaleDateString('es-VE') : '—'}</small></div>
+      <span>${formatNumber(c.orders.length)} pedidos · ${formatNumber(c.services.length)} soporte</span>
+      <i class="tag">${c.total >= 2000 ? 'VIP' : c.orders.length >= 2 ? 'Frecuente' : 'Cliente'}</i>
+    </div>`).join('');
+  el.innerHTML = `
+    <article class="panel v6-hero"><div class="panel-head"><h3>Cliente 360</h3><span class="tag safe-tag">Compras + soporte + garantías</span></div><p class="staff-help">Vista consolidada del cliente. Cruza clientes, pedidos y órdenes de soporte por correo, teléfono o nombre. Solo lectura.</p></article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Clientes unificados</h3><strong>${formatNumber(list.length)}</strong><p>Base visible combinada.</p></article>
+      <article class="module-card"><h3>Con compras</h3><strong>${formatNumber(list.filter(c=>c.orders.length).length)}</strong><p>Clientes con historial comercial.</p></article>
+      <article class="module-card"><h3>Con soporte</h3><strong>${formatNumber(list.filter(c=>c.services.length).length)}</strong><p>Clientes con equipos en soporte.</p></article>
+    </div>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Ficha 360 resumida</h3><button onclick="loadEnterpriseV6Support()">Actualizar</button></div><div class="table">${rows || '<div class="table-row"><div><b>Sin clientes para cruzar</b><br><small>Cuando existan clientes/pedidos/soporte visibles, aparecerán aquí.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>`;
+}
+function renderV6Warranties(data){
+  const el = qs('warranties'); if(!el) return;
+  const warrantyRows = data.serviceOrders.filter(o=>supportWarrantyDays(o) > 0).slice(0,12);
+  const active = warrantyRows.filter(isWarrantyActive);
+  const expired = warrantyRows.filter(o=>!isWarrantyActive(o));
+  const rows = warrantyRows.map(o=>`
+    <div class="table-row v6-row">
+      <div><b>${safe(supportClient(o))}</b><br><small>${safe(supportDevice(o))} · ${safe(supportCode(o))}</small></div>
+      <span>${formatNumber(supportWarrantyDays(o))} días · vence ${safe(warrantyExpires(o))}</span>
+      <i class="tag ${isWarrantyActive(o) ? 'safe-tag' : ''}">${isWarrantyActive(o) ? 'Activa' : 'Vencida'}</i>
+    </div>`).join('');
+  el.innerHTML = `
+    <article class="panel v6-hero"><div class="panel-head"><h3>Garantías</h3><span class="tag safe-tag">Preparado para servicio + ventas</span></div><p class="staff-help">Control visual de garantías asociadas a órdenes de soporte. No modifica fechas, estados ni notas.</p></article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Garantías detectadas</h3><strong>${formatNumber(warrantyRows.length)}</strong><p>Órdenes con días de garantía.</p></article>
+      <article class="module-card"><h3>Activas</h3><strong>${formatNumber(active.length)}</strong><p>Dentro del período estimado.</p></article>
+      <article class="module-card"><h3>Vencidas</h3><strong>${formatNumber(expired.length)}</strong><p>Fuera del período estimado.</p></article>
+    </div>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Garantías por equipo</h3></div><div class="table">${rows || '<div class="table-row"><div><b>Sin garantías visibles</b><br><small>Cuando soporte registre warranty_days, aparecerán aquí.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>`;
+}
+function renderV6Alerts(data){
+  const el = qs('alerts'); if(!el) return;
+  const pendingPayments = data.payments.filter(isPendingPayment);
+  const delayed = data.serviceOrders.filter(isSupportDelayed);
+  const ready = data.serviceOrders.filter(o=>statusMatches(supportStatus(o), ['Listo para entregar','Listo']));
+  const activeWarranties = data.serviceOrders.filter(isWarrantyActive);
+  const rows = [
+    ['Pagos pendientes', `${pendingPayments.length} comprobantes`, 'Revisar desde panel actual para no romper validación.', 'warn'],
+    ['Equipos retrasados', `${delayed.length} órdenes`, 'Más de 5 días sin entrega final.', delayed.length ? 'bad' : 'ok'],
+    ['Equipos listos', `${ready.length} para entregar`, 'Oportunidad de cierre y entrega.', 'info'],
+    ['Garantías activas', `${activeWarranties.length} equipos`, 'Control postventa.', 'ok'],
+    ['Productos visibles', `${data.productsCount} registros`, data.productsTable ? `Fuente: ${data.productsTable}` : 'Inventario no conectado todavía.', 'info'],
+    ['Correos automáticos', 'Intactos', 'Resend no se toca en V6.', 'ok']
+  ].map(([title,value,desc,kind])=>`
+    <div class="table-row v6-row"><div><b>${safe(title)}</b><br><small>${safe(desc)}</small></div><span class="status-dot ${kind}">${safe(value)}</span><i class="tag">V6</i></div>`).join('');
+  el.innerHTML = `
+    <article class="panel v6-hero"><div class="panel-head"><h3>Centro de Alertas</h3><span class="tag safe-tag">Operación ejecutiva</span></div><p class="staff-help">Alertas consolidadas de ventas, soporte, garantías e inventario. Todo en modo lectura.</p></article>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Alertas activas</h3><button onclick="loadEnterpriseV6Support()">Actualizar</button></div><div class="table">${rows}</div></article>`;
+}
+window.loadEnterpriseV6Support = loadEnterpriseV6Support;
+
+/* ==========================================================
+   Enterprise V7 + V8 · Finanzas avanzadas + ThinkStore AI
+   - Modo seguro: solo lectura y recomendaciones visuales
+   - No modifica Resend, correos, pedidos, comprobantes ni notas
+   ========================================================== */
+(function(){
+  titles.financeAdvanced = ["Finanzas Avanzadas", "Flujo de caja, metas, margen estimado y ranking comercial en modo lectura."];
+  titles.ai = ["ThinkStore AI", "Recomendaciones inteligentes sobre clientes, inventario, ventas y soporte sin modificar datos."];
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = () => new Date();
+  const startOfDay = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+  const startOfWeek = () => { const d = startOfDay(); const day = (d.getDay()+6)%7; d.setDate(d.getDate()-day); return d; };
+  const startOfMonth = () => { const d = startOfDay(); d.setDate(1); return d; };
+  const startOfYear = () => { const d = startOfDay(); d.setMonth(0,1); return d; };
+  const toDate = (value) => { const d = new Date(value || ''); return Number.isNaN(d.getTime()) ? null : d; };
+  const after = (value, start) => { const d = toDate(value); return d ? d >= start : false; };
+  const pct = (value, total) => total ? Math.min(100, Math.max(0, Math.round((Number(value || 0) / Number(total || 1)) * 100))) : 0;
+
+  function v78OrderDate(o){ return rowDate(o) || pick(o, ['fecha_creacion','createdAt','created','order_date']); }
+  function v78OrderStatus(o){ return pick(o, ['estado','status','estatus','payment_status']) || 'Sin estado'; }
+  function v78Email(value){ return String(value || '').trim().toLowerCase(); }
+  function v78CustomerEmailFromOrder(o){ return v78Email(rowCustomerEmail(o) || pick(o, ['correo','email','customer_email','cliente_email'])); }
+  function v78CustomerEmail(c){ return v78Email(pick(c, ['correo','email','customer_email']) || ''); }
+  function v78CustomerName(c){ return pick(c, ['nombre','name','full_name','cliente','display_name']) || 'Cliente'; }
+
+  function v78BuildProfiles(data){
+    const map = new Map();
+    (data?.recentCustomers || []).forEach(c=>{
+      const key = v78CustomerEmail(c) || `cliente-${pick(c, ['id','uid']) || Math.random()}`;
+      if(!map.has(key)) map.set(key, { key, name:v78CustomerName(c), email:v78CustomerEmail(c) || 'Sin correo', orders:[], total:0, last:null, created:rowDate(c), segment:'Registrado' });
+    });
+    (data?.recentOrders || []).forEach(o=>{
+      const key = v78CustomerEmailFromOrder(o) || `pedido-${pick(o, ['id','codigo','code']) || Math.random()}`;
+      if(!map.has(key)) map.set(key, { key, name:rowCustomerName(o), email:v78CustomerEmailFromOrder(o) || 'Sin correo', orders:[], total:0, last:null, created:v78OrderDate(o), segment:'Cliente' });
+      const p = map.get(key);
+      const amount = orderTotal(o);
+      const d = toDate(v78OrderDate(o));
+      p.orders.push(o);
+      p.total += amount;
+      if(d && (!p.last || d > p.last)) p.last = d;
+    });
+    return Array.from(map.values()).map(p=>{
+      const days = p.last ? Math.floor((Date.now() - p.last.getTime()) / DAY) : null;
+      if(p.total >= 1200 || p.orders.length >= 4) p.segment = 'VIP';
+      else if(days !== null && days > 90) p.segment = 'Inactivo';
+      else if(p.orders.length >= 2) p.segment = 'Frecuente';
+      else if(p.orders.length === 1) p.segment = 'Nuevo comprador';
+      p.days = days;
+      p.avg = p.orders.length ? p.total / p.orders.length : 0;
+      return p;
+    }).sort((a,b)=> b.total - a.total || b.orders.length - a.orders.length);
+  }
+
+  function v78Finance(data){
+    const orders = data?.recentOrders || [];
+    const sum = rows => rows.reduce((total,o)=>total + orderTotal(o), 0);
+    const todayRows = orders.filter(o=>after(v78OrderDate(o), startOfDay()));
+    const weekRows = orders.filter(o=>after(v78OrderDate(o), startOfWeek()));
+    const monthRows = orders.filter(o=>after(v78OrderDate(o), startOfMonth()));
+    const yearRows = orders.filter(o=>after(v78OrderDate(o), startOfYear()));
+    const total = sum(orders);
+    const pendingRows = orders.filter(isPendingPayment);
+    const pending = sum(pendingRows);
+    const preorders = orders.filter(o=>normalizeStatus(v78OrderStatus(o)).includes('preorden') || normalizeStatus(v78OrderStatus(o)).includes('preorder'));
+    const preorderValue = sum(preorders);
+    const month = sum(monthRows) || Number(data?.salesTotal || 0);
+    const estimatedGrossMargin = month * 0.28;
+    const estimatedNetMargin = month * 0.18;
+    return { today:sum(todayRows), week:sum(weekRows), month, year:sum(yearRows) || total, total, pending, pendingCount:pendingRows.length, preorderValue, preorderCount:preorders.length, average:orders.length ? total / orders.length : 0, estimatedGrossMargin, estimatedNetMargin, ordersCount:orders.length };
+  }
+
+  function v78ProductInsights(data){
+    const products = data?.products || [];
+    const items = data?.orderItems || [];
+    const sold = new Map();
+    items.forEach(item=>{
+      const name = pick(item, ['producto','producto_nombre','product_name','nombre','name','title','titulo','modelo','model']) || 'Producto';
+      const qty = Number(pick(item, ['cantidad','qty','quantity','unidades']) || 1) || 1;
+      sold.set(name, (sold.get(name) || 0) + qty);
+    });
+    const topSold = Array.from(sold.entries()).sort((a,b)=>b[1]-a[1]);
+    const low = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s > 0 && s <= 2; });
+    const zero = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s <= 0; });
+    const premium = products.slice().sort((a,b)=>v2ProductPrice(b)-v2ProductPrice(a)).slice(0,8);
+    const categories = new Map();
+    products.forEach(p=>{
+      const cat = v2ProductCategory(p);
+      categories.set(cat, (categories.get(cat) || 0) + 1);
+    });
+    return { topSold, low, zero, premium, categories:Array.from(categories.entries()).sort((a,b)=>b[1]-a[1]) };
+  }
+
+  function renderProgress(label, value, goal){
+    const p = pct(value, goal);
+    return `<div class="table-row v7-row"><div><b>${safe(label)}</b><br><small>${formatUSD(value)} de ${formatUSD(goal)}</small></div><span>${p}%</span><i class="tag">Meta</i></div><div class="goalbar"><i style="width:${p}%"></i></div>`;
+  }
+
+  function renderFinanceAdvanced(data){
+    const el = qs('financeAdvanced'); if(!el) return;
+    const f = v78Finance(data || enterpriseRealCache || {});
+    const monthGoal = 15000;
+    const quarterGoal = 45000;
+    const annualGoal = 180000;
+    const categories = v78ProductInsights(data || enterpriseRealCache || {}).categories.slice(0,8).map(([name,count])=>`<div class="table-row v7-row"><div><b>${safe(name)}</b><br><small>Categoría visible en catálogo.</small></div><span>${formatNumber(count)} productos</span><i class="tag">Categoría</i></div>`).join('');
+    const cashRows = [
+      ['Entradas visibles', f.month, 'Pedidos visibles del mes actual', 'ok'],
+      ['Cobranza pendiente', f.pending, `${f.pendingCount} registros por revisar`, f.pendingCount ? 'warn' : 'ok'],
+      ['Preórdenes comprometidas', f.preorderValue, `${f.preorderCount} preórdenes visibles`, 'info'],
+      ['Margen bruto estimado', f.estimatedGrossMargin, 'Estimación visual 28%; no modifica costos.', 'ok'],
+      ['Margen neto estimado', f.estimatedNetMargin, 'Estimación visual 18%; preparar costos reales en V7.2.', 'info']
+    ].map(([title,value,desc,kind])=>`<div class="table-row v7-row"><div><b>${safe(title)}</b><br><small>${safe(desc)}</small></div><span class="status-dot ${kind}">${formatUSD(value)}</span><i class="tag">V7</i></div>`).join('');
+    el.innerHTML = `
+      <article class="panel safe-panel v7-hero"><div class="panel-head"><h3>Centro Financiero Avanzado</h3><span class="tag safe-tag">V7 · solo lectura</span></div><p class="staff-help">Flujo de caja, metas, margen estimado y ranking comercial. No valida pagos, no cambia estados, no toca comprobantes, notas ni Resend.</p></article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(f.today)}</strong><p>Pedidos visibles del día.</p></article>
+        <article class="module-card"><h3>Ventas semana</h3><strong>${formatUSD(f.week)}</strong><p>Desde el lunes actual.</p></article>
+        <article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(f.month)}</strong><p>Indicador principal V7.</p></article>
+        <article class="module-card"><h3>Ventas año</h3><strong>${formatUSD(f.year)}</strong><p>Acumulado visible.</p></article>
+        <article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(f.average)}</strong><p>Promedio por pedido visible.</p></article>
+        <article class="module-card"><h3>Pagos pendientes</h3><strong>${formatUSD(f.pending)}</strong><p>${formatNumber(f.pendingCount)} por revisar.</p></article>
+      </div>
+      <div class="main-grid" style="margin-top:18px">
+        <article class="panel"><div class="panel-head"><h3>Flujo de caja ejecutivo</h3><span class="tag">Estimado</span></div><div class="table">${cashRows}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Metas comerciales</h3><span class="tag">V7</span></div><div class="table">${renderProgress('Meta mensual', f.month, monthGoal)}${renderProgress('Meta trimestral', f.month * 3, quarterGoal)}${renderProgress('Meta anual', f.year, annualGoal)}</div></article>
+      </div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Rentabilidad por categoría preparada</h3><span class="tag">Sin costos todavía</span></div><div class="table">${categories || '<div class="table-row"><div><b>Categorías pendientes</b><br><small>Cuando el catálogo tenga categorías visibles, aparecerán aquí.</small></div><span>—</span><i class="tag">Info</i></div>'}</div></article>`;
+  }
+
+  function buildAIRecommendations(data){
+    const profiles = v78BuildProfiles(data || {});
+    const finance = v78Finance(data || {});
+    const products = v78ProductInsights(data || {});
+    const support = window.enterpriseV6Cache || enterpriseV6Cache || null;
+    const delayedSupport = support?.serviceOrders ? support.serviceOrders.filter(isSupportDelayed).length : 0;
+    const inactive = profiles.filter(p=>p.segment === 'Inactivo');
+    const vip = profiles.filter(p=>p.segment === 'VIP');
+    const topCustomer = profiles[0];
+    const topProduct = products.topSold[0]?.[0] || products.premium[0] && v2ProductName(products.premium[0]);
+    const recs = [];
+    recs.push({kind: products.zero.length || products.low.length ? 'bad':'ok', title:'Reposición inteligente', value:`${products.zero.length + products.low.length} productos críticos`, detail: products.zero.length || products.low.length ? 'Revisar agotados y stock bajo antes de campañas.' : 'No se detectó stock crítico visible.'});
+    recs.push({kind: inactive.length ? 'warn':'ok', title:'Recuperación de clientes', value:`${inactive.length} inactivos`, detail:'Preparar campaña futura sin enviar correos todavía.'});
+    recs.push({kind:'ok', title:'Clientes VIP', value:`${vip.length} detectados`, detail: vip.length ? 'Crear ofertas premium y preventas exclusivas.' : 'Aún no hay suficientes datos para VIP.'});
+    recs.push({kind: finance.pendingCount ? 'warn':'ok', title:'Cobranza pendiente', value:`${finance.pendingCount} pagos`, detail:'Revisar desde el panel actual para mantener el flujo estable.'});
+    recs.push({kind: delayedSupport ? 'bad':'ok', title:'Soporte retrasado', value:`${delayedSupport} alertas`, detail:'Priorizar equipos con más de 5 días sin entrega final.'});
+    recs.push({kind:'info', title:'Producto recomendado', value: topProduct || 'Pendiente', detail: topProduct ? 'Úsalo como foco de campaña y reposición.' : 'Faltan items o productos visibles para recomendar.'});
+    recs.push({kind:'info', title:'Cliente top', value: topCustomer?.name || 'Pendiente', detail: topCustomer ? `${formatUSD(topCustomer.total)} visibles en pedidos.` : 'Sin historial suficiente.'});
+    return recs;
+  }
+
+  function renderThinkStoreAI(data){
+    const el = qs('ai'); if(!el) return;
+    const recs = buildAIRecommendations(data || enterpriseRealCache || {});
+    const cards = recs.map(r=>`<div class="table-row v8-row"><div><b>${safe(r.title)}</b><br><small>${safe(r.detail)}</small></div><span class="status-dot ${r.kind}">${safe(r.value)}</span><i class="tag">AI</i></div>`).join('');
+    const prompts = [
+      '¿Qué producto debo reponer primero?',
+      '¿Qué clientes debo recuperar esta semana?',
+      '¿Cuál es mi mayor riesgo operativo?',
+      '¿Qué segmento tiene más potencial?',
+      '¿Qué debería revisar antes de lanzar una promoción?'
+    ].map(q=>`<div class="table-row v8-row"><div><b>${safe(q)}</b><br><small>Pregunta preparada para ThinkStore AI. Respuesta basada en datos visibles de Supabase.</small></div><span>Disponible</span><i class="tag">Prompt</i></div>`).join('');
+    el.innerHTML = `
+      <article class="panel safe-panel v8-hero"><div class="panel-head"><h3>ThinkStore AI</h3><span class="tag safe-tag">V8 · recomendaciones</span></div><p class="staff-help">Motor de recomendaciones sobre ventas, clientes, inventario y soporte. En esta fase no escribe datos, no envía correos y no modifica pedidos.</p></article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>Recomendaciones</h3><strong>${formatNumber(recs.length)}</strong><p>Generadas con datos visibles.</p></article>
+        <article class="module-card"><h3>Modo</h3><strong>Lectura</strong><p>Sin acciones automáticas.</p></article>
+        <article class="module-card"><h3>Áreas</h3><strong>Ventas + CRM + Soporte</strong><p>Visión cruzada Enterprise.</p></article>
+      </div>
+      <div class="main-grid" style="margin-top:18px">
+        <article class="panel"><div class="panel-head"><h3>Recomendaciones inteligentes</h3><button onclick="renderThinkStoreAI(enterpriseRealCache)">Actualizar</button></div><div class="table">${cards}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Preguntas rápidas</h3><span class="tag">Preparadas</span></div><div class="table">${prompts}</div></article>
+      </div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Protección V8</h3><span class="tag safe-tag">Seguro</span></div><div class="table"><div class="table-row"><div><b>Sin automatizaciones destructivas</b><br><small>ThinkStore AI solo recomienda; no envía correos, no valida pagos y no cambia estados.</small></div><span>Bloqueado</span><i class="tag">OK</i></div><div class="table-row"><div><b>Preparado para V8.2</b><br><small>Luego se puede conectar un asistente interno para preguntas con Supabase.</small></div><span>Listo</span><i class="tag">Next</i></div></div></article>`;
+  }
+
+  window.renderFinanceAdvanced = renderFinanceAdvanced;
+  window.renderThinkStoreAI = renderThinkStoreAI;
+
+  const previousLoad = window.loadEnterpriseV1Real || loadEnterpriseV1Real;
+  window.loadEnterpriseV1Real = loadEnterpriseV1Real = async function(){
+    const data = await previousLoad();
+    if(data){
+      try{
+        renderFinanceAdvanced(data);
+        renderThinkStoreAI(data);
+      }catch(error){ console.warn('[Enterprise V7/V8] Render:', error.message || error); }
+    }
+    return data;
+  };
+
+  const previousSwitch = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    previousSwitch(id);
+    if(!enterpriseRealCache) return;
+    if(id === 'financeAdvanced') renderFinanceAdvanced(enterpriseRealCache);
+    if(id === 'ai') renderThinkStoreAI(enterpriseRealCache);
+  };
+})();

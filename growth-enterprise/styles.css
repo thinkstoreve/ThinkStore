@@ -37,3 +37,34 @@
 .safe-tag{background:rgba(67,227,107,.12);color:#8cffac;}
 .control-cards{margin-top:18px;}
 .control-cards .module-card{min-height:150px;}
+
+/* Enterprise V2 Real */
+.v2-toolbar{display:flex;gap:12px;align-items:center;margin:18px 0 0;flex-wrap:wrap}.v2-toolbar input{flex:1;min-width:260px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:#0a1422;color:white;outline:none}.v2-toolbar button{border:0;border-radius:13px;background:linear-gradient(135deg,#1d6fff,#6d55ff);color:white;padding:13px 16px;font-weight:900;cursor:pointer}.status-dot{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;border-radius:999px;font-size:12px;font-weight:900;text-transform:capitalize}.status-dot:before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}.status-dot.ok{background:rgba(38,216,111,.12);color:#66f08e}.status-dot.warn{background:rgba(255,149,31,.13);color:#ffc36f}.status-dot.bad{background:rgba(255,87,87,.13);color:#ff9696}.status-dot.info{background:rgba(89,160,255,.13);color:#9cc5ff}.safe-panel:after{content:"Enterprise V2";position:absolute;right:18px;bottom:14px;color:rgba(255,255,255,.08);font-weight:900;font-size:42px;letter-spacing:-.04em;pointer-events:none}.v2-row{transition:.18s}.v2-row:hover{border-color:rgba(89,160,255,.32);background:rgba(255,255,255,.055)}
+
+
+/* Enterprise V3 CRM / Finanzas / Inventario Pro */
+.v3-hero{position:relative;overflow:hidden}.v3-hero:before{content:"";position:absolute;inset:-40% auto auto -10%;width:260px;height:260px;border-radius:50%;background:rgba(38,119,255,.18);filter:blur(34px);pointer-events:none}.v3-kpis .module-card{min-height:150px}.crm-toolbar button{background:rgba(255,255,255,.08);border:1px solid var(--line);box-shadow:none}.crm-row{cursor:pointer}.crm-row:hover,.v3-inventory-row:hover{border-color:rgba(89,160,255,.36);background:rgba(255,255,255,.06);transform:translateY(-1px)}.crm-profile-panel{min-height:420px}.crm-detail-empty{min-height:280px;display:grid;place-items:center;text-align:center;color:var(--muted);border:1px dashed rgba(255,255,255,.14);border-radius:18px;padding:24px}.crm-detail-head{display:flex;gap:14px;align-items:center;margin-bottom:18px}.crm-detail-head h2{margin:0;font-size:24px}.crm-detail-head p{margin:5px 0 0;color:var(--muted)}.crm-avatar{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,#1d6fff,#6d55ff);font-weight:900;font-size:24px;box-shadow:0 16px 36px rgba(38,119,255,.25)}.crm-mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.crm-mini-grid article{border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);border-radius:16px;padding:14px}.crm-mini-grid span{display:block;color:var(--muted);font-size:12px}.crm-mini-grid b{display:block;margin-top:6px;font-size:18px}.v3-row{transition:.18s ease}@media(max-width:900px){.crm-mini-grid{grid-template-columns:1fr}.crm-detail-head{align-items:flex-start}.crm-profile-panel{min-height:auto}}
+
+
+/* Enterprise V5 Completa */
+.v5-hero{position:relative;overflow:hidden;border-color:rgba(89,160,255,.34)}
+.v5-hero:before{content:"";position:absolute;inset:-55% auto auto -12%;width:330px;height:330px;border-radius:50%;background:radial-gradient(circle,rgba(38,119,255,.22),transparent 68%);filter:blur(24px);pointer-events:none}.v5-hero:after{content:"V5";position:absolute;right:18px;bottom:8px;color:rgba(255,255,255,.07);font-size:70px;font-weight:950;letter-spacing:-.08em;pointer-events:none}.v5-row{transition:.18s ease}.v5-row:hover{border-color:rgba(89,160,255,.42);background:rgba(255,255,255,.065);transform:translateY(-1px)}
+
+/* Enterprise V6 · Soporte integrado + Cliente 360 */
+.v6-hero{position:relative;overflow:hidden;border-color:rgba(67,227,107,.28);background:linear-gradient(180deg,rgba(9,31,38,.72),rgba(7,15,26,.82));}
+.v6-hero:before{content:"";position:absolute;inset:-80px auto auto -70px;width:270px;height:270px;border-radius:50%;background:radial-gradient(circle,rgba(67,227,107,.20),transparent 68%);filter:blur(24px);pointer-events:none}
+.v6-hero:after{content:"V6";position:absolute;right:18px;bottom:4px;color:rgba(255,255,255,.07);font-size:78px;font-weight:950;letter-spacing:-.08em;pointer-events:none}
+.v6-row{transition:.18s ease}.v6-row:hover{border-color:rgba(67,227,107,.34);background:rgba(255,255,255,.065);transform:translateY(-1px)}
+
+/* Enterprise V7 · Finanzas Avanzadas */
+.v7-hero{position:relative;overflow:hidden;border-color:rgba(255,149,31,.32);background:linear-gradient(180deg,rgba(42,29,10,.72),rgba(7,15,26,.82));}
+.v7-hero:before{content:"";position:absolute;inset:-80px auto auto -70px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(255,149,31,.20),transparent 68%);filter:blur(26px);pointer-events:none}
+.v7-hero:after{content:"V7";position:absolute;right:18px;bottom:4px;color:rgba(255,255,255,.07);font-size:78px;font-weight:950;letter-spacing:-.08em;pointer-events:none}
+.v7-row{transition:.18s ease}.v7-row:hover{border-color:rgba(255,149,31,.38);background:rgba(255,255,255,.065);transform:translateY(-1px)}
+.goalbar{height:9px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;margin:0 14px 10px}.goalbar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#ff951f,#ffd36b);box-shadow:0 0 22px rgba(255,149,31,.35)}
+
+/* Enterprise V8 · ThinkStore AI */
+.v8-hero{position:relative;overflow:hidden;border-color:rgba(142,77,255,.36);background:linear-gradient(180deg,rgba(24,18,53,.72),rgba(7,15,26,.84));}
+.v8-hero:before{content:"";position:absolute;inset:-85px auto auto -75px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(142,77,255,.24),transparent 68%);filter:blur(28px);pointer-events:none}
+.v8-hero:after{content:"AI";position:absolute;right:18px;bottom:4px;color:rgba(255,255,255,.07);font-size:86px;font-weight:950;letter-spacing:-.08em;pointer-events:none}
+.v8-row{transition:.18s ease}.v8-row:hover{border-color:rgba(142,77,255,.42);background:rgba(255,255,255,.07);transform:translateY(-1px)}
