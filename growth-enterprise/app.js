@@ -1977,7 +1977,63 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     }
     return externalSupportClient;
   }
+
+  async function v9LoadDataFromRPC(){
+    try{
+      const client = getClient();
+      if(!client?.rpc) return null;
+      const { data:snapshot, error } = await client.rpc('enterprise_dashboard_snapshot');
+      if(error || !snapshot){
+        console.warn('[Enterprise Data Bridge] RPC no disponible, usando lectura directa:', error?.message || error);
+        return null;
+      }
+      const tables = snapshot.tables || {};
+      const data = {
+        version:'V9.5-DataBridge',
+        bridge:'rpc',
+        tables:{
+          customers:tables.customers, orders:tables.orders, payments:tables.payments, products:tables.products,
+          preorders:tables.preorders, orderItems:tables.orderItems, orderHistory:tables.orderHistory,
+          staff:tables.staff, invitations:tables.invitations,
+          support:tables.support, supportExternal:false,
+          supportNotes:tables.supportNotes, supportUsers:tables.supportUsers
+        },
+        customers: Array.isArray(snapshot.customers) ? snapshot.customers : [],
+        orders: Array.isArray(snapshot.orders) ? snapshot.orders : [],
+        payments: Array.isArray(snapshot.payments) ? snapshot.payments : [],
+        products: Array.isArray(snapshot.products) ? snapshot.products : [],
+        preorders: Array.isArray(snapshot.preorders) ? snapshot.preorders : [],
+        orderItems: Array.isArray(snapshot.orderItems) ? snapshot.orderItems : [],
+        orderHistory: Array.isArray(snapshot.orderHistory) ? snapshot.orderHistory : [],
+        staff: Array.isArray(snapshot.staff) ? snapshot.staff : [],
+        invitations: Array.isArray(snapshot.invitations) ? snapshot.invitations : [],
+        serviceOrders: Array.isArray(snapshot.serviceOrders) ? snapshot.serviceOrders : [],
+        serviceNotes: Array.isArray(snapshot.serviceNotes) ? snapshot.serviceNotes : [],
+        serviceUsers: Array.isArray(snapshot.serviceUsers) ? snapshot.serviceUsers : []
+      };
+      data.salesTotal = data.orders.reduce((s,o)=>s+orderTotal(o),0);
+      data.salesMonth = data.orders.filter(o=>v9ThisMonth(v2OrderDate(o))).reduce((s,o)=>s+orderTotal(o),0);
+      data.salesToday = data.orders.filter(o=>v9LastDays(v2OrderDate(o),1)).reduce((s,o)=>s+orderTotal(o),0);
+      data.pendingOrders = data.orders.filter(o=>v9StatusKind(v2OrderStatus(o)) === 'warn').length;
+      data.pendingPayments = data.orders.filter(isPendingPayment).length || data.payments.filter(isPendingPayment).length;
+      data.lowStock = data.products.filter(p=>{ const stock = v2ProductStock(p); return stock !== null && stock <= 2; }).length;
+      data.outOfStock = data.products.filter(p=>v2ProductStock(p) === 0).length;
+      data.supportOpen = data.serviceOrders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado'])).length;
+      data.supportReady = data.serviceOrders.filter(o=>statusMatches(supportStatus(o), ['Listo','Listo para entregar'])).length;
+      data.supportDelayed = data.serviceOrders.filter(isSupportDelayed).length;
+      data.preordersOpen = data.preorders.filter(o=>!statusMatches(v2OrderStatus(o), ['Entregado','Cancelado','Cerrado'])).length;
+      v9Cache = data;
+      window.enterpriseV9Cache = data;
+      return data;
+    }catch(error){
+      console.warn('[Enterprise Data Bridge] Error RPC:', error.message || error);
+      return null;
+    }
+  }
+
   async function v9LoadData(){
+    const bridgeData = await v9LoadDataFromRPC();
+    if(bridgeData) return bridgeData;
     const supportClient = v9GetSupportClient();
     const [customers, orders, payments, products, preorders, orderItems, history, staff, invitations, internalSupport, internalNotes, internalTechs, externalSupport] = await Promise.all([
       v9Read(V9_TABLES.customers, { limit:240 }),
@@ -2270,7 +2326,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     renderV9Support(data);
     if(qs('statusList')){
       qs('statusList').innerHTML = [
-        ['✓','Ecosistema V9','Operativo'],
+        ['✓','Ecosistema V9', data.bridge === 'rpc' ? 'Conectado RPC' : 'Operativo'],
         ['▣','PWA móvil','Lista'],
         ['⚠','Alertas críticas',`${formatNumber(data.pendingPayments + data.lowStock + data.supportDelayed)}`],
         ['↗','Soporte abierto',`${formatNumber(data.supportOpen)}`],
