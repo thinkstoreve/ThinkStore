@@ -2381,3 +2381,403 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     });
   }
 })();
+
+/* ==========================================================
+   Enterprise Production 1.0 · Activación de botones y navegación
+   - Activa botones de lectura/navegación en Dashboard y módulos
+   - Agrega visor rápido para filas reales sin escribir en Supabase
+   - Exportación CSV usando cache real de Enterprise V9
+   - Mantiene Resend, pedidos, notas y panel actual intactos
+   ========================================================== */
+(function(){
+  const VIEW_LABELS = {
+    executive:'Panel Ejecutivo', operations:'Centro de Operaciones', commercial:'Control Comercial',
+    sales:'Ventas / Pedidos', products:'Productos', inventory:'Inventario Pro', clients:'CRM Clientes',
+    staff:'Accesos', marketing:'Marketing Center', finance:'Finanzas Pro', financeAdvanced:'Finanzas Avanzadas',
+    reports:'Inteligencia Comercial', ai:'ThinkStore AI', support:'Centro de Soporte', client360:'Cliente 360',
+    warranties:'Garantías', alerts:'Centro de Alertas', mobile:'Mobile/PWA', settings:'Configuración'
+  };
+
+  function getCache(){ return window.enterpriseV9Cache || window.__v9Cache || null; }
+  function cleanText(value){ return String(value || '').replace(/\s+/g,' ').trim(); }
+  function goView(view){
+    if(typeof window.switchView === 'function') window.switchView(view);
+    const workspace = document.querySelector('.workspace');
+    if(workspace) workspace.scrollTo({ top:0, behavior:'smooth' });
+    else window.scrollTo({ top:0, behavior:'smooth' });
+  }
+  window.openEnterpriseView = goView;
+
+  function ensureModal(){
+    let modal = document.getElementById('enterpriseDetailModal');
+    if(modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'enterpriseDetailModal';
+    modal.className = 'enterprise-modal hidden';
+    modal.innerHTML = `
+      <div class="enterprise-modal-backdrop" data-close-enterprise-modal></div>
+      <article class="enterprise-modal-card">
+        <button class="enterprise-modal-close" data-close-enterprise-modal>×</button>
+        <div class="enterprise-modal-head">
+          <span class="tag safe-tag">Solo lectura</span>
+          <h3 id="enterpriseModalTitle">Detalle</h3>
+          <p id="enterpriseModalSubtitle">Vista rápida del dato seleccionado.</p>
+        </div>
+        <div id="enterpriseModalBody" class="enterprise-modal-body"></div>
+      </article>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (event)=>{
+      if(event.target.matches('[data-close-enterprise-modal]')) modal.classList.add('hidden');
+    });
+    document.addEventListener('keydown', (event)=>{ if(event.key === 'Escape') modal.classList.add('hidden'); });
+    return modal;
+  }
+
+  function openDetail(title, rows){
+    const modal = ensureModal();
+    const body = modal.querySelector('#enterpriseModalBody');
+    modal.querySelector('#enterpriseModalTitle').textContent = title || 'Detalle';
+    body.innerHTML = (rows || []).map(([label, value])=>`
+      <div class="enterprise-detail-row">
+        <b>${safe(label)}</b>
+        <span>${safe(value || '—')}</span>
+      </div>`).join('') || '<p class="staff-help">No hay detalles disponibles.</p>';
+    modal.classList.remove('hidden');
+  }
+  window.openEnterpriseDetail = openDetail;
+
+  function rowToDetail(row){
+    const view = document.querySelector('.view.active')?.id || 'executive';
+    const title = VIEW_LABELS[view] || 'Detalle Enterprise';
+    const text = cleanText(row.textContent);
+    openDetail(title, [
+      ['Módulo', title],
+      ['Registro seleccionado', text],
+      ['Estado', 'Consulta en modo seguro'],
+      ['Acción', 'No modifica Supabase, Resend, pedidos ni notas de entrega']
+    ]);
+  }
+
+  function exportRowsAsCSV(moduleId='executive'){
+    const cache = getCache();
+    const view = moduleId || document.querySelector('.view.active')?.id || 'executive';
+    const visibleRows = Array.from(document.querySelectorAll(`#${CSS.escape(view)} .table-row, #${CSS.escape(view)} .module-card`));
+    const rows = [['Modulo','Contenido']];
+    visibleRows.forEach(row => rows.push([VIEW_LABELS[view] || view, cleanText(row.textContent)]));
+
+    if(cache && view === 'clients') cache.customers?.forEach(c=>rows.push(['Cliente', JSON.stringify(c)]));
+    if(cache && view === 'sales') cache.orders?.forEach(o=>rows.push(['Pedido', JSON.stringify(o)]));
+    if(cache && view === 'inventory') cache.products?.forEach(p=>rows.push(['Producto', JSON.stringify(p)]));
+    if(cache && view === 'finance') cache.payments?.forEach(p=>rows.push(['Pago/Comprobante', JSON.stringify(p)]));
+    if(cache && view === 'support') cache.serviceOrders?.forEach(s=>rows.push(['Soporte', JSON.stringify(s)]));
+
+    const csv = rows.map(r=>r.map(v=>`"${String(v ?? '').replaceAll('"','""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `thinkstore-enterprise-${view}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  window.exportCSV = exportRowsAsCSV;
+
+  function addToolbarToActiveView(){
+    const active = document.querySelector('.view.active');
+    if(!active || active.id === 'executive' || active.querySelector('.production-toolbar')) return;
+    const toolbar = document.createElement('div');
+    toolbar.className = 'production-toolbar';
+    toolbar.innerHTML = `
+      <button type="button" data-prod-action="refresh">Actualizar datos</button>
+      <button type="button" data-prod-action="export">Exportar CSV</button>
+      <button type="button" data-prod-action="operations">Centro Operaciones</button>
+      <span>Production 1.0 · modo seguro</span>`;
+    active.prepend(toolbar);
+  }
+
+  function activateDashboardCards(){
+    const cardMap = [
+      ['metricSalesMonth','finance'], ['metricOrdersTotal','sales'], ['metricCustomersTotal','clients'], ['metricPendingPayments','finance'],
+      ['stripRevenue','finance'], ['stripCustomers','clients'], ['stripOrders','sales'], ['stripPayments','finance']
+    ];
+    cardMap.forEach(([id, view])=>{
+      const el = document.getElementById(id);
+      const card = el?.closest('article');
+      if(!card || card.dataset.productionActive === '1') return;
+      card.dataset.productionActive = '1';
+      card.classList.add('clickable-card');
+      card.addEventListener('click', (event)=>{
+        if(event.target.closest('button,a')) return;
+        goView(view);
+      });
+      const button = card.querySelector('button');
+      if(button){ button.textContent = 'Abrir'; button.onclick = (event)=>{ event.stopPropagation(); goView(view); }; }
+    });
+
+    const panelLinks = [
+      ['.activity .panel-head a','alerts'], ['.top-products .panel-head a','inventory'], ['.channels > a','reports'],
+      ['.chart-panel .panel-head button','finance']
+    ];
+    panelLinks.forEach(([selector,view])=>{
+      const el = document.querySelector(selector);
+      if(el && el.dataset.productionActive !== '1'){
+        el.dataset.productionActive = '1';
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', (event)=>{ event.preventDefault(); goView(view); });
+      }
+    });
+  }
+
+  function activateRows(){
+    document.querySelectorAll('.table-row.v9-row, .table-row:not(.production-row), .product-row, .activity-item, .status-row').forEach(row=>{
+      if(row.dataset.productionActive === '1') return;
+      row.dataset.productionActive = '1';
+      row.title = 'Toca para ver detalle rápido';
+      row.addEventListener('click', (event)=>{
+        if(event.target.closest('button,a,select,input')) return;
+        rowToDetail(row);
+      });
+    });
+  }
+
+  function activateProductionButtons(){
+    activateDashboardCards();
+    addToolbarToActiveView();
+    activateRows();
+  }
+  window.activateEnterpriseProduction = activateProductionButtons;
+
+  document.addEventListener('click', (event)=>{
+    const action = event.target.closest('[data-prod-action]')?.dataset.prodAction;
+    if(!action) return;
+    event.preventDefault();
+    const view = document.querySelector('.view.active')?.id || 'executive';
+    if(action === 'refresh'){
+      if(typeof window.loadEnterpriseV9 === 'function') window.loadEnterpriseV9();
+      else if(typeof window.loadEnterpriseV1Real === 'function') window.loadEnterpriseV1Real();
+    }
+    if(action === 'export') exportRowsAsCSV(view);
+    if(action === 'operations') goView('operations');
+  });
+
+  const previousSwitch = window.switchView;
+  if(typeof previousSwitch === 'function'){
+    window.switchView = function(id){
+      previousSwitch(id);
+      setTimeout(activateProductionButtons, 60);
+    };
+  }
+
+  const observer = new MutationObserver(()=>{
+    clearTimeout(window.__enterpriseProductionTimer);
+    window.__enterpriseProductionTimer = setTimeout(activateProductionButtons, 80);
+  });
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const app = document.getElementById('app') || document.body;
+    observer.observe(app, { childList:true, subtree:true });
+    activateProductionButtons();
+  });
+})();
+
+/* ==========================================================
+   Enterprise Production 1.1 · Acciones seguras por módulo
+   - Detalle enriquecido de filas y registros
+   - Buscador/filtrado real dentro de cada pantalla
+   - Copiar contacto o registro
+   - Abrir panel actual de ThinkStore como respaldo
+   - Abrir soporte en nueva pestaña
+   - No escribe en Supabase, no toca Resend, pedidos, notas ni correos
+   ========================================================== */
+(function(){
+  const BACKUP_PANEL_URL = 'https://thinkstore.com.ve/?admin=1';
+  const SUPPORT_URL = 'https://soporte.thinkstore.com.ve';
+
+  function activeView(){ return document.querySelector('.view.active')?.id || 'executive'; }
+  function clean(value){ return String(value || '').replace(/\s+/g,' ').trim(); }
+  function toast(message, type='info'){
+    let box = document.getElementById('prod11Toast');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'prod11Toast';
+      box.className = 'prod11-toast';
+      document.body.appendChild(box);
+    }
+    box.textContent = message;
+    box.dataset.type = type;
+    box.classList.add('show');
+    clearTimeout(window.__prod11ToastTimer);
+    window.__prod11ToastTimer = setTimeout(()=>box.classList.remove('show'), 2600);
+  }
+  async function copyText(text, label='Registro'){
+    const value = clean(text);
+    if(!value){ toast('No hay contenido para copiar.', 'warn'); return; }
+    try{
+      await navigator.clipboard.writeText(value);
+      toast(`${label} copiado.`, 'ok');
+    }catch(error){
+      const area = document.createElement('textarea');
+      area.value = value;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+      toast(`${label} copiado.`, 'ok');
+    }
+  }
+  function extractEmail(text){ return clean(text).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || ''; }
+  function extractPhone(text){ return clean(text).match(/(?:\+?\d[\d\s().-]{7,}\d)/)?.[0] || ''; }
+  function openBackupPanel(){ window.open(BACKUP_PANEL_URL, '_blank', 'noopener,noreferrer'); }
+  function openSupport(){ window.open(SUPPORT_URL, '_blank', 'noopener,noreferrer'); }
+  function getModalText(){ return clean(document.getElementById('enterpriseModalBody')?.textContent || ''); }
+  function moduleLabel(view){
+    const map = {
+      executive:'Panel Ejecutivo', operations:'Centro de Operaciones', commercial:'Control Comercial', sales:'Ventas / Pedidos',
+      clients:'CRM Clientes', inventory:'Inventario', products:'Productos', finance:'Finanzas', financeAdvanced:'Finanzas Avanzadas',
+      marketing:'Marketing', reports:'Inteligencia Comercial', support:'Soporte', client360:'Cliente 360', warranties:'Garantías',
+      alerts:'Alertas', ai:'ThinkStore AI', staff:'Accesos', settings:'Configuración'
+    };
+    return map[view] || view;
+  }
+
+  function enhanceModal(){
+    const modal = document.getElementById('enterpriseDetailModal');
+    if(!modal || modal.classList.contains('hidden')) return;
+    const body = modal.querySelector('#enterpriseModalBody');
+    if(!body || body.querySelector('.prod11-actions')) return;
+    const view = activeView();
+    const text = getModalText();
+    const email = extractEmail(text);
+    const phone = extractPhone(text);
+    const actions = document.createElement('div');
+    actions.className = 'prod11-actions';
+    actions.innerHTML = `
+      <button type="button" data-prod11="copy-record">Copiar registro</button>
+      ${email ? '<button type="button" data-prod11="copy-email">Copiar correo</button>' : ''}
+      ${phone ? '<button type="button" data-prod11="copy-phone">Copiar teléfono</button>' : ''}
+      <button type="button" data-prod11="export-view">Exportar módulo</button>
+      <button type="button" data-prod11="backup-panel">Panel actual</button>
+      ${['support','client360','warranties','alerts'].includes(view) ? '<button type="button" data-prod11="support">Abrir soporte</button>' : ''}
+    `;
+    body.prepend(actions);
+  }
+
+  function filterActiveView(query){
+    const view = activeView();
+    const root = document.getElementById(view);
+    if(!root) return;
+    const q = clean(query).toLowerCase();
+    root.querySelectorAll('.table-row,.module-card,.product-row,.activity-item,.status-row').forEach(row=>{
+      if(row.closest('.production-toolbar')) return;
+      const visible = !q || clean(row.textContent).toLowerCase().includes(q);
+      row.style.display = visible ? '' : 'none';
+    });
+  }
+
+  function enhanceToolbar(){
+    const view = activeView();
+    const root = document.getElementById(view);
+    const toolbar = root?.querySelector('.production-toolbar');
+    if(!toolbar || toolbar.dataset.prod11 === '1') return;
+    toolbar.dataset.prod11 = '1';
+    const search = document.createElement('input');
+    search.className = 'prod11-filter';
+    search.type = 'search';
+    search.placeholder = `Buscar en ${moduleLabel(view)}...`;
+    search.addEventListener('input', ()=>filterActiveView(search.value));
+    toolbar.insertBefore(search, toolbar.firstChild);
+
+    const copyVisible = document.createElement('button');
+    copyVisible.type = 'button';
+    copyVisible.textContent = 'Copiar vista';
+    copyVisible.addEventListener('click', ()=>copyText(clean(root.textContent), moduleLabel(view)));
+    toolbar.appendChild(copyVisible);
+
+    const backup = document.createElement('button');
+    backup.type = 'button';
+    backup.textContent = 'Abrir respaldo';
+    backup.addEventListener('click', openBackupPanel);
+    toolbar.appendChild(backup);
+
+    if(['support','client360','warranties','alerts'].includes(view)){
+      const support = document.createElement('button');
+      support.type = 'button';
+      support.textContent = 'Abrir soporte';
+      support.addEventListener('click', openSupport);
+      toolbar.appendChild(support);
+    }
+  }
+
+  function addQuickActionsToViews(){
+    const view = activeView();
+    const root = document.getElementById(view);
+    if(!root || root.dataset.prod11Quick === '1') return;
+    root.dataset.prod11Quick = '1';
+    const firstPanel = root.querySelector('.panel, .v9-hero, .safe-panel');
+    if(!firstPanel) return;
+    const head = firstPanel.querySelector('.panel-head');
+    if(!head || head.querySelector('.prod11-head-actions')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'prod11-head-actions';
+    wrap.innerHTML = `
+      <button type="button" data-prod11="refresh-safe">Actualizar</button>
+      <button type="button" data-prod11="export-view">Exportar</button>
+    `;
+    head.appendChild(wrap);
+  }
+
+  function markRowsWithSafeActions(){
+    document.querySelectorAll('.table-row,.product-row,.activity-item,.status-row').forEach(row=>{
+      if(row.dataset.prod11 === '1' || row.closest('.production-toolbar')) return;
+      row.dataset.prod11 = '1';
+      row.setAttribute('aria-label', 'Ver detalle seguro');
+      if(!row.querySelector('.prod11-pill')){
+        const pill = document.createElement('em');
+        pill.className = 'prod11-pill';
+        pill.textContent = 'Ver';
+        row.appendChild(pill);
+      }
+    });
+  }
+
+  function runProd11(){
+    enhanceToolbar();
+    addQuickActionsToViews();
+    markRowsWithSafeActions();
+    enhanceModal();
+  }
+
+  document.addEventListener('click', (event)=>{
+    const action = event.target.closest('[data-prod11]')?.dataset.prod11;
+    if(!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const modalText = getModalText();
+    if(action === 'copy-record') copyText(modalText, 'Registro');
+    if(action === 'copy-email') copyText(extractEmail(modalText), 'Correo');
+    if(action === 'copy-phone') copyText(extractPhone(modalText), 'Teléfono');
+    if(action === 'export-view') window.exportCSV?.(activeView());
+    if(action === 'backup-panel') openBackupPanel();
+    if(action === 'support') openSupport();
+    if(action === 'refresh-safe'){
+      if(typeof window.loadEnterpriseV9 === 'function') window.loadEnterpriseV9();
+      else if(typeof window.loadEnterpriseV1Real === 'function') window.loadEnterpriseV1Real();
+      toast('Datos actualizados en modo seguro.', 'ok');
+    }
+  }, true);
+
+  const previousSwitch = window.switchView;
+  if(typeof previousSwitch === 'function'){
+    window.switchView = function(id){
+      previousSwitch(id);
+      setTimeout(runProd11, 120);
+    };
+  }
+
+  const observer = new MutationObserver(()=>{
+    clearTimeout(window.__prod11Timer);
+    window.__prod11Timer = setTimeout(runProd11, 140);
+  });
+  document.addEventListener('DOMContentLoaded', ()=>{
+    observer.observe(document.getElementById('app') || document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class'] });
+    setTimeout(runProd11, 600);
+  });
+})();
