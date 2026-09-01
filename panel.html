@@ -207,6 +207,60 @@ const views={
  auditoria(){const list=(store('ts_audit_log')||[]).map(a=>`<b>${esc(a.action)}</b> · ${esc(a.user)} · <span class="badge">${esc(a.role)}</span><br>${esc(a.detail||'')}<br><small>${esc(a.date)}</small>`);$('content').innerHTML=rows(list,'Aún no hay actividad registrada.')},
  comisiones(){const sales=store('ts_sales')||[];const acc=assignments().filter(a=>a.role==='vendedor');const rowsHtml=acc.map(a=>{const total=sales.filter(v=>normalizeEmail(v.seller||v.email)===normalizeEmail(a.email)).reduce((n,v)=>n+(+v.amount||0),0);const pct=+a.commission||0;return `<tr><td>${esc(a.name||a.email)}</td><td>${money(total)}</td><td>${pct}%</td><td>${money(total*pct/100)}</td></tr>`}).join('')||'<tr><td colspan="4" class="muted">No hay vendedores con comisión configurada.</td></tr>';$('content').innerHTML=`<div class="card" style="padding:20px"><h2>Comisiones de vendedores</h2><table class="table"><thead><tr><th>Vendedor</th><th>Ventas</th><th>%</th><th>Comisión</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`}
 };
+
+function val(id){const el=$(id);return el?String(el.value??'').trim():''}
+function result(id,msg){const el=$(id);if(!el)return;el.style.display='block';el.textContent=String(msg??'')}
+function rows(items,emptyMsg='Sin registros.'){
+  const list=Array.isArray(items)?items.filter(Boolean):[];
+  if(!list.length)return `<div class="result">${esc(emptyMsg)}</div>`;
+  return `<div class="grid">${list.map(x=>`<div class="module">${x}</div>`).join('')}</div>`;
+}
+function refreshKpis(){
+  if($('kpi1')) $('kpi1').textContent=orders().length;
+  if($('kpi2')) $('kpi2').textContent=customers().length;
+  if($('kpi3')) $('kpi3').textContent=tickets().length;
+  if($('kpi4')) $('kpi4').textContent=shipments().length;
+}
+function openModule(id){
+  if(!can(id)) return;
+  document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));
+  const mod=MODULES.find(m=>m.id===id);
+  if(mod){
+    if($('heroTitle')) $('heroTitle').textContent=mod.title;
+    if($('heroText')) $('heroText').textContent=mod.desc;
+  }
+  const fn=views[id] || (()=>views.generic(id));
+  fn();
+  refreshKpis();
+}
+function renderSide(){
+  const side=$('side'); if(!side)return;
+  const allowed=MODULES.filter(m=>can(m.id));
+  side.innerHTML=allowed.map(m=>`<button data-module="${m.id}" onclick="openModule('${m.id}')">${m.icon} ${m.title}</button>`).join('');
+}
+function boot(){
+  const u=user();
+  if(!u){
+    if($('gate')) $('gate').style.display='flex';
+    if($('app')) $('app').style.display='none';
+    return;
+  }
+  if($('gate')) $('gate').style.display='none';
+  if($('app')) $('app').style.display='block';
+  const r=role();
+  if($('rolePill')) $('rolePill').textContent=ROLE_LABELS[r]||r;
+  if($('heroTitle')) $('heroTitle').textContent='Bienvenido, '+(u.name||u.email||'Usuario');
+  if($('heroText')) $('heroText').textContent='Rol: '+(ROLE_LABELS[r]||r)+' · ThinkStore';
+  document.querySelectorAll('[data-roles]').forEach(el=>{
+    const allowed=String(el.dataset.roles||'').split(',').map(x=>x.trim().toLowerCase());
+    el.style.display=allowed.includes(r)?'':'none';
+  });
+  renderSide();
+  refreshKpis();
+  const home=ROLE_HOME[r]||'cuenta';
+  openModule(can(home)?home:(MODULES.find(m=>can(m.id))?.id||'cuenta'));
+}
+
 const inviteEmail=new URLSearchParams(location.search).get('invite');if(inviteEmail){authMode('login');setTimeout(()=>{$('email').value=inviteEmail;showAuth('Invitación detectada. Ingresa tu clave temporal para activar el acceso interno.');},200)}
 boot();
 </script>
