@@ -14,7 +14,13 @@
 <body>
 <section id="gate" class="gate"><div class="gate-card"><img src="logo-thinkstore.png" alt="ThinkStore"><h1>Panel ThinkStore</h1><p>Acceso seguro: los clientes se registran públicamente; vendedores, recepción, soporte técnico, logística y administradores solo entran por invitación creada por Super Admin.</p><div class="actions"><button class="btn ghost" onclick="authMode('login')">Iniciar sesión</button><button class="btn ghost" onclick="authMode('register')">Registro cliente</button></div><div id="loginBox"><input id="email" placeholder="Correo de acceso"><input id="pass" type="password" placeholder="Clave"><input id="otp" placeholder="Código 2FA / invitación si aplica"><button class="btn" onclick="secureLogin()">Entrar</button><p class="muted">Si tu correo fue invitado por el administrador, ThinkStore cargará tu rol interno automáticamente. Si no tienes invitación, solo puedes registrarte como cliente.</p></div><div id="registerBox" style="display:none"><input id="regName" placeholder="Nombre y apellido"><input id="regEmail" placeholder="Correo"><input id="regPhone" placeholder="WhatsApp"><input id="regPass" type="password" placeholder="Crear clave"><button class="btn" onclick="registerClient()">Crear cuenta cliente</button><p class="muted">El registro público siempre crea rol Cliente. Los roles internos no se pueden seleccionar desde aquí.</p></div><pre id="authResult" class="result" style="display:none"></pre><a href="index.html" style="color:#fff">Volver a ThinkStore</a></div></section>
 <div id="app" class="app"><header class="top"><div class="top-inner"><div class="brand"><img src="logo-thinkstore.png" alt="ThinkStore"><span>ThinkStore · Panel Multi-Rol</span><span id="rolePill" class="role-pill">Rol</span></div><nav class="nav"><a href="index.html">Tienda</a><a href="admin-growth.html" data-roles="admin,superadmin">Growth Enterprise</a><button onclick="logout()">Cerrar sesión</button></nav></div></header><main class="layout"><aside class="side" id="side"></aside><section class="main-card"><div class="hero"><h1 id="heroTitle">Bienvenido</h1><p id="heroText">Tu panel mostrará solo los módulos permitidos para tu rol.</p><div class="kpis"><div class="kpi"><b id="kpi1">0</b><small>Pedidos</small></div><div class="kpi"><b id="kpi2">0</b><small>Clientes</small></div><div class="kpi"><b id="kpi3">0</b><small>Tickets</small></div><div class="kpi"><b id="kpi4">0</b><small>Envíos</small></div></div></div><div id="content"></div></section></main><footer class="footer">ThinkStore.com.ve · Sistema privado de roles y permisos</footer></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 <script>
+const tsPanelCfg = window.THINKSTORE_SUPABASE || {};
+window.tsPanelSupabase = (window.supabase && tsPanelCfg.SUPABASE_URL && tsPanelCfg.SUPABASE_PUBLISHABLE_KEY)
+  ? window.supabase.createClient(tsPanelCfg.SUPABASE_URL, tsPanelCfg.SUPABASE_PUBLISHABLE_KEY)
+  : null;
 const LS_USER='ts_current_user';
 const ROLE_LABELS={cliente:'Cliente',vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Admin',superadmin:'Super Admin'};
 const ROLE_HOME={cliente:'cuenta',vendedor:'ventas',recepcion:'recepcion',soporte:'recepcion',tecnico:'tecnico',logistica:'logistica',admin:'dashboard',superadmin:'dashboard'};
@@ -64,9 +70,75 @@ function findAccess(email){return assignments().find(a=>normalizeEmail(a.email)=
 function audit(action,detail){const l=store('ts_audit_log')||[];l.unshift({date:new Date().toLocaleString('es-VE'),user:user()?.email||'sistema',role:role(),action,detail});store('ts_audit_log',l.slice(0,300))}
 function authMode(mode){$('loginBox').style.display=mode==='login'?'block':'none';$('registerBox').style.display=mode==='register'?'block':'none';$('authResult').style.display='none'}
 function showAuth(msg){$('authResult').style.display='block';$('authResult').textContent=msg}
-function secureLogin(){const email=normalizeEmail($('email').value);const pass=$('pass').value||'';const otp=String($('otp').value||'').trim();if(!email){showAuth('Ingresa tu correo.');return}const access=findAccess(email);if(access){if(access.tempPass&&pass!==access.tempPass){showAuth('Clave temporal incorrecta.');return}if(access.requires2fa&&access.otp&&otp!==String(access.otp)){showAuth('Código 2FA incorrecto.');return}setUser({email,name:access.name||email.split('@')[0],role:access.role,rol:access.role,internal:true});audit('login_interno','Acceso interno: '+email+' · '+access.role);boot();return}const clients=store('ts_clients')||[];const c=clients.find(x=>normalizeEmail(x.email||x.correo)===email);if(c){if(c.pass&&pass!==c.pass){showAuth('Clave de cliente incorrecta.');return}setUser({email,name:c.name||c.nombre||email.split('@')[0],role:'cliente',rol:'cliente'});audit('login_cliente','Cliente ingresó: '+email);boot();return}showAuth('Este correo no tiene invitación interna. Regístrate como cliente o solicita acceso al administrador.')}
+async function secureLogin(){
+  const email=normalizeEmail($('email').value);
+  const pass=$('pass').value||'';
+  const otp=String($('otp').value||'').trim();
+  if(!email){showAuth('Ingresa tu correo.');return}
+  if(!pass){showAuth('Ingresa tu contraseña.');return}
+
+  // Producción: autenticar primero contra Supabase y leer el rol real desde public.profiles.
+  if(window.tsPanelSupabase){
+    showAuth('Verificando acceso seguro…');
+    try{
+      const {data,error}=await window.tsPanelSupabase.auth.signInWithPassword({email,password:pass});
+      if(error) throw error;
+      const uid=data?.user?.id;
+      const {data:profile,error:profileError}=await window.tsPanelSupabase
+        .from('profiles')
+        .select('id,email,full_name,role,active')
+        .eq('id',uid)
+        .maybeSingle();
+      if(profileError) throw profileError;
+
+      if(profile && profile.active!==false){
+        const rawRole=String(profile.role||'').toLowerCase();
+        const roleMap={super_admin:'superadmin',administrator:'admin',gerente:'admin',tech:'tecnico'};
+        const panelRole=roleMap[rawRole]||rawRole;
+        const internalRoles=['vendedor','recepcion','soporte','tecnico','logistica','admin','superadmin'];
+        if(internalRoles.includes(panelRole)){
+          setUser({
+            id:uid,
+            email:profile.email||email,
+            name:profile.full_name||data.user.user_metadata?.name||email.split('@')[0],
+            role:panelRole,
+            rol:panelRole,
+            supabase_role:rawRole,
+            internal:true,
+            source:'supabase'
+          });
+          audit('login_interno','Acceso Supabase: '+email+' · '+rawRole);
+          boot();
+          return;
+        }
+      }
+
+      // Si autenticó pero no tiene rol interno activo, cerrar la sesión antes de continuar.
+      await window.tsPanelSupabase.auth.signOut();
+      showAuth('Tu cuenta existe, pero no tiene un rol interno activo en ThinkStore. Solicita acceso al administrador.');
+      return;
+    }catch(err){
+      const msg=String(err?.message||err||'');
+      if(/invalid login credentials/i.test(msg)) showAuth('Correo o contraseña incorrectos.');
+      else showAuth('No se pudo validar el acceso: '+msg);
+      return;
+    }
+  }
+
+  // Respaldo local solo para entornos sin configuración Supabase.
+  const access=findAccess(email);
+  if(access){
+    if(access.tempPass&&pass!==access.tempPass){showAuth('Clave temporal incorrecta.');return}
+    if(access.requires2fa&&access.otp&&otp!==String(access.otp)){showAuth('Código 2FA incorrecto.');return}
+    setUser({email,name:access.name||email.split('@')[0],role:access.role,rol:access.role,internal:true,source:'local'});
+    audit('login_interno','Acceso local: '+email+' · '+access.role);
+    boot();
+    return;
+  }
+  showAuth('Supabase no está disponible y este correo no tiene acceso local.');
+}
 function registerClient(){const name=$('regName').value.trim();const email=normalizeEmail($('regEmail').value);const phone=$('regPhone').value.trim();const pass=$('regPass').value||'';if(!name||!email||!pass){showAuth('Completa nombre, correo y clave.');return}let clients=store('ts_clients')||[];if(clients.some(c=>normalizeEmail(c.email||c.correo)===email)){showAuth('Este correo ya tiene cuenta cliente. Inicia sesión.');return}clients.unshift({name,email,phone,pass,role:'cliente',created_at:new Date().toISOString()});store('ts_clients',clients);setUser({email,name,role:'cliente',rol:'cliente'});audit('registro_cliente','Nuevo cliente: '+email);boot()}
-function logout(){audit('logout','Cierre de sesión');localStorage.removeItem(LS_USER);location.href='index.html'}
+async function logout(){audit('logout','Cierre de sesión');try{if(window.tsPanelSupabase)await window.tsPanelSupabase.auth.signOut()}catch(e){}localStorage.removeItem(LS_USER);location.href='index.html'}
 function roleRows(){
   const roles=['cliente','vendedor','recepcion','soporte','tecnico','logistica','admin','superadmin'];
   const assignments=store('ts_role_assignments')||[];
