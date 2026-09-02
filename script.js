@@ -5498,3 +5498,88 @@ window.addEventListener('load', ()=>{
     }
   }catch(e){}
 })();
+
+/* ===== ThinkStore V1.4.4 HOTFIX · Detalle de producto estable ===== */
+(function(){
+  function findCatalogProduct(id){
+    const key=String(id||'');
+    let list=[];
+    try{ if(typeof tsCatalogProducts==='function') list=tsCatalogProducts()||[]; }catch(e){}
+    if(!Array.isArray(list)||!list.length){
+      try{ if(typeof PRODUCTS!=='undefined'&&Array.isArray(PRODUCTS)) list=PRODUCTS; }catch(e){}
+    }
+    return (list||[]).find(p=>String(p&&p.id)==key) || null;
+  }
+
+  function closeCategoryOverlays(){
+    try{ if(typeof closeCategoryModalV2==='function') closeCategoryModalV2(); }catch(e){}
+    ['categoryModalV2','categoryModal'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){ el.classList.remove('open'); el.style.display='none'; el.style.zIndex=''; }
+    });
+    document.body.classList.remove('ts-category-front-lock');
+  }
+
+  function safeOpenProduct(id){
+    const p=findCatalogProduct(id);
+    if(!p){
+      console.warn('ThinkStore: producto no encontrado',id);
+      return false;
+    }
+    closeCategoryOverlays();
+    try{
+      selectedProduct=p;
+      const colors=Object.keys(p.colors||{});
+      selectedColor=colors[0]||'Disponible';
+      selectedCondition=(typeof getConditions==='function' ? getConditions(p)[0] : ((p.condition||[])[0])) || 'Nuevo';
+      selectedConfig={};
+      if(typeof buildGroups==='function') buildGroups(p).forEach(g=>selectedConfig[g.label]=(g.options||[])[0]||'Consultar');
+      selectedGallery=(p.gallery||[])[0]||p.main||'';
+
+      const pname=document.getElementById('pname');
+      const pdesc=document.getElementById('pdesc');
+      const badge=document.getElementById('badge');
+      if(pname) pname.textContent=p.name||'Producto ThinkStore';
+      if(pdesc) pdesc.textContent=(typeof getDesc==='function'?getDesc(p):(p.description||p.desc||''));
+      if(badge) badge.textContent=`${p.brand||'Apple'} · ${typeof getCat==='function'?getCat(p):(p.category||'Catálogo')}`;
+
+      try{ if(typeof drawDetail==='function') drawDetail(); }catch(err){
+        console.error('ThinkStore drawDetail:',err);
+        const img=document.getElementById('mainImg');
+        if(img){
+          const raw=p.main || (p.colors&&Object.values(p.colors)[0]) || '';
+          img.src=(typeof asset==='function')?asset(raw):raw;
+          img.alt=p.name||'Producto ThinkStore';
+        }
+      }
+
+      const modal=document.getElementById('modal');
+      if(!modal){
+        console.error('ThinkStore: falta #modal en index.html');
+        return false;
+      }
+      modal.classList.add('open');
+      // El CSS original del detalle usa display:block. Flex hacía que algunas
+      // versiones del modal quedaran vacías o fuera de su composición normal.
+      modal.style.display='block';
+      modal.style.zIndex='100000';
+      modal.removeAttribute('aria-hidden');
+      modal.scrollTop=0;
+      return true;
+    }catch(err){
+      console.error('ThinkStore abrir producto:',err);
+      const modal=document.getElementById('modal');
+      if(modal){ modal.classList.remove('open'); modal.style.display='none'; modal.style.zIndex=''; }
+      return false;
+    }
+  }
+
+  window.openProduct=safeOpenProduct;
+  window.openProductFromV2=function(id){ return safeOpenProduct(id); };
+  window.closeProduct=function(){
+    const modal=document.getElementById('modal');
+    if(modal){ modal.classList.remove('open'); modal.style.display='none'; modal.style.zIndex=''; modal.setAttribute('aria-hidden','true'); }
+    document.body.style.overflow='';
+    document.documentElement.style.overflow='';
+  };
+})();
