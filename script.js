@@ -215,6 +215,20 @@ async function tsFindInventoryVariant(product,model,color,capacity){
     }) || null;
   }catch(e){ console.warn('ThinkStore inventario: no se pudo resolver variante',e); return null; }
 }
+function tsIsPreorderCondition(value){
+  return /pre[\s-]?order|preorden/i.test(String(value||''));
+}
+function tsPreorderConditionForProduct(product){
+  const opts=(typeof getConditions==='function' ? getConditions(product||selectedProduct) : []) || [];
+  return opts.find(tsIsPreorderCondition) || 'Pre-Order';
+}
+async function tsStartPreorder(){
+  if(!selectedProduct) return;
+  selectedCondition=tsPreorderConditionForProduct(selectedProduct);
+  await addCart();
+}
+window.tsStartPreorder=tsStartPreorder;
+
 async function addCart(){
   if(!currentUser){
     alert('Para comprar debes iniciar sesión o registrarte primero.');
@@ -225,6 +239,23 @@ async function addCart(){
   const model=selectedProduct.family||selectedProduct.model||selectedProduct.name;
   const capacity=tsSelectedCapacity();
   const inv=await tsFindInventoryVariant(selectedProduct.name,model,selectedColor,capacity);
+  const available=Number(inv?.available||0);
+  const isPreorder=tsIsPreorderCondition(selectedCondition);
+
+  // Si la variante existe pero ya no tiene unidades, solo permitimos continuar como preorden.
+  if(inv && available<1 && !isPreorder){
+    selectedCondition=tsPreorderConditionForProduct(selectedProduct);
+    if(typeof drawDetail==='function') drawDetail();
+    if(typeof tsShowToast==='function') tsShowToast('Sin existencias inmediatas. Cambiamos esta compra a Pre-Order.');
+    else alert('Sin existencias inmediatas. Seleccionamos Pre-Order para continuar.');
+    return;
+  }
+
+  // Si no existe una variante de inventario, se considera Bajo pedido y se registra como preorden.
+  if(!inv && !isPreorder){
+    selectedCondition=tsPreorderConditionForProduct(selectedProduct);
+  }
+
   cart.push({
     product:selectedProduct.name,
     category:getCat(selectedProduct),
@@ -236,14 +267,10 @@ async function addCart(){
     qty:1,
     price:selectedProduct.price||0,
     image:(selectedProduct.colors||{})[selectedColor]||selectedProduct.main,
-    variant_id:inv?.id||null,
-    inventory_variant_id:inv?.id||null,
+    variant_id:(inv && available>0 && !tsIsPreorderCondition(selectedCondition)) ? inv.id : null,
+    inventory_variant_id:(inv && available>0 && !tsIsPreorderCondition(selectedCondition)) ? inv.id : null,
     sku:inv?.sku||null
   });
-  if(inv && Number(inv.available||0)<1){
-    alert('Esta variante está agotada en este momento. Puedes consultarnos por preorden.');
-    return;
-  }
   count();
   closeProduct();
   openCart();
@@ -306,7 +333,7 @@ function drawCart(){
     return `<div class="cartrow premium-cartrow ts-selected-row" style="--product-color:${colorHex}">
     <div class="cart-index ts-qty-badge">${Number(i.qty||1)}</div>
     <div class="ts-thumb-stage"><span class="ts-color-halo"></span><span class="ts-color-chip" title="${colorName}"><i></i>${colorName}</span><img class="cart-product-img js-remove-white-bg" data-original-src="${asset(i.image)}" src="${asset(i.image)}" alt="${i.product}"></div>
-    <div class="cart-info"><b>${i.product}</b><span>${i.model||''}</span><div class="cart-chips ts-cart-chips-v23"><em class="cart-color-pill" style="--chip-color:${colorHex}"><i></i>${colorName}</em><em class="cart-config-pill">📦 ${compactConfig}</em><em class="cart-status-pill"><span class="ts-status-dot"></span>${i.condition||'Nuevo'}</em></div></div>
+    <div class="cart-info"><b>${i.product}</b><span>${i.model||''}</span><div class="cart-chips ts-cart-chips-v23"><em class="cart-color-pill" style="--chip-color:${colorHex}"><i></i>${colorName}</em><em class="cart-config-pill">📦 ${compactConfig}</em></div><label class="ts-cart-condition-label">Condición <select class="ts-cart-condition-select" onchange="updateCartCondition(${n},this.value)">${['Nuevo','Renovado', ...(tsIsPreorderCondition(i.condition)?['Pre-Order']:[])].map(c=>`<option value="${c}" ${tsInventoryNorm(i.condition)===tsInventoryNorm(c)?'selected':''}>${c}</option>`).join('')}</select></label></div>
     <div class="cart-price"><strong>${formatCheckoutMoney(i.price)}</strong><small>USD</small></div>
     <button class="cart-remove" onclick="removeCart(${n})" title="Eliminar">×</button>
   </div>`}).join('\n'):'<div class="empty-cart-premium">🛒<b>Tu carrito está vacío</b><small>Agrega un producto para iniciar tu pedido.</small></div>';
@@ -322,6 +349,24 @@ function drawCart(){
   syncCheckoutCards();
   polishCartProductImages();
 }
+function updateCartCondition(n,value){
+  if(!cart[n]) return;
+  cart[n].condition=value;
+  // Una preorden no debe reservar inventario físico disponible.
+  if(tsIsPreorderCondition(value)){
+    cart[n].variant_id=null;
+    cart[n].inventory_variant_id=null;
+  }
+  drawCart();
+}
+window.updateCartCondition=updateCartCondition;
+(function tsEnsureCartConditionStyles(){
+  if(document.getElementById('tsCartConditionStyles')) return;
+  const st=document.createElement('style');
+  st.id='tsCartConditionStyles';
+  st.textContent=`.ts-cart-condition-label{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;font-style:normal;font-weight:700;color:#555}.ts-cart-condition-select{appearance:auto;border:1px solid #d8d8dc;border-radius:10px;background:#fff;padding:7px 30px 7px 10px;font:inherit;color:#1d1d1f;min-width:125px}`;
+  document.head.appendChild(st);
+})();
 function removeCart(n){cart.splice(n,1);count();drawCart();}
 
 
@@ -4038,6 +4083,56 @@ window.addEventListener('load', ()=>{
     return {key:'out', label:'Agotado', hint:'Consulta disponibilidad'};
   }
   function stars(n){ const v=Math.round(Number(n||0)); return '★★★★★'.split('').map((s,i)=>`<span class="${i<v?'on':''}">${s}</span>`).join(''); }
+  async function tsRefreshSelectedVariantAvailability(p){
+    if(!p || typeof tsFindInventoryVariant!=='function') return;
+    try{
+      const model=p.family||p.model||p.name;
+      const capacity=typeof tsSelectedCapacity==='function' ? tsSelectedCapacity() : '';
+      const inv=await tsFindInventoryVariant(p.name,model,window.selectedColor||selectedColor||'',capacity);
+      const available=Number(inv?.available||0);
+      const reserved=Number(inv?.stock_reserved||0);
+
+      const buybox=document.querySelector('#tsV55ProductPanel .ts-v55-buybox');
+      const quick=document.querySelector('#tsV552ProductUX .ts-v552-product-quick > div:first-child');
+      const addBtn=document.querySelector('#modal button[onclick*="addCart"]');
+
+      let label='Bajo pedido', hint='15 a 25 días hábiles', key='preorder';
+      if(inv){
+        if(available>3){label='En stock';hint=`${available} unidades disponibles`;key='available'}
+        else if(available>0){label='En stock';hint=`${available} ${available===1?'unidad disponible':'unidades disponibles'}`;key='low'}
+        else {label='Bajo pedido';hint=reserved>0?'Sin unidades libres · disponible para Pre-Order':'Sin existencias · disponible para Pre-Order';key='preorder'}
+      }
+
+      if(buybox){
+        const holder=buybox.querySelector('div');
+        if(holder) holder.innerHTML=`<span class="ts-stock ${key}">${label}</span><small>${hint}</small>`;
+      }
+      if(quick){
+        quick.innerHTML=`<b>Disponibilidad</b><small>${inv ? (available>0 ? `En stock · ${available} disponible${available===1?'':'s'}` : 'Bajo pedido · Pre-Order disponible') : 'Bajo pedido · 15 a 25 días hábiles'}</small>`;
+      }
+      if(addBtn){
+        addBtn.disabled=false;
+        addBtn.style.opacity='';
+        addBtn.style.cursor='';
+        if(inv && available>0){
+          addBtn.textContent='Añadir al carrito';
+          addBtn.onclick=()=>addCart();
+        }else{
+          addBtn.textContent='Pre-ordenar';
+          addBtn.onclick=()=>tsStartPreorder();
+        }
+      }
+      const buyNow=document.getElementById('tsV55BuyNow');
+      if(buyNow){
+        buyNow.disabled=false;
+        buyNow.textContent=(inv && available>0)?'Comprar ahora':'Pre-ordenar';
+        buyNow.onclick=(inv && available>0)?(()=>addCart()):(()=>tsStartPreorder());
+      }
+    }catch(e){
+      console.warn('ThinkStore disponibilidad visual:',e);
+    }
+  }
+
   window.tsToggleWishlist = function(id, ev){ if(ev) ev.stopPropagation(); let a=favs(); a=a.includes(id)?a.filter(x=>x!==id):a.concat(id); setFavs(a); refreshEnhancements(); if(typeof tsShowToast==='function') tsShowToast(a.includes(id)?'❤️ Guardado en favoritos':'Favorito removido'); };
   window.tsToggleCompare = function(id, ev){ if(ev) ev.stopPropagation(); let a=compares(); if(a.includes(id)) a=a.filter(x=>x!==id); else { if(a.length>=3){ alert('Puedes comparar hasta 3 productos a la vez.'); return; } a.push(id); } setCompares(a); refreshEnhancements(); };
   window.tsOpenWishlist = function(){ ensureModal(); const list=favs().map(productById).filter(Boolean); const body=$('tsV55ModalBody'); body.innerHTML=`<h2>Favoritos</h2><p class="muted">Productos guardados para revisar después.</p>${list.length?`<div class="ts-v55-product-list">${list.map(p=>miniProduct(p)).join('')}</div>`:'<div class="ts-v55-empty">Aún no tienes favoritos.</div>'}`; openModal(); };
@@ -4092,7 +4187,8 @@ window.addEventListener('load', ()=>{
       box=$('tsV55ProductPanel');
     }
     const st=stockInfo(p); const rev=productReviews(id); const av=avg(id)||5;
-    box.innerHTML=`<div class="ts-v55-buybox"><div><span class="ts-stock ${st.key}">${st.label}</span><small>${st.hint}</small></div><button class="btn" onclick="addCart&&addCart()">Comprar ahora</button><button class="btn ghost" onclick="tsToggleWishlist('${esc(id)}',event)">${favs().includes(id)?'♥ En favoritos':'♡ Guardar'}</button><button class="btn ghost" onclick="tsToggleCompare('${esc(id)}',event)">⚖ Comparar</button></div><section class="ts-v55-reviews"><div class="ts-v55-reviews-head"><h3>Opiniones de clientes</h3><div><span class="ts-stars">${stars(av)}</span><small>${rev.length||'Nuevo producto'}</small></div></div>${rev.length?rev.slice(0,4).map(r=>`<article><b>${esc(r.name)}</b><span class="ts-stars">${stars(r.stars)}</span><p>${esc(r.text)}</p><small>${esc(r.date)}</small></article>`).join(''):'<p class="muted">Sé el primero en dejar una opinión cuando completes tu compra.</p>'}<div class="ts-v55-review-form"><input id="tsReviewName" placeholder="Tu nombre"><select id="tsReviewStars"><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option></select><input id="tsReviewText" placeholder="Escribe tu opinión"><button class="btn ghost" onclick="tsAddReview('${esc(id)}')">Publicar opinión</button></div></section>`;
+    box.innerHTML=`<div class="ts-v55-buybox"><div><span class="ts-stock ${st.key}">${st.label}</span><small>${st.hint}</small></div><button id="tsV55BuyNow" class="btn" onclick="addCart&&addCart()">Comprar ahora</button><button class="btn ghost" onclick="tsToggleWishlist('${esc(id)}',event)">${favs().includes(id)?'♥ En favoritos':'♡ Guardar'}</button><button class="btn ghost" onclick="tsToggleCompare('${esc(id)}',event)">⚖ Comparar</button></div><section class="ts-v55-reviews"><div class="ts-v55-reviews-head"><h3>Opiniones de clientes</h3><div><span class="ts-stars">${stars(av)}</span><small>${rev.length||'Nuevo producto'}</small></div></div>${rev.length?rev.slice(0,4).map(r=>`<article><b>${esc(r.name)}</b><span class="ts-stars">${stars(r.stars)}</span><p>${esc(r.text)}</p><small>${esc(r.date)}</small></article>`).join(''):'<p class="muted">Sé el primero en dejar una opinión cuando completes tu compra.</p>'}<div class="ts-v55-review-form"><input id="tsReviewName" placeholder="Tu nombre"><select id="tsReviewStars"><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option></select><input id="tsReviewText" placeholder="Escribe tu opinión"><button class="btn ghost" onclick="tsAddReview('${esc(id)}')">Publicar opinión</button></div></section>`;
+    setTimeout(()=>tsRefreshSelectedVariantAvailability(p),40);
   }
   const oldOpen=window.openProduct;
   if(typeof oldOpen==='function'){
@@ -4254,6 +4350,7 @@ window.addEventListener('load', ()=>{
     if(!box){ target.insertAdjacentHTML('afterend','<div id="tsV552ProductUX"></div>'); box=$('tsV552ProductUX'); }
     box.innerHTML=productQuickHTML(p)+relatedHTML(p);
     enhanceColorButtons();
+    setTimeout(()=>tsRefreshSelectedVariantAvailability(p),60);
   }
   const oldOpenProduct=window.openProduct;
   if(typeof oldOpenProduct==='function') window.openProduct=function(id){ const r=oldOpenProduct.apply(this,arguments); setTimeout(()=>enhanceProductDetail(id),140); return r; };
