@@ -54,65 +54,89 @@ function tsBaseCatalogProducts(){
   try{ if(Array.isArray(PRODUCTS)) PRODUCTS.forEach(p=>{ if(p&&!out.some(x=>String(x.id)===String(p.id))) out.push(p); }); }catch(e){}
   return out;
 }
-function tsBuildInventoryCatalog(variants){
-  const base=tsBaseCatalogProducts();
-  const groups=new Map();
-  (variants||[]).filter(v=>v&&v.active!==false).forEach(v=>{
-    const key=tsCatalogNorm(v.product_name||v.model||v.sku);
-    if(!key) return;
-    if(!groups.has(key)) groups.set(key,[]);
-    groups.get(key).push(v);
+function tsBuildInventoryCatalog(variants,catalogProducts){
+  // V1.4: data.js sigue siendo la fuente visual de productos existentes.
+  // Productos NUEVOS solo se agregan si fueron publicados explícitamente en el Panel
+  // y tienen una imagen propia. Nada se infiere por categoría para evitar mezclar fotos.
+  const base=tsBaseCatalogProducts().map(p=>JSON.parse(JSON.stringify(p)));
+  const rows=(variants||[]).filter(v=>v&&v.active!==false);
+  const editorial=(catalogProducts||[]).filter(c=>c&&c.published===true&&c.image_url);
+  const byProduct=new Map();
+  rows.forEach(v=>{const k=tsCatalogNorm(v.product_name||'');if(!k)return;if(!byProduct.has(k))byProduct.set(k,[]);byProduct.get(k).push(v)});
+
+  function enrich(p,matched){
+    if(!matched.length)return p;
+    const prices=matched.map(v=>Number(v.price_usd||0)).filter(n=>n>0);
+    p.inventory_available=matched.reduce((a,v)=>a+Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),0);
+    p.inventory_live=true;
+    if(prices.length)p.price=Math.min(...prices);
+    return p;
+  }
+
+  // 1) Catálogo existente: conserva sus imágenes/galerías; solo recibe precio/stock.
+  base.forEach(p=>{
+    const keys=[p.name,p.model,p.family].map(tsCatalogNorm).filter(Boolean);
+    let matched=[];
+    for(const k of keys){if(byProduct.has(k)){matched=byProduct.get(k);break}}
+    if(!matched.length)matched=rows.filter(v=>keys.includes(tsCatalogNorm(v.product_name||''))||keys.includes(tsCatalogNorm(v.model||'')));
+    enrich(p,matched);
+    // Seguridad temporal: la Mac mini agregada anteriormente no reutiliza la foto de MacBook.
+    if((String(p.id||'')==='mac-mini-2020-m1-8gb-500gb'||tsCatalogNorm(p.name)==='mac mini 2020') && String(p.main||'').includes('808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg')){
+      p.main='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"><rect width="800" height="600" fill="#f3f3f3"/><rect x="235" y="145" width="330" height="310" rx="48" fill="#d8d8d8" stroke="#a8a8a8" stroke-width="8"/><text x="400" y="515" text-anchor="middle" font-family="Arial" font-size="34" fill="#333">Mac mini 2020</text><text x="400" y="555" text-anchor="middle" font-family="Arial" font-size="22" fill="#666">Sube la imagen desde el Panel</text></svg>`);
+      p.gallery=[p.main]; const safeColors={};Object.keys(p.colors||{}).forEach(c=>safeColors[c]=p.main);p.colors=safeColors;
+    }
   });
-  const result=[];
-  groups.forEach((rows,key)=>{
-    const first=rows[0];
-    const pn=tsCatalogNorm(first.product_name), mn=tsCatalogNorm(first.model);
-    const found=base.find(p=>{
-      const bn=tsCatalogNorm(p.name), bm=tsCatalogNorm(p.model||p.family||p.name);
-      return bn===pn || bm===mn || (pn&&bn&&(pn.includes(bn)||bn.includes(pn))) || (mn&&bm&&(mn.includes(bm)||bm.includes(mn)));
-    });
-    const category=found?.category||tsInventoryCategory(first);
-    const main=found?.main||tsCatalogFallbackImage(category);
-    const colors={...(found?.colors||{})};
-    rows.forEach(v=>{ if(v.color&&!colors[v.color]) colors[v.color]=main; });
-    if(!Object.keys(colors).length) colors.Disponible=main;
-    const storage=[...new Set(rows.map(v=>String(v.capacity||'').trim()).filter(Boolean))];
-    const conditions=[...new Set(rows.map(v=>String(v.condition||'').trim()).filter(Boolean))];
-    const prices=rows.map(v=>Number(v.price_usd||0)).filter(n=>n>0);
-    const available=rows.reduce((a,v)=>a+Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),0);
+
+  // 2) Publicaciones explícitas del panel: imagen propia + categoría escogida.
+  editorial.forEach(c=>{
+    const key=tsCatalogNorm(c.product_name||'');
+    const matched=byProduct.get(key)||rows.filter(v=>tsCatalogNorm(v.product_name||'')===key);
+    if(!matched.length)return;
+    const existing=base.find(p=>[p.name,p.model,p.family].map(tsCatalogNorm).includes(key));
+    const colors=[...new Set(matched.map(v=>String(v.color||'').trim()).filter(Boolean))];
+    const capacities=[...new Set(matched.map(v=>String(v.capacity||'').trim()).filter(Boolean))];
+    const conditions=[...new Set(matched.map(v=>String(v.condition||'').trim()).filter(Boolean))];
+    const image=String(c.image_url||'').trim();
+    if(existing){
+      // Solo una publicación manual puede cambiar la imagen de un producto existente.
+      existing.main=image; existing.gallery=[image];
+      if(colors.length){const m={};colors.forEach(x=>m[x]=image);existing.colors=m}
+      if(capacities.length)existing.storage=capacities;
+      if(conditions.length)existing.condition=conditions;
+      if(c.description)existing.description=c.description;
+      if(c.category)existing.category=c.category;
+      enrich(existing,matched);
+      return;
+    }
+    const colorMap={};(colors.length?colors:['Único']).forEach(x=>colorMap[x]=image);
     const p={
-      ...(found?JSON.parse(JSON.stringify(found)):{}),
-      id: found?.id || `inv-${tsCatalogSlug(first.product_name||first.model||first.sku)}`,
-      brand: found?.brand||'Apple',
-      category,
-      family: found?.family||first.product_name||first.model||'Apple',
-      model: first.model||found?.model||first.product_name,
-      name: first.product_name||found?.name||first.model||'Producto ThinkStore',
-      badge: found?.badge||(conditions.length===1?conditions[0]:category),
-      main,
-      gallery: found?.gallery?.length?found.gallery:[main],
-      colors,
-      storage: storage.length?storage:(found?.storage||['Consultar']),
-      condition: conditions.length?conditions:(found?.condition||['Nuevo','Renovado','Pre-Order']),
-      price: prices.length?Math.min(...prices):Number(found?.price||0),
-      inventory_available:available,
-      inventory_live:true,
-      desc: found?.desc||found?.description||`${first.product_name||first.model} disponible en ThinkStore. Stock y precio sincronizados con inventario en tiempo real.`
+      id:'sb-'+String(c.product_key||tsCatalogSlug(c.product_name)),
+      name:c.product_name,
+      family:c.product_name,
+      model:matched[0]?.model||c.product_name,
+      category:c.category,
+      cat:c.category,
+      brand:'Apple',
+      badge:conditions[0]||c.category,
+      description:c.description||'Producto disponible en ThinkStore.',
+      main:image,
+      gallery:[image],
+      colors:colorMap,
+      storage:capacities.length?capacities:['Consultar configuración'],
+      condition:conditions.length?conditions:['Nuevo'],
+      active:true,
+      supabase_catalog:true,
+      sort_order:Number(c.sort_order||1000)
     };
-    result.push(p);
+    enrich(p,matched);base.push(p);
   });
-  return result;
+  return base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
 }
 function tsCatalogProducts(){
   const base=tsBaseCatalogProducts();
   if(!Array.isArray(tsInventoryCatalogProducts)||!tsInventoryCatalogProducts.length) return base;
-  const merged=[];
-  base.forEach(p=>{
-    const live=tsInventoryCatalogProducts.find(x=>String(x.id)===String(p.id) || tsCatalogNorm(x.name)===tsCatalogNorm(p.name));
-    merged.push(live||p);
-  });
-  tsInventoryCatalogProducts.forEach(p=>{ if(!merged.some(x=>String(x.id)===String(p.id)||tsCatalogNorm(x.name)===tsCatalogNorm(p.name))) merged.push(p); });
-  return merged;
+  // tsInventoryCatalogProducts ya contiene clones seguros del catálogo base.
+  return tsInventoryCatalogProducts;
 }
 window.tsCatalogProducts=tsCatalogProducts;
 
@@ -5301,7 +5325,7 @@ window.addEventListener('load', ()=>{
     try{
       const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok||!Array.isArray(data.variants))return;
-      tsInventoryCatalogProducts=tsBuildInventoryCatalog(data.variants);
+      tsInventoryCatalogProducts=tsBuildInventoryCatalog(data.variants,data.catalog_products||[]);
       window.tsInventoryCatalogProducts=tsInventoryCatalogProducts;
       // Mantiene también el precio mínimo en los objetos locales para compatibilidad con módulos antiguos.
       const lists=[];
