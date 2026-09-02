@@ -101,6 +101,8 @@ exports.handler=async(event)=>{
     const clean=items.map((x,i)=>({product_key,image_url:String(x.image_url||'').trim(),storage_path:String(x.storage_path||'').trim()||null,sort_order:i,is_primary:!!x.is_primary})).filter(x=>x.image_url);
     if(clean.length&&!clean.some(x=>x.is_primary))clean[0].is_primary=true;
     if(clean.filter(x=>x.is_primary).length>1){let seen=false;clean.forEach(x=>{if(x.is_primary&&!seen){seen=true}else if(x.is_primary)x.is_primary=false})}
+    const oldr=await fetch(`${url}/rest/v1/catalog_product_images?select=storage_path&product_key=eq.${encodeURIComponent(product_key)}`,{headers:sh});
+    const oldRows=await oldr.json().catch(()=>[]);
     const dr=await fetch(`${url}/rest/v1/catalog_product_images?product_key=eq.${encodeURIComponent(product_key)}`,{method:'DELETE',headers:sh});
     if(!dr.ok)return r(dr.status,{ok:false,error:'No se pudo actualizar la galería'});
     if(clean.length){
@@ -108,8 +110,10 @@ exports.handler=async(event)=>{
       const out=await ar.json().catch(()=>[]); if(!ar.ok)return r(ar.status,{ok:false,error:'No se pudo guardar la galería',details:out});
       const primary=clean.find(x=>x.is_primary)||clean[0];
       await fetch(`${url}/rest/v1/catalog_products?product_key=eq.${encodeURIComponent(product_key)}`,{method:'PATCH',headers:sh,body:JSON.stringify({image_url:primary.image_url,updated_at:new Date().toISOString()})});
+      await cleanupCatalogStorage(url,service,oldRows,clean);
       return r(200,{ok:true,images:out});
     }
+    await cleanupCatalogStorage(url,service,oldRows,clean);
     return r(200,{ok:true,images:[]});
   }
 
@@ -147,4 +151,13 @@ async function authorizeAdmin(event,url,service){
   const rows=await pr.json().catch(()=>[]),p=rows[0],role=String(p?.role||'').toLowerCase();
   if(!p||p.active===false||!['admin','super_admin','superadmin','administrator','gerente'].includes(role))return{ok:false};
   return{ok:true,user_id:u.id,role};
+}
+
+async function cleanupCatalogStorage(url,service,oldRows,clean){
+  try{
+    const keep=new Set((clean||[]).map(x=>String(x.storage_path||'')));
+    const prefixes=(oldRows||[]).map(x=>String(x.storage_path||'')).filter(x=>x.startsWith('catalog-products/')&&!keep.has(x)).map(x=>x.replace(/^catalog-products\//,''));
+    if(!prefixes.length)return;
+    await fetch(`${url}/storage/v1/object/catalog-products`,{method:'DELETE',headers:{apikey:service,Authorization:`Bearer ${service}`,'Content-Type':'application/json'},body:JSON.stringify({prefixes})});
+  }catch(_){/* limpieza no bloquea el guardado */}
 }

@@ -51,7 +51,7 @@ exports.handler = async function(event) {
   const nextStatus=clean(body.status||body.estado);
   const guide=clean(body.guideNumber||body.numero_guia||body.guide);
   if(!incomingId&&!incomingCode)return reply(400,{ok:false,error:'ID o código de pedido requerido'});
-  if(action!=='resend_delivery_note'&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
+  if(!['resend_delivery_note','view_delivery_note'].includes(action)&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
 
   async function findPedido(){
     const qs=[];
@@ -142,6 +142,18 @@ exports.handler = async function(event) {
     const found=await findPedido();
     if(!found)return reply(404,{ok:false,error:'Pedido no encontrado'});
 
+    const currentStatus=norm(found.estado||'');
+    const isClosed=currentStatus.includes('entreg');
+    // V1.5.6: una venta entregada queda inmutable. Solo se permiten acciones de lectura/reenvío.
+    if(isClosed && !['resend_delivery_note','view_delivery_note'].includes(action)){
+      return reply(409,{ok:false,locked:true,error:'Venta cerrada: este pedido ya fue entregado y es de solo lectura.'});
+    }
+
+    if(action==='view_delivery_note'){
+      const p=normalized(await fullPedido(found));
+      const note=deliveryNoteEmail(p);
+      return reply(200,{ok:true,pedido:p,html:note.html,text:note.text,subject:note.subject});
+    }
     if(action==='resend_delivery_note'){
       const p=normalized(await fullPedido(found));
       const r=await send(deliveryNoteEmail(p),p.customerEmail); await logEmail(p,'nota_entrega_reenvio',r);
