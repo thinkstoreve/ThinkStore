@@ -110,10 +110,10 @@ exports.handler=async(event)=>{
       const out=await ar.json().catch(()=>[]); if(!ar.ok)return r(ar.status,{ok:false,error:'No se pudo guardar la galería',details:out});
       const primary=clean.find(x=>x.is_primary)||clean[0];
       await fetch(`${url}/rest/v1/catalog_products?product_key=eq.${encodeURIComponent(product_key)}`,{method:'PATCH',headers:sh,body:JSON.stringify({image_url:primary.image_url,updated_at:new Date().toISOString()})});
-      await cleanupCatalogStorage(url,service,oldRows,clean);
+      await cleanupCatalogMedia(oldRows,clean);
       return r(200,{ok:true,images:out});
     }
-    await cleanupCatalogStorage(url,service,oldRows,clean);
+    await cleanupCatalogMedia(oldRows,clean);
     return r(200,{ok:true,images:[]});
   }
 
@@ -171,11 +171,20 @@ async function authorizeAdmin(event,url,service){
   return{ok:true,user_id:u.id,role};
 }
 
-async function cleanupCatalogStorage(url,service,oldRows,clean){
+async function cleanupCatalogMedia(oldRows,clean){
   try{
     const keep=new Set((clean||[]).map(x=>String(x.storage_path||'')));
-    const prefixes=(oldRows||[]).map(x=>String(x.storage_path||'')).filter(x=>x.startsWith('catalog-products/')&&!keep.has(x)).map(x=>x.replace(/^catalog-products\//,''));
-    if(!prefixes.length)return;
-    await fetch(`${url}/storage/v1/object/catalog-products`,{method:'DELETE',headers:{apikey:service,Authorization:`Bearer ${service}`,'Content-Type':'application/json'},body:JSON.stringify({prefixes})});
-  }catch(_){/* limpieza no bloquea el guardado */}
+    const keys=(oldRows||[]).map(x=>String(x.storage_path||'')).filter(x=>x.startsWith('r2:')&&!keep.has(x)).map(x=>x.slice(3));
+    const cfg=r2Config(); if(!cfg||!keys.length)return;
+    for(const key of keys){try{await r2Delete(cfg,key)}catch(_e){}}
+  }catch(_){/* limpieza multimedia no bloquea el guardado */}
+}
+function r2Config(){const accountId=String(process.env.R2_ACCOUNT_ID||'').trim(),accessKey=String(process.env.R2_ACCESS_KEY_ID||'').trim(),secretKey=String(process.env.R2_SECRET_ACCESS_KEY||'').trim(),bucket=String(process.env.R2_BUCKET_NAME||'').trim();return accountId&&accessKey&&secretKey&&bucket?{accountId,accessKey,secretKey,bucket}:null}
+async function r2Delete(cfg,key){
+  const crypto=require('crypto'),host=`${cfg.accountId}.r2.cloudflarestorage.com`,encodedKey=key.split('/').map(encodeURIComponent).join('/'),canonicalUri=`/${encodeURIComponent(cfg.bucket)}/${encodedKey}`;
+  const now=new Date(),amzDate=now.toISOString().replace(/[:-]|\.\d{3}/g,''),dateStamp=amzDate.slice(0,8),payloadHash=crypto.createHash('sha256').update(Buffer.alloc(0)).digest('hex'),contentType='application/octet-stream';
+  const canonicalHeaders=`content-type:${contentType}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`,signedHeaders='content-type;host;x-amz-content-sha256;x-amz-date';
+  const canonicalRequest=['DELETE',canonicalUri,'',canonicalHeaders,signedHeaders,payloadHash].join('\n'),scope=`${dateStamp}/auto/s3/aws4_request`,stringToSign=['AWS4-HMAC-SHA256',amzDate,scope,crypto.createHash('sha256').update(canonicalRequest).digest('hex')].join('\n');
+  const hm=(k,d,e)=>crypto.createHmac('sha256',k).update(d).digest(e),kDate=hm(Buffer.from('AWS4'+cfg.secretKey),dateStamp),kRegion=hm(kDate,'auto'),kService=hm(kRegion,'s3'),kSigning=hm(kService,'aws4_request'),signature=hm(kSigning,stringToSign,'hex');
+  return fetch(`https://${host}${canonicalUri}`,{method:'DELETE',headers:{'Content-Type':contentType,'Host':host,'x-amz-date':amzDate,'x-amz-content-sha256':payloadHash,'Authorization':`AWS4-HMAC-SHA256 Credential=${cfg.accessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`}});
 }

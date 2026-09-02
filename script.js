@@ -350,22 +350,54 @@ function tsSelectedCapacity(){
   const vals=Object.values(selectedConfig||{}).map(v=>String(v||'').trim());
   return vals.find(v=>/^(128|256|512)\s*gb$/i.test(v)||/^\d+(?:\.\d+)?\s*tb$/i.test(v)) || vals[0] || '';
 }
-async function tsFindInventoryVariant(product,model,color,capacity,condition){
+let tsInventoryVariantCache={at:0,rows:[]};
+function tsConditionKey(v){
+  const n=tsInventoryNorm(v);
+  if(/pre order|preorden/.test(n)) return 'preorder';
+  if(/renovado|reacondicionado|refurbished|renewed/.test(n)) return 'renovado';
+  if(/nuevo|new/.test(n)) return 'nuevo';
+  return n;
+}
+async function tsGetInventoryVariants(force=false){
+  const now=Date.now();
+  if(!force && tsInventoryVariantCache.rows.length && now-tsInventoryVariantCache.at<10000) return tsInventoryVariantCache.rows;
+  const res=await fetch('/.netlify/functions/inventory?ts='+now,{cache:'no-store'});
+  const out=await res.json().catch(()=>({}));
+  if(!res.ok||!out.ok||!Array.isArray(out.variants)) return [];
+  tsInventoryVariantCache={at:now,rows:out.variants};
+  return out.variants;
+}
+function tsResolveInventoryVariant(rows,product,model,color,capacity,condition){
+  const np=tsInventoryNorm(product), nm=tsInventoryNorm(model), nc=tsInventoryNorm(color), ncap=tsInventoryNorm(capacity), ncond=tsConditionKey(condition);
+  const candidates=(rows||[]).filter(v=>{
+    const vp=tsInventoryNorm(v.product_name), vc=tsInventoryNorm(v.color), vcap=tsInventoryNorm(v.capacity), vcond=tsConditionKey(v.condition);
+    return vp===np && (!nc||vc===nc) && (!ncap||vcap===ncap) && (!ncond||vcond===ncond);
+  });
+  if(!candidates.length) return null;
+  // El modelo solo desempata. El nombre exacto del producto evita cruces Pro / Pro Max.
+  candidates.sort((a,b)=>{
+    const sa=(tsInventoryNorm(a.model)===nm?4:0)+(Number(a.active!==false)?1:0);
+    const sb=(tsInventoryNorm(b.model)===nm?4:0)+(Number(b.active!==false)?1:0);
+    return sb-sa;
+  });
+  return candidates[0]||null;
+}
+async function tsFindInventoryVariant(product,model,color,capacity,condition,force=false){
   try{
-    const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'});
-    const out=await res.json().catch(()=>({}));
-    if(!res.ok||!out.ok||!Array.isArray(out.variants)) return null;
-    const np=tsInventoryNorm(product), nm=tsInventoryNorm(model), nc=tsInventoryNorm(color), ncap=tsInventoryNorm(capacity), ncond=tsInventoryNorm(condition);
-    return out.variants.find(v=>{
-      const vp=tsInventoryNorm(v.product_name), vm=tsInventoryNorm(v.model), vc=tsInventoryNorm(v.color), vcap=tsInventoryNorm(v.capacity), vcond=tsInventoryNorm(v.condition);
-      // Coincidencia estricta: evita que "iPhone 17 Pro Max" herede stock de "iPhone 17 Pro".
-      const productOk=vp===np || (!!nm && vm===nm && (!vp || vp===np));
-      const colorOk=!nc || vc===nc;
-      const capacityOk=!ncap || vcap===ncap;
-      const conditionOk=!ncond || vcond===ncond;
-      return productOk && colorOk && capacityOk && conditionOk;
-    }) || null;
+    const rows=await tsGetInventoryVariants(force);
+    return tsResolveInventoryVariant(rows,product,model,color,capacity,condition);
   }catch(e){ console.warn('ThinkStore inventario: no se pudo resolver variante',e); return null; }
+}
+async function tsLoadCartConditionPrices(item){
+  try{
+    const rows=await tsGetInventoryVariants(true);
+    const prices={};
+    ['Nuevo','Renovado','Pre-Order'].forEach(c=>{
+      const v=tsResolveInventoryVariant(rows,item.product,item.model||item.product,item.color,item.capacity||'',c);
+      if(v&&Number(v.price_usd||0)>0) prices[tsConditionKey(c)]=Number(v.price_usd);
+    });
+    item.condition_prices=prices;
+  }catch(_e){}
 }
 function tsIsPreorderCondition(value){
   return /pre[\s-]?order|preorden/i.test(String(value||''));
@@ -426,6 +458,9 @@ async function addCart(){
   count();
   closeProduct();
   openCart();
+  const justAdded=cart[cart.length-1];
+  await tsLoadCartConditionPrices(justAdded);
+  drawCart();
 }
 
 
@@ -485,7 +520,7 @@ function drawCart(){
     return `<div class="cartrow premium-cartrow ts-selected-row" style="--product-color:${colorHex}">
     <div class="cart-index ts-qty-badge">${Number(i.qty||1)}</div>
     <div class="ts-thumb-stage"><span class="ts-color-halo"></span><span class="ts-color-chip" title="${colorName}"><i></i>${colorName}</span><img class="cart-product-img js-remove-white-bg" data-original-src="${asset(i.image)}" src="${asset(i.image)}" alt="${i.product}"></div>
-    <div class="cart-info"><b>${i.product}</b><span>${i.model||''}</span><div class="cart-chips ts-cart-chips-v23"><em class="cart-color-pill" style="--chip-color:${colorHex}"><i></i>${colorName}</em><em class="cart-config-pill">📦 ${compactConfig}</em></div><label class="ts-cart-condition-label">Condición <select class="ts-cart-condition-select" onchange="updateCartCondition(${n},this.value)">${['Nuevo','Renovado', ...(tsIsPreorderCondition(i.condition)?['Pre-Order']:[])].map(c=>`<option value="${c}" ${tsInventoryNorm(i.condition)===tsInventoryNorm(c)?'selected':''}>${c}</option>`).join('')}</select></label></div>
+    <div class="cart-info"><b>${i.product}</b><span>${i.model||''}</span><div class="cart-chips ts-cart-chips-v23"><em class="cart-color-pill" style="--chip-color:${colorHex}"><i></i>${colorName}</em><em class="cart-config-pill">📦 ${compactConfig}</em></div><label class="ts-cart-condition-label">Condición <select class="ts-cart-condition-select" onchange="updateCartCondition(${n},this.value)">${['Nuevo','Renovado', ...(tsIsPreorderCondition(i.condition)||i.condition_prices?.preorder?['Pre-Order']:[])].map(c=>{const cp=i.condition_prices?.[tsConditionKey(c)];return `<option value="${c}" ${tsConditionKey(i.condition)===tsConditionKey(c)?'selected':''}>${c}${cp?' — $'+Number(cp).toLocaleString('es-VE'):''}</option>`}).join('')}</select></label></div>
     <div class="cart-price"><strong>${formatCheckoutMoney(i.price)}</strong><small>USD</small></div>
     <button class="cart-remove" onclick="removeCart(${n})" title="Eliminar">×</button>
   </div>`}).join('\n'):'<div class="empty-cart-premium">🛒<b>Tu carrito está vacío</b><small>Agrega un producto para iniciar tu pedido.</small></div>';
@@ -516,7 +551,7 @@ async function updateCartCondition(n,value){
     const m=cfg.match(/(?:^|[:·\s])((?:128|256|512)\s*GB|\d+(?:\.\d+)?\s*TB)(?:$|[·\s])/i);
     capacity=m?m[1].replace(/\s+/g,''):'';
   }
-  const inv=await tsFindInventoryVariant(item.product,item.model||item.product,item.color,capacity,value);
+  const inv=await tsFindInventoryVariant(item.product,item.model||item.product,item.color,capacity,value,true);
   const isPreorder=tsIsPreorderCondition(value);
   const available=Number(inv?.available ?? (Number(inv?.stock_on_hand||0)-Number(inv?.stock_reserved||0)));
 
@@ -529,8 +564,16 @@ async function updateCartCondition(n,value){
     return;
   }
 
-  // El precio mostrado y el total deben provenir de la variante elegida.
-  if(inv && Number(inv.price_usd||0)>0) item.price=Number(inv.price_usd);
+  // El precio mostrado y el total provienen SIEMPRE de la variante elegida.
+  if(inv && Number(inv.price_usd||0)>0){
+    item.price=Number(inv.price_usd);
+  }else if(!isPreorder){
+    item.condition=previousCondition; item.price=previousPrice; drawCart();
+    if(typeof tsShowToast==='function') tsShowToast('La variante '+value+' no tiene un precio válido cargado.');
+    else alert('La variante '+value+' no tiene un precio válido cargado.');
+    return;
+  }
+  await tsLoadCartConditionPrices(item);
   if(isPreorder){
     item.variant_id=null;
     item.inventory_variant_id=null;
@@ -5943,22 +5986,51 @@ window.addEventListener('load', ()=>{
     }catch(e){console.warn('ThinkStore inventario exacto:',e);return []}
   }
   function available(v){return Math.max(0,Number(v?.available ?? (Number(v?.stock_on_hand||0)-Number(v?.stock_reserved||0))));}
-  function conditionVariant(rows,c){return rows.find(v=>norm(v.condition)===norm(c))||null;}
+  function conditionVariant(rows,c){
+    const key=(typeof tsConditionKey==='function'?tsConditionKey(c):norm(c));
+    return rows.find(v=>(typeof tsConditionKey==='function'?tsConditionKey(v.condition):norm(v.condition))===key)||null;
+  }
+  function moneyPrice(v){
+    const n=Number(v||0);
+    return n>0?'$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2}):'';
+  }
   function drawButtons(rows){
     const box=document.getElementById('conditions'); if(!box)return [];
     const immediate=IMMEDIATE.filter(c=>{const v=conditionVariant(rows,c);return v&&available(v)>0});
+    const preorder=conditionVariant(rows,'Pre-Order');
     const options=immediate.length?[...immediate,'Pre-Order']:['Pre-Order'];
     let cur=(typeof selectedCondition!=='undefined'?selectedCondition:'')||options[0];
     if(!options.some(c=>norm(c)===norm(cur))) cur=options[0];
     selectedCondition=cur;
-    box.innerHTML=options.map(c=>`<button class="opt ${norm(c)===norm(cur)?'sel':''}" type="button" onclick="setCond('${c}')">${c}</button>`).join('');
+    box.innerHTML=options.map(c=>{
+      const v=conditionVariant(rows,c);
+      const price=moneyPrice(v?.price_usd);
+      return `<button class="opt ${norm(c)===norm(cur)?'sel':''}" type="button" onclick="setCond('${c}')"><span>${c}</span>${price?`<small style="display:block;font-size:12px;margin-top:3px;font-weight:800">${price}</small>`:''}</button>`;
+    }).join('');
     return options;
   }
   function setPrice(inv,condition,badge){
     const price=Number(inv?.price_usd||0);
     let p=document.getElementById('tsConditionPrice');
-    if(!p){p=document.createElement('div');p.id='tsConditionPrice';p.style.cssText='margin-top:8px;font-size:20px;font-weight:900';badge.appendChild(p)}
-    p.textContent=price>0?`$${price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`:(tsIsPreorderCondition(condition)?'Precio Pre-Order por definir':'Precio por definir');
+    if(!p){p=document.createElement('div');p.id='tsConditionPrice';p.style.cssText='margin-top:10px;font-size:22px;font-weight:950;letter-spacing:-.3px';badge.appendChild(p)}
+    p.textContent=price>0?`Precio seleccionado · USD ${moneyPrice(price)}`:(tsIsPreorderCondition(condition)?'Precio Pre-Order por definir':'Precio por definir');
+  }
+  async function annotateCapacityPrices(condition){
+    try{
+      const all=await tsGetInventoryVariants(false);
+      const np=norm(selectedProduct?.name);
+      const nc=norm(typeof selectedColor!=='undefined'?selectedColor:'');
+      const ck=(typeof tsConditionKey==='function'?tsConditionKey(condition):norm(condition));
+      const rows=(all||[]).filter(v=>norm(v.product_name)===np && (!nc||norm(v.color)===nc) && (typeof tsConditionKey==='function'?tsConditionKey(v.condition):norm(v.condition))===ck);
+      document.querySelectorAll('#vars .opt').forEach(btn=>{
+        if(!btn.dataset.tsBaseLabel) btn.dataset.tsBaseLabel=(btn.textContent||'').replace(/\s·\s\$[\d,.]+.*$/,'').trim();
+        const base=btn.dataset.tsBaseLabel;
+        if(!/\b(?:128|256|512)\s*GB\b|\b\d+(?:\.\d+)?\s*TB\b/i.test(base)) return;
+        const hit=rows.find(v=>norm(v.capacity)===norm(base));
+        const price=moneyPrice(hit?.price_usd);
+        btn.innerHTML=`<span>${base}</span>${price?`<small style="display:block;font-size:11px;margin-top:3px;font-weight:800">${price}</small>`:''}`;
+      });
+    }catch(e){console.warn('ThinkStore precios por capacidad:',e)}
   }
   async function refresh(){
     if(!selectedProduct)return;
@@ -5981,6 +6053,7 @@ window.addEventListener('load', ()=>{
       return refresh();
     }
     badge.appendChild(status); setPrice(inv,cond,badge);
+    await annotateCapacityPrices(cond);
     if(inv && Number(inv.price_usd||0)>0){
       selectedProduct.price=Number(inv.price_usd);
       const priceTargets=['pprice','productPrice','detailPrice'];
