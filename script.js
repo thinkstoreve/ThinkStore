@@ -4220,12 +4220,19 @@ window.addEventListener('load', ()=>{
   function productReviews(id){ return reviews()[id] || []; }
   function avg(id){ const r=productReviews(id); return r.length ? (r.reduce((s,x)=>s+Number(x.stars||5),0)/r.length) : 0; }
   function stockInfo(p){
+    // V1.4.2: si Supabase ya enriqueció el producto, esa disponibilidad manda
+    // también en Inicio/categorías. Así nunca mostramos 'Bajo pedido' con stock real > 0.
+    if(p && p.inventory_live){
+      const qty=Math.max(0,Number(p.inventory_available||0));
+      if(qty>0) return {key:qty>3?'available':'low', label:'En stock', hint:`${qty} ${qty===1?'unidad disponible':'unidades disponibles'}`};
+      return {key:'preorder', label:'Bajo pedido', hint:'Sin existencias · disponible para Pre-Order'};
+    }
     const inv = window.adminInventory || [];
     const skuMatches = inv.filter(i=>String(i.product||'').toLowerCase().includes(String(p.name||'').toLowerCase()) || String(p.name||'').toLowerCase().includes(String(i.product||'').toLowerCase()));
     const qty = skuMatches.reduce((s,i)=>s+Number(i.stock||0),0);
     const preorder = skuMatches.some(i=>String(i.status||'').toLowerCase().includes('preorden')) || String(p.condition||'').toLowerCase().includes('preorden');
-    if(qty>3) return {key:'available', label:'Disponible', hint:'Entrega inmediata según disponibilidad'};
-    if(qty>0) return {key:'low', label:'Últimas unidades', hint:'Stock limitado'};
+    if(qty>3) return {key:'available', label:'En stock', hint:`${qty} unidades disponibles`};
+    if(qty>0) return {key:'low', label:'En stock', hint:`${qty} ${qty===1?'unidad disponible':'unidades disponibles'}`};
     if(preorder || !skuMatches.length) return {key:'preorder', label:'Bajo pedido', hint:'15 a 25 días hábiles'};
     return {key:'out', label:'Agotado', hint:'Consulta disponibilidad'};
   }
@@ -5436,4 +5443,58 @@ window.addEventListener('load', ()=>{
   document.addEventListener('DOMContentLoaded', async()=>{ await hydrateRoleFromSupabase(); updateNavRole(); });
   window.addEventListener('load', updateNavRole);
   setInterval(updateNavRole, 1500);
+})();
+
+/* ===== ThinkStore V1.4.1 HOTFIX · Apertura segura de producto ===== */
+(function(){
+  // El modal de categoría V2 ocupa toda la pantalla. Antes, al abrir un producto,
+  // el detalle legado podía quedar detrás de ese modal y aparentar que el catálogo
+  // había desaparecido. Cerramos primero la categoría y luego abrimos el detalle.
+  window.openProductFromV2 = function(id){
+    try{
+      if(typeof closeCategoryModalV2 === 'function') closeCategoryModalV2();
+      const cat = document.getElementById('categoryModalV2');
+      if(cat){ cat.classList.remove('open'); cat.style.display='none'; }
+
+      // Da un frame al navegador para retirar el overlay antes de abrir el producto.
+      requestAnimationFrame(()=>{
+        try{
+          if(typeof openProduct === 'function'){
+            openProduct(id);
+            const modal=document.getElementById('modal');
+            if(modal){
+              modal.classList.add('open');
+              modal.style.display='flex';
+              modal.style.zIndex='100000';
+            }
+            return;
+          }
+          if(typeof showProduct === 'function') return showProduct(id);
+          if(typeof viewProduct === 'function') return viewProduct(id);
+          alert('No se pudo abrir el detalle del producto.');
+        }catch(err){
+          console.error('ThinkStore abrir producto:',err);
+          alert('No se pudo abrir el producto. Actualiza la página e inténtalo nuevamente.');
+        }
+      });
+    }catch(err){
+      console.error('ThinkStore V1.4.1:',err);
+    }
+  };
+
+  // Si alguna tarjeta antigua llama openProduct directamente desde el modal V2,
+  // también protegemos ese flujo sin reemplazar la lógica original del producto.
+  try{
+    const originalOpenProduct = window.openProduct || (typeof openProduct==='function' ? openProduct : null);
+    if(typeof originalOpenProduct === 'function'){
+      window.openProduct = function(id){
+        const cat=document.getElementById('categoryModalV2');
+        if(cat && (cat.classList.contains('open') || cat.style.display==='flex')){
+          cat.classList.remove('open');
+          cat.style.display='none';
+        }
+        return originalOpenProduct(id);
+      };
+    }
+  }catch(e){}
 })();
