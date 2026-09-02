@@ -11,7 +11,12 @@ exports.handler=async(event)=>{
     const rr=await fetch(`${url}/rest/v1/inventory_variants?select=id,sku,product_name,model,color,capacity,condition,chip,ram,stock_on_hand,stock_reserved,stock_sold,stock_min,price_usd,active&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
     const rows=await rr.json().catch(()=>[]);
     if(!rr.ok)return r(rr.status,{ok:false,error:'No se pudo consultar inventario',details:rows});
-    return r(200,{ok:true,variants:rows.map(v=>({...v,available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)}))});
+    let catalog=[];
+    try{
+      const cr=await fetch(`${url}/rest/v1/catalog_products?select=id,product_key,product_name,category,description,image_url,published,sort_order,created_at,updated_at&order=sort_order.asc,product_name.asc`,{headers:sh});
+      if(cr.ok)catalog=await cr.json().catch(()=>[]);
+    }catch(_e){}
+    return r(200,{ok:true,variants:rows.map(v=>({...v,available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog});
   }
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const auth=await authorizeAdmin(event,url,service);
@@ -67,6 +72,25 @@ exports.handler=async(event)=>{
     return r(200,{ok:true,summary:{rows:incoming.length,creates,updates,unchanged,errors},preview:preview.slice(0,200)});
   }
 
+  if(body.action==='save_catalog_product'){
+    const product_name=String(body.product_name||'').trim();
+    const product_key=slug(body.product_key||product_name);
+    const category=String(body.category||'').trim();
+    const description=String(body.description||'').trim()||null;
+    const image_url=String(body.image_url||'').trim()||null;
+    const published=body.published===true;
+    const sort_order=Number.isFinite(Number(body.sort_order))?Math.trunc(Number(body.sort_order)):1000;
+    if(!product_name||!product_key)return r(400,{ok:false,error:'Producto requerido'});
+    const allowedCats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios'];
+    if(!allowedCats.includes(category))return r(400,{ok:false,error:'Categoría inválida'});
+    if(published&&!image_url)return r(409,{ok:false,error:'Sube una imagen correcta antes de publicar el producto'});
+    const payload={product_key,product_name,category,description,image_url,published,sort_order,updated_at:new Date().toISOString()};
+    const ur=await fetch(`${url}/rest/v1/catalog_products?on_conflict=product_key`,{method:'POST',headers:{...sh,Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
+    const out=await ur.json().catch(()=>[]);
+    if(!ur.ok)return r(ur.status,{ok:false,error:'No se pudo guardar la publicación',details:out});
+    return r(200,{ok:true,catalog_product:out[0]||payload});
+  }
+
   if(body.action==='apply_import'){
     const rows=normalizeRows(body.rows);
     if(!rows.length)return r(400,{ok:false,error:'No hay filas válidas para importar'});
@@ -87,6 +111,7 @@ function normalizeRows(rows){
   }
   return out;
 }
+function slug(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto'}
 function r(statusCode,body){return{statusCode,headers:H,body:JSON.stringify(body)}}
 async function authorizeAdmin(event,url,service){
   const legacy=String(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']||'').trim();
