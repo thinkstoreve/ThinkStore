@@ -125,10 +125,17 @@ exports.handler = async function(event) {
   async function inventoryTransition(p,status){
     const n=norm(status);
     let rpc='',args={};
-    if(n==='entregado'){rpc='ts_finalize_inventory_sale';args={p_pedido_id:p.id}}
-    else if(n==='cancelado'||n==='pago rechazado'){rpc='ts_release_inventory';args={p_pedido_id:p.id,p_reason:`Liberación por estado: ${status}`}}
+    // Acepta variantes como "Entregado", "Pedido entregado" o etiquetas visuales.
+    if(n.includes('entreg')){rpc='ts_finalize_inventory_sale';args={p_pedido_id:p.id}}
+    else if(n.includes('cancel')||n.includes('rechaz')){rpc='ts_release_inventory';args={p_pedido_id:p.id,p_reason:`Liberación por estado: ${status}`}}
     if(!rpc||!p.id)return{skipped:true};
-    try{return await sb(`rpc/${rpc}`,{method:'POST',body:JSON.stringify(args)})}catch(e){return{ok:false,error:e.message}}
+    try{
+      const result=await sb(`rpc/${rpc}`,{method:'POST',body:JSON.stringify(args)});
+      return{ok:true,rpc,result};
+    }catch(e){
+      console.error('ThinkStore inventory transition',rpc,p.id,e);
+      return{ok:false,rpc,error:e.message};
+    }
   }
 
   try{
