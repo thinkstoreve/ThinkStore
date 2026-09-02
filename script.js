@@ -18,6 +18,104 @@ const getDesc=p=>p.description||p.desc||'';
 const getConfigs=p=>p.storage||p.variants||p.capacities||['Consultar configuración'];
 const getConditions=p=>p.condition||['Nuevo','Como nuevo','Renovado','Preorden'];
 
+
+/* ===== ThinkStore V1.3 · Catálogo vivo desde Supabase ===== */
+let tsInventoryCatalogProducts=[];
+function tsCatalogNorm(v){
+  return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+function tsCatalogSlug(v){
+  return tsCatalogNorm(v).replace(/\s+/g,'-') || ('producto-'+Date.now());
+}
+function tsInventoryCategory(v){
+  const t=tsCatalogNorm(`${v?.product_name||''} ${v?.model||''}`);
+  if(t.includes('iphone')) return 'iPhone';
+  if(t.includes('mac')) return 'Mac';
+  if(t.includes('ipad')) return 'iPad';
+  if(t.includes('airpod')) return 'Audio';
+  if(t.includes('watch')) return 'Apple Watch';
+  if(/pencil|mouse|keyboard|airtag|cable|cargador|adaptador|funda|accesorio/.test(t)) return 'Accesorios';
+  return 'Accesorios';
+}
+function tsCatalogFallbackImage(category){
+  try{
+    const c=(typeof CATEGORIES!=='undefined'&&Array.isArray(CATEGORIES)) ? CATEGORIES.find(x=>x.id===category || (category==='Audio'&&x.id==='Audio') || (category==='Apple Watch'&&/watch/i.test(x.id))) : null;
+    if(c?.image) return c.image;
+  }catch(e){}
+  if(category==='Mac') return '808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg';
+  if(category==='iPad') return 'C1D43603-926A-4ACF-AA49-5AD3866E8AC5.jpeg';
+  if(category==='Audio') return 'FD7B07BD-D841-400A-931C-4F4EC3BAA9BA.jpeg';
+  if(category==='iPhone') return 'iphone_assets_sheet.jpg';
+  return '0006EEA4-4088-48F6-A287-F0EBB608BB63.jpeg';
+}
+function tsBaseCatalogProducts(){
+  const out=[];
+  try{ if(Array.isArray(adminProducts)) out.push(...adminProducts.filter(p=>p&&p.active!==false)); }catch(e){}
+  try{ if(Array.isArray(PRODUCTS)) PRODUCTS.forEach(p=>{ if(p&&!out.some(x=>String(x.id)===String(p.id))) out.push(p); }); }catch(e){}
+  return out;
+}
+function tsBuildInventoryCatalog(variants){
+  const base=tsBaseCatalogProducts();
+  const groups=new Map();
+  (variants||[]).filter(v=>v&&v.active!==false).forEach(v=>{
+    const key=tsCatalogNorm(v.product_name||v.model||v.sku);
+    if(!key) return;
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(v);
+  });
+  const result=[];
+  groups.forEach((rows,key)=>{
+    const first=rows[0];
+    const pn=tsCatalogNorm(first.product_name), mn=tsCatalogNorm(first.model);
+    const found=base.find(p=>{
+      const bn=tsCatalogNorm(p.name), bm=tsCatalogNorm(p.model||p.family||p.name);
+      return bn===pn || bm===mn || (pn&&bn&&(pn.includes(bn)||bn.includes(pn))) || (mn&&bm&&(mn.includes(bm)||bm.includes(mn)));
+    });
+    const category=found?.category||tsInventoryCategory(first);
+    const main=found?.main||tsCatalogFallbackImage(category);
+    const colors={...(found?.colors||{})};
+    rows.forEach(v=>{ if(v.color&&!colors[v.color]) colors[v.color]=main; });
+    if(!Object.keys(colors).length) colors.Disponible=main;
+    const storage=[...new Set(rows.map(v=>String(v.capacity||'').trim()).filter(Boolean))];
+    const conditions=[...new Set(rows.map(v=>String(v.condition||'').trim()).filter(Boolean))];
+    const prices=rows.map(v=>Number(v.price_usd||0)).filter(n=>n>0);
+    const available=rows.reduce((a,v)=>a+Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),0);
+    const p={
+      ...(found?JSON.parse(JSON.stringify(found)):{}),
+      id: found?.id || `inv-${tsCatalogSlug(first.product_name||first.model||first.sku)}`,
+      brand: found?.brand||'Apple',
+      category,
+      family: found?.family||first.product_name||first.model||'Apple',
+      model: first.model||found?.model||first.product_name,
+      name: first.product_name||found?.name||first.model||'Producto ThinkStore',
+      badge: found?.badge||(conditions.length===1?conditions[0]:category),
+      main,
+      gallery: found?.gallery?.length?found.gallery:[main],
+      colors,
+      storage: storage.length?storage:(found?.storage||['Consultar']),
+      condition: conditions.length?conditions:(found?.condition||['Nuevo','Renovado','Pre-Order']),
+      price: prices.length?Math.min(...prices):Number(found?.price||0),
+      inventory_available:available,
+      inventory_live:true,
+      desc: found?.desc||found?.description||`${first.product_name||first.model} disponible en ThinkStore. Stock y precio sincronizados con inventario en tiempo real.`
+    };
+    result.push(p);
+  });
+  return result;
+}
+function tsCatalogProducts(){
+  const base=tsBaseCatalogProducts();
+  if(!Array.isArray(tsInventoryCatalogProducts)||!tsInventoryCatalogProducts.length) return base;
+  const merged=[];
+  base.forEach(p=>{
+    const live=tsInventoryCatalogProducts.find(x=>String(x.id)===String(p.id) || tsCatalogNorm(x.name)===tsCatalogNorm(p.name));
+    merged.push(live||p);
+  });
+  tsInventoryCatalogProducts.forEach(p=>{ if(!merged.some(x=>String(x.id)===String(p.id)||tsCatalogNorm(x.name)===tsCatalogNorm(p.name))) merged.push(p); });
+  return merged;
+}
+window.tsCatalogProducts=tsCatalogProducts;
+
 function count(){
   if($('cartCount')) $('cartCount').textContent=cart.length;
   localStorage.setItem('ts_cart',JSON.stringify(cart));
@@ -49,7 +147,7 @@ function productCard(p){
 
 function render(){
   const q=($('search')?.value||'').toLowerCase();
-  const list=PRODUCTS.filter(p=>{
+  const list=tsCatalogProducts().filter(p=>{
     const text=`${p.name} ${getDesc(p)} ${getCat(p)} ${p.family||''} ${Object.keys(p.colors||{}).join('\n')} ${getConfigs(p).join('\n')}`.toLowerCase();
     return (activeCat=='Todos'||getCat(p)==activeCat||p.family==activeCat) && text.includes(q);
   });
@@ -75,8 +173,8 @@ function selectCategory(cat){
 }
 
 function categoryProducts(cat){
-  if(!cat || cat === 'Todos') return PRODUCTS.slice();
-  return PRODUCTS.filter(p => getCat(p) === cat || p.family === cat || (cat === 'Audio' && /airpods|audio/i.test(`${p.name} ${getCat(p)} ${p.family||''}`)));
+  if(!cat || cat === 'Todos') return tsCatalogProducts().slice();
+  return tsCatalogProducts().filter(p => getCat(p) === cat || p.family === cat || (cat === 'Audio' && /airpods|audio/i.test(`${p.name} ${getCat(p)} ${p.family||''}`)));
 }
 
 function categoryLabel(cat,label){
@@ -138,7 +236,7 @@ function optButtons(id,arr,sel,fn){
 }
 
 function openProduct(id){
-  selectedProduct=(typeof productsV2==='function' ? productsV2() : PRODUCTS).find(p=>p.id==id);
+  selectedProduct=(typeof productsV2==='function' ? productsV2() : tsCatalogProducts()).find(p=>p.id==id);
   if(!selectedProduct) return;
   const colors=Object.keys(selectedProduct.colors||{});
   selectedColor=colors[0]||'Disponible';
@@ -2571,12 +2669,8 @@ function productCategoryV2(p){
   return p.category || 'Catálogo';
 }
 function productsV2(){
-  // V33: primero usa productos editados desde el administrador.
-  try{
-    if(typeof adminProducts !== 'undefined' && Array.isArray(adminProducts) && adminProducts.length){
-      return adminProducts.filter(p=>p.active!==false);
-    }
-  }catch(e){}
+  // V1.3: catálogo principal = productos existentes + variantes vivas de Supabase.
+  try{ return tsCatalogProducts(); }catch(e){}
   if(typeof PRODUCTS !== 'undefined' && Array.isArray(PRODUCTS)) return PRODUCTS;
   if(typeof products !== 'undefined' && Array.isArray(products)) return products;
   return [];
@@ -5207,15 +5301,24 @@ window.addEventListener('load', ()=>{
     try{
       const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok||!Array.isArray(data.variants))return;
+      tsInventoryCatalogProducts=tsBuildInventoryCatalog(data.variants);
+      window.tsInventoryCatalogProducts=tsInventoryCatalogProducts;
+      // Mantiene también el precio mínimo en los objetos locales para compatibilidad con módulos antiguos.
       const lists=[];
       try{if(Array.isArray(PRODUCTS))lists.push(PRODUCTS)}catch(e){}
-      try{if(Array.isArray(window.adminProducts))lists.push(window.adminProducts)}catch(e){}
+      try{if(Array.isArray(adminProducts))lists.push(adminProducts)}catch(e){}
       lists.forEach(list=>list.forEach(p=>{
-        const pn=norm(p.name), pm=norm(p.model||p.family||p.name);
-        const prices=data.variants.filter(v=>Number(v.price_usd||0)>0).filter(v=>{const vn=norm(v.product_name),vm=norm(v.model);return vn===pn||vm===pm||vn.includes(pn)||pn.includes(vn)}).map(v=>Number(v.price_usd));
-        if(prices.length)p.price=Math.min(...prices);
+        const live=tsInventoryCatalogProducts.find(x=>String(x.id)===String(p.id)||norm(x.name)===norm(p.name));
+        if(live&&Number(live.price||0)>0)p.price=Number(live.price);
       }));
+      if(typeof render==='function')render();
       if(typeof renderFeaturedV2==='function')renderFeaturedV2();
+      // Si una categoría está abierta, refresca su contenido sin cerrar el modal.
+      const catModal=document.getElementById('categoryModalV2');
+      if(catModal&&catModal.classList.contains('open')){
+        const title=document.getElementById('categoryModalV2Title')?.textContent||'';
+        if(title&&typeof openCategoryModalV2==='function')openCategoryModalV2(title);
+      }
     }catch(e){console.warn('ThinkStore precios:',e)}
   }
   window.tsHydrateInventoryPrices=hydrate;
