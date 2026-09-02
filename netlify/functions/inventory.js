@@ -11,12 +11,14 @@ exports.handler=async(event)=>{
     const rr=await fetch(`${url}/rest/v1/inventory_variants?select=id,sku,product_name,model,color,capacity,condition,chip,ram,stock_on_hand,stock_reserved,stock_sold,stock_min,price_usd,active&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
     const rows=await rr.json().catch(()=>[]);
     if(!rr.ok)return r(rr.status,{ok:false,error:'No se pudo consultar inventario',details:rows});
-    let catalog=[];
+    let catalog=[],catalogImages=[];
     try{
       const cr=await fetch(`${url}/rest/v1/catalog_products?select=id,product_key,product_name,category,description,image_url,published,sort_order,created_at,updated_at&order=sort_order.asc,product_name.asc`,{headers:sh});
       if(cr.ok)catalog=await cr.json().catch(()=>[]);
+      const ir=await fetch(`${url}/rest/v1/catalog_product_images?select=id,product_key,image_url,storage_path,sort_order,is_primary,created_at&order=product_key.asc,sort_order.asc`,{headers:sh});
+      if(ir.ok)catalogImages=await ir.json().catch(()=>[]);
     }catch(_e){}
-    return r(200,{ok:true,variants:rows.map(v=>({...v,available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog});
+    return r(200,{ok:true,variants:rows.map(v=>({...v,available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog,catalog_images:catalogImages});
   }
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const auth=await authorizeAdmin(event,url,service);
@@ -89,6 +91,26 @@ exports.handler=async(event)=>{
     const out=await ur.json().catch(()=>[]);
     if(!ur.ok)return r(ur.status,{ok:false,error:'No se pudo guardar la publicación',details:out});
     return r(200,{ok:true,catalog_product:out[0]||payload});
+  }
+
+  if(body.action==='save_catalog_gallery'){
+    const product_key=slug(body.product_key||'');
+    const items=Array.isArray(body.images)?body.images:[];
+    if(!product_key)return r(400,{ok:false,error:'Producto requerido'});
+    if(items.length>12)return r(413,{ok:false,error:'Máximo 12 imágenes por producto'});
+    const clean=items.map((x,i)=>({product_key,image_url:String(x.image_url||'').trim(),storage_path:String(x.storage_path||'').trim()||null,sort_order:i,is_primary:!!x.is_primary})).filter(x=>x.image_url);
+    if(clean.length&&!clean.some(x=>x.is_primary))clean[0].is_primary=true;
+    if(clean.filter(x=>x.is_primary).length>1){let seen=false;clean.forEach(x=>{if(x.is_primary&&!seen){seen=true}else if(x.is_primary)x.is_primary=false})}
+    const dr=await fetch(`${url}/rest/v1/catalog_product_images?product_key=eq.${encodeURIComponent(product_key)}`,{method:'DELETE',headers:sh});
+    if(!dr.ok)return r(dr.status,{ok:false,error:'No se pudo actualizar la galería'});
+    if(clean.length){
+      const ar=await fetch(`${url}/rest/v1/catalog_product_images`,{method:'POST',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify(clean)});
+      const out=await ar.json().catch(()=>[]); if(!ar.ok)return r(ar.status,{ok:false,error:'No se pudo guardar la galería',details:out});
+      const primary=clean.find(x=>x.is_primary)||clean[0];
+      await fetch(`${url}/rest/v1/catalog_products?product_key=eq.${encodeURIComponent(product_key)}`,{method:'PATCH',headers:sh,body:JSON.stringify({image_url:primary.image_url,updated_at:new Date().toISOString()})});
+      return r(200,{ok:true,images:out});
+    }
+    return r(200,{ok:true,images:[]});
   }
 
   if(body.action==='apply_import'){
