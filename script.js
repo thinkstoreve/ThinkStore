@@ -46,6 +46,7 @@ function tsCatalogFallbackImage(category){
   if(category==='iPad') return 'C1D43603-926A-4ACF-AA49-5AD3866E8AC5.jpeg';
   if(category==='Audio') return 'FD7B07BD-D841-400A-931C-4F4EC3BAA9BA.jpeg';
   if(category==='iPhone') return 'iphone_assets_sheet.jpg';
+  if(category==='Repuestos') return 'iphone_assets_sheet.jpg';
   return '0006EEA4-4088-48F6-A287-F0EBB608BB63.jpeg';
 }
 function tsBaseCatalogProducts(){
@@ -500,13 +501,43 @@ function drawCart(){
   syncCheckoutCards();
   polishCartProductImages();
 }
-function updateCartCondition(n,value){
+async function updateCartCondition(n,value){
   if(!cart[n]) return;
-  cart[n].condition=value;
-  // Una preorden no debe reservar inventario físico disponible.
-  if(tsIsPreorderCondition(value)){
-    cart[n].variant_id=null;
-    cart[n].inventory_variant_id=null;
+  const item=cart[n];
+  const previousCondition=item.condition;
+  const previousPrice=Number(item.price||0);
+  item.condition=value;
+
+  // Resolver SIEMPRE la variante exacta por producto + color + capacidad + condición.
+  // Así Nuevo, Renovado y Pre-Order pueden tener precios distintos en Supabase.
+  let capacity=String(item.capacity||'').trim();
+  if(!capacity){
+    const cfg=String(item.config||'');
+    const m=cfg.match(/(?:^|[:·\s])((?:128|256|512)\s*GB|\d+(?:\.\d+)?\s*TB)(?:$|[·\s])/i);
+    capacity=m?m[1].replace(/\s+/g,''):'';
+  }
+  const inv=await tsFindInventoryVariant(item.product,item.model||item.product,item.color,capacity,value);
+  const isPreorder=tsIsPreorderCondition(value);
+  const available=Number(inv?.available ?? (Number(inv?.stock_on_hand||0)-Number(inv?.stock_reserved||0)));
+
+  if(!isPreorder && (!inv || available<1)){
+    item.condition=previousCondition;
+    item.price=previousPrice;
+    drawCart();
+    if(typeof tsShowToast==='function') tsShowToast('No hay stock disponible para '+value+'.');
+    else alert('No hay stock disponible para '+value+'.');
+    return;
+  }
+
+  // El precio mostrado y el total deben provenir de la variante elegida.
+  if(inv && Number(inv.price_usd||0)>0) item.price=Number(inv.price_usd);
+  if(isPreorder){
+    item.variant_id=null;
+    item.inventory_variant_id=null;
+  }else{
+    item.variant_id=inv?.id||null;
+    item.inventory_variant_id=inv?.id||null;
+    item.sku=inv?.sku||item.sku||null;
   }
   drawCart();
 }
@@ -5950,6 +5981,11 @@ window.addEventListener('load', ()=>{
       return refresh();
     }
     badge.appendChild(status); setPrice(inv,cond,badge);
+    if(inv && Number(inv.price_usd||0)>0){
+      selectedProduct.price=Number(inv.price_usd);
+      const priceTargets=['pprice','productPrice','detailPrice'];
+      priceTargets.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='$'+Number(inv.price_usd).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})});
+    }
   }
   const oldSetCond=window.setCond || (typeof globalThis.setCond==='function'?globalThis.setCond:null);
   window.setCond=function(c){selectedCondition=c;try{if(typeof drawDetail==='function')drawDetail();else if(oldSetCond)oldSetCond(c)}catch(e){}setTimeout(refresh,20)};

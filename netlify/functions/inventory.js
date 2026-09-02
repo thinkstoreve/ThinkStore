@@ -83,7 +83,7 @@ exports.handler=async(event)=>{
     const published=body.published===true;
     const sort_order=Number.isFinite(Number(body.sort_order))?Math.trunc(Number(body.sort_order)):1000;
     if(!product_name||!product_key)return r(400,{ok:false,error:'Producto requerido'});
-    const allowedCats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios'];
+    const allowedCats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios','Repuestos'];
     if(!allowedCats.includes(category))return r(400,{ok:false,error:'Categoría inválida'});
     if(published&&!image_url)return r(409,{ok:false,error:'Sube una imagen correcta antes de publicar el producto'});
     const payload={product_key,product_name,category,description,image_url,published,sort_order,updated_at:new Date().toISOString()};
@@ -123,7 +123,24 @@ exports.handler=async(event)=>{
     if(rows.length>1000)return r(413,{ok:false,error:'Máximo 1000 filas por importación'});
     const rr=await fetch(`${url}/rest/v1/rpc/ts_admin_import_inventory`,{method:'POST',headers:sh,body:JSON.stringify({p_rows:rows})});
     const data=await rr.json().catch(()=>({}));if(!rr.ok)return r(rr.status,{ok:false,error:data?.message||data?.error||'No se pudo importar',details:data});
-    return r(200,{ok:true,result:data});
+    // Todo producto nuevo importado se registra también como borrador editorial.
+    // Nunca sobreescribe una ficha ya existente: imagen, descripción y publicación quedan intactas.
+    const allowedCats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios','Repuestos'];
+    const byProduct=new Map();
+    for(const row of rows){
+      const name=String(row.product_name||'').trim(); if(!name)continue;
+      let category=String(row.category||'').trim();
+      if(!allowedCats.includes(category)) category=inferCategory(name);
+      const key=slug(name); if(!byProduct.has(key))byProduct.set(key,{product_key:key,product_name:name,category,description:null,image_url:null,published:false,sort_order:1000,updated_at:new Date().toISOString()});
+    }
+    let drafts_created=0;
+    if(byProduct.size){
+      const payload=[...byProduct.values()];
+      const cr=await fetch(`${url}/rest/v1/catalog_products?on_conflict=product_key`,{method:'POST',headers:{...sh,Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify(payload)});
+      const created=await cr.json().catch(()=>[]);
+      if(cr.ok&&Array.isArray(created))drafts_created=created.length;
+    }
+    return r(200,{ok:true,result:data,drafts_created});
   }
   return r(400,{ok:false,error:'Acción no soportada'});
 };
@@ -133,10 +150,11 @@ function normalizeRows(rows){
   for(const x of rows){
     const sku=String(x?.sku||'').trim();if(!sku||seen.has(sku.toLowerCase()))continue;seen.add(sku.toLowerCase());
     const num=(v,integer=false)=>{if(v===null||v===undefined||String(v).trim()==='')return null;const n=Number(v);if(!Number.isFinite(n))return null;return integer?Math.trunc(n):Math.round(n*100)/100};
-    out.push({sku,product_name:String(x.product_name||'').trim()||sku,model:String(x.model||'').trim()||null,color:String(x.color||'').trim()||null,capacity:String(x.capacity||'').trim()||null,condition:String(x.condition||'').trim()||null,chip:String(x.chip||'').trim()||null,ram:String(x.ram||'').trim()||null,stock_on_hand:num(x.stock_on_hand,true),stock_min:num(x.stock_min,true),price_usd:num(x.price_usd,false)});
+    out.push({sku,product_name:String(x.product_name||'').trim()||sku,category:String(x.category||'').trim()||null,model:String(x.model||'').trim()||null,color:String(x.color||'').trim()||null,capacity:String(x.capacity||'').trim()||null,condition:String(x.condition||'').trim()||null,chip:String(x.chip||'').trim()||null,ram:String(x.ram||'').trim()||null,stock_on_hand:num(x.stock_on_hand,true),stock_min:num(x.stock_min,true),price_usd:num(x.price_usd,false)});
   }
   return out;
 }
+function inferCategory(name){const n=String(name||'');return /repuesto|pantalla|bateria|batería|camara|cámara|flex|tapa trasera|display|modulo|módulo/i.test(n)?'Repuestos':/iphone/i.test(n)?'iPhone':/ipad/i.test(n)?'iPad':/airpod/i.test(n)?'Audio':/watch/i.test(n)?'Apple Watch':/mac/i.test(n)?'Mac':'Accesorios'}
 function slug(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto'}
 function r(statusCode,body){return{statusCode,headers:H,body:JSON.stringify(body)}}
 async function authorizeAdmin(event,url,service){

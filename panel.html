@@ -358,7 +358,7 @@ async function loadRealInventory(){
   }catch(e){box.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
 }
 function invCatalogFor(v){return tsCatalogAdmin.find(c=>String(c.product_name||'').toLowerCase()===String(v.product_name||'').toLowerCase())||null}
-function invCategoryFor(v){const cp=invCatalogFor(v);if(cp?.category)return cp.category;const n=String(v.product_name||'');return /iphone/i.test(n)?'iPhone':/ipad/i.test(n)?'iPad':/airpod/i.test(n)?'Audio':/watch/i.test(n)?'Apple Watch':/mac/i.test(n)?'Mac':'Accesorios'}
+function invCategoryFor(v){const cp=invCatalogFor(v);if(cp?.category)return cp.category;const n=String(v.product_name||'');return /repuesto|pantalla|bateria|batería|camara|cámara|flex|tapa trasera|display|modulo|módulo/i.test(n)?'Repuestos':/iphone/i.test(n)?'iPhone':/ipad/i.test(n)?'iPad':/airpod/i.test(n)?'Audio':/watch/i.test(n)?'Apple Watch':/mac/i.test(n)?'Mac':'Accesorios'}
 function invStatusFor(v){const a=Number(v.available||0),min=Number(v.stock_min||0);if(a<=0)return'out';if(a<=min)return'low';return'in'}
 function renderRealInventoryDashboard(){
   const box=$('inventoryRealBox');if(!box)return;
@@ -397,9 +397,9 @@ function openCatalogPublisher(productName){
   const key=current.product_key||catalogSlug(productName);
   cpGalleryDraft=galleryRowsFor(key).map(x=>({...x,pending:false}));
   if(!cpGalleryDraft.length&&current.image_url)cpGalleryDraft=[{image_url:current.image_url,storage_path:null,is_primary:true,pending:false}];
-  const inferred=/iphone/i.test(productName)?'iPhone':/ipad/i.test(productName)?'iPad':/airpod/i.test(productName)?'Audio':/watch/i.test(productName)?'Apple Watch':/mac/i.test(productName)?'Mac':'Accesorios';
+  const inferred=/repuesto|pantalla|bateria|batería|camara|cámara|flex|tapa trasera|display|modulo|módulo/i.test(productName)?'Repuestos':/iphone/i.test(productName)?'iPhone':/ipad/i.test(productName)?'iPad':/airpod/i.test(productName)?'Audio':/watch/i.test(productName)?'Apple Watch':/mac/i.test(productName)?'Mac':'Accesorios';
   const cat=current.category||inferred;
-  const cats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios'];
+  const cats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios','Repuestos'];
   const principal=cpGalleryDraft.find(x=>x.is_primary)||cpGalleryDraft[0];
   host.innerHTML=`<section class="catalog-editor"><div class="catalog-editor-head"><div><span class="catalog-status">Editor de catálogo</span><h3>Editar producto</h3><p>${esc(productName)} · ficha, publicación e imágenes desde Supabase.</p></div><button class="btn ghost" onclick="document.getElementById('catalogPublishEditor').innerHTML=''">Cerrar</button></div><div class="catalog-editor-grid"><label class="catalog-field">Nombre del producto<input id="cpName" value="${esc(productName)}" readonly></label><label class="catalog-field">Categoría<select id="cpCategory">${cats.map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}</select></label><label class="catalog-field">Orden<input id="cpSort" type="number" value="${Number(current.sort_order||1000)}"></label><label class="catalog-field">Visibilidad<select id="cpPublished"><option value="false" ${!current.published?'selected':''}>Borrador / oculto</option><option value="true" ${current.published?'selected':''}>Publicado</option></select></label></div><label class="catalog-field catalog-desc">Descripción para el cliente<textarea id="cpDescription" rows="4">${esc(current.description||'')}</textarea></label><div class="catalog-media"><div class="catalog-preview">${principal?.image_url?`<img id="cpPreview" src="${esc(principal.image_url)}">`:`<div id="cpPreviewEmpty" class="muted">Sin imagen</div><img id="cpPreview" style="display:none">`}</div><div class="catalog-upload"><b>Galería del producto</b><p class="muted">Puedes subir varias imágenes. La principal se usa también en el catálogo.</p><input id="cpImages" type="file" multiple accept="image/jpeg,image/png,image/webp" onchange="previewCatalogGallery(this.files)"><small>Hasta 12 imágenes · JPG, PNG o WEBP · se optimizan automáticamente a WEBP (máx. 1600 px)</small></div></div><input id="cpKey" type="hidden" value="${esc(key)}"><div id="cpGalleryList" class="cp-gallery-list"></div><div class="catalog-editor-actions"><button class="btn" onclick="saveCatalogPublication()">Guardar y aplicar</button>${current.published?'<button class="btn ghost" onclick="unpublishCatalogProduct()">Ocultar de la tienda</button>':''}</div><div id="cpResult"></div></section>`;
   renderCpGallery();host.scrollIntoView({behavior:'smooth',block:'start'});
@@ -524,10 +524,11 @@ function downloadInventoryExcel(){
       ['Vendido',rows.reduce((n,v)=>n+Number(v.stock_sold||0),0)],
       [],
       ['INSTRUCCIONES'],
-      ['Puedes editar SKU, Producto, Modelo, Color, Capacidad, Condición, Chip, RAM, Stock físico, Stock mínimo y Precio USD.'],
+      ['Puedes editar SKU, Categoría, Producto, Modelo, Color, Capacidad, Condición, Chip, RAM, Stock físico, Stock mínimo y Precio USD.'],
       ['Reservado, Disponible y Vendido son informativos y nunca se modifican al reimportar el archivo.'],
-      ['Para agregar un producto nuevo, crea una fila nueva con un SKU único y completa los datos editables. Después importa el archivo desde el Panel.'],
-      ['La imagen, descripción, categoría de publicación y galería se administran desde Publicación en el Panel.']
+      ['Para agregar un producto nuevo, crea una fila nueva con un SKU único. Usa Categoría = Accesorios o Repuestos cuando corresponda y Condición = Pre-Order si todavía no hay existencia inmediata.'],
+      ['Los productos nuevos importados quedan como BORRADOR y no aparecen en la tienda hasta que agregues imagen, descripción y pulses Publicado desde el editor de Publicación.'],
+      ['La imagen principal y la galería de referencia se administran desde Publicación en el Panel.']
     ];
     const ws2=XLSX.utils.aoa_to_sheet(summary);ws2['!cols']=[{wch:28},{wch:110}];
     XLSX.utils.book_append_sheet(wb,ws2,'Instrucciones');
@@ -560,6 +561,7 @@ async function handleInventoryExcel(file){
     tsInventoryImportRows=raw.map(row=>({
       sku:String(inventoryCell(row,map,['SKU'])||'').trim(),
       product_name:String(inventoryCell(row,map,['Producto'])||'').trim(),
+      category:String(inventoryCell(row,map,['Categoría','Categoria'])||'').trim(),
       model:String(inventoryCell(row,map,['Modelo'])||'').trim(),
       color:String(inventoryCell(row,map,['Color'])||'').trim(),
       capacity:String(inventoryCell(row,map,['Capacidad'])||'').trim(),
@@ -588,7 +590,7 @@ async function applyInventoryExcel(){
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'apply_import',rows:tsInventoryImportRows})});
     const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo importar');
     const x=data.result||{};
-    preview.innerHTML=`<div class="notice"><b>Importación completada ✅</b><br>Actualizadas: ${x.updated||0} · Creadas: ${x.created||0} · Omitidas: ${x.skipped||0}</div>`;
+    preview.innerHTML=`<div class="notice"><b>Importación completada ✅</b><br>Actualizadas: ${x.updated||0} · Creadas: ${x.created||0} · Omitidas: ${x.skipped||0}${data.drafts_created!=null?` · Borradores de catálogo creados: ${data.drafts_created}`:''}<br><small>Los productos nuevos quedan ocultos hasta agregar imagen/descripcion y publicarlos.</small></div>`;
     tsInventoryImportRows=[]; const inp=$('inventoryExcelFile');if(inp)inp.value=''; await loadRealInventory();
   }catch(e){preview.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
 }
