@@ -5710,3 +5710,125 @@ window.addEventListener('load', ()=>{
   // Escape cierra solo el detalle y evita overlays huérfanos.
   document.addEventListener('keydown',e=>{ if(e.key==='Escape' && detailModal()?.classList.contains('open')) window.closeProduct(); });
 })();
+
+/* ===== ThinkStore V1.4.6 HOTFIX · buscador autofill + clic de catálogo ===== */
+(function(){
+  function searchEl(){ return document.getElementById('search'); }
+  function looksLikeAutofill(value){
+    const v=String(value||'').trim();
+    if(!v) return false;
+    // El buscador de catálogo nunca debe contener credenciales/correos.
+    if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return true;
+    try{
+      const raw=localStorage.getItem('ts_current_user');
+      const u=raw?JSON.parse(raw):null;
+      const email=String(u?.email||u?.correo||'').trim().toLowerCase();
+      if(email && v.toLowerCase()===email) return true;
+    }catch(e){}
+    return false;
+  }
+  function sanitizeSearch(force){
+    const el=searchEl();
+    if(!el) return '';
+    // Cambiar el name evita que Chrome lo confunda con el correo de sesión.
+    el.setAttribute('autocomplete','off');
+    el.setAttribute('autocapitalize','off');
+    el.setAttribute('spellcheck','false');
+    el.setAttribute('name','thinkstore_catalog_query');
+    if(force || looksLikeAutofill(el.value)) el.value='';
+    return String(el.value||'').trim();
+  }
+
+  // Render estable: ignora cualquier correo que Chrome haya inyectado en el buscador.
+  const previousRender=window.render;
+  window.render=function(){
+    sanitizeSearch(false);
+    return typeof previousRender==='function' ? previousRender() : undefined;
+  };
+
+  // Las tarjetas nunca deben propagar el clic al modal/capa de categoría.
+  window.productCard=function(p){
+    const colors=Object.keys(p.colors||{});
+    const dots=colors.slice(0,8).map(c=>`<span class="dot" title="${c}"></span>`).join('\n');
+    const pid=String(p.id||'').replaceAll("'","\\'");
+    return `<div class="prod" onclick="event.stopPropagation();openProduct('${pid}')">
+      <div class="prod-head"><span class="tag">${p.badge||getCat(p)}</span><small>${p.brand||'Apple'} · ${getCat(p)}</small></div>
+      <div class="photo"><img loading="lazy" decoding="async" fetchpriority="low" src="${asset(p.main)}" alt="${p.name}"></div>
+      <h3>${p.name}</h3>
+      <p>${(getDesc(p)||'Producto Apple disponible bajo consulta.').slice(0,115)}...</p>
+      <div class="model-line"><b>${p.family||p.model||p.name}</b><span>${colors.length} colores · ${getConfigs(p).length} configuraciones</span></div>
+      <div class="dots">${dots}</div>
+    </div>`;
+  };
+  // Mantener también el binding global usado por render()/category windows.
+  try{ productCard=window.productCard; }catch(e){}
+
+  function hideCategories(){
+    ['categoryModal','categoryModalV2'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el) return;
+      el.classList.remove('open');
+      el.style.display='none';
+      el.style.zIndex='';
+      el.setAttribute('aria-hidden','true');
+    });
+    document.body.classList.remove('ts-category-front-lock');
+  }
+
+  // En cada apertura limpiamos primero el buscador: corrige el bug antiguo de
+  // Chrome/autofill que colocaba el correo de la cuenta dentro de #search.
+  const previousOpen=window.openProduct;
+  window.openProduct=function(id){
+    sanitizeSearch(true);
+    hideCategories();
+    const result=typeof previousOpen==='function' ? previousOpen(id) : false;
+    // Un segundo cierre después del mismo evento evita que quede una categoría
+    // detrás del detalle por propagación/eventos legacy.
+    setTimeout(hideCategories,0);
+    return result;
+  };
+  window.openProductFromV2=function(id){ return window.openProduct(id); };
+
+  const previousClose=window.closeProduct;
+  window.closeProduct=function(){
+    sanitizeSearch(true);
+    hideCategories();
+    const result=typeof previousClose==='function' ? previousClose() : undefined;
+    sanitizeSearch(true);
+    // Si un close legacy vuelve a renderizar, ya lo hará con búsqueda vacía.
+    try{ if(typeof window.render==='function') window.render(); }catch(e){}
+    return result;
+  };
+
+  // También protegemos aperturas de categoría.
+  ['openCategoryWindow','openCategoryModalV2','selectCategory'].forEach(name=>{
+    const old=window[name];
+    if(typeof old!=='function') return;
+    window[name]=function(){ sanitizeSearch(true); return old.apply(this,arguments); };
+    try{ globalThis[name]=window[name]; }catch(e){}
+  });
+
+  function prepare(){
+    sanitizeSearch(true);
+    const el=searchEl();
+    if(!el || el.dataset.tsAutofillGuard==='1') return;
+    el.dataset.tsAutofillGuard='1';
+    // Chrome puede autocompletar unos ms después de cargar; limpiamos solo si
+    // el valor parece correo/credencial, sin borrar búsquedas reales del usuario.
+    ['focus','click','input'].forEach(ev=>el.addEventListener(ev,()=>{
+      if(looksLikeAutofill(el.value)){
+        el.value='';
+        try{ window.render(); }catch(e){}
+      }
+    }));
+    [100,400,1000,2000].forEach(ms=>setTimeout(()=>{
+      if(looksLikeAutofill(el.value)){
+        el.value='';
+        try{ window.render(); }catch(e){}
+      }
+    },ms));
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',prepare,{once:true});
+  else prepare();
+  window.addEventListener('pageshow',()=>setTimeout(prepare,0));
+})();
