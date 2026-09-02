@@ -195,24 +195,55 @@ function setCond(c){selectedCondition=c;drawDetail();}
 function closeProduct(){$('modal').classList.remove('open');}
 function selectionText(){return Object.entries(selectedConfig).map(([k,v])=>`${k}: ${v}`).join(' · ');}
 
-function addCart(){
+function tsInventoryNorm(v){
+  return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+function tsSelectedCapacity(){
+  const vals=Object.values(selectedConfig||{}).map(v=>String(v||'').trim());
+  return vals.find(v=>/^(128|256|512)\s*gb$/i.test(v)||/^\d+(?:\.\d+)?\s*tb$/i.test(v)) || vals[0] || '';
+}
+async function tsFindInventoryVariant(product,model,color,capacity){
+  try{
+    const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'});
+    const out=await res.json().catch(()=>({}));
+    if(!res.ok||!out.ok||!Array.isArray(out.variants)) return null;
+    const np=tsInventoryNorm(product), nm=tsInventoryNorm(model), nc=tsInventoryNorm(color), ncap=tsInventoryNorm(capacity);
+    return out.variants.find(v=>{
+      const vp=tsInventoryNorm(v.product_name), vm=tsInventoryNorm(v.model), vc=tsInventoryNorm(v.color), vcap=tsInventoryNorm(v.capacity);
+      const productOk=vp===np || (vm && (vm===nm || np.includes(vm) || vp.includes(nm)));
+      return productOk && vc===nc && vcap===ncap;
+    }) || null;
+  }catch(e){ console.warn('ThinkStore inventario: no se pudo resolver variante',e); return null; }
+}
+async function addCart(){
   if(!currentUser){
     alert('Para comprar debes iniciar sesión o registrarte primero.');
     openClientLogin();
     return;
   }
   if(!selectedProduct) return;
+  const model=selectedProduct.family||selectedProduct.model||selectedProduct.name;
+  const capacity=tsSelectedCapacity();
+  const inv=await tsFindInventoryVariant(selectedProduct.name,model,selectedColor,capacity);
   cart.push({
     product:selectedProduct.name,
     category:getCat(selectedProduct),
-    model:selectedProduct.family||selectedProduct.model||selectedProduct.name,
+    model,
     color:selectedColor,
     config:selectionText(),
+    capacity,
     condition:selectedCondition,
     qty:1,
     price:selectedProduct.price||0,
-    image:(selectedProduct.colors||{})[selectedColor]||selectedProduct.main
+    image:(selectedProduct.colors||{})[selectedColor]||selectedProduct.main,
+    variant_id:inv?.id||null,
+    inventory_variant_id:inv?.id||null,
+    sku:inv?.sku||null
   });
+  if(inv && Number(inv.available||0)<1){
+    alert('Esta variante está agotada en este momento. Puedes consultarnos por preorden.');
+    return;
+  }
   count();
   closeProduct();
   openCart();
@@ -2387,6 +2418,12 @@ async function saveOrderToSupabase(order){
       precio_usd: Number(i.price || 0)
     })));
     if(itemError) throw itemError;
+  }
+
+  // Reserva inventario real para las variantes del carrito que estén conectadas.
+  // Si un producto todavía no existe en inventory_variants, conserva el flujo actual de preorden/consulta.
+  if(inserted?.id){
+    await tsReserveInventoryForOrder(order, inserted.id);
   }
 
   const file = document.getElementById('paymentFile')?.files?.[0];
