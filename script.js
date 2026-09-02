@@ -60,7 +60,9 @@ function tsBuildInventoryCatalog(variants,catalogProducts){
   // y tienen una imagen propia. Nada se infiere por categoría para evitar mezclar fotos.
   const base=tsBaseCatalogProducts().map(p=>JSON.parse(JSON.stringify(p)));
   const rows=(variants||[]).filter(v=>v&&v.active!==false);
-  const editorial=(catalogProducts||[]).filter(c=>c&&c.published===true&&c.image_url);
+  // Las ediciones existentes pueden actualizar su imagen aunque el producto ya exista en data.js.
+  // 'published' solo decide si un producto NUEVO aparece en la tienda.
+  const editorial=(catalogProducts||[]).filter(c=>c&&c.image_url);
   const byProduct=new Map();
   rows.forEach(v=>{const k=tsCatalogNorm(v.product_name||'');if(!k)return;if(!byProduct.has(k))byProduct.set(k,[]);byProduct.get(k).push(v)});
 
@@ -105,7 +107,8 @@ function tsBuildInventoryCatalog(variants,catalogProducts){
     const conditions=[...new Set(matched.map(v=>String(v.condition||'').trim()).filter(Boolean))];
     const image=String(c.image_url||'').trim();
     if(existing){
-      // Solo una publicación manual puede cambiar la imagen de un producto existente.
+      // Producto ya existente: una imagen guardada desde el Panel SIEMPRE sustituye la imagen visual,
+      // aunque la fila editorial esté en borrador. Así 'Publicado' no bloquea la edición de productos existentes.
       existing.main=image; existing.gallery=[image];
       if(colors.length){const m={};colors.forEach(x=>m[x]=image);existing.colors=m}
       if(capacities.length)existing.storage=capacities;
@@ -115,6 +118,8 @@ function tsBuildInventoryCatalog(variants,catalogProducts){
       enrich(existing,matched);
       return;
     }
+    // Producto completamente nuevo: solo se agrega al catálogo público cuando el administrador lo publica.
+    if(c.published!==true) return;
     const colorMap={};(colors.length?colors:['Único']).forEach(x=>colorMap[x]=image);
     const p={
       id:'sb-'+String(c.product_key||tsCatalogSlug(c.product_name)),
