@@ -1,7 +1,7 @@
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, x-admin-secret',
+    'Access-Control-Allow-Headers': 'Content-Type, x-admin-secret, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json'
   };
@@ -10,18 +10,45 @@ exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
 
   const clean = (v) => String(v ?? '').trim();
-  const expectedSecret = clean(process.env.THINKSTORE_ADMIN_SECRET);
-  const expectedCode = clean(process.env.THINKSTORE_ADMIN_CODE);
-  const provided = clean(event.headers['x-admin-secret'] || event.headers['X-Admin-Secret'] || '');
-  if (!provided || ![expectedSecret, expectedCode].filter(Boolean).includes(provided)) {
-    return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'Acceso administrador no autorizado' }) };
-  }
-
   const SUPABASE_URL = clean(process.env.SUPABASE_URL);
   const SUPABASE_SERVICE_ROLE_KEY = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Netlify.' }) };
   }
+
+  async function authorizeAdmin() {
+    const expectedSecret = clean(process.env.THINKSTORE_ADMIN_SECRET);
+    const expectedCode = clean(process.env.THINKSTORE_ADMIN_CODE);
+    const provided = clean(event.headers['x-admin-secret'] || event.headers['X-Admin-Secret'] || '');
+    if (provided && [expectedSecret, expectedCode].filter(Boolean).includes(provided)) return { ok:true, mode:'legacy_secret' };
+
+    const token = clean(event.headers.authorization || event.headers.Authorization || '').replace(/^Bearer\s+/i, '');
+    if (!token) return { ok:false };
+    try {
+      const userRes = await fetch(SUPABASE_URL.replace(/\/$/,'') + '/auth/v1/user', { headers:{ apikey:SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${token}` } });
+      const u = await userRes.json().catch(()=>({}));
+      if (!userRes.ok || !u?.id) return { ok:false };
+      const profileRes = await fetch(SUPABASE_URL.replace(/\/$/,'') + '/rest/v1/profiles?select=id,role,active&id=eq.' + encodeURIComponent(u.id) + '&limit=1', { headers:{ apikey:SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } });
+      const arr = await profileRes.json().catch(()=>[]);
+      const profile = Array.isArray(arr) ? arr[0] : null;
+  try {
+    const normalizedStatus = clean(status).toLowerCase();
+    let rpc='', args={};
+    if(normalizedStatus==='pago verificado'){rpc='ts_finalize_inventory_sale';args={p_pedido_id:profile.id}}
+    else if(normalizedStatus==='cancelado'||normalizedStatus==='pago rechazado'){rpc='ts_release_inventory';args={p_pedido_id:profile.id,p_reason:`Liberación por estado: ${status}`}}
+    if(rpc){
+      const ir=await fetch(`${SUPABASE_URL.replace(/\/$/,'')}/rest/v1/rpc/${rpc}`,{method:'POST',headers:{apikey:SUPABASE_SERVICE_ROLE_KEY,Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(args)});
+      if(!ir.ok)console.error('ThinkStore inventory RPC error',rpc,await ir.text().catch(()=>'')); 
+    }
+  }catch(e){console.error('ThinkStore inventory update failed',e)}
+
+      const r = clean(profile?.role).toLowerCase();
+      if (!profileRes.ok || !profile || profile.active === false || !['admin','super_admin','superadmin','administrator','gerente'].includes(r)) return { ok:false };
+      return { ok:true, mode:'supabase_jwt', user_id:u.id, role:r };
+    } catch (_) { return { ok:false }; }
+  }
+  const authz = await authorizeAdmin();
+  if (!authz.ok) return { statusCode:401, headers, body:JSON.stringify({ok:false,error:'Acceso administrador no autorizado'}) };
 
   let body = {};
   try { body = JSON.parse(event.body || '{}'); }
@@ -171,6 +198,7 @@ exports.handler = async function(event) {
     'Pago por verificar': { icon: '💳', title: 'Pago por verificar', department: 'pedidos' },
     'Pago recibido': { icon: '💳', title: 'Pago recibido', department: 'pedidos' },
     'Pago verificado': { icon: '✅', title: 'Pago verificado', department: 'pedidos' },
+    'Pago rechazado': { icon: '⚠️', title: 'Pago no verificado', department: 'pedidos' },
     'Preparando pedido': { icon: '⚙️', title: 'Preparando pedido', department: 'pedidos' },
     'En preparación': { icon: '⚙️', title: 'Preparando pedido', department: 'pedidos' },
     'Comprando proveedor': { icon: '🛒', title: 'Compra con proveedor', department: 'preordenes' },
