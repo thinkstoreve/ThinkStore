@@ -5,347 +5,157 @@ exports.handler = async function(event) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json'
   };
+  const reply=(statusCode,body)=>({statusCode,headers,body:JSON.stringify(body)});
+  if(event.httpMethod==='OPTIONS') return reply(200,{ok:true});
+  if(event.httpMethod!=='POST') return reply(405,{ok:false,error:'Método no permitido'});
 
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
+  const clean=v=>String(v??'').trim();
+  const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const SUPABASE_URL=clean(process.env.SUPABASE_URL).replace(/\/$/,'');
+  const SERVICE=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if(!SUPABASE_URL||!SERVICE) return reply(501,{ok:false,error:'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Netlify.'});
 
-  const clean = (v) => String(v ?? '').trim();
-  const SUPABASE_URL = clean(process.env.SUPABASE_URL);
-  const SUPABASE_SERVICE_ROLE_KEY = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Netlify.' }) };
+  let body={};
+  try{body=JSON.parse(event.body||'{}')}catch{return reply(400,{ok:false,error:'JSON inválido'})}
+
+  async function authorizeAdmin(){
+    const provided=clean(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']||'');
+    const allowed=[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].filter(Boolean).map(String);
+    if(provided&&allowed.includes(provided)) return {ok:true,mode:'legacy'};
+    const token=clean(event.headers.authorization||event.headers.Authorization||'').replace(/^Bearer\s+/i,'');
+    if(!token)return{ok:false};
+    const ur=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:SERVICE,Authorization:`Bearer ${token}`}});
+    const u=await ur.json().catch(()=>({}));
+    if(!ur.ok||!u.id)return{ok:false};
+    const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,role,active&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:{apikey:SERVICE,Authorization:`Bearer ${SERVICE}`}});
+    const rows=await pr.json().catch(()=>[]),p=rows[0],r=norm(p?.role);
+    if(!p||p.active===false||!['admin','super_admin','superadmin','administrator','gerente','vendedor'].includes(r))return{ok:false};
+    return{ok:true,user_id:u.id,role:r};
   }
+  const auth=await authorizeAdmin();
+  if(!auth.ok)return reply(401,{ok:false,error:'Acceso administrador no autorizado'});
 
-  async function authorizeAdmin() {
-    const expectedSecret = clean(process.env.THINKSTORE_ADMIN_SECRET);
-    const expectedCode = clean(process.env.THINKSTORE_ADMIN_CODE);
-    const provided = clean(event.headers['x-admin-secret'] || event.headers['X-Admin-Secret'] || '');
-    if (provided && [expectedSecret, expectedCode].filter(Boolean).includes(provided)) return { ok:true, mode:'legacy_secret' };
-
-    const token = clean(event.headers.authorization || event.headers.Authorization || '').replace(/^Bearer\s+/i, '');
-    if (!token) return { ok:false };
-    try {
-      const userRes = await fetch(SUPABASE_URL.replace(/\/$/,'') + '/auth/v1/user', { headers:{ apikey:SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${token}` } });
-      const u = await userRes.json().catch(()=>({}));
-      if (!userRes.ok || !u?.id) return { ok:false };
-      const profileRes = await fetch(SUPABASE_URL.replace(/\/$/,'') + '/rest/v1/profiles?select=id,role,active&id=eq.' + encodeURIComponent(u.id) + '&limit=1', { headers:{ apikey:SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } });
-      const arr = await profileRes.json().catch(()=>[]);
-      const profile = Array.isArray(arr) ? arr[0] : null;
-  try {
-    const normalizedStatus = clean(status).toLowerCase();
-    let rpc='', args={};
-    if(normalizedStatus==='pago verificado'){rpc='ts_finalize_inventory_sale';args={p_pedido_id:profile.id}}
-    else if(normalizedStatus==='cancelado'||normalizedStatus==='pago rechazado'){rpc='ts_release_inventory';args={p_pedido_id:profile.id,p_reason:`Liberación por estado: ${status}`}}
-    if(rpc){
-      const ir=await fetch(`${SUPABASE_URL.replace(/\/$/,'')}/rest/v1/rpc/${rpc}`,{method:'POST',headers:{apikey:SUPABASE_SERVICE_ROLE_KEY,Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(args)});
-      if(!ir.ok)console.error('ThinkStore inventory RPC error',rpc,await ir.text().catch(()=>'')); 
-    }
-  }catch(e){console.error('ThinkStore inventory update failed',e)}
-
-      const r = clean(profile?.role).toLowerCase();
-      if (!profileRes.ok || !profile || profile.active === false || !['admin','super_admin','superadmin','administrator','gerente'].includes(r)) return { ok:false };
-      return { ok:true, mode:'supabase_jwt', user_id:u.id, role:r };
-    } catch (_) { return { ok:false }; }
-  }
-  const authz = await authorizeAdmin();
-  if (!authz.ok) return { statusCode:401, headers, body:JSON.stringify({ok:false,error:'Acceso administrador no autorizado'}) };
-
-  let body = {};
-  try { body = JSON.parse(event.body || '{}'); }
-  catch { return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'JSON inválido' }) }; }
-
-  const incomingId = clean(body.id || body.db_id || body.pedido_id);
-  const incomingCode = clean(body.code || body.codigo || body.order_code);
-  const status = clean(body.status || body.estado);
-  const guide = clean(body.guideNumber || body.numero_guia || body.guide);
-  if (!status) return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'Estatus requerido' }) };
-  if (!incomingId && !incomingCode) return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'ID o código de pedido requerido' }) };
-
-  const api = SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/';
-  const baseHeaders = {
-    apikey: SUPABASE_SERVICE_ROLE_KEY,
-    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    'Content-Type': 'application/json'
-  };
-
-  const esc = (v) => String(v || '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-  const norm = (v) => clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-
-  async function sb(path, options={}) {
-    const res = await fetch(api + path, { ...options, headers: { ...baseHeaders, ...(options.headers || {}) } });
-    const text = await res.text();
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-    if (!res.ok) {
-      const msg = (data && (data.message || data.error || data.details)) || `Error Supabase ${res.status}`;
-      const err = new Error(msg);
-      err.status = res.status;
-      err.data = data;
-      throw err;
-    }
+  const baseHeaders={apikey:SERVICE,Authorization:`Bearer ${SERVICE}`,'Content-Type':'application/json'};
+  async function sb(path,options={}){
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...options,headers:{...baseHeaders,...(options.headers||{})}});
+    const txt=await res.text(); let data=null; try{data=txt?JSON.parse(txt):null}catch{data=txt}
+    if(!res.ok){const e=new Error(data?.message||data?.error||data?.details||`Error Supabase ${res.status}`);e.data=data;throw e}
     return data;
   }
+  async function first(path){try{const d=await sb(path);return Array.isArray(d)?d[0]:null}catch{return null}}
 
-  async function getOne(path) {
-    try {
-      const data = await sb(path);
-      return Array.isArray(data) ? data[0] : null;
-    } catch (_) { return null; }
-  }
+  const incomingId=clean(body.id||body.db_id||body.pedido_id);
+  const incomingCode=clean(body.code||body.codigo||body.order_code);
+  const action=clean(body.action);
+  const nextStatus=clean(body.status||body.estado);
+  const guide=clean(body.guideNumber||body.numero_guia||body.guide);
+  if(!incomingId&&!incomingCode)return reply(400,{ok:false,error:'ID o código de pedido requerido'});
+  if(action!=='resend_delivery_note'&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
 
-  async function findPedido() {
-    const searches = [];
-    if (incomingId) searches.push(`pedidos?select=*&id=eq.${encodeURIComponent(incomingId)}&limit=1`);
-    if (incomingCode) {
-      searches.push(`pedidos?select=*&codigo=eq.${encodeURIComponent(incomingCode)}&limit=1`);
-      searches.push(`pedidos?select=*&codigo=ilike.${encodeURIComponent(incomingCode)}&limit=1`);
-      searches.push(`pedidos?select=*&codigo=ilike.${encodeURIComponent('%' + incomingCode + '%')}&limit=1`);
+  async function findPedido(){
+    const qs=[];
+    if(incomingId)qs.push(`pedidos?select=*&id=eq.${encodeURIComponent(incomingId)}&limit=1`);
+    if(incomingCode){
+      qs.push(`pedidos?select=*&codigo=eq.${encodeURIComponent(incomingCode)}&limit=1`);
+      qs.push(`pedidos?select=*&codigo=ilike.${encodeURIComponent(incomingCode)}&limit=1`);
     }
-    for (const path of searches) {
-      const found = await getOne(path);
-      if (found) return found;
-    }
+    for(const q of qs){const p=await first(q);if(p)return p}
     return null;
   }
-
-  async function patchPedido(found) {
-    const payloads = [];
-    const base = { estado: status };
-    if (guide) base.numero_guia = guide;
-    payloads.push({ ...base, updated_at: new Date().toISOString() });
-    payloads.push(base);
-
-    const filters = [];
-    const add = (f) => { if (f && !filters.includes(f)) filters.push(f); };
-    add(found?.id ? `id=eq.${encodeURIComponent(found.id)}` : '');
-    add(incomingId ? `id=eq.${encodeURIComponent(incomingId)}` : '');
-    add(found?.codigo ? `codigo=eq.${encodeURIComponent(found.codigo)}` : '');
-    add(incomingCode ? `codigo=eq.${encodeURIComponent(incomingCode)}` : '');
-    add(incomingCode ? `codigo=ilike.${encodeURIComponent(incomingCode)}` : '');
-    add(incomingCode ? `codigo=ilike.${encodeURIComponent('%' + incomingCode + '%')}` : '');
-
-    let lastError = null;
-    for (const filter of filters) {
-      for (const payload of payloads) {
-        try {
-          const data = await sb(`pedidos?${filter}`, {
-            method: 'PATCH',
-            headers: { Prefer: 'return=representation' },
-            body: JSON.stringify(payload)
-          });
-          if (Array.isArray(data) && data[0]) return data[0];
-        } catch (e) { lastError = e; }
-      }
-    }
-    if (lastError) throw lastError;
-    return null;
-  }
-
-  async function readPedido(pedido) {
-    const pid = pedido?.id || incomingId;
-    const code = pedido?.codigo || incomingCode;
-    const paths = [];
-    if (pid) {
-      paths.push(`pedidos?select=*,clientes(*),pedido_items(*)&id=eq.${encodeURIComponent(pid)}&limit=1`);
-      paths.push(`pedidos?select=*&id=eq.${encodeURIComponent(pid)}&limit=1`);
-    }
-    if (code) {
-      paths.push(`pedidos?select=*,clientes(*),pedido_items(*)&codigo=eq.${encodeURIComponent(code)}&limit=1`);
-      paths.push(`pedidos?select=*&codigo=eq.${encodeURIComponent(code)}&limit=1`);
-      paths.push(`pedidos?select=*&codigo=ilike.${encodeURIComponent('%' + code + '%')}&limit=1`);
-    }
-    for (const path of paths) {
-      const data = await getOne(path);
-      if (data) return data;
-    }
-    return pedido || {};
-  }
-
-  async function enrichPedido(pedido) {
-    let out = pedido || {};
-    if (!out.clientes && out.cliente_id) {
-      try {
-        const c = await sb(`clientes?select=*&id=eq.${encodeURIComponent(out.cliente_id)}&limit=1`);
-        if (Array.isArray(c) && c[0]) out = { ...out, clientes: c[0] };
-      } catch (_) {}
-    }
-    if (!out.pedido_items && out.id) {
-      try {
-        const items = await sb(`pedido_items?select=*&pedido_id=eq.${encodeURIComponent(out.id)}`);
-        out = { ...out, pedido_items: Array.isArray(items) ? items : [] };
-      } catch (_) {}
-    }
+  async function fullPedido(p){
+    if(!p)return null;
+    let out={...p};
+    const loaded=await first(`pedidos?select=*,clientes(*),pedido_items(*)&id=eq.${encodeURIComponent(p.id)}&limit=1`);
+    if(loaded)out=loaded;
+    if(!out.clientes&&out.cliente_id){const c=await first(`clientes?select=*&id=eq.${encodeURIComponent(out.cliente_id)}&limit=1`);if(c)out.clientes=c}
+    if(!out.pedido_items&&out.id){try{out.pedido_items=await sb(`pedido_items?select=*&pedido_id=eq.${encodeURIComponent(out.id)}`)||[]}catch{out.pedido_items=[]}}
     return out;
   }
-
-  async function insertHistory(pedido) {
-    if (!pedido?.id) return;
-    const candidates = [
-      { pedido_id: pedido.id, estado: status, nota: body.note || 'Actualizado desde dashboard ThinkStore' },
-      { pedido_id: pedido.id, status, note: body.note || 'Actualizado desde dashboard ThinkStore' },
-      { order_id: pedido.id, status, note: body.note || 'Actualizado desde dashboard ThinkStore' }
-    ];
-    for (const payload of candidates) {
-      try { await sb('order_status_history', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify(payload) }); return; } catch (_) {}
-    }
-  }
-
-  const statusMeta = {
-    'Pedido recibido': { icon: '📦', title: 'Pedido recibido', department: 'pedidos' },
-    'Pago por verificar': { icon: '💳', title: 'Pago por verificar', department: 'pedidos' },
-    'Pago recibido': { icon: '💳', title: 'Pago recibido', department: 'pedidos' },
-    'Pago verificado': { icon: '✅', title: 'Pago verificado', department: 'pedidos' },
-    'Pago rechazado': { icon: '⚠️', title: 'Pago no verificado', department: 'pedidos' },
-    'Preparando pedido': { icon: '⚙️', title: 'Preparando pedido', department: 'pedidos' },
-    'En preparación': { icon: '⚙️', title: 'Preparando pedido', department: 'pedidos' },
-    'Comprando proveedor': { icon: '🛒', title: 'Compra con proveedor', department: 'preordenes' },
-    'En tránsito': { icon: '🚚', title: 'En tránsito', department: 'preordenes' },
-    'Disponible para entrega': { icon: '🏪', title: 'Disponible para entrega', department: 'pedidos' },
-    'Disponible para retiro': { icon: '🏪', title: 'Disponible para retiro', department: 'pedidos' },
-    'Enviado': { icon: '📦', title: 'Pedido enviado', department: 'pedidos' },
-    'Entregado': { icon: '✅', title: 'Pedido entregado', department: 'pedidos' },
-    'Cancelado': { icon: '⚫', title: 'Pedido cancelado', department: 'soporte' }
-  };
-  const flow = ['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','Preparando pedido','En tránsito','Disponible para entrega','Entregado'];
-
-  function normalizePedido(p) {
-    const c = p.clientes || p.customer || {};
-    const items = p.pedido_items || p.items || [];
+  function normalized(p){
+    const c=p?.clientes||p?.customer||{};
+    const items=p?.pedido_items||p?.items||[];
     return {
-      id: p.id || incomingId,
-      code: p.codigo || p.code || p.order_code || incomingCode || 'TS',
-      status: p.estado || p.status || status,
-      customerName: c.nombre || c.name || p.nombre || 'Cliente',
-      customerEmail: c.correo || c.email || p.correo || p.email || body.email || '',
-      customerPhone: c.telefono || c.phone || '',
-      customerDocument: c.cedula_rif || c.document || c.id || '',
-      customerAddress: c.direccion || c.address || '',
-      customerCity: c.ciudad || c.city || '',
-      customerState: c.estado || c.state || '',
-      items: Array.isArray(items) ? items : [],
-      total: p.total_usd || p.total || '',
-      paymentMethod: p.metodo_pago || p.payment || '',
-      guide: p.numero_guia || p.guide || guide || '',
-      shippingCompany: p.empresa_envio || p.shippingCompany || ''
+      id:p?.id,code:p?.codigo||p?.code||'TS',status:p?.estado||p?.status||'',
+      customerName:c.nombre||c.name||c.full_name||'Cliente',customerEmail:c.correo||c.email||'',customerPhone:c.telefono||c.phone||'',
+      customerDocument:c.cedula_rif||c.document||'',customerAddress:c.direccion||c.address||'',customerCity:c.ciudad||c.city||'',customerState:c.estado||c.state||'',
+      paymentMethod:p?.metodo_pago||p?.payment||'',paymentRef:p?.referencia_pago||p?.paymentRef||'',guide:p?.numero_guia||p?.guide||'',shippingCompany:p?.empresa_envio||'',
+      total:Number(p?.total_usd||p?.total||0),items:Array.isArray(items)?items:[]
     };
   }
+  function itemName(i){return i.producto||i.product_name||i.product||i.nombre||'Producto'}
+  function itemCondition(i){return i.condicion||i.condition||'Por confirmar'}
+  function itemSerial(i){return i.numero_serie||i.serial_number||i.serial||'Por registrar'}
+  function itemWarranty(i){return Number(i.garantia_dias||i.warranty_days||0)||0}
+  function itemPrice(i){return Number(i.precio_usd||i.price||0)||0}
+  function itemQty(i){return Number(i.cantidad||i.qty||1)||1}
+  function money(v){return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function trackingUrl(p){return `https://thinkstore.com.ve/?tracking=${encodeURIComponent(p.code)}#estatus`}
 
-  function progressHtml(current) {
-    let pos = flow.indexOf(current);
-    if (current === 'En preparación') pos = flow.indexOf('Preparando pedido');
-    pos = Math.max(0, pos);
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${flow.map((s,i)=>`<td style="padding:0 3px;text-align:center;vertical-align:top"><div style="height:7px;border-radius:999px;background:${i<=pos?'#fff':'rgba(255,255,255,.20)'}"></div><div style="font-size:10px;line-height:1.25;color:${i<=pos?'#fff':'rgba(255,255,255,.45)'};padding-top:8px">${esc(s)}</div></td>`).join('')}</tr></table>`;
+  function shell(title,subtitle,content,buttonUrl){
+    return `<div style="margin:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 12px"><tr><td align="center"><table role="presentation" width="680" style="max-width:680px;width:100%;background:#fff;border-radius:28px;overflow:hidden"><tr><td style="background:#08080c;padding:30px;text-align:center"><img src="https://thinkstore.com.ve/assets/thinkstore-email-logo.jpg" alt="ThinkStore" width="260" style="max-width:90%;background:#fff;border-radius:18px;padding:12px"><h1 style="color:#fff;margin:22px 0 4px;font-size:34px">${esc(title)}</h1><div style="color:#b7b7bd">${esc(subtitle)}</div></td></tr><tr><td style="padding:30px">${content}${buttonUrl?`<div style="text-align:center;margin:28px 0 4px"><a href="${esc(buttonUrl)}" style="background:#111;color:#fff;text-decoration:none;border-radius:999px;padding:14px 24px;font-weight:800">Ver pedido</a></div>`:''}</td></tr><tr><td style="background:#f5f5f7;padding:20px;text-align:center;color:#6e6e73;font-size:13px"><b style="color:#111">ThinkStore</b><br>Altamira, Caracas · Venezuela<br>ventas@thinkstore.com.ve</td></tr></table></td></tr></table></div>`;
+  }
+  function deliveryNoteEmail(p){
+    const rows=p.items.map((i,idx)=>{
+      const sub=[i.color,i.capacidad||i.capacity,i.chip,i.ram].filter(Boolean).join(' · ');
+      const warranty=itemWarranty(i);
+      return `<tr><td style="padding:15px 0;border-bottom:1px solid #ececf1"><b>${idx+1}. ${esc(itemName(i))}</b><br><span style="color:#6e6e73">${esc(sub)}</span><br><span>Condición: <b>${esc(itemCondition(i))}</b></span><br><span>Número de serie: <b>${esc(itemSerial(i))}</b></span>${warranty?`<br><span>Garantía: <b>${warranty} días</b></span>`:''}</td><td align="right" style="padding:15px 0;border-bottom:1px solid #ececf1;white-space:nowrap">${itemQty(i)} × ${money(itemPrice(i))}</td></tr>`
+    }).join('')||'<tr><td>Producto por confirmar</td></tr>';
+    const content=`<div style="border:1px solid #e3e3ea;border-radius:20px;padding:20px;margin-bottom:18px"><table width="100%" cellpadding="4" style="font-size:15px"><tr><td><b>Nota / pedido</b></td><td align="right">${esc(p.code)}</td></tr><tr><td><b>Cliente</b></td><td align="right">${esc(p.customerName)}</td></tr><tr><td><b>Documento</b></td><td align="right">${esc(p.customerDocument||'No indicado')}</td></tr><tr><td><b>Correo</b></td><td align="right">${esc(p.customerEmail)}</td></tr><tr><td><b>Teléfono</b></td><td align="right">${esc(p.customerPhone)}</td></tr><tr><td><b>Pago</b></td><td align="right">${esc(p.paymentMethod||'Por confirmar')}</td></tr><tr><td><b>Referencia</b></td><td align="right">${esc(p.paymentRef||'No indicada')}</td></tr><tr><td><b>Estado</b></td><td align="right">${esc(p.status)}</td></tr></table></div><div style="border:1px solid #e3e3ea;border-radius:20px;padding:20px;margin-bottom:18px"><h3 style="margin-top:0">Detalle del equipo</h3><table width="100%" cellpadding="0" cellspacing="0">${rows}</table><div style="text-align:right;font-size:20px;font-weight:800;margin-top:18px">Total: ${p.total>0?money(p.total):'A confirmar'}</div></div><div style="font-size:13px;line-height:1.6;color:#6e6e73">Conserva este correo como respaldo de tu compra. La garantía corresponde a la indicada para cada equipo en esta nota.</div>`;
+    const html=shell('Nota de entrega',`Pedido ${p.code}`,content,trackingUrl(p));
+    const text=`NOTA DE ENTREGA THINKSTORE\nPedido: ${p.code}\nCliente: ${p.customerName}\nDocumento: ${p.customerDocument||'No indicado'}\nCorreo: ${p.customerEmail}\nTeléfono: ${p.customerPhone}\nPago: ${p.paymentMethod||'Por confirmar'}\nReferencia: ${p.paymentRef||'No indicada'}\nEstado: ${p.status}\n\n${p.items.map((i,n)=>`${n+1}. ${itemName(i)} | ${[i.color,i.capacidad||i.capacity,i.chip,i.ram].filter(Boolean).join(' · ')} | ${itemCondition(i)} | Serie: ${itemSerial(i)}${itemWarranty(i)?` | Garantía: ${itemWarranty(i)} días`:''} | ${itemQty(i)} x ${money(itemPrice(i))}`).join('\n')}\n\nTotal: ${p.total>0?money(p.total):'A confirmar'}\nSeguimiento: ${trackingUrl(p)}`;
+    return{subject:`ThinkStore — Nota de entrega | ${p.code}`,text,html,department:'pedidos'};
+  }
+  function statusEmail(p){
+    const content=`<div style="background:#f5f5f7;border-radius:20px;padding:22px;font-size:17px;line-height:1.6">Hola <b>${esc(p.customerName)}</b>,<br><br>Tu pedido <b>${esc(p.code)}</b> fue actualizado.<br>Estado actual: <b>${esc(p.status)}</b>.</div>`;
+    return{subject:`ThinkStore — ${p.status} | ${p.code}`,text:`Hola ${p.customerName},\n\nTu pedido ${p.code} fue actualizado.\nEstado: ${p.status}\n\n${trackingUrl(p)}\n\nThinkStore`,html:shell('Actualización ThinkStore',`Pedido ${p.code}`,content,trackingUrl(p)),department:'pedidos'};
+  }
+  async function send(email,to){
+    const key=clean(process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY);
+    if(!key)return{sent:false,error:'Falta RESEND_API_KEY'};
+    if(!to)return{sent:false,error:'Cliente sin correo'};
+    const from=process.env.FROM_PEDIDOS_EMAIL||process.env.FROM_EMAIL||'ThinkStore Pedidos <pedidos@thinkstore.com.ve>';
+    const rr=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({from,to,reply_to:process.env.REPLY_TO_PEDIDOS||'pedidos@thinkstore.com.ve',subject:email.subject,text:email.text,html:email.html})});
+    const d=await rr.json().catch(()=>({}));
+    return rr.ok?{sent:true,id:d.id||null}:{sent:false,error:d.message||d.error||'Error enviando correo'};
+  }
+  async function logEmail(p,kind,result){
+    try{await sb('email_delivery_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({pedido_id:p.id||null,pedido_codigo:p.code||null,tipo:kind,destinatario:p.customerEmail||null,estado:result?.sent?'enviado':'fallido',provider_id:result?.id||null,error:result?.error||null})})}catch(_){ }
+  }
+  async function inventoryTransition(p,status){
+    const n=norm(status);
+    let rpc='',args={};
+    if(n==='entregado'){rpc='ts_finalize_inventory_sale';args={p_pedido_id:p.id}}
+    else if(n==='cancelado'||n==='pago rechazado'){rpc='ts_release_inventory';args={p_pedido_id:p.id,p_reason:`Liberación por estado: ${status}`}}
+    if(!rpc||!p.id)return{skipped:true};
+    try{return await sb(`rpc/${rpc}`,{method:'POST',body:JSON.stringify(args)})}catch(e){return{ok:false,error:e.message}}
   }
 
-  function itemLines(pedido) {
-    return (pedido.items || []).map(i => `${i.producto || i.product_name || i.product || i.nombre || 'Producto'}${i.color ? ' · '+i.color : ''}${(i.capacidad || i.capacity) ? ' · '+(i.capacidad || i.capacity) : ''}${i.cantidad ? ' × '+i.cantidad : ''}`);
-  }
+  try{
+    const found=await findPedido();
+    if(!found)return reply(404,{ok:false,error:'Pedido no encontrado'});
 
-  function emailShell({label,title,subtitle,content,buttonUrl,buttonLabel}) {
-    const logoUrl = 'https://thinkstore.com.ve/assets/thinkstore-email-logo.jpg';
-    return `<div style="margin:0;padding:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f7;padding:28px 12px;"><tr><td align="center">
-    <table role="presentation" width="660" cellpadding="0" cellspacing="0" style="max-width:660px;width:100%;background:#ffffff;border-radius:30px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.16);">
-      <tr><td style="background:linear-gradient(145deg,#030303 0%,#16161a 55%,#2c2c33 100%);padding:34px 32px 38px;text-align:center;">
-        <div style="display:inline-block;background:#fff;border-radius:24px;padding:18px 26px;margin-bottom:24px;"><img src="${esc(logoUrl)}" alt="ThinkStore" width="360" style="display:block;width:360px;max-width:100%;height:auto;border:0;"></div>
-        <div style="font-size:12px;text-transform:uppercase;letter-spacing:.18em;color:rgba(255,255,255,.55);margin-bottom:10px;">${esc(label)}</div>
-        <div style="font-size:40px;line-height:1.1;font-weight:800;color:#fff;margin:0;">${title}</div>
-        ${subtitle ? `<div style="font-size:18px;color:rgba(255,255,255,.72);margin-top:12px;">${subtitle}</div>` : ''}
-      </td></tr>
-      <tr><td style="padding:30px 34px;background:#ffffff;">${content}${buttonUrl ? `<div style="text-align:center;padding:10px 0 24px;"><a href="${esc(buttonUrl)}" style="display:inline-block;background:#111114;color:#fff;text-decoration:none;border-radius:999px;padding:15px 24px;font-size:15px;font-weight:800;">${esc(buttonLabel || 'Ver en ThinkStore')}</a></div>` : ''}</td></tr>
-      <tr><td style="background:#f5f5f7;border-top:1px solid #e3e3ea;padding:22px 34px;font-size:13px;line-height:1.7;color:#6e6e73;text-align:center;"><strong style="color:#1d1d1f;">ThinkStore</strong><br>Altamira, Caracas · Venezuela<br><a href="https://thinkstore.com.ve" style="color:#1d1d1f;text-decoration:underline;">www.thinkstore.com.ve</a></td></tr>
-    </table>
-  </td></tr></table>
-</div>`;
-  }
-
-  function buildEmail(pedido) {
-    const meta = statusMeta[pedido.status] || { icon:'📦', title:'Actualización de tu pedido', department:'pedidos' };
-    const trackingUrl = `https://thinkstore.com.ve/?tracking=${encodeURIComponent(pedido.code)}#estatus`;
-    const lines = itemLines(pedido);
-    const itemsHtml = lines.length ? lines.map(x=>`<tr><td style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.10);font-size:15px;color:#f5f5f7">${esc(x)}</td></tr>`).join('') : `<tr><td style="padding:12px 0;font-size:15px;color:#f5f5f7">Producto por confirmar</td></tr>`;
-    const content = `<div style="background:#f2f2f7;border:1px solid #e3e3ea;border-radius:22px;padding:24px;margin-bottom:18px;font-size:18px;line-height:1.65;color:#1d1d1f;">Hola <strong>${esc(pedido.customerName)}</strong>,<br><br>Tu pedido <strong>${esc(pedido.code)}</strong> fue actualizado.<br>Estado actual: <strong>${esc(pedido.status)}</strong></div><div style="background:#111114;border-radius:22px;padding:22px;margin-bottom:18px;color:#fff;"><div style="font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.55);margin-bottom:10px;">Producto(s)</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${itemsHtml}</table></div><div style="margin:24px 0 0;">${progressHtml(pedido.status)}</div>`;
-    const html = emailShell({ label:'Pedidos ThinkStore', title:`${meta.icon} ${esc(meta.title)}`, subtitle:`Pedido ${esc(pedido.code)}`, content, buttonUrl:trackingUrl, buttonLabel:'Ver estado del pedido' });
-    const text = `Hola ${pedido.customerName},\n\nTu pedido ${pedido.code} fue actualizado.\n\nEstado actual: ${pedido.status}\n\nProducto(s):\n${lines.length ? lines.map(x=>'- '+x).join('\n') : '- Producto por confirmar'}\n\nVer estado: ${trackingUrl}\n\nThinkStore`;
-    return { subject: `ThinkStore — ${pedido.status} | ${pedido.code}`, text, html, department: meta.department };
-  }
-
-  function buildDeliveryNoteEmail(pedido) {
-    const trackingUrl = `https://thinkstore.com.ve/?tracking=${encodeURIComponent(pedido.code)}#estatus`;
-    const lines = itemLines(pedido);
-    const rows = lines.length ? lines.map((x,i)=>`<tr><td style="padding:13px 0;border-bottom:1px solid #ececf1;font-size:15px;">${i+1}. ${esc(x)}</td></tr>`).join('') : `<tr><td style="padding:13px 0;font-size:15px;">Producto por confirmar</td></tr>`;
-    const content = `<div style="border:1px solid #e3e3ea;border-radius:24px;overflow:hidden;margin-bottom:20px;"><div style="background:#111114;color:#fff;padding:18px 22px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;">Nota de entrega</div><div style="padding:22px;background:#fff;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:16px;line-height:1.7;color:#1d1d1f;"><tr><td><strong>Pedido</strong></td><td align="right">${esc(pedido.code)}</td></tr><tr><td><strong>Cliente</strong></td><td align="right">${esc(pedido.customerName)}</td></tr><tr><td><strong>Correo</strong></td><td align="right">${esc(pedido.customerEmail)}</td></tr><tr><td><strong>Teléfono</strong></td><td align="right">${esc(pedido.customerPhone)}</td></tr><tr><td><strong>Método de pago</strong></td><td align="right">${esc(pedido.paymentMethod || 'Por confirmar')}</td></tr><tr><td><strong>Estado</strong></td><td align="right">${esc(pedido.status)}</td></tr></table></div></div><div style="background:#f2f2f7;border-radius:22px;padding:22px;margin-bottom:20px;"><div style="font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:#6e6e73;margin-bottom:10px;">Producto(s)</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></div><div style="font-size:14px;line-height:1.7;color:#6e6e73;text-align:center;margin-bottom:10px;">Esta nota confirma que tu pago fue recibido y tu pedido entra en proceso de preparación. Conserva este correo como respaldo.</div>`;
-    const html = emailShell({ label:'Nota de entrega ThinkStore', title:'Nota de entrega', subtitle:`Pedido ${esc(pedido.code)}`, content, buttonUrl:trackingUrl, buttonLabel:'Ver estado del pedido' });
-    const text = `Nota de entrega ThinkStore\n\nPedido: ${pedido.code}\nCliente: ${pedido.customerName}\nCorreo: ${pedido.customerEmail}\nTeléfono: ${pedido.customerPhone}\nMétodo de pago: ${pedido.paymentMethod || 'Por confirmar'}\nEstado: ${pedido.status}\n\nProducto(s):\n${lines.length ? lines.map(x=>'- '+x).join('\n') : '- Producto por confirmar'}\n\nVer estado: ${trackingUrl}\n\nThinkStore`;
-    return { subject: `ThinkStore — Nota de entrega | ${pedido.code}`, text, html, department:'pedidos' };
-  }
-
-  function fromForDepartment(department) {
-    const fallbackFrom = process.env.FROM_EMAIL || 'ThinkStore Pedidos <pedidos@thinkstore.com.ve>';
-    const map = {
-      pedidos: process.env.FROM_PEDIDOS_EMAIL || fallbackFrom,
-      preordenes: process.env.FROM_PREORDENES_EMAIL || fallbackFrom,
-      soporte: process.env.FROM_SOPORTE_EMAIL || fallbackFrom,
-      ventas: process.env.FROM_VENTAS_EMAIL || fallbackFrom
-    };
-    return map[department] || map.pedidos;
-  }
-
-  async function sendResendEmail(email) {
-    const RESEND_API_KEY = clean(process.env.RESEND_API_KEY || process.env.RESEND_APY_KEY);
-    if (!RESEND_API_KEY || !email.to) return { skipped: true, reason: !RESEND_API_KEY ? 'missing_resend_key' : 'missing_customer_email' };
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: fromForDepartment(email.department || 'pedidos'),
-        to: email.to,
-        reply_to: process.env.REPLY_TO_EMAIL || process.env.REPLY_TO_PEDIDOS || 'pedidos@thinkstore.com.ve',
-        subject: email.subject,
-        text: email.text,
-        html: email.html
-      })
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) return { sent: false, error: result.message || result.error || 'Resend no pudo enviar el correo.' };
-    return { sent: true, id: result.id || null, department: email.department || 'pedidos' };
-  }
-
-  async function sendStatusEmail(pedido) {
-    const email = buildEmail(pedido);
-    return await sendResendEmail({ ...email, to: pedido.customerEmail });
-  }
-
-  function shouldSendDeliveryNote(st) {
-    const s = norm(st);
-    return s.includes('pago recibido') || s.includes('pago verificado') || s.includes('pago confirmado');
-  }
-
-  async function sendDeliveryNoteEmail(pedido) {
-    if (!shouldSendDeliveryNote(pedido.status)) return { skipped: true, reason: 'status_not_payment_received' };
-    const email = buildDeliveryNoteEmail(pedido);
-    return await sendResendEmail({ ...email, to: pedido.customerEmail });
-  }
-
-  try {
-    const found = await findPedido();
-    const updated = await patchPedido(found);
-    if (!updated) {
-      return { statusCode: 404, headers, body: JSON.stringify({ ok:false, error:`No actualizado. No se encontró pedido con ${incomingId ? 'id '+incomingId : 'código '+incomingCode}` }) };
+    if(action==='resend_delivery_note'){
+      const p=normalized(await fullPedido(found));
+      const r=await send(deliveryNoteEmail(p),p.customerEmail); await logEmail(p,'nota_entrega_reenvio',r);
+      return reply(r.sent?200:502,{ok:r.sent,pedido:p,email:r});
     }
-    await insertHistory(updated);
-    let fullPedido = await readPedido(updated);
-    fullPedido = await enrichPedido(fullPedido);
-    const normalized = normalizePedido(fullPedido);
-    const emailResult = await sendStatusEmail(normalized);
-    const deliveryNoteEmail = await sendDeliveryNoteEmail(normalized);
-    console.log('ThinkStore update-order ok', JSON.stringify({ code: normalized.code, status: normalized.status, hasEmail: Boolean(normalized.customerEmail), email: emailResult, deliveryNoteEmail }));
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, pedido: fullPedido || null, normalized, email: emailResult, deliveryNoteEmail }) };
-  } catch (error) {
-    console.error('ThinkStore update-order error', error.message || error);
-    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: error.message || 'Error interno' }) };
+
+    const before=clean(found.estado);
+    const payload={estado:nextStatus}; if(guide)payload.numero_guia=guide;
+    const updated=await sb(`pedidos?id=eq.${encodeURIComponent(found.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({...payload,updated_at:new Date().toISOString()})});
+    const changed=Array.isArray(updated)?updated[0]:found;
+    try{await sb('order_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({pedido_id:found.id,estado:nextStatus,nota:body.note||'Actualizado desde panel ThinkStore'})})}catch(_){ }
+    const p=normalized(await fullPedido(changed));
+    const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
+    let noteResult={skipped:true};
+    if(norm(nextStatus)==='pago verificado' && norm(before)!=='pago verificado'){
+      noteResult=await send(deliveryNoteEmail(p),p.customerEmail); await logEmail(p,'nota_entrega',noteResult);
+    }
+    const inventory=await inventoryTransition(p,nextStatus);
+    return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory});
+  }catch(e){
+    console.error('ThinkStore admin-update-order',e);
+    return reply(500,{ok:false,error:e.message||'Error interno'});
   }
 };
