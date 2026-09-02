@@ -819,4 +819,23 @@ const PRODUCTS = [
     },
     "desc": "Apple Pencil USB‑C para escritura, dibujo y productividad en iPad compatible."
   }
+  ,
+  {
+    "id": "mac-mini-2020-m1-8gb-500gb",
+    "brand": "Apple",
+    "category": "Mac",
+    "family": "Mac mini",
+    "model": "Mac mini 2020 M1 · 8GB RAM",
+    "name": "Mac mini 2020",
+    "badge": "Renovado",
+    "main": "808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg",
+    "gallery": ["808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg"],
+    "colors": {"Plata": "808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg"},
+    "storage": ["500GB"],
+    "condition": ["Renovado"],
+    "features": ["Apple M1","8GB de memoria unificada","500GB de almacenamiento","Equipo renovado"],
+    "details": {"Año":"2020","Chip":"Apple M1","Memoria":"8GB","Almacenamiento":"500GB","Condición":"Renovado"},
+    "desc": "Mac mini 2020 con chip Apple M1, 8GB de memoria unificada y 500GB de almacenamiento. Unidad renovada disponible en ThinkStore."
+  }
+
 ];

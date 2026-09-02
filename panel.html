@@ -20,6 +20,7 @@
 <div id="app" class="app"><header class="top"><div class="top-inner"><div class="brand"><img src="logo-thinkstore.png" alt="ThinkStore"><span>ThinkStore · Panel Multi-Rol</span><span id="rolePill" class="role-pill">Rol</span></div><nav class="nav"><a href="index.html">Tienda</a><a href="admin-growth.html" data-roles="admin,superadmin">Growth Enterprise</a><button onclick="logout()">Cerrar sesión</button></nav></div></header><main class="layout"><aside class="side" id="side"></aside><section class="main-card"><div class="hero"><h1 id="heroTitle">Bienvenido</h1><p id="heroText">Tu panel mostrará solo los módulos permitidos para tu rol.</p><div class="kpis"><div class="kpi"><b id="kpi1">0</b><small>Pedidos</small></div><div class="kpi"><b id="kpi2">0</b><small>Clientes</small></div><div class="kpi"><b id="kpi3">0</b><small>Tickets</small></div><div class="kpi"><b id="kpi4">0</b><small>Envíos</small></div></div></div><div id="content"></div></section></main><footer class="footer">ThinkStore.com.ve · Sistema privado de roles y permisos</footer></div>
 <script src="data.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="supabase-config.js"></script>
 <script>
 const tsPanelCfg = window.THINKSTORE_SUPABASE || {};
@@ -203,14 +204,14 @@ const views={
  productos(){$('content').innerHTML=`<div class="section-title"><h2>Productos</h2><small>Catálogo heredado del panel administrador</small></div><div class="toolbar"><input id="productSearch" placeholder="Buscar producto" oninput="renderProducts()"></div><div id="productsBox" class="product-grid"></div>`;renderProducts()},
  inventario(){$('content').innerHTML=`<div class="section-title"><h2>Inventario</h2><button class="btn ghost" onclick="exportInventoryCSV()">Exportar CSV</button></div><div class="toolbar"><input id="inventorySearch" placeholder="Buscar SKU o producto" oninput="renderInventory()"></div><div id="inventoryBox"></div>`;renderInventory()},
  inventario_real(){
-   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario real</b><small>Disponible · reservado · vendido por variante</small></div><button class="btn" onclick="loadRealInventory()">Actualizar</button></div><div id="inventoryRealBox" class="result">Cargando…</div></div>`;
+   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario real + precios</b><small>Supabase es la fuente oficial · Excel actualiza stock físico, mínimo y precio USD</small></div><div class="actions"><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice" style="margin:12px 0"><b>Importación protegida:</b> reservado y vendido nunca se modifican desde Excel. Antes de aplicar verás una vista previa.</div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="result">Cargando…</div></div>`;
    loadRealInventory();
  },
  configuracion(){$('content').innerHTML=realBar()+`<div class="grid"><div class="module"><b>Supabase</b><small>${window.tsPanelSupabase?'Conectado':'No disponible'}</small></div><div class="module"><b>Admin API</b><small>Protegida con sesión Super Admin</small></div><div class="module"><b>Resend</b><small>Correos transaccionales mediante Netlify Functions</small></div><div class="module"><b>Service Center</b><small>Base independiente y aislada</small></div></div>`},
  permisos(){renderProfiles()},
  mis_pedidos(){const u=user();const mine=orders().filter(o=>{const c=orderClient(o);return normalizeEmail(c.email)===normalizeEmail(u.email)||String(o.cliente_id||'')===String(u.id||'')});$('content').innerHTML=rows(mine.map(o=>`<b>${esc(orderCode(o))}</b><br>${esc(orderStatus(o))} · ${money(orderTotal(o))}`),'Aún no tienes pedidos visibles.')},
  mis_reparaciones(){views.tickets()},
- ventas(){$('content').innerHTML=`<div class="notice">Las ventas de producción se registran mediante el checkout/pedidos de ThinkStore. Este módulo puede usarse para cotizaciones y seguimiento comercial.</div>`},
+ ventas(){$('content').innerHTML=realBar()+`<div class="section-title"><h2>Registrar venta real</h2><small>Cliente registrado · inventario real · serial · garantía</small></div><div class="notice">Usa este formulario para ventas presenciales o cerradas directamente por ThinkStore. El cliente debe estar registrado previamente.</div><div class="form"><label>Correo del cliente<input id="saleEmail" type="email" placeholder="cliente@correo.com"></label><label>Equipo / variante<select id="saleVariant" onchange="prefillSalePrice()"><option>Cargando inventario…</option></select></label><label>Número de serie<input id="saleSerial" placeholder="Serial del equipo"></label><label>Garantía (días)<input id="saleWarranty" type="number" min="0" value="90"></label><label>Precio de venta USD<input id="salePrice" type="number" min="0.01" step="0.01"></label><label>Método de pago<select id="salePayment"><option>Efectivo</option><option>Zelle</option><option>Pago Móvil</option><option>USDT</option><option>Tarjeta</option></select></label><label>Referencia de pago<input id="salePaymentRef" placeholder="Opcional"></label><label>Entrega<select id="saleDelivery"><option>Retiro en tienda</option><option>Delivery</option><option>Envío nacional</option></select></label></div><div class="actions"><button class="btn" onclick="createManualSale()">Registrar venta</button></div><pre id="saleResult" class="result"></pre>`;loadSaleInventory()},
  cotizaciones(){$('content').innerHTML=`<div class="form"><label>Cliente<input id="qClient"></label><label>Producto<input id="qProduct"></label><label>Precio USD<input id="qPrice" type="number"></label></div><div class="actions"><button class="btn" onclick="result('qResult','Cotización ThinkStore\\nCliente: '+val('qClient')+'\\nProducto: '+val('qProduct')+'\\nPrecio: '+money(val('qPrice')))">Generar</button></div><pre id="qResult" class="result"></pre>`},
  recepcion(){$('content').innerHTML=`<div class="notice">El Service Center independiente continúa en <b>soporte.thinkstore.com.ve</b>. No se mezcló su base con la tienda principal.</div>`},
  tickets(){const list=tickets().map(t=>`<b>${esc(t.code||'Ticket')}</b> · ${esc(t.status||'Abierto')}<br>${esc(t.client||t.customer||'Cliente')}`);$('content').innerHTML=rows(list,'Sin tickets locales en este navegador. El soporte real está en Service Center.')},
@@ -240,7 +241,7 @@ function whatsappLink(c,code){const phone=String(c?.phone||'').replace(/\D/g,'')
 async function paymentDecision(code,approved){const next=approved?'Pago verificado':'Pago rechazado';const note=approved?'Comprobante revisado y aprobado por administración':'Comprobante revisado: pago no verificado. Contactar al cliente.';if(!confirm(approved?'¿Confirmar este pago y enviar la actualización al cliente?':'¿Marcar este pago como no verificado y avisar al cliente?'))return;try{const data=await updateOrderRemote(code,next,'',note);renderPayments();renderOrdersList();refreshKpis();alert(approved?'Pago verificado. El cliente fue notificado y, si aplica, se envió la nota de entrega.':'Pago marcado como no verificado. El cliente fue notificado.')}catch(e){alert('Error: '+e.message)}}
 function renderOrdersList(){
   const box=$('ordersBox');if(!box)return;const q=String(val('orderSearch')).toLowerCase(),f=val('orderFilter');const list=orders().filter(o=>(!f||orderStatus(o)===f)&&JSON.stringify(o).toLowerCase().includes(q));
-  box.innerHTML=list.map(o=>{const c=orderClient(o),code=orderCode(o),pmt=receiptForOrder(o);const items=orderItems(o).map(i=>`${esc(i.product||i.producto||i.name||'Producto')} · ${esc(i.color||'')} · ${esc(i.capacity||i.capacidad||'')} × ${Number(i.qty||i.cantidad||1)}`).join('<br>')||'Producto por confirmar';const wa=whatsappLink(c,code);const paymentInfo=pmt?`<div class="notice success"><b>Comprobante recibido</b><br><small>Referencia: ${esc(pmt.referencia||o.paymentRef||o.referencia_pago||'—')} · Monto: ${money(pmt.monto||orderTotal(o))} · ${esc(fmtDate(pmt.created_at))}</small><div class="actions">${receiptButton(pmt)}<button class="btn" onclick="paymentDecision('${esc(code)}',true)">Aprobar pago</button><button class="btn danger" onclick="paymentDecision('${esc(code)}',false)">Rechazar</button></div></div>`:`<div class="notice warn"><b>Sin comprobante cargado</b></div>`;return `<div class="order-card"><div class="order-top"><div><b>${esc(code)}</b><br><small>${esc(fmtDate(o.created_at||o.date))}</small></div><span class="badge">${esc(orderStatus(o))}</span></div>${orderTimelineHtml(o)}<div class="order-detail"><div><small>Cliente</small><b>${esc(c.name)}</b><br>${esc(c.email)}<br>${esc(c.phone||'')}</div><div><small>Dirección</small><b>${esc([o.customer?.address,o.customer?.city,o.customer?.state].filter(Boolean).join(', ')||'Por confirmar')}</b></div><div><small>Pago</small><b>${esc(o.payment||o.metodo_pago||'Por confirmar')}</b><br>${esc(o.paymentRef||o.referencia_pago||'')}</div><div><small>Envío</small><b>${esc(o.shippingCompany||o.empresa_envio||o.customer?.shipping||'Por confirmar')}</b><br>Guía: ${esc(o.guideNumber||o.numero_guia||'Pendiente')}</div></div><div class="order-items"><b>Productos</b><br>${items}</div>${paymentInfo}${historyHtml(o)}<div class="toolbar"><select class="status-select" id="st-${esc(code)}">${STATUS_OPTIONS.map(s=>`<option ${s===orderStatus(o)?'selected':''}>${esc(s)}</option>`).join('')}</select><input id="gd-${esc(code)}" value="${esc(o.guideNumber||o.numero_guia||'')}" placeholder="Número de guía"><input id="nt-${esc(code)}" placeholder="Nota interna / historial"><button class="btn" onclick="saveOrderStatus('${esc(code)}')">Guardar estado</button><button class="btn ghost" onclick="sendOrderEmail('${esc(code)}')">Reenviar correo</button>${wa?`<a class="btn ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>`:''}</div><b>${money(orderTotal(o))}</b></div>`}).join('')||'<div class="result">Sin pedidos reales.</div>';
+  box.innerHTML=list.map(o=>{const c=orderClient(o),code=orderCode(o),pmt=receiptForOrder(o);const items=orderItems(o).map(i=>`${esc(i.product||i.producto||i.name||'Producto')} · ${esc(i.color||'')} · ${esc(i.capacity||i.capacidad||'')} · ${esc(i.condition||i.condicion||'')} × ${Number(i.qty||i.cantidad||1)}${(i.numero_serie||i.serial_number)?`<br><small>Serie: ${esc(i.numero_serie||i.serial_number)}${(i.garantia_dias||i.warranty_days)?` · Garantía: ${Number(i.garantia_dias||i.warranty_days)} días`:''}</small>`:''}`).join('<br>')||'Producto por confirmar';const wa=whatsappLink(c,code);const paymentInfo=pmt?`<div class="notice success"><b>Comprobante recibido</b><br><small>Referencia: ${esc(pmt.referencia||o.paymentRef||o.referencia_pago||'—')} · Monto: ${money(pmt.monto||orderTotal(o))} · ${esc(fmtDate(pmt.created_at))}</small><div class="actions">${receiptButton(pmt)}<button class="btn" onclick="paymentDecision('${esc(code)}',true)">Aprobar pago</button><button class="btn danger" onclick="paymentDecision('${esc(code)}',false)">Rechazar</button></div></div>`:`<div class="notice warn"><b>Sin comprobante cargado</b></div>`;return `<div class="order-card"><div class="order-top"><div><b>${esc(code)}</b><br><small>${esc(fmtDate(o.created_at||o.date))}</small></div><span class="badge">${esc(orderStatus(o))}</span></div>${orderTimelineHtml(o)}<div class="order-detail"><div><small>Cliente</small><b>${esc(c.name)}</b><br>${esc(c.email)}<br>${esc(c.phone||'')}</div><div><small>Dirección</small><b>${esc([o.customer?.address,o.customer?.city,o.customer?.state].filter(Boolean).join(', ')||'Por confirmar')}</b></div><div><small>Pago</small><b>${esc(o.payment||o.metodo_pago||'Por confirmar')}</b><br>${esc(o.paymentRef||o.referencia_pago||'')}</div><div><small>Envío</small><b>${esc(o.shippingCompany||o.empresa_envio||o.customer?.shipping||'Por confirmar')}</b><br>Guía: ${esc(o.guideNumber||o.numero_guia||'Pendiente')}</div></div><div class="order-items"><b>Productos</b><br>${items}</div>${paymentInfo}${historyHtml(o)}<div class="toolbar"><select class="status-select" id="st-${esc(code)}">${STATUS_OPTIONS.map(s=>`<option ${s===orderStatus(o)?'selected':''}>${esc(s)}</option>`).join('')}</select><input id="gd-${esc(code)}" value="${esc(o.guideNumber||o.numero_guia||'')}" placeholder="Número de guía"><input id="nt-${esc(code)}" placeholder="Nota interna / historial"><button class="btn" onclick="saveOrderStatus('${esc(code)}')">Guardar estado</button><button class="btn ghost" onclick="sendOrderEmail('${esc(code)}')">Reenviar correo</button><button class="btn ghost" onclick="resendDeliveryNote('${esc(code)}')">Reenviar nota</button>${wa?`<a class="btn ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>`:''}</div><b>${money(orderTotal(o))}</b></div>`}).join('')||'<div class="result">Sin pedidos reales.</div>';
 }
 async function saveOrderStatus(code){try{const st=$('st-'+code)?.value||'Pedido recibido',gd=$('gd-'+code)?.value||'',note=$('nt-'+code)?.value||'';const data=await updateOrderRemote(code,st,gd,note);renderOrdersList();refreshKpis();const sent=data?.email?.sent?' Correo automático enviado.':'';const noteSent=data?.deliveryNoteEmail?.sent?' Nota de entrega enviada.':'';alert('Pedido actualizado correctamente.'+sent+noteSent)}catch(e){alert('Error: '+e.message)}}
 async function sendOrderEmail(code){const o=orders().find(x=>orderCode(x)===code);if(!o)return;const c=orderClient(o);if(!c.email)return alert('Este cliente no tiene correo.');const total=orderTotal(o);const totalLine=total>0?`\nTotal: ${money(total)}`:'';const text=`Hola ${c.name},\n\nTu pedido ${code} fue actualizado.\nEstado: ${orderStatus(o)}${totalLine}\n\nThinkStore`;try{const res=await fetch('/.netlify/functions/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:c.email,subject:`Actualización de pedido ${code} | ThinkStore`,text,department:'pedidos',actionUrl:'https://thinkstore.com.ve',actionLabel:'Ver en ThinkStore'})});const d=await res.json();if(!res.ok||!d.ok)throw new Error(d.error||'No se pudo enviar');alert('Correo enviado.')}catch(e){alert('Error: '+e.message)}}
@@ -256,13 +257,14 @@ async function renderProfiles(){$('content').innerHTML=realBar()+`<div class="se
 function renderSide(){const side=$('side');if(!side)return;const allowed=MODULES.filter(m=>can(m.id));side.innerHTML=allowed.map(m=>`<button data-module="${m.id}" onclick="openModule('${m.id}')">${m.icon} ${m.title}</button>`).join('')}
 async function openModule(id){if(!can(id))return;window.currentModule=id;document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));const mod=MODULES.find(m=>m.id===id);if(mod){$('heroTitle').textContent=mod.title;$('heroText').textContent=mod.desc}const fn=views[id]||(()=>views.generic(id));await Promise.resolve(fn());refreshKpis()}
 let realRefreshTimer=null;
+let tsInventoryImportRows=[];
 async function loadRealInventory(){
   const box=$('inventoryRealBox');if(!box)return;
   try{
-    const res=await fetch('/.netlify/functions/inventory'),data=await res.json().catch(()=>({}));
+    const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo cargar inventario');
     const rows=data.variants||[];
-    box.innerHTML=`<div class="table-wrap"><table class="table"><thead><tr><th>SKU</th><th>Producto</th><th>Variante</th><th>Disponible</th><th>Reservado</th><th>Vendido</th><th>Mínimo</th><th>Acción</th></tr></thead><tbody>${rows.map(v=>`<tr class="${v.low_stock?'critical':''}"><td><b>${esc(v.sku)}</b></td><td>${esc(v.product_name)}</td><td>${esc([v.model,v.color,v.capacity].filter(Boolean).join(' · '))}</td><td><b>${Number(v.available||0)}</b>${v.low_stock?'<br><small>Stock bajo</small>':''}</td><td>${Number(v.stock_reserved||0)}</td><td>${Number(v.stock_sold||0)}</td><td>${Number(v.stock_min||0)}</td><td><button class="btn ghost" onclick="adjustRealInventory('${esc(v.id)}','${esc(v.sku)}')">Ajustar</button></td></tr>`).join('')||'<tr><td colspan="8">Aún no hay variantes cargadas.</td></tr>'}</tbody></table></div>`;
+    box.innerHTML=`<div class="table-wrap"><table class="table"><thead><tr><th>SKU</th><th>Producto</th><th>Variante</th><th>Físico</th><th>Disponible</th><th>Reservado</th><th>Vendido</th><th>Mínimo</th><th>Precio USD</th><th>Acción</th></tr></thead><tbody>${rows.map(v=>`<tr class="${v.low_stock?'critical':''}"><td><b>${esc(v.sku)}</b></td><td>${esc(v.product_name)}</td><td>${esc([v.model,v.color,v.capacity,v.condition,v.chip,v.ram].filter(Boolean).join(' · '))}</td><td>${Number(v.stock_on_hand||0)}</td><td><b>${Number(v.available||0)}</b>${v.low_stock?'<br><small>Stock bajo</small>':''}</td><td>${Number(v.stock_reserved||0)}</td><td>${Number(v.stock_sold||0)}</td><td>${Number(v.stock_min||0)}</td><td><b>${Number(v.price_usd||0)>0?money(v.price_usd):'Por definir'}</b></td><td><div class="actions"><button class="btn ghost" onclick="editRealInventory('${esc(v.id)}','${esc(v.sku)}',${Number(v.stock_on_hand||0)},${Number(v.stock_min||0)},${v.price_usd==null?'null':Number(v.price_usd)})">Editar</button><button class="btn ghost" onclick="adjustRealInventory('${esc(v.id)}','${esc(v.sku)}')">± Stock</button></div></td></tr>`).join('')||'<tr><td colspan="10">Aún no hay variantes cargadas.</td></tr>'}</tbody></table></div>`;
   }catch(e){box.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
 }
 async function adjustRealInventory(id,sku){
@@ -272,10 +274,119 @@ async function adjustRealInventory(id,sku){
   try{
     const headers=await adminApiHeaders({'Content-Type':'application/json'});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'adjust',variant_id:id,quantity:qty,note})});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo ajustar');
+    const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo ajustar');
     await loadRealInventory();alert('Inventario actualizado.');
   }catch(e){alert('Error: '+e.message)}
+}
+async function editRealInventory(id,sku,currentStock,currentMin,currentPrice){
+  const stockText=prompt(`Stock físico para ${sku}:`,String(currentStock)); if(stockText===null)return;
+  const minText=prompt('Stock mínimo:',String(currentMin)); if(minText===null)return;
+  const priceText=prompt('Precio USD (0 = sin precio publicado):',currentPrice==null?'0':String(currentPrice)); if(priceText===null)return;
+  const stock=Number(stockText), min=Number(minText), price=Number(priceText);
+  if(!Number.isInteger(stock)||stock<0||!Number.isInteger(min)||min<0||!Number.isFinite(price)||price<0)return alert('Revisa stock, mínimo y precio.');
+  try{
+    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'set',variant_id:id,stock_on_hand:stock,stock_min:min,price_usd:price})});
+    const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar');
+    await loadRealInventory();alert('Stock y precio actualizados en Supabase. La tienda usará estos valores automáticamente.');
+  }catch(e){alert('Error: '+e.message)}
+}
+function inventoryHeaderMap(row){
+  const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const out={}; Object.keys(row||{}).forEach(k=>out[norm(k)]=k); return out;
+}
+function inventoryCell(row,map,names){
+  const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  for(const n of names){const key=map[norm(n)];if(key!==undefined)return row[key]}
+  return null;
+}
+async function handleInventoryExcel(file){
+  if(!file)return;
+  const preview=$('inventoryImportPreview');
+  try{
+    if(!window.XLSX)throw new Error('No se pudo cargar el lector Excel. Revisa tu conexión y vuelve a intentar.');
+    preview.innerHTML='<div class="notice">Leyendo Excel…</div>';
+    const buffer=await file.arrayBuffer(), wb=XLSX.read(buffer,{type:'array'}), ws=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
+    if(!raw.length)throw new Error('El Excel está vacío.');
+    const map=inventoryHeaderMap(raw[0]);
+    const num=v=>{if(v===null||v===undefined||String(v).trim()==='')return null;const n=Number(v);return Number.isFinite(n)?n:null};
+    tsInventoryImportRows=raw.map(row=>({
+      sku:String(inventoryCell(row,map,['SKU'])||'').trim(),
+      product_name:String(inventoryCell(row,map,['Producto'])||'').trim(),
+      model:String(inventoryCell(row,map,['Modelo'])||'').trim(),
+      color:String(inventoryCell(row,map,['Color'])||'').trim(),
+      capacity:String(inventoryCell(row,map,['Capacidad'])||'').trim(),
+      condition:String(inventoryCell(row,map,['Condición','Condicion'])||'').trim(),
+      chip:String(inventoryCell(row,map,['Chip'])||'').trim(),
+      ram:String(inventoryCell(row,map,['RAM','Memoria RAM'])||'').trim(),
+      stock_on_hand:num(inventoryCell(row,map,['Stock físico (EDITAR)','Stock fisico (EDITAR)','Stock físico','Stock fisico'])),
+      stock_min:num(inventoryCell(row,map,['Stock mínimo','Stock minimo'])),
+      price_usd:num(inventoryCell(row,map,['Precio USD (EDITAR)','Precio USD','Precio'])),
+    })).filter(x=>x.sku);
+    if(!tsInventoryImportRows.length)throw new Error('No encontré la columna SKU o filas válidas.');
+    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'preview_import',rows:tsInventoryImportRows})});
+    const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo validar el Excel');
+    const x=data.summary||{}, sample=data.preview||[];
+    preview.innerHTML=`<div class="notice"><b>Vista previa del Excel</b><br>Filas: ${x.rows||0} · Crear variantes: ${x.creates||0} · Actualizar: ${x.updates||0} · Sin cambios: ${x.unchanged||0} · Errores: ${x.errors||0}</div><div class="table-wrap"><table class="table"><thead><tr><th>SKU</th><th>Acción</th><th>Stock anterior → nuevo</th><th>Precio anterior → nuevo</th><th>Observación</th></tr></thead><tbody>${sample.slice(0,40).map(r=>`<tr class="${r.status==='error'?'critical':''}"><td>${esc(r.sku)}</td><td>${esc(r.status)}</td><td>${r.old_stock==null?'Nuevo':r.old_stock} → ${r.stock_on_hand==null?'Sin cambio':r.stock_on_hand}</td><td>${r.old_price==null?'—':money(r.old_price)} → ${r.price_usd==null?'Sin cambio':money(r.price_usd)}</td><td>${esc(r.error||'')}</td></tr>`).join('')}</tbody></table></div><div class="actions"><button class="btn" ${x.errors?'':'onclick="applyInventoryExcel()"'}>${x.errors?'Corrige los errores antes de importar':'✅ Aplicar cambios en Supabase'}</button><button class="btn ghost" onclick="cancelInventoryExcel()">Cancelar</button></div>`;
+  }catch(e){tsInventoryImportRows=[];preview.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
+}
+async function applyInventoryExcel(){
+  if(!tsInventoryImportRows.length)return alert('Primero selecciona un Excel.');
+  if(!confirm(`Se actualizarán/crearán ${tsInventoryImportRows.length} filas en Supabase. Reservado y vendido NO se modificarán. ¿Continuar?`))return;
+  const preview=$('inventoryImportPreview');
+  try{
+    preview.innerHTML='<div class="notice">Aplicando inventario y precios en Supabase…</div>';
+    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'apply_import',rows:tsInventoryImportRows})});
+    const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo importar');
+    const x=data.result||{};
+    preview.innerHTML=`<div class="notice"><b>Importación completada ✅</b><br>Actualizadas: ${x.updated||0} · Creadas: ${x.created||0} · Omitidas: ${x.skipped||0}</div>`;
+    tsInventoryImportRows=[]; const inp=$('inventoryExcelFile');if(inp)inp.value=''; await loadRealInventory();
+  }catch(e){preview.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
+}
+function cancelInventoryExcel(){tsInventoryImportRows=[];const p=$('inventoryImportPreview');if(p)p.innerHTML='';const f=$('inventoryExcelFile');if(f)f.value=''}
+
+
+let tsSaleInventory=[];
+async function loadSaleInventory(){
+  const sel=$('saleVariant'); if(!sel)return;
+  try{
+    const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo cargar inventario');
+    tsSaleInventory=(data.variants||[]).filter(v=>Number(v.available||0)>0);
+    sel.innerHTML=tsSaleInventory.map(v=>`<option value="${esc(v.sku)}">${esc(v.product_name)} · ${esc([v.model,v.color,v.capacity,v.condition,v.chip,v.ram].filter(Boolean).join(' · '))} · ${Number(v.available||0)} disponible(s) · ${Number(v.price_usd||0)>0?money(v.price_usd):'precio por definir'}</option>`).join('')||'<option value="">Sin stock disponible</option>'; prefillSalePrice();
+  }catch(e){sel.innerHTML='<option value="">Error cargando inventario</option>';result('saleResult',e.message)}
+}
+function prefillSalePrice(){const sku=val('saleVariant'),v=tsSaleInventory.find(x=>String(x.sku)===sku),el=$('salePrice');if(el&&v&&Number(v.price_usd||0)>0)el.value=Number(v.price_usd).toFixed(2)}
+async function createManualSale(){
+  const payload={customer_email:val('saleEmail'),sku:val('saleVariant'),serial_number:val('saleSerial'),warranty_days:Number(val('saleWarranty')||0),price:Number(val('salePrice')||0),payment_method:val('salePayment'),payment_ref:val('salePaymentRef'),delivery_method:val('saleDelivery')};
+  if(!payload.customer_email||!payload.sku||!payload.serial_number||!(payload.price>0)){result('saleResult','Completa correo, equipo, número de serie y precio.');return}
+  result('saleResult','Registrando venta…');
+  try{
+    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const res=await fetch('/.netlify/functions/admin-create-sale',{method:'POST',headers,body:JSON.stringify(payload)}); const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo crear la venta');
+    let noteText='';
+    try{
+      const nr=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({code:data.pedido?.codigo,action:'resend_delivery_note'})});
+      const nd=await nr.json().catch(()=>({}));
+      noteText=(nr.ok&&nd.ok)?'\nNota de Entrega enviada al correo del cliente ✅':'\nVenta creada, pero revisa el envío de la Nota de Entrega en Pedidos.';
+    }catch(_){noteText='\nVenta creada, pero revisa el envío de la Nota de Entrega en Pedidos.'}
+    result('saleResult',`Venta registrada ✅\nPedido: ${data.pedido?.codigo||''}\nEquipo: ${data.variant?.product_name||''}\nSerie: ${payload.serial_number}\nPrecio: ${money(payload.price)}${noteText}`);
+    await refreshRealData({silent:true}); await loadSaleInventory(); refreshKpis();
+  }catch(e){result('saleResult','Error: '+e.message)}
+}
+async function resendDeliveryNote(code){
+  const o=orders().find(x=>orderCode(x)===code); if(!o)return alert('Pedido no encontrado.');
+  const c=orderClient(o); if(!c.email)return alert('Este cliente no tiene correo.');
+  try{
+    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({code,action:'resend_delivery_note'})}); const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.error||data.email?.error||'No se pudo enviar la nota');
+    alert('Nota de Entrega enviada correctamente a '+c.email+'.');
+  }catch(e){alert('Error enviando nota: '+e.message)}
 }
 
 async function boot(){const u=user();if(!u){$('gate').style.display='flex';$('app').style.display='none';return}$('gate').style.display='none';$('app').style.display='block';const r=role();$('rolePill').textContent=ROLE_LABELS[r]||r;document.querySelectorAll('[data-roles]').forEach(el=>{const allowed=String(el.dataset.roles||'').split(',').map(x=>x.trim().toLowerCase());el.style.display=allowed.includes(r)?'':'none'});renderSide();refreshKpis();if(isAdminRole()){await refreshRealData({silent:true});if(realRefreshTimer)clearInterval(realRefreshTimer);realRefreshTimer=setInterval(async()=>{await refreshRealData({silent:true});if(['dashboard','pedidos','pagos','clientes','crm','preordenes','logistica','guias','entregas'].includes(window.currentModule||''))openModule(window.currentModule)},30000)}const home=ROLE_HOME[r]||'cuenta';await openModule(can(home)?home:(MODULES.find(m=>can(m.id))?.id||'cuenta'))}

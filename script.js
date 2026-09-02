@@ -202,16 +202,17 @@ function tsSelectedCapacity(){
   const vals=Object.values(selectedConfig||{}).map(v=>String(v||'').trim());
   return vals.find(v=>/^(128|256|512)\s*gb$/i.test(v)||/^\d+(?:\.\d+)?\s*tb$/i.test(v)) || vals[0] || '';
 }
-async function tsFindInventoryVariant(product,model,color,capacity){
+async function tsFindInventoryVariant(product,model,color,capacity,condition){
   try{
     const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'});
     const out=await res.json().catch(()=>({}));
     if(!res.ok||!out.ok||!Array.isArray(out.variants)) return null;
-    const np=tsInventoryNorm(product), nm=tsInventoryNorm(model), nc=tsInventoryNorm(color), ncap=tsInventoryNorm(capacity);
+    const np=tsInventoryNorm(product), nm=tsInventoryNorm(model), nc=tsInventoryNorm(color), ncap=tsInventoryNorm(capacity), ncond=tsInventoryNorm(condition);
     return out.variants.find(v=>{
-      const vp=tsInventoryNorm(v.product_name), vm=tsInventoryNorm(v.model), vc=tsInventoryNorm(v.color), vcap=tsInventoryNorm(v.capacity);
+      const vp=tsInventoryNorm(v.product_name), vm=tsInventoryNorm(v.model), vc=tsInventoryNorm(v.color), vcap=tsInventoryNorm(v.capacity), vcond=tsInventoryNorm(v.condition);
       const productOk=vp===np || (vm && (vm===nm || np.includes(vm) || vp.includes(nm)));
-      return productOk && vc===nc && vcap===ncap;
+      const conditionOk=!ncond || !vcond || vcond===ncond || (tsIsPreorderCondition(condition) && !vcond);
+      return productOk && vc===nc && vcap===ncap && conditionOk;
     }) || null;
   }catch(e){ console.warn('ThinkStore inventario: no se pudo resolver variante',e); return null; }
 }
@@ -238,7 +239,7 @@ async function addCart(){
   if(!selectedProduct) return;
   const model=selectedProduct.family||selectedProduct.model||selectedProduct.name;
   const capacity=tsSelectedCapacity();
-  const inv=await tsFindInventoryVariant(selectedProduct.name,model,selectedColor,capacity);
+  const inv=await tsFindInventoryVariant(selectedProduct.name,model,selectedColor,capacity,selectedCondition);
   const available=Number(inv?.available||0);
   const isPreorder=tsIsPreorderCondition(selectedCondition);
 
@@ -265,7 +266,7 @@ async function addCart(){
     capacity,
     condition:selectedCondition,
     qty:1,
-    price:selectedProduct.price||0,
+    price:Number(inv?.price_usd || selectedProduct.price || 0),
     image:(selectedProduct.colors||{})[selectedColor]||selectedProduct.main,
     variant_id:(inv && available>0 && !tsIsPreorderCondition(selectedCondition)) ? inv.id : null,
     inventory_variant_id:(inv && available>0 && !tsIsPreorderCondition(selectedCondition)) ? inv.id : null,
@@ -445,7 +446,7 @@ function syncCheckoutCards(){
 function openRegister(){
   if(customer){
     $('rname').value=customer.name||'';
-    $('rid').value=customer.id||'';
+    $('rid').value=tsCustomerDocument(customer)||'';
     $('rphone').value=customer.phone||'';
     $('remail').value=customer.email||'';
     $('rstate').value=customer.state||'';
@@ -478,6 +479,14 @@ function saveCustomer(e){
   openCart();
 }
 
+function tsLooksLikeUuid(v){
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||'').trim());
+}
+function tsCustomerDocument(c){
+  const v=String(c?.cedula_rif || c?.document || c?.id || '').trim();
+  return (!v || tsLooksLikeUuid(v)) ? '' : v;
+}
+
 function drawCustomerSummary(){
   const el=$('customerSummary');
   if(!el) return;
@@ -488,7 +497,7 @@ function drawCustomerSummary(){
   const locationLine=[customer.city, customer.state].filter(Boolean).join(' · ');
   el.innerHTML=`<div class="customer-grid-premium customer-grid-v19">
     <div class="customer-card customer-name"><span>👤 Nombre</span><b>${customer.name||'Por definir'}</b></div>
-    <div class="customer-card customer-id"><span>🪪 C.I / RIF</span><b>${customer.id||'Por definir'}</b></div>
+    <div class="customer-card customer-id"><span>🪪 C.I / RIF</span><b>${tsCustomerDocument(customer)||'Por definir'}</b></div>
     <div class="customer-card customer-phone"><span>📞 Teléfono</span><b>${customer.phone||'Por definir'}</b></div>
     <div class="customer-card customer-ship"><span>🚚 Envío</span><b>${customer.shipping||'Por definir'}</b><small>${customer.agency||''}</small></div>
     <div class="customer-card customer-address"><span>📍 Dirección</span><b>${customer.address||'Por definir'}</b><small>${locationLine||'Sin ciudad / estado'}</small></div>
@@ -507,7 +516,7 @@ function noteText(){
   if(customer){
     lines.push('CLIENTE');
     lines.push('Nombre: '+customer.name);
-    lines.push('Cédula/RIF: '+customer.id);
+    lines.push('Cédula/RIF: '+(tsCustomerDocument(customer)||'No indicado'));
     lines.push('Teléfono: '+customer.phone);
     lines.push('Correo: '+(customer.email||'No indicado'));
     lines.push('Dirección: '+customer.address+', '+customer.city+', '+customer.state);
@@ -709,7 +718,7 @@ function buildPremiumNoteHTML(order){
       <div class="note-grid two apple-client-grid">
         <p><b>Nombre:</b><span>${order.customer.name||''}</span></p>
         <p><b>Correo:</b><span>${order.customer.email||''}</span></p>
-        <p><b>Cédula / RIF:</b><span>${order.customer.id||''}</span></p>
+        <p><b>Cédula / RIF:</b><span>${tsCustomerDocument(order.customer)||''}</span></p>
         <p><b>Dirección:</b><span>${order.customer.address||''}</span></p>
         <p><b>Teléfono:</b><span>${order.customer.phone||''}</span></p>
         <p><b>Ciudad / Estado:</b><span>${order.customer.city||''}, ${order.customer.state||''}</span></p>
@@ -778,7 +787,7 @@ function createNote(order){
   lines.push('');
   lines.push('CLIENTE');
   lines.push('Nombre: '+order.customer.name);
-  lines.push('Cédula/RIF: '+order.customer.id);
+  lines.push('Cédula/RIF: '+(tsCustomerDocument(order.customer)||'No indicado'));
   lines.push('Teléfono: '+order.customer.phone);
   lines.push('Correo: '+(order.customer.email||'No indicado'));
   lines.push('Dirección: '+order.customer.address+', '+order.customer.city+', '+order.customer.state);
@@ -791,7 +800,9 @@ function createNote(order){
     lines.push(`   Modelo: ${i.model}`);
     lines.push(`   Color: ${i.color}`);
     lines.push(`   Configuración: ${i.config}`);
-    lines.push(`   Estado del equipo: ${i.condition}`);
+    lines.push(`   Estado del equipo: ${i.condition || i.condicion || 'Por confirmar'}`);
+    lines.push(`   Número de serie: ${i.serialNumber || i.numero_serie || 'Por registrar'}`);
+    if(i.warrantyDays || i.garantia_dias) lines.push(`   Garantía: ${i.warrantyDays || i.garantia_dias} días`);
   });
   lines.push('');
   lines.push('Método de pago: '+order.payment);
@@ -1486,7 +1497,7 @@ function buildPremiumNoteHTML(order){
       <div class="ts-client-grid">
         <div><b>Nombre:</b><p>${customer.name || ''}</p></div>
         <div><b>Correo:</b><p>${customer.email || ''}</p></div>
-        <div><b>Cédula / RIF:</b><p>${customer.id || ''}</p></div>
+        <div><b>Cédula / RIF:</b><p>${tsCustomerDocument(customer) || ''}</p></div>
         <div><b>Dirección:</b><p>${customer.address || ''}</p></div>
         <div><b>Teléfono:</b><p>${customer.phone || ''}</p></div>
         <div><b>Ciudad / Estado:</b><p>${customer.city || ''}${customer.state ? ', ' + customer.state : ''}</p></div>
@@ -2054,7 +2065,7 @@ async function tsEnsureClientProfile(authUser, fallback={}){
     nombre: fallback.name || meta.name || meta.full_name || authUser.email?.split('@')[0] || 'Cliente ThinkStore',
     correo: fallback.email || authUser.email || '',
     telefono: fallback.phone || meta.phone || '',
-    cedula_rif: fallback.id && fallback.id !== uid ? fallback.id : null,
+    cedula_rif: fallback.id && fallback.id !== uid && !tsLooksLikeUuid(fallback.id) ? fallback.id : null,
     direccion: fallback.address || '',
     ciudad: fallback.city || '',
     estado: fallback.state || '',
@@ -2124,7 +2135,7 @@ async function tsCompletePendingVerifiedRegistration(opts={}){
 
     const profile=await tsEnsureClientProfile(u,pending);
     const c={
-      id: profile.cedula_rif || u.id,
+      id: profile.cedula_rif || '',
       supabase_id: u.id,
       name: profile.nombre || u.user_metadata?.name || u.email?.split('@')[0] || 'Cliente',
       email: profile.correo || u.email || '',
@@ -2181,7 +2192,7 @@ async function tsHandleEmailVerification(){
     if(session?.user){
       const profile=await tsEnsureClientProfile(session.user,pending);
       const c={
-        id: profile.cedula_rif || session.user.id,
+        id: profile.cedula_rif || '',
         supabase_id: session.user.id,
         name: profile.nombre || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Cliente',
         email: profile.correo || session.user.email || '',
@@ -2308,7 +2319,7 @@ async function saveCustomer(e){
       const profile=await tsEnsureClientProfile(data.session.user,c);
       const logged={
         ...c,
-        id: profile.cedula_rif || data.session.user.id,
+        id: profile.cedula_rif || '',
         supabase_id: data.session.user.id,
         name: profile.nombre || c.name,
         email: profile.correo || c.email
@@ -2361,7 +2372,7 @@ async function loginClient(){
     }
     if(profile){
       c = {
-        id: profile.cedula_rif || uid,
+        id: profile.cedula_rif || '',
         supabase_id: uid,
         name: profile.nombre || data.user.user_metadata?.name || email,
         email: profile.correo || email,
@@ -2374,7 +2385,7 @@ async function loginClient(){
         agency: profile.agencia_destino || ''
       };
     }else{
-      c = { id: uid, supabase_id: uid, name: data.user.user_metadata?.name || email, email, phone:'' };
+      c = { id: '', supabase_id: uid, name: data.user.user_metadata?.name || email, email, phone:'' };
     }
     currentUser = c; customer = c;
     localStorage.setItem('ts_current_user', JSON.stringify(c));
@@ -2420,6 +2431,15 @@ async function tsReserveInventoryForOrder(order,savedOrderId){
   return out;
 }
 
+async function tsNextOrderCode(){
+  if(!window.tsSupabase) throw new Error('Supabase no está disponible para generar el consecutivo.');
+  const {data,error}=await window.tsSupabase.rpc('ts_next_order_code');
+  if(error) throw error;
+  const code=String(data||'').trim();
+  if(!/^TS-\d{4}-\d{4,}$/.test(code)) throw new Error('No se pudo generar un número de pedido válido.');
+  return code;
+}
+
 async function saveOrderToSupabase(order){
   if(tsConfigMissing() || !order) throw new Error('Supabase no está disponible.');
 
@@ -2438,6 +2458,10 @@ async function saveOrderToSupabase(order){
   });
 
   const total = (order.items || []).reduce((a,i)=>a + Number(i.price || 0) * Number(i.qty || 1), 0);
+
+  // El consecutivo real lo genera Supabase de forma atómica. El navegador nunca decide el número definitivo.
+  order.code = await tsNextOrderCode();
+  try{ order.note = createNote(order); }catch(_){}
 
   const { data: inserted, error } = await window.tsSupabase.from('pedidos').insert({
     codigo: order.code,
@@ -2460,7 +2484,12 @@ async function saveOrderToSupabase(order){
       color: i.color,
       capacidad: i.config,
       cantidad: Number(i.qty || 1),
-      precio_usd: Number(i.price || 0)
+      precio_usd: Number(i.price || 0),
+      condicion: i.condition || null,
+      numero_serie: i.serialNumber || i.numero_serie || null,
+      garantia_dias: Number(i.warrantyDays || i.garantia_dias || 0) || null,
+      chip: i.chip || null,
+      ram: i.ram || null
     })));
     if(itemError) throw itemError;
   }
@@ -3030,7 +3059,7 @@ window.addEventListener('load', ()=>{
     return {
       source:'supabase',
       supabase_id:c.id || '',
-      id:c.cedula_rif || c.id || '',
+      id:c.cedula_rif || '',
       name:c.nombre || c.name || 'Cliente',
       email:c.correo || c.email || '',
       phone:c.telefono || c.phone || '',
@@ -3319,7 +3348,7 @@ window.addEventListener('load', ()=>{
     return {
       source: c.source || 'supabase',
       supabase_id: c.supabase_id || c.id || '',
-      id: c.cedula_rif || c.document || c.id || '',
+      id: c.cedula_rif || c.document || '',
       name: c.nombre || c.name || c.full_name || 'Cliente',
       email: c.correo || c.email || '',
       phone: c.telefono || c.phone || '',
@@ -3584,7 +3613,7 @@ window.addEventListener('load', ()=>{
       if(!res.ok || !data.ok) throw new Error(data.error || 'Dashboard seguro no disponible');
       window.tsAdminRemoteCustomers = (data.clientes || []).map(c => ({
         supabase_id: c.id || '',
-        id: c.cedula_rif || c.document || c.id || '',
+        id: c.cedula_rif || c.document || '',
         name: c.nombre || c.name || c.full_name || 'Cliente',
         email: c.correo || c.email || '',
         phone: c.telefono || c.phone || '',
@@ -3902,7 +3931,7 @@ window.addEventListener('load', ()=>{
     return {
       source: c.source || 'supabase',
       supabase_id: c.supabase_id || c.id || '',
-      id: c.cedula_rif || c.document || c.doc || c.id || '',
+      id: c.cedula_rif || c.document || c.doc || '',
       name: c.nombre || c.name || c.full_name || 'Cliente',
       email: c.correo || c.email || '',
       phone: c.telefono || c.phone || '',
@@ -4088,7 +4117,7 @@ window.addEventListener('load', ()=>{
     try{
       const model=p.family||p.model||p.name;
       const capacity=typeof tsSelectedCapacity==='function' ? tsSelectedCapacity() : '';
-      const inv=await tsFindInventoryVariant(p.name,model,window.selectedColor||selectedColor||'',capacity);
+      const inv=await tsFindInventoryVariant(p.name,model,window.selectedColor||selectedColor||'',capacity,window.selectedCondition||selectedCondition||'');
       const available=Number(inv?.available||0);
       const reserved=Number(inv?.stock_reserved||0);
 
@@ -4105,7 +4134,8 @@ window.addEventListener('load', ()=>{
 
       if(buybox){
         const holder=buybox.querySelector('div');
-        if(holder) holder.innerHTML=`<span class="ts-stock ${key}">${label}</span><small>${hint}</small>`;
+        if(inv&&Number(inv.price_usd||0)>0){p.price=Number(inv.price_usd);selectedProduct.price=Number(inv.price_usd)}
+        if(holder) holder.innerHTML=`<span class="ts-stock ${key}">${label}</span><small>${hint}</small>${Number(inv?.price_usd||0)>0?`<b style="display:block;margin-top:6px;font-size:18px">$${Number(inv.price_usd).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</b>`:'<b style="display:block;margin-top:6px">Precio por definir</b>'}`;
       }
       if(quick){
         quick.innerHTML=`<b>Disponibilidad</b><small>${inv ? (available>0 ? `En stock · ${available} disponible${available===1?'':'s'}` : 'Bajo pedido · Pre-Order disponible') : 'Bajo pedido · 15 a 25 días hábiles'}</small>`;
@@ -5167,6 +5197,29 @@ window.addEventListener('load', ()=>{
     });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',activateV60Cards); else activateV60Cards();
+})();
+
+
+/* ===== ThinkStore Inventario/Precios en tiempo real ===== */
+(function(){
+  function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+  async function hydrate(){
+    try{
+      const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok||!Array.isArray(data.variants))return;
+      const lists=[];
+      try{if(Array.isArray(PRODUCTS))lists.push(PRODUCTS)}catch(e){}
+      try{if(Array.isArray(window.adminProducts))lists.push(window.adminProducts)}catch(e){}
+      lists.forEach(list=>list.forEach(p=>{
+        const pn=norm(p.name), pm=norm(p.model||p.family||p.name);
+        const prices=data.variants.filter(v=>Number(v.price_usd||0)>0).filter(v=>{const vn=norm(v.product_name),vm=norm(v.model);return vn===pn||vm===pm||vn.includes(pn)||pn.includes(vn)}).map(v=>Number(v.price_usd));
+        if(prices.length)p.price=Math.min(...prices);
+      }));
+      if(typeof renderFeaturedV2==='function')renderFeaturedV2();
+    }catch(e){console.warn('ThinkStore precios:',e)}
+  }
+  window.tsHydrateInventoryPrices=hydrate;
+  window.addEventListener('load',()=>setTimeout(hydrate,650));
 })();
 
 /* ===== ThinkStore V62 Multi-Rol Pro: permisos, portal y acceso por rol ===== */
