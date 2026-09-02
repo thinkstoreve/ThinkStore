@@ -54,7 +54,7 @@ function tsBaseCatalogProducts(){
   try{ if(Array.isArray(PRODUCTS)) PRODUCTS.forEach(p=>{ if(p&&!out.some(x=>String(x.id)===String(p.id))) out.push(p); }); }catch(e){}
   return out;
 }
-function tsBuildInventoryCatalog(variants,catalogProducts){
+function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
   // V1.4: data.js sigue siendo la fuente visual de productos existentes.
   // Productos NUEVOS solo se agregan si fueron publicados explícitamente en el Panel
   // y tienen una imagen propia. Nada se infiere por categoría para evitar mezclar fotos.
@@ -63,6 +63,19 @@ function tsBuildInventoryCatalog(variants,catalogProducts){
   // Las ediciones existentes pueden actualizar su imagen aunque el producto ya exista en data.js.
   // 'published' solo decide si un producto NUEVO aparece en la tienda.
   const editorial=(catalogProducts||[]).filter(c=>c&&c.image_url);
+  const galleryByKey=new Map();
+  (catalogImages||[]).filter(Boolean).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)).forEach(img=>{
+    const k=String(img.product_key||'').trim(); if(!k)return;
+    if(!galleryByKey.has(k))galleryByKey.set(k,[]); galleryByKey.get(k).push(img);
+  });
+  function editorialGallery(c){
+    const rows=galleryByKey.get(String(c?.product_key||''))||[];
+    const primary=rows.find(x=>x.is_primary)||rows[0];
+    const urls=rows.map(x=>String(x.image_url||'').trim()).filter(Boolean);
+    const main=String(primary?.image_url||c?.image_url||'').trim();
+    if(main&&!urls.includes(main))urls.unshift(main);
+    return {main,urls:urls.length?urls:(main?[main]:[])};
+  }
   const byProduct=new Map();
   rows.forEach(v=>{const k=tsCatalogNorm(v.product_name||'');if(!k)return;if(!byProduct.has(k))byProduct.set(k,[]);byProduct.get(k).push(v)});
 
@@ -105,11 +118,11 @@ function tsBuildInventoryCatalog(variants,catalogProducts){
     const colors=[...new Set(matched.map(v=>String(v.color||'').trim()).filter(Boolean))];
     const capacities=[...new Set(matched.map(v=>String(v.capacity||'').trim()).filter(Boolean))];
     const conditions=[...new Set(matched.map(v=>String(v.condition||'').trim()).filter(Boolean))];
-    const image=String(c.image_url||'').trim();
+    const eg=editorialGallery(c);
+    const image=eg.main;
     if(existing){
-      // Producto ya existente: una imagen guardada desde el Panel SIEMPRE sustituye la imagen visual,
-      // aunque la fila editorial esté en borrador. Así 'Publicado' no bloquea la edición de productos existentes.
-      existing.main=image; existing.gallery=[image];
+      // Producto ya existente: la galería de Supabase sustituye la visual sin mezclar modelos.
+      existing.main=image; existing.gallery=eg.urls;
       if(colors.length){const m={};colors.forEach(x=>m[x]=image);existing.colors=m}
       if(capacities.length)existing.storage=capacities;
       if(conditions.length)existing.condition=conditions;
@@ -132,7 +145,7 @@ function tsBuildInventoryCatalog(variants,catalogProducts){
       badge:conditions[0]||c.category,
       description:c.description||'Producto disponible en ThinkStore.',
       main:image,
-      gallery:[image],
+      gallery:eg.urls,
       colors:colorMap,
       storage:capacities.length?capacities:['Consultar configuración'],
       condition:conditions.length?conditions:['Nuevo'],
@@ -5347,7 +5360,7 @@ window.addEventListener('load', ()=>{
     try{
       const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok||!Array.isArray(data.variants))return;
-      tsInventoryCatalogProducts=tsBuildInventoryCatalog(data.variants,data.catalog_products||[]);
+      tsInventoryCatalogProducts=tsBuildInventoryCatalog(data.variants,data.catalog_products||[],data.catalog_images||[]);
       window.tsInventoryCatalogProducts=tsInventoryCatalogProducts;
       // Mantiene también el precio mínimo en los objetos locales para compatibilidad con módulos antiguos.
       const lists=[];

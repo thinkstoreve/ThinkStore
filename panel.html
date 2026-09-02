@@ -16,6 +16,8 @@
 /* V1.4.3 · Inventario Pro */
 .inventory-stage{margin-top:14px}.inv-summary{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:12px;margin:16px 0}.inv-kpi{background:#fff;border:1px solid var(--line);border-radius:18px;padding:15px;box-shadow:0 8px 22px rgba(0,0,0,.035)}.inv-kpi small{display:block;color:var(--muted);font-weight:750;margin-bottom:6px}.inv-kpi b{font-size:25px}.inv-kpi.good b{color:#137a45}.inv-kpi.warn-kpi b{color:#9a5a00}.inv-kpi.info b{color:#065fbd}.inv-toolbar{display:grid;grid-template-columns:minmax(220px,1.7fr) repeat(3,minmax(150px,.8fr));gap:10px;align-items:center;margin:16px 0}.inv-toolbar input,.inv-toolbar select{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:13px;background:#fff;font:inherit}.inv-count{color:var(--muted);font-size:13px;margin:0 0 9px}.inv-table tbody tr{color:var(--text);background:#fff}.inv-table tbody tr:hover{background:#fafafa}.inv-table td{vertical-align:middle}.sku-cell{font-size:12px;color:#4d4d52;max-width:180px;word-break:break-word}.variant-cell{min-width:220px;color:#4d4d52}.stock-pill,.pub-pill,.price-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:850;white-space:nowrap}.stock-pill.in{background:#ecf9f1;color:#137a45}.stock-pill.low{background:#fff7e6;color:#8a5700}.stock-pill.out{background:#f2f2f4;color:#6e6e73}.pub-pill.on{background:#eef6ff;color:#065fbd}.pub-pill.off{background:#f2f2f4;color:#6e6e73}.price-pill.set{background:#f3f8ff;color:#065fbd}.price-pill.unset{background:#f7f7f8;color:#777}.inv-actions{display:flex;gap:7px;flex-wrap:wrap}.inv-actions .btn{padding:8px 11px;font-size:12px}.inv-zero{color:#8e8e93}.inv-filter-note{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.catalog-editor{scroll-margin-top:100px}@media(max-width:980px){.inv-summary{grid-template-columns:repeat(2,minmax(130px,1fr))}.inv-toolbar{grid-template-columns:1fr 1fr}}@media(max-width:620px){.inv-summary,.inv-toolbar{grid-template-columns:1fr}.inv-kpi b{font-size:22px}}
 
+
+.cp-gallery-list{display:grid;gap:10px;margin:14px 0}.cp-gallery-item{display:grid;grid-template-columns:84px 1fr auto;gap:12px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:16px;background:#fff}.cp-gallery-item img{width:84px;height:68px;object-fit:contain;border-radius:12px;background:#f7f7f8}.cp-gallery-item small{display:block;color:var(--muted);margin-top:3px}.cp-gallery-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.cp-gallery-actions .btn{padding:7px 9px;font-size:11px}@media(max-width:700px){.cp-gallery-item{grid-template-columns:70px 1fr}.cp-gallery-actions{grid-column:1/-1;justify-content:flex-start}}
 </style>
 </head>
 <body>
@@ -277,7 +279,7 @@ const views={
  productos(){$('content').innerHTML=`<div class="section-title"><h2>Productos</h2><small>Catálogo heredado del panel administrador</small></div><div class="toolbar"><input id="productSearch" placeholder="Buscar producto" oninput="renderProducts()"></div><div id="productsBox" class="product-grid"></div>`;renderProducts()},
  inventario(){$('content').innerHTML=`<div class="section-title"><h2>Inventario</h2><button class="btn ghost" onclick="exportInventoryCSV()">Exportar CSV</button></div><div class="toolbar"><input id="inventorySearch" placeholder="Buscar SKU o producto" oninput="renderInventory()"></div><div id="inventoryBox"></div>`;renderInventory()},
  inventario_real(){
-   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario real + precios</b><small>Supabase es la fuente oficial · consulta, filtra, publica y actualiza existencias desde un solo lugar.</small></div><div class="actions"><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice inv-filter-note" style="margin:12px 0"><span><b>Importación protegida:</b> reservado y vendido nunca se modifican desde Excel.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="inventory-stage">Cargando…</div></div>`;
+   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario real + precios</b><small>Supabase es la fuente oficial · consulta, filtra, publica y actualiza existencias desde un solo lugar.</small></div><div class="actions"><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice inv-filter-note" style="margin:12px 0"><span><b>Importación protegida:</b> reservado y vendido nunca se modifican desde Excel.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="inventory-stage">Cargando…</div></div>`;
    loadRealInventory();
  },
  configuracion(){$('content').innerHTML=realBar()+`<div class="grid"><div class="module"><b>Supabase</b><small>${window.tsPanelSupabase?'Conectado':'No disponible'}</small></div><div class="module"><b>Admin API</b><small>Protegida con sesión Super Admin</small></div><div class="module"><b>Resend</b><small>Correos transaccionales mediante Netlify Functions</small></div><div class="module"><b>Service Center</b><small>Base independiente y aislada</small></div></div>`},
@@ -336,6 +338,8 @@ async function openModule(id){if(!can(id))return;window.currentModule=id;documen
 let realRefreshTimer=null;
 let tsInventoryImportRows=[];
 let tsCatalogAdmin=[];
+let tsCatalogImages=[];
+let cpGalleryDraft=[];
 let tsCatalogInventoryRows=[];
 async function loadRealInventory(){
   const box=$('inventoryRealBox');if(!box)return;
@@ -344,6 +348,7 @@ async function loadRealInventory(){
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo cargar inventario');
     tsCatalogInventoryRows=data.variants||[];
     tsCatalogAdmin=data.catalog_products||[];
+    tsCatalogImages=data.catalog_images||[];
     renderRealInventoryDashboard();
   }catch(e){box.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
 }
@@ -373,35 +378,56 @@ function renderRealInventoryTable(rows){
 }
 
 function catalogSlug(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto'}
+function galleryRowsFor(key){return (tsCatalogImages||[]).filter(x=>String(x.product_key||'')===String(key||'')).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0))}
+function renderCpGallery(){
+  const host=$('cpGalleryList');if(!host)return;
+  host.innerHTML=(cpGalleryDraft||[]).map((img,i)=>`<div class="cp-gallery-item"><img src="${esc(img.image_url)}"><div><b>${img.is_primary?'⭐ Principal':'Imagen '+(i+1)}</b><small>${img.pending?'Pendiente de guardar':'Guardada'}</small></div><div class="cp-gallery-actions"><button class="btn ghost" onclick="cpSetPrimary(${i})">Principal</button><button class="btn ghost" onclick="cpMoveImage(${i},-1)" ${i===0?'disabled':''}>↑</button><button class="btn ghost" onclick="cpMoveImage(${i},1)" ${i===cpGalleryDraft.length-1?'disabled':''}>↓</button><button class="btn ghost" onclick="cpRemoveImage(${i})">Eliminar</button></div></div>`).join('')||'<div class="notice">Todavía no hay imágenes adicionales.</div>';
+}
+function cpSetPrimary(i){cpGalleryDraft.forEach((x,n)=>x.is_primary=n===i);renderCpGallery();const img=cpGalleryDraft[i];if(img){const p=$('cpPreview');if(p){p.src=img.image_url;p.style.display='block'}}}
+function cpMoveImage(i,d){const j=i+d;if(j<0||j>=cpGalleryDraft.length)return;[cpGalleryDraft[i],cpGalleryDraft[j]]=[cpGalleryDraft[j],cpGalleryDraft[i]];renderCpGallery()}
+function cpRemoveImage(i){cpGalleryDraft.splice(i,1);if(cpGalleryDraft.length&&!cpGalleryDraft.some(x=>x.is_primary))cpGalleryDraft[0].is_primary=true;renderCpGallery()}
 function openCatalogPublisher(productName){
   const host=$('catalogPublishEditor'); if(!host)return;
   const current=tsCatalogAdmin.find(c=>String(c.product_name||'').toLowerCase()===String(productName||'').toLowerCase())||{};
+  const key=current.product_key||catalogSlug(productName);
+  cpGalleryDraft=galleryRowsFor(key).map(x=>({...x,pending:false}));
+  if(!cpGalleryDraft.length&&current.image_url)cpGalleryDraft=[{image_url:current.image_url,storage_path:null,is_primary:true,pending:false}];
   const inferred=/iphone/i.test(productName)?'iPhone':/ipad/i.test(productName)?'iPad':/airpod/i.test(productName)?'Audio':/watch/i.test(productName)?'Apple Watch':/mac/i.test(productName)?'Mac':'Accesorios';
   const cat=current.category||inferred;
   const cats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios'];
-  host.innerHTML=`<section class="catalog-editor"><div class="catalog-editor-head"><div><span class="catalog-status">Editor de catálogo</span><h3>Publicar producto</h3><p>${esc(productName)} · configura cómo aparecerá en ThinkStore.</p></div><button class="btn ghost" onclick="document.getElementById('catalogPublishEditor').innerHTML=''">Cerrar</button></div><div class="catalog-editor-grid"><label class="catalog-field">Nombre del producto<input id="cpName" value="${esc(productName)}" readonly></label><label class="catalog-field">Categoría<select id="cpCategory">${cats.map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}</select></label><label class="catalog-field">Orden<input id="cpSort" type="number" value="${Number(current.sort_order||1000)}"></label><label class="catalog-field">Visibilidad<select id="cpPublished"><option value="false" ${!current.published?'selected':''}>Borrador / oculto</option><option value="true" ${current.published?'selected':''}>Publicado</option></select></label></div><label class="catalog-field catalog-desc">Descripción para el cliente<textarea id="cpDescription" rows="4" placeholder="Describe el equipo, sus características principales y condición.">${esc(current.description||'')}</textarea></label><div class="catalog-media"><div class="catalog-preview">${current.image_url?`<img id="cpPreview" src="${esc(current.image_url)}">`:`<div id="cpPreviewEmpty" class="muted">Sin imagen</div><img id="cpPreview" style="display:none">`}</div><div class="catalog-upload"><b>Imagen principal del producto</b><p class="muted">Esta imagen queda vinculada únicamente a este producto.</p><input id="cpImage" type="file" accept="image/jpeg,image/png,image/webp" onchange="previewCatalogImage(this.files?.[0])"><small>JPG, PNG o WEBP · máximo 4 MB</small></div></div><input id="cpImageUrl" type="hidden" value="${esc(current.image_url||'')}"><input id="cpKey" type="hidden" value="${esc(current.product_key||catalogSlug(productName))}"><div class="catalog-editor-actions"><button class="btn" onclick="saveCatalogPublication()">Guardar y aplicar</button>${current.published?'<button class="btn ghost" onclick="unpublishCatalogProduct()">Ocultar de la tienda</button>':''}</div><div id="cpResult"></div></section>`;
-  host.scrollIntoView({behavior:'smooth',block:'start'});
+  const principal=cpGalleryDraft.find(x=>x.is_primary)||cpGalleryDraft[0];
+  host.innerHTML=`<section class="catalog-editor"><div class="catalog-editor-head"><div><span class="catalog-status">Editor de catálogo</span><h3>Editar producto</h3><p>${esc(productName)} · ficha, publicación e imágenes desde Supabase.</p></div><button class="btn ghost" onclick="document.getElementById('catalogPublishEditor').innerHTML=''">Cerrar</button></div><div class="catalog-editor-grid"><label class="catalog-field">Nombre del producto<input id="cpName" value="${esc(productName)}" readonly></label><label class="catalog-field">Categoría<select id="cpCategory">${cats.map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}</select></label><label class="catalog-field">Orden<input id="cpSort" type="number" value="${Number(current.sort_order||1000)}"></label><label class="catalog-field">Visibilidad<select id="cpPublished"><option value="false" ${!current.published?'selected':''}>Borrador / oculto</option><option value="true" ${current.published?'selected':''}>Publicado</option></select></label></div><label class="catalog-field catalog-desc">Descripción para el cliente<textarea id="cpDescription" rows="4">${esc(current.description||'')}</textarea></label><div class="catalog-media"><div class="catalog-preview">${principal?.image_url?`<img id="cpPreview" src="${esc(principal.image_url)}">`:`<div id="cpPreviewEmpty" class="muted">Sin imagen</div><img id="cpPreview" style="display:none">`}</div><div class="catalog-upload"><b>Galería del producto</b><p class="muted">Puedes subir varias imágenes. La principal se usa también en el catálogo.</p><input id="cpImages" type="file" multiple accept="image/jpeg,image/png,image/webp" onchange="previewCatalogGallery(this.files)"><small>Hasta 12 imágenes · JPG, PNG o WEBP · máximo 4 MB cada una</small></div></div><input id="cpKey" type="hidden" value="${esc(key)}"><div id="cpGalleryList" class="cp-gallery-list"></div><div class="catalog-editor-actions"><button class="btn" onclick="saveCatalogPublication()">Guardar y aplicar</button>${current.published?'<button class="btn ghost" onclick="unpublishCatalogProduct()">Ocultar de la tienda</button>':''}</div><div id="cpResult"></div></section>`;
+  renderCpGallery();host.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function previewCatalogImage(file){if(!file)return;if(file.size>4*1024*1024){alert('La imagen supera 4 MB.');const i=$('cpImage');if(i)i.value='';return}const img=$('cpPreview');if(img){img.src=URL.createObjectURL(file);img.style.display='block'}const e=$('cpPreviewEmpty');if(e)e.style.display='none'}
+function previewCatalogGallery(files){
+  const arr=Array.from(files||[]);if(!arr.length)return;
+  if(cpGalleryDraft.length+arr.length>12){alert('Máximo 12 imágenes por producto.');return}
+  for(const file of arr){if(file.size>4*1024*1024){alert(file.name+' supera 4 MB.');continue}const u=URL.createObjectURL(file);cpGalleryDraft.push({image_url:u,file,is_primary:cpGalleryDraft.length===0,pending:true})}
+  renderCpGallery();
+}
 async function fileToBase64(file){return await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||'').split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file)})}
 async function saveCatalogPublication(forcePublished){
   const resultBox=$('cpResult');
   try{
-    const name=val('cpName'), key=val('cpKey')||catalogSlug(name), category=val('cpCategory'), description=val('cpDescription'), sort_order=Number(val('cpSort')||1000);
-    let image_url=val('cpImageUrl'); const file=$('cpImage')?.files?.[0];
-    if(file){
-      if(resultBox)resultBox.innerHTML='<div class="notice">Subiendo imagen segura…</div>';
-      const headers=await adminApiHeaders({'Content-Type':'application/json'});
-      const base64=await fileToBase64(file);
-      const ir=await fetch('/.netlify/functions/catalog-image',{method:'POST',headers,body:JSON.stringify({product_key:key,product_name:name,mime:file.type,base64})});
-      const id=await ir.json().catch(()=>({}));if(!ir.ok||!id.ok)throw new Error(id.error||'No se pudo subir la imagen');image_url=id.image_url;
-    }
-    const published=forcePublished===undefined?(val('cpPublished')==='true'):!!forcePublished;
-    if(published&&!image_url)throw new Error('Debes subir la imagen correcta antes de publicar.');
+    const name=val('cpName'),key=val('cpKey')||catalogSlug(name),category=val('cpCategory'),description=val('cpDescription'),sort_order=Number(val('cpSort')||1000);
     const headers=await adminApiHeaders({'Content-Type':'application/json'});
-    const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_product',product_key:key,product_name:name,category,description,image_url,published,sort_order})});
-    const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar');
-    if(resultBox)resultBox.innerHTML=`<div class="notice"><b>Guardado ✅</b> ${published?'El producto ya puede aparecer en '+esc(category)+'.':'El producto queda oculto hasta publicarlo.'}</div>`;
+    if(resultBox)resultBox.innerHTML='<div class="notice">Guardando galería…</div>';
+    for(let i=0;i<cpGalleryDraft.length;i++){
+      const img=cpGalleryDraft[i]; if(!img.pending||!img.file)continue;
+      const base64=await fileToBase64(img.file);
+      const ir=await fetch('/.netlify/functions/catalog-image',{method:'POST',headers,body:JSON.stringify({product_key:key,product_name:name,mime:img.file.type,base64})});
+      const id=await ir.json().catch(()=>({}));if(!ir.ok||!id.ok)throw new Error(id.error||'No se pudo subir una imagen');
+      cpGalleryDraft[i]={image_url:id.image_url,storage_path:id.path||null,is_primary:!!img.is_primary,pending:false};
+    }
+    if(cpGalleryDraft.length&&!cpGalleryDraft.some(x=>x.is_primary))cpGalleryDraft[0].is_primary=true;
+    const principal=cpGalleryDraft.find(x=>x.is_primary)||cpGalleryDraft[0];
+    const published=forcePublished===undefined?(val('cpPublished')==='true'):!!forcePublished;
+    if(published&&!principal?.image_url)throw new Error('Debes subir al menos una imagen antes de publicar.');
+    const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_product',product_key:key,product_name:name,category,description,image_url:principal?.image_url||null,published,sort_order})});
+    const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar la ficha');
+    const gr=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_gallery',product_key:key,images:cpGalleryDraft.map((x,i)=>({image_url:x.image_url,storage_path:x.storage_path||null,sort_order:i,is_primary:!!x.is_primary}))})});
+    const gd=await gr.json().catch(()=>({}));if(!gr.ok||!gd.ok)throw new Error(gd.error||'No se pudo guardar la galería');
+    if(resultBox)resultBox.innerHTML=`<div class="notice"><b>Guardado ✅</b> ${cpGalleryDraft.length} imagen(es) vinculadas a ${esc(name)}.</div>`;
     await loadRealInventory();
   }catch(e){if(resultBox)resultBox.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`;else alert(e.message)}
 }
@@ -431,6 +457,62 @@ async function editRealInventory(id,sku,currentStock,currentMin,currentPrice){
     await loadRealInventory();alert('Stock y precio actualizados en Supabase. La tienda usará estos valores automáticamente.');
   }catch(e){alert('Error: '+e.message)}
 }
+function downloadInventoryExcel(){
+  try{
+    if(!window.XLSX)throw new Error('No se pudo cargar el generador Excel. Revisa tu conexión y vuelve a intentar.');
+    const rows=(tsCatalogInventoryRows||[]);
+    if(!rows.length)throw new Error('Primero carga el inventario real desde Supabase.');
+    const exportRows=rows.map(v=>{
+      const cp=invCatalogFor(v);
+      return {
+        'SKU':v.sku||'',
+        'Categoría':invCategoryFor(v)||'',
+        'Producto':v.product_name||'',
+        'Modelo':v.model||'',
+        'Color':v.color||'',
+        'Capacidad':v.capacity||'',
+        'Condición':v.condition||'',
+        'Chip':v.chip||'',
+        'RAM':v.ram||'',
+        'Stock físico (EDITAR)':Number(v.stock_on_hand||0),
+        'Reservado (NO EDITAR)':Number(v.stock_reserved||0),
+        'Disponible (NO EDITAR)':Number(v.available||0),
+        'Vendido (NO EDITAR)':Number(v.stock_sold||0),
+        'Stock mínimo':Number(v.stock_min||0),
+        'Precio USD (EDITAR)':v.price_usd==null?'':Number(v.price_usd),
+        'Publicado (INFO)':cp?.published?'Sí':'No'
+      };
+    });
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.json_to_sheet(exportRows);
+    ws['!cols']=[
+      {wch:42},{wch:16},{wch:24},{wch:34},{wch:18},{wch:18},{wch:16},{wch:18},{wch:16},
+      {wch:21},{wch:21},{wch:22},{wch:20},{wch:16},{wch:22},{wch:18}
+    ];
+    XLSX.utils.book_append_sheet(wb,ws,'Inventario');
+    const summary=[
+      ['ThinkStore · Inventario descargado desde Supabase'],
+      ['Fecha',new Date().toLocaleString('es-VE')],
+      ['Variantes',rows.length],
+      ['Stock físico',rows.reduce((n,v)=>n+Number(v.stock_on_hand||0),0)],
+      ['Disponible',rows.reduce((n,v)=>n+Number(v.available||0),0)],
+      ['Reservado',rows.reduce((n,v)=>n+Number(v.stock_reserved||0),0)],
+      ['Vendido',rows.reduce((n,v)=>n+Number(v.stock_sold||0),0)],
+      [],
+      ['INSTRUCCIONES'],
+      ['Puedes editar SKU, Producto, Modelo, Color, Capacidad, Condición, Chip, RAM, Stock físico, Stock mínimo y Precio USD.'],
+      ['Reservado, Disponible y Vendido son informativos y nunca se modifican al reimportar el archivo.'],
+      ['Para agregar un producto nuevo, crea una fila nueva con un SKU único y completa los datos editables. Después importa el archivo desde el Panel.'],
+      ['La imagen, descripción, categoría de publicación y galería se administran desde Publicación en el Panel.']
+    ];
+    const ws2=XLSX.utils.aoa_to_sheet(summary);ws2['!cols']=[{wch:28},{wch:110}];
+    XLSX.utils.book_append_sheet(wb,ws2,'Instrucciones');
+    const d=new Date(),pad=n=>String(n).padStart(2,'0');
+    const filename=`ThinkStore-Inventario-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.xlsx`;
+    XLSX.writeFile(wb,filename,{compression:true});
+  }catch(e){alert('No se pudo descargar el inventario: '+e.message)}
+}
+
 function inventoryHeaderMap(row){
   const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const out={}; Object.keys(row||{}).forEach(k=>out[norm(k)]=k); return out;
