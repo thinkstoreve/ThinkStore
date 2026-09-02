@@ -836,7 +836,7 @@ function emailBodyForOrder(order){
   });
 }
 
-async function openEmail(to, subject, body, department='pedidos'){
+async function openEmail(to, subject, body, department='pedidos', options={}){
   if(!to){
     alert('Este cliente no tiene correo registrado.');
     return;
@@ -859,8 +859,8 @@ async function openEmail(to, subject, body, department='pedidos'){
     });
     const data = await res.json().catch(()=>({}));
     if(res.ok && data.ok){
-      alert('✅ Correo enviado correctamente al cliente.');
-      return;
+      if(!options?.silent) alert('✅ Correo enviado correctamente al cliente.');
+      return true;
     }
     throw new Error(data.error || 'No se pudo enviar automáticamente');
   }catch(err){
@@ -1159,14 +1159,41 @@ function generateDeliveryNote(){
     tsShowToast('✅ Se creó tu pedido, puedes verlo en tu cuenta ThinkStore');
   }
 }
-function checkoutWhatsApp(){
-  const order = buildOrder('Recibido', true);
+function tsShowOrderCreated(order){document.getElementById('tsOrderCreatedModal')?.remove();const modal=document.createElement('div');modal.id='tsOrderCreatedModal';modal.style.cssText='position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,.68);backdrop-filter:blur(14px);display:grid;place-items:center;padding:22px';const card=document.createElement('div');card.style.cssText='width:min(560px,100%);background:#fff;color:#111;border-radius:32px;padding:34px;box-shadow:0 30px 100px rgba(0,0,0,.40);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center';const icon=document.createElement('div');icon.textContent='✓';icon.style.cssText='width:72px;height:72px;border-radius:50%;background:#111;color:#fff;display:grid;place-items:center;margin:0 auto 18px;font-size:36px;font-weight:900';const h=document.createElement('h2');h.textContent='Pedido creado correctamente';h.style.cssText='font-size:30px;margin:0 0 10px';const p=document.createElement('p');p.textContent=`Tu pedido ${order.code} fue registrado en ThinkStore. Los detalles y el seguimiento fueron enviados a ${order.customer?.email||'tu correo electrónico'}.`;p.style.cssText='color:#555;line-height:1.6;margin:0 0 20px';const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';const account=document.createElement('button');account.textContent='Ver mi pedido';account.style.cssText='border:0;border-radius:999px;background:#111;color:#fff;padding:14px 22px;font-weight:800;cursor:pointer';account.onclick=()=>{modal.remove();try{openAccount()}catch(e){location.hash='cuenta'}};const shop=document.createElement('button');shop.textContent='Seguir comprando';shop.style.cssText='border:1px solid #ddd;border-radius:999px;background:#fff;color:#111;padding:14px 22px;font-weight:800;cursor:pointer';shop.onclick=()=>modal.remove();actions.append(account,shop);card.append(icon,h,p,actions);modal.append(card);document.body.append(modal)}
+async function checkoutWhatsApp(){
+  const order = buildOrder('Recibido', false);
   if(!order) return;
-  lastNote=order.note;
-  const simpleEmail=`Hola ${order.customer.name},\n\nTu pedido ${order.code} fue recibido correctamente.\n\nEstatus actual: ${order.status}\n\nPuedes ver la nota de entrega completa iniciando sesión en tu cuenta ThinkStore.\n\nGracias por confiar en ThinkStore.`;
-  if(order.customer.email) openEmail(order.customer.email, `ThinkStore | Pedido ${order.code}`, simpleEmail, String(order.status||'').toLowerCase().includes('preorden') ? 'preordenes' : 'pedidos');
-  open('https://wa.me/584141032030?text='+encodeURIComponent(lastNote),'_blank');
-  cart=[]; count(); drawCart(); renderAccount();
+  try{
+    if(typeof tsShowToast==='function') tsShowToast('Guardando tu pedido de forma segura…');
+    await saveOrderToSupabase(order);
+
+    orders.push(order);
+    saveAll();
+    renderAccount();
+    lastNote=order.note;
+
+    const orderLines=(order.items||[]).map(i=>`- ${i.product||'Producto'}${i.color?' · '+i.color:''}${i.config?' · '+i.config:''} × ${Number(i.qty||1)}`).join('\n')||'- Producto por confirmar';
+    const orderTotalValue=(order.items||[]).reduce((sum,i)=>sum+Number(i.price||0)*Number(i.qty||1),0);
+    const simpleEmail=`Hola ${order.customer.name},\n\n¡Tu pedido ${order.code} fue creado correctamente!\n\nEstado: ${order.status}\n\nProductos:\n${orderLines}\n\nTotal: ${orderTotalValue>0?'$'+orderTotalValue.toLocaleString('en-US',{maximumFractionDigits:2}):'Por confirmar'}\nPago: ${order.payment||'Por confirmar'}\nEnvío: ${[order.deliveryType,order.customer?.shipping].filter(Boolean).join(' · ')||'Por confirmar'}\n\nPuedes revisar el seguimiento iniciando sesión en tu cuenta ThinkStore.\n\nGracias por confiar en ThinkStore.`;
+    if(order.customer.email){
+      await openEmail(
+        order.customer.email,
+        `ThinkStore | Pedido ${order.code}`,
+        simpleEmail,
+        String(order.status||'').toLowerCase().includes('preorden')?'preordenes':'pedidos',
+        {silent:true}
+      );
+    }
+
+    if(typeof tsShowToast==='function') tsShowToast('✅ Pedido creado correctamente');
+    tsShowOrderCreated(order);
+    open('https://wa.me/584141032030?text='+encodeURIComponent(lastNote),'_blank');
+    cart=[]; count(); drawCart(); renderAccount();
+  }catch(err){
+    console.error('ThinkStore pedido:',err);
+    alert('No pudimos registrar el pedido. No se ha confirmado la compra.\n\n'+(err.message||err));
+    if(/sesión|sesion|confirma tu correo/i.test(String(err.message||err))) openClientLogin();
+  }
 }
 function checkStatus(){
   syncCurrentUser();
@@ -1178,10 +1205,11 @@ function checkStatus(){
 async function handlePasswordRecovery(){
   const url = new URL(window.location.href);
   const hash = window.location.hash || '';
+  const pathIsRecovery = /\/reset-password\/?$/i.test(url.pathname);
   const isRecovery =
     hash.includes('type=recovery') ||
     url.searchParams.get('type') === 'recovery' ||
-    url.searchParams.has('code');
+    pathIsRecovery;
 
   if(!isRecovery || !window.tsSupabase) return false;
 
@@ -1270,6 +1298,7 @@ async function tsPremiumAuthSubmit(e){
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>{$('tsPremiumAuthForm')?.addEventListener('submit', tsPremiumAuthSubmit);});
 else $('tsPremiumAuthForm')?.addEventListener('submit', tsPremiumAuthSubmit);
 window.addEventListener('load', async ()=>{
+  await tsHandleEmailVerification();
   await handlePasswordRecovery();
   syncCurrentUser();
   renderAccount();
@@ -1914,6 +1943,118 @@ function tsConfigMissing(){
   return !window.tsSupabaseReady;
 }
 
+function tsPendingRegistration(){
+  try{return JSON.parse(localStorage.getItem('ts_pending_registration')||'null')}catch(e){return null}
+}
+function tsSetPendingRegistration(data){
+  if(data) localStorage.setItem('ts_pending_registration', JSON.stringify(data));
+  else localStorage.removeItem('ts_pending_registration');
+}
+
+async function tsEnsureClientProfile(authUser, fallback={}){
+  if(!window.tsSupabase || !authUser?.id) throw new Error('No hay una sesión autenticada válida.');
+  const uid = authUser.id;
+  const { data: existing, error: readError } = await window.tsSupabase
+    .from('clientes').select('*').eq('id', uid).maybeSingle();
+  if(readError) throw readError;
+  if(existing) return existing;
+
+  const meta = authUser.user_metadata || {};
+  const row = {
+    id: uid,
+    nombre: fallback.name || meta.name || meta.full_name || authUser.email?.split('@')[0] || 'Cliente ThinkStore',
+    correo: fallback.email || authUser.email || '',
+    telefono: fallback.phone || meta.phone || '',
+    cedula_rif: fallback.id && fallback.id !== uid ? fallback.id : null,
+    direccion: fallback.address || '',
+    ciudad: fallback.city || '',
+    estado: fallback.state || '',
+    referencia: fallback.ref || '',
+    metodo_envio_preferido: fallback.shipping || '',
+    agencia_destino: fallback.agency || ''
+  };
+  const { data, error } = await window.tsSupabase.from('clientes').insert(row).select('*').single();
+  if(error) throw error;
+  return data;
+}
+
+function tsShowVerifiedWelcome(name='', email=''){
+  let modal=document.getElementById('tsVerifiedWelcome');
+  if(modal) modal.remove();
+  modal=document.createElement('div');
+  modal.id='tsVerifiedWelcome';
+  modal.style.cssText='position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.66);backdrop-filter:blur(14px);display:grid;place-items:center;padding:22px';
+  const card=document.createElement('div');
+  card.style.cssText='width:min(520px,100%);background:#fff;color:#111;border-radius:30px;padding:32px;box-shadow:0 28px 90px rgba(0,0,0,.35);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center';
+  const icon=document.createElement('div');
+  icon.textContent='✓';
+  icon.style.cssText='width:68px;height:68px;border-radius:50%;display:grid;place-items:center;margin:0 auto 18px;background:#111;color:#fff;font-size:34px;font-weight:900';
+  const h=document.createElement('h2');
+  h.textContent='Verificación exitosa';
+  h.style.cssText='font-size:32px;margin:0 0 10px';
+  const p=document.createElement('p');
+  p.textContent='¡Bienvenido'+(name?' '+name:'')+' a ThinkStore! Tu cuenta ya está verificada y lista para comprar, consultar tus pedidos y recibir sus actualizaciones.';
+  p.style.cssText='line-height:1.55;color:#555;margin:0 auto 18px;max-width:430px';
+  if(email){
+    const small=document.createElement('div');
+    small.textContent=email;
+    small.style.cssText='font-size:13px;color:#777;margin-bottom:18px';
+    card.append(icon,h,p,small);
+  }else card.append(icon,h,p);
+  const btn=document.createElement('button');
+  btn.textContent='Continuar a ThinkStore';
+  btn.style.cssText='border:0;border-radius:999px;background:#111;color:#fff;font-weight:800;padding:14px 22px;cursor:pointer';
+  btn.onclick=()=>modal.remove();
+  card.appendChild(btn); modal.appendChild(card); document.body.appendChild(modal);
+}
+
+async function tsHandleEmailVerification(){
+  const url=new URL(window.location.href);
+  if(url.searchParams.get('verified')!=='1' || !window.tsSupabase) return false;
+  try{
+    let { data:{session} } = await window.tsSupabase.auth.getSession();
+    const code=url.searchParams.get('code');
+    if(!session && code && window.tsSupabase.auth.exchangeCodeForSession){
+      const exchanged=await window.tsSupabase.auth.exchangeCodeForSession(code);
+      if(exchanged.error) throw exchanged.error;
+      session=exchanged.data?.session || null;
+    }
+    const pending=tsPendingRegistration() || {};
+    if(session?.user){
+      const profile=await tsEnsureClientProfile(session.user,pending);
+      const c={
+        id: profile.cedula_rif || session.user.id,
+        supabase_id: session.user.id,
+        name: profile.nombre || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Cliente',
+        email: profile.correo || session.user.email || '',
+        phone: profile.telefono || '',
+        address: profile.direccion || '',
+        city: profile.ciudad || '',
+        state: profile.estado || '',
+        ref: profile.referencia || '',
+        shipping: profile.metodo_envio_preferido || '',
+        agency: profile.agencia_destino || ''
+      };
+      currentUser=c; customer=c;
+      localStorage.setItem('ts_current_user',JSON.stringify(c));
+      localStorage.setItem('ts_customer',JSON.stringify(c));
+      tsSetPendingRegistration(null);
+      setTimeout(()=>tsShowVerifiedWelcome(c.name,c.email),350);
+      setTimeout(()=>{ try{drawCustomerSummary();renderAccount();}catch(e){} },450);
+    }else{
+      setTimeout(()=>tsShowVerifiedWelcome(pending.name||'',pending.email||''),350);
+    }
+    url.searchParams.delete('verified');
+    url.searchParams.delete('code');
+    window.history.replaceState({},document.title,url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():'')+url.hash);
+    return true;
+  }catch(err){
+    console.warn('ThinkStore verification callback:',err);
+    if(typeof tsShowToast==='function') tsShowToast('Tu correo fue confirmado. Inicia sesión para continuar.');
+    return false;
+  }
+}
+
 async function resetPassword(){
   if(tsConfigMissing()){
     alert('Supabase aún no está conectado. Coloca la Publishable Key en supabase-config.js para activar recuperación por correo.');
@@ -1942,41 +2083,44 @@ async function saveCustomer(e){
   }
 
   try{
+    const site=(window.THINKSTORE_SUPABASE?.SITE_URL || location.origin).replace(/\/$/,'');
+    const emailRedirectTo=site+'/?verified=1';
     const { data, error } = await window.tsSupabase.auth.signUp({
       email: c.email,
       password: c.pass,
-      options: { data: { name: c.name, phone: c.phone } }
+      options: {
+        emailRedirectTo,
+        data: { name: c.name, phone: c.phone }
+      }
     });
     if(error) throw error;
 
     const userId = data?.user?.id;
-    if(userId){
-      await window.tsSupabase.from('clientes').upsert({
-        id: userId,
-        nombre: c.name,
-        correo: c.email,
-        telefono: c.phone,
-        cedula_rif: c.id,
-        direccion: c.address,
-        ciudad: c.city,
-        estado: c.state,
-        referencia: c.ref,
-        metodo_envio_preferido: c.shipping,
-        agencia_destino: c.agency
-      });
-    }
+    tsSetPendingRegistration({...c, supabase_id:userId || null});
 
-    currentUser = c; customer = c;
-    localStorage.setItem('ts_current_user', JSON.stringify(currentUser));
-    localStorage.setItem('ts_customer', JSON.stringify(customer));
-    try{
-      const arr=JSON.parse(localStorage.getItem('ts_customers')||'[]');
-      const idx=arr.findIndex(x=>(c.email&&x.email===c.email)||(c.phone&&x.phone===c.phone)||(c.id&&x.id===c.id));
-      if(idx>=0) arr[idx]={...arr[idx],...c}; else arr.push(c);
-      localStorage.setItem('ts_customers', JSON.stringify(arr));
-    }catch(e){}
-    closeRegister(); closeClientLogin(); drawCustomerSummary(); renderAccount();
-    alert(data?.session ? 'Cuenta creada. Ya puedes comprar.' : 'Cuenta creada. Revisa tu correo para confirmar el registro antes de iniciar sesión.');
+    if(data?.session?.user){
+      const profile=await tsEnsureClientProfile(data.session.user,c);
+      const logged={
+        ...c,
+        id: profile.cedula_rif || data.session.user.id,
+        supabase_id: data.session.user.id,
+        name: profile.nombre || c.name,
+        email: profile.correo || c.email
+      };
+      currentUser=logged; customer=logged;
+      localStorage.setItem('ts_current_user',JSON.stringify(logged));
+      localStorage.setItem('ts_customer',JSON.stringify(logged));
+      tsSetPendingRegistration(null);
+      closeRegister(); closeClientLogin(); drawCustomerSummary(); renderAccount();
+      tsShowVerifiedWelcome(logged.name,logged.email);
+    }else{
+      currentUser=null; customer={};
+      localStorage.removeItem('ts_current_user');
+      localStorage.removeItem('ts_customer');
+      closeRegister(); closeClientLogin();
+      if(typeof tsShowToast==='function') tsShowToast('📩 Cuenta creada. Revisa tu correo y confirma tu cuenta para continuar.');
+      alert('Cuenta creada correctamente. Te enviamos un correo de verificación. Confirma tu cuenta y volverás a ThinkStore con un mensaje de bienvenida.');
+    }
   }catch(err){
     alert('Error creando cuenta: ' + (err.message || err));
   }
@@ -1998,7 +2142,17 @@ async function loginClient(){
     if(error) throw error;
     const uid = data.user.id;
     let c = null;
-    const { data: profile } = await window.tsSupabase.from('clientes').select('*').eq('id', uid).single();
+    let profile = null;
+    const profileResp = await window.tsSupabase.from('clientes').select('*').eq('id', uid).maybeSingle();
+    if(profileResp.error) throw profileResp.error;
+    profile = profileResp.data;
+    if(!profile){
+      profile = await tsEnsureClientProfile(data.user,{
+        name:data.user.user_metadata?.name || email,
+        email,
+        phone:data.user.user_metadata?.phone || ''
+      });
+    }
     if(profile){
       c = {
         id: profile.cedula_rif || uid,
@@ -2047,82 +2201,94 @@ async function logoutClient(){
   window.location.href = '/';
 }
 
+
+async function tsReserveInventoryForOrder(order,savedOrderId){
+  const items=(order.items||[]).map(i=>({variant_id:i.variant_id||i.inventory_variant_id||null,quantity:Number(i.qty||i.cantidad||1)})).filter(i=>i.variant_id);
+  if(!items.length)return{ok:true,skipped:true};
+  const {data}=await window.tsSupabase.auth.getSession();
+  const token=data?.session?.access_token;
+  if(!token)throw new Error('Sesión no disponible para reservar inventario');
+  const res=await fetch('/.netlify/functions/reserve-inventory',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({pedido_id:savedOrderId,items})});
+  const out=await res.json().catch(()=>({}));
+  if(!res.ok||!out.ok)throw new Error(out.error||'No se pudo reservar el inventario');
+  return out;
+}
+
 async function saveOrderToSupabase(order){
-  if(tsConfigMissing() || !order) return;
+  if(tsConfigMissing() || !order) throw new Error('Supabase no está disponible.');
 
-  try{
-    const session = await window.tsSupabase.auth.getSession();
-    const userId = session?.data?.session?.user?.id || currentUser?.supabase_id || null;
-
-    const total = (order.items || []).reduce((a,i)=>a + Number(i.price || 0) * Number(i.qty || 1), 0);
-
-    const { data: inserted, error } = await window.tsSupabase.from('pedidos').insert({
-      codigo: order.code,
-      cliente_id: userId,
-      estado: order.status,
-      metodo_pago: order.payment,
-      referencia_pago: order.paymentRef,
-      metodo_envio: order.deliveryType,
-      empresa_envio: order.customer?.shipping,
-      numero_guia: order.guideNumber,
-      total_usd: total
-    }).select('id').single();
-
-    if(error) throw error;
-
-    if(inserted?.id && order.items?.length){
-      await window.tsSupabase.from('pedido_items').insert(order.items.map(i=>({
-        pedido_id: inserted.id,
-        producto: i.product,
-        color: i.color,
-        capacidad: i.config,
-        cantidad: Number(i.qty || 1),
-        precio_usd: Number(i.price || 0)
-      })));
-    }
-
-    const file = document.getElementById('paymentFile')?.files?.[0];
-
-    if(file && inserted?.id){
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const filePath = `private/${userId}/${inserted.id}-${Date.now()}.${ext}`;
-
-      const status = document.getElementById('paymentFileStatus');
-      if(status) status.textContent = 'Subiendo comprobante...';
-
-      const { error: uploadError } = await window.tsSupabase
-        .storage
-        .from('comprobantes')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type
-        });
-
-      if(uploadError) throw uploadError;
-
-      await window.tsSupabase.from('comprobantes').insert({
-        pedido_id: inserted.id,
-        url_archivo: filePath,
-        referencia: order.paymentRef || '',
-        monto: Number(String(order.paymentAmount || '').replace(',', '.')) || null
-      });
-
-      if(status) status.textContent = 'Comprobante subido correctamente ✅';
-    }
-
-  }catch(err){
-    console.warn('No se pudo guardar el pedido/comprobante en Supabase:', err.message || err);
-    alert('No se pudo subir el comprobante: ' + (err.message || err));
+  const sessionResp = await window.tsSupabase.auth.getSession();
+  const session = sessionResp?.data?.session;
+  const authUser = session?.user;
+  if(!authUser?.id){
+    throw new Error('Tu sesión no está activa. Confirma tu correo o inicia sesión nuevamente antes de crear el pedido.');
   }
+  const userId=authUser.id;
+
+  await tsEnsureClientProfile(authUser,{
+    ...(currentUser||{}),
+    ...(order.customer||{}),
+    email:authUser.email || order.customer?.email || currentUser?.email || ''
+  });
+
+  const total = (order.items || []).reduce((a,i)=>a + Number(i.price || 0) * Number(i.qty || 1), 0);
+
+  const { data: inserted, error } = await window.tsSupabase.from('pedidos').insert({
+    codigo: order.code,
+    cliente_id: userId,
+    estado: order.status,
+    metodo_pago: order.payment,
+    referencia_pago: order.paymentRef,
+    metodo_envio: order.deliveryType,
+    empresa_envio: order.customer?.shipping,
+    numero_guia: order.guideNumber,
+    total_usd: total
+  }).select('id,codigo,estado,created_at').single();
+
+  if(error) throw error;
+
+  if(inserted?.id && order.items?.length){
+    const { error:itemError } = await window.tsSupabase.from('pedido_items').insert(order.items.map(i=>({
+      pedido_id: inserted.id,
+      producto: i.product,
+      color: i.color,
+      capacidad: i.config,
+      cantidad: Number(i.qty || 1),
+      precio_usd: Number(i.price || 0)
+    })));
+    if(itemError) throw itemError;
+  }
+
+  const file = document.getElementById('paymentFile')?.files?.[0];
+  if(file && inserted?.id){
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const filePath = `private/${userId}/${inserted.id}-${Date.now()}.${ext}`;
+    const status = document.getElementById('paymentFileStatus');
+    if(status) status.textContent = 'Subiendo comprobante...';
+
+    const { error: uploadError } = await window.tsSupabase.storage.from('comprobantes').upload(filePath,file,{
+      cacheControl:'3600', upsert:false, contentType:file.type
+    });
+    if(uploadError) throw uploadError;
+
+    const { error:receiptError } = await window.tsSupabase.from('comprobantes').insert({
+      pedido_id: inserted.id,
+      cliente_id: userId,
+      url_archivo: filePath,
+      referencia: order.paymentRef || '',
+      monto: Number(String(order.paymentAmount || '').replace(',', '.')) || null
+    });
+    if(receiptError) throw receiptError;
+    if(status) status.textContent = 'Comprobante subido correctamente ✅';
+  }
+
+  return inserted;
 }
 
 if(typeof buildOrder === 'function'){
   const tsLocalBuildOrder = buildOrder;
-  buildOrder = function(status='Recibido'){
-    const order = tsLocalBuildOrder(status);
-    if(order) saveOrderToSupabase(order);
-    return order;
+  buildOrder = function(status='Recibido',persist=true){
+    return tsLocalBuildOrder(status,persist);
   }
 }
 
