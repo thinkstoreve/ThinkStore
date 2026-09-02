@@ -5583,3 +5583,130 @@ window.addEventListener('load', ()=>{
     document.documentElement.style.overflow='';
   };
 })();
+
+/* ===== ThinkStore V1.4.5 HOTFIX · Modal único + stock real por variante ===== */
+(function(){
+  // Extrae la capacidad incluso cuando la configuración viene como
+  // "SSD 256GB · 8GB RAM" o "SSD 1TB · 16GB RAM".
+  window.tsSelectedCapacity = function(){
+    const vals=Object.values((typeof selectedConfig!=='undefined' && selectedConfig)||{}).map(v=>String(v||'').trim());
+    for(const raw of vals){
+      const m=raw.match(/(?:SSD\s*)?(\d+(?:\.\d+)?)\s*(TB|GB)\b/i);
+      if(m) return `${m[1]}${m[2].toUpperCase()}`;
+    }
+    return vals[0]||'';
+  };
+
+  function hideCategoryLayers(){
+    ['categoryModal','categoryModalV2'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el) return;
+      el.classList.remove('open');
+      el.style.display='none';
+      el.style.zIndex='';
+      el.setAttribute('aria-hidden','true');
+    });
+    document.body.classList.remove('ts-category-front-lock');
+  }
+
+  function detailModal(){ return document.getElementById('modal'); }
+  function detailPrimaryButton(){
+    const m=detailModal();
+    if(!m) return null;
+    return m.querySelector('.action-row .btn:not(.wa)') || m.querySelector('button[onclick*="addCart"]');
+  }
+  function setConditionUI(mode, condition){
+    const box=document.getElementById('conditions');
+    if(!box) return;
+    if(mode==='preorder'){
+      if(typeof selectedCondition!=='undefined') selectedCondition='Pre-Order';
+      box.innerHTML='<button class="opt sel" type="button">Pre-Order</button>';
+      return;
+    }
+    const c=condition || (typeof selectedCondition!=='undefined' ? selectedCondition : 'Nuevo') || 'Nuevo';
+    if(typeof selectedCondition!=='undefined') selectedCondition=c;
+    box.innerHTML=`<button class="opt sel" type="button">${String(c).replace(/[<>]/g,'')}</button>`;
+  }
+
+  async function applyAvailability(){
+    try{
+      if(typeof selectedProduct==='undefined' || !selectedProduct || typeof tsFindInventoryVariant!=='function') return;
+      const p=selectedProduct;
+      const model=p.model||p.family||p.name;
+      const cap=window.tsSelectedCapacity();
+      const color=(typeof selectedColor!=='undefined' ? selectedColor : '')||'';
+      const cond=(typeof selectedCondition!=='undefined' ? selectedCondition : '')||'';
+      let inv=await tsFindInventoryVariant(p.name,model,color,cap,cond);
+      // Si la condición visible todavía no coincide, buscamos la misma variante sin forzar condición.
+      if(!inv) inv=await tsFindInventoryVariant(p.name,model,color,cap,'');
+      const available=Math.max(0,Number(inv?.available||0));
+      const btn=detailPrimaryButton();
+
+      let badge=document.getElementById('tsLiveStockDetail');
+      if(!badge){
+        badge=document.createElement('div');
+        badge.id='tsLiveStockDetail';
+        badge.style.cssText='margin:12px 0 16px;padding:12px 14px;border:1px solid #e5e5e7;border-radius:16px;font-weight:800;background:#f7f7f8';
+        const conditions=document.getElementById('conditions');
+        (conditions?.parentElement||document.getElementById('pname')?.parentElement)?.insertBefore(badge, conditions?.nextSibling||null);
+      }
+
+      if(inv && available>0){
+        const realCondition=inv.condition||cond||'Nuevo';
+        badge.textContent=`En stock · ${available} ${available===1?'unidad disponible':'unidades disponibles'}`;
+        badge.dataset.state='stock';
+        setConditionUI('stock',realCondition);
+        if(btn){ btn.textContent='Añadir al carrito'; btn.disabled=false; btn.onclick=()=>addCart(); }
+      }else{
+        badge.textContent='Sin stock inmediato · disponible bajo pedido';
+        badge.dataset.state='preorder';
+        setConditionUI('preorder');
+        if(btn){ btn.textContent='Pre-ordenar'; btn.disabled=false; btn.onclick=()=>tsStartPreorder(); }
+      }
+    }catch(err){ console.warn('ThinkStore V1.4.5 disponibilidad:',err); }
+  }
+
+  // Conservamos el abridor estable de V1.4.4, pero garantizamos que nunca queden
+  // dos modales superpuestos y aplicamos el stock real después de dibujar la ficha.
+  const previousOpen=window.openProduct;
+  window.openProduct=function(id){
+    hideCategoryLayers();
+    const m=detailModal();
+    if(m){ m.classList.remove('open'); m.style.display='none'; }
+    const ok=typeof previousOpen==='function' ? previousOpen(id) : false;
+    requestAnimationFrame(()=>{
+      hideCategoryLayers();
+      const modal=detailModal();
+      if(modal){
+        modal.classList.add('open');
+        modal.style.display='block';
+        modal.style.zIndex='100000';
+        modal.removeAttribute('aria-hidden');
+      }
+      applyAvailability();
+    });
+    return ok;
+  };
+  window.openProductFromV2=function(id){ return window.openProduct(id); };
+
+  // Al cerrar el producto dejamos SIEMPRE visible el catálogo principal.
+  window.closeProduct=function(){
+    const modal=detailModal();
+    if(modal){ modal.classList.remove('open'); modal.style.display='none'; modal.style.zIndex=''; modal.setAttribute('aria-hidden','true'); }
+    hideCategoryLayers();
+    document.body.style.overflow='';
+    document.documentElement.style.overflow='';
+    try{ if(typeof render==='function') render(); }catch(e){}
+  };
+
+  // Cada cambio de color/configuración recalcula disponibilidad y botones.
+  ['setColor','setConfig','setCond'].forEach(name=>{
+    const old=window[name] || (typeof globalThis[name]==='function' ? globalThis[name] : null);
+    if(typeof old==='function'){
+      window[name]=function(){ const r=old.apply(this,arguments); setTimeout(applyAvailability,20); return r; };
+    }
+  });
+
+  // Escape cierra solo el detalle y evita overlays huérfanos.
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && detailModal()?.classList.contains('open')) window.closeProduct(); });
+})();
