@@ -5429,10 +5429,27 @@ window.addEventListener('load', ()=>{
     const btn=document.getElementById('clientNavBtn');
     const u=readUser();
     if(!btn) return;
-    if(!u){ btn.textContent='👤 Login'; return; }
+    let panelBtn=document.getElementById('tsClientPanelBtn');
+    if(!u){
+      btn.textContent='👤 Login';
+      if(panelBtn) panelBtn.remove();
+      return;
+    }
     const role=window.tsGetCurrentRole();
     btn.textContent=window.tsIsStaff() ? '🧭 Panel' : '👤 Cuenta';
     btn.title=window.tsIsStaff() ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta ThinkStore';
+    if(!window.tsIsStaff()){
+      if(!panelBtn){
+        panelBtn=document.createElement('button');
+        panelBtn.id='tsClientPanelBtn';
+        panelBtn.type='button';
+        panelBtn.className=btn.className||'';
+        panelBtn.textContent='🧭 Mi panel';
+        panelBtn.title='Abrir mi panel ThinkStore';
+        panelBtn.onclick=()=>{ location.href='panel.html'; };
+        btn.insertAdjacentElement('afterend',panelBtn);
+      }
+    }else if(panelBtn){ panelBtn.remove(); }
   }
   window.tsOpenRolePanel=function(){
     const u=readUser();

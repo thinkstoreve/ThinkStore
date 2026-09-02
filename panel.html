@@ -195,7 +195,49 @@ const views={
   const shipped=all.filter(o=>/enviado|entregado|tránsito|transito/i.test(orderStatus(o))).length;
   $('content').innerHTML=realBar()+`<div class="grid"><div class="module"><span class="metric-large">${all.length}</span><small>Pedidos reales</small></div><div class="module"><span class="metric-large">${customers().length}</span><small>Clientes registrados</small></div><div class="module"><span class="metric-large">${pending}</span><small>Pagos por revisar</small></div><div class="module"><span class="metric-large">${realState.comprobantes.length}</span><small>Comprobantes cargados</small></div><div class="module"><span class="metric-large">${pre}</span><small>Preórdenes / tránsito</small></div><div class="module"><span class="metric-large">${shipped}</span><small>Envíos / entregas</small></div><div class="module"><span class="metric-large">${money(paidTotal)}</span><small>Ventas con pago validado</small></div><div class="module"><span class="metric-large">${newClients}</span><small>Clientes nuevos · 30 días</small></div></div><div class="notice" style="margin-top:16px"><b>Venta registrada total:</b> ${money(total)} · <b>Actualización automática:</b> cada 30 segundos.</div>`;
  },
- cuenta(){const u=user();$('content').innerHTML=`<div class="card" style="padding:20px"><h2>Perfil</h2><p><b>${esc(u.name||'Usuario')}</b><br>${esc(u.email||'')}<br><span class="badge">${esc(ROLE_LABELS[role()]||role())}</span></p></div>`},
+ async cuenta(){
+   const u=user();
+   let c=null;
+   if(window.tsPanelSupabase){
+     try{
+       const byId=await window.tsPanelSupabase.from('clientes').select('*').eq('id',u.id).maybeSingle();
+       if(!byId.error&&byId.data)c=byId.data;
+       if(!c&&u.email){const byEmail=await window.tsPanelSupabase.from('clientes').select('*').eq('correo',u.email).maybeSingle();if(!byEmail.error&&byEmail.data)c=byEmail.data}
+     }catch(e){console.warn('Perfil cliente:',e)}
+   }
+   c=c||{};
+   const name=c.nombre||u.name||'Cliente';
+   const email=c.correo||u.email||'';
+   const phone=c.telefono||'Por definir';
+   const doc=c.cedula_rif||'Por definir';
+   const address=c.direccion||'Por definir';
+   const city=[c.ciudad,c.estado].filter(Boolean).join(', ')||'Por definir';
+   const shipping=c.metodo_envio_preferido||'Por definir';
+   const agency=c.agencia_destino||'Por definir';
+   const mine=orders().filter(o=>{const oc=orderClient(o);return normalizeEmail(oc.email)===normalizeEmail(email)||String(o.cliente_id||'')===String(u.id||'')});
+   const pre=mine.filter(o=>/pre.?order|preorden|proveedor|tránsito|transito/i.test(orderStatus(o))).length;
+   $('content').innerHTML=`
+   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:16px">
+     <div class="module"><span class="metric-large">${mine.length}</span><small>Mis pedidos</small></div>
+     <div class="module"><span class="metric-large">${pre}</span><small>Mis preórdenes</small></div>
+     <div class="module"><span class="metric-large">0</span><small>Reparaciones activas</small></div>
+     <div class="module"><span class="metric-large">0</span><small>Puntos VIP</small></div>
+   </div>
+   <div class="card" style="padding:22px">
+     <div class="section-title"><div><h2 style="margin:0">Datos del cliente</h2><small>Información registrada en ThinkStore</small></div><span class="badge">Cliente</span></div>
+     <div class="grid" style="margin-top:16px">
+       <div class="module"><small>Nombre y apellido</small><b>${esc(name)}</b></div>
+       <div class="module"><small>Correo</small><b>${esc(email||'Por definir')}</b></div>
+       <div class="module"><small>Teléfono</small><b>${esc(phone)}</b></div>
+       <div class="module"><small>C.I. / RIF</small><b>${esc(doc)}</b></div>
+       <div class="module"><small>Dirección</small><b>${esc(address)}</b></div>
+       <div class="module"><small>Ciudad / Estado</small><b>${esc(city)}</b></div>
+       <div class="module"><small>Envío preferido</small><b>${esc(shipping)}</b></div>
+       <div class="module"><small>Agencia destino</small><b>${esc(agency)}</b></div>
+     </div>
+     <div class="actions"><button class="btn" onclick="location.href='index.html#cuenta'">Editar mis datos</button><button class="btn ghost" onclick="openModule('mis_pedidos')">Ver mis pedidos</button><button class="btn ghost" onclick="location.href='index.html'">Ir a la tienda</button></div>
+   </div>`;
+ },
  clientes(){const q='';$('content').innerHTML=realBar()+`<div class="section-title"><h2>Clientes registrados</h2><button class="btn ghost" onclick="exportCustomersCSV()">Exportar CSV</button></div><div class="toolbar"><input id="customerSearch" placeholder="Buscar cliente" oninput="renderCustomersTable()"></div><div id="customersBox"></div>`;renderCustomersTable()},
  crm(){views.clientes()},
  pedidos(){$('content').innerHTML=realBar()+`<div class="section-title"><h2>Pedidos reales</h2><small>${orders().length} registros</small></div><div class="toolbar"><input id="orderSearch" placeholder="Buscar pedido, cliente o correo" oninput="renderOrdersList()"><select id="orderFilter" onchange="renderOrdersList()"><option value="">Todos los estados</option>${STATUS_OPTIONS.map(s=>`<option>${esc(s)}</option>`).join('')}</select></div><div id="ordersBox" class="stack"></div>`;renderOrdersList()},
