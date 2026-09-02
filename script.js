@@ -1297,11 +1297,24 @@ async function tsPremiumAuthSubmit(e){
 }
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>{$('tsPremiumAuthForm')?.addEventListener('submit', tsPremiumAuthSubmit);});
 else $('tsPremiumAuthForm')?.addEventListener('submit', tsPremiumAuthSubmit);
+
+if(window.tsSupabase?.auth?.onAuthStateChange){
+  window.tsSupabase.auth.onAuthStateChange((event,session)=>{
+    if((event==='SIGNED_IN'||event==='USER_UPDATED') && session?.user && tsPendingRegistration()){
+      setTimeout(()=>tsCompletePendingVerifiedRegistration({reason:event}),120);
+    }
+  });
+}
+
 window.addEventListener('load', async ()=>{
   await tsHandleEmailVerification();
   await handlePasswordRecovery();
   syncCurrentUser();
   renderAccount();
+
+  // Some confirmation links establish the Supabase session a moment after page load.
+  setTimeout(()=>tsCompletePendingVerifiedRegistration({reason:'delayed_session'}),700);
+  setTimeout(()=>tsCompletePendingVerifiedRegistration({reason:'delayed_session_2'}),1600);
 });
 
 
@@ -2008,9 +2021,78 @@ function tsShowVerifiedWelcome(name='', email=''){
   card.appendChild(btn); modal.appendChild(card); document.body.appendChild(modal);
 }
 
+
+async function tsCompletePendingVerifiedRegistration(opts={}){
+  if(!window.tsSupabase) return false;
+  const pending=tsPendingRegistration();
+  if(!pending) return false;
+
+  try{
+    let {data:{session}}=await window.tsSupabase.auth.getSession();
+    if(!session?.user) return false;
+
+    const u=session.user;
+    const pendingEmail=String(pending.email||'').trim().toLowerCase();
+    const userEmail=String(u.email||'').trim().toLowerCase();
+    if(pendingEmail && userEmail && pendingEmail!==userEmail) return false;
+
+    // Supabase may redirect to the Site URL without preserving ?verified=1.
+    // The pending registration + confirmed authenticated user is our reliable fallback.
+    const confirmed=Boolean(
+      u.email_confirmed_at ||
+      u.confirmed_at ||
+      u.user_metadata?.email_verified ||
+      u.identities?.some?.(x=>x?.identity_data?.email_verified)
+    );
+    if(!confirmed) return false;
+
+    const profile=await tsEnsureClientProfile(u,pending);
+    const c={
+      id: profile.cedula_rif || u.id,
+      supabase_id: u.id,
+      name: profile.nombre || u.user_metadata?.name || u.email?.split('@')[0] || 'Cliente',
+      email: profile.correo || u.email || '',
+      phone: profile.telefono || pending.phone || '',
+      address: profile.direccion || pending.address || '',
+      city: profile.ciudad || pending.city || '',
+      state: profile.estado || pending.state || '',
+      ref: profile.referencia || pending.ref || '',
+      shipping: profile.metodo_envio_preferido || pending.shipping || '',
+      agency: profile.agencia_destino || pending.agency || ''
+    };
+
+    currentUser=c; customer=c;
+    localStorage.setItem('ts_current_user',JSON.stringify(c));
+    localStorage.setItem('ts_customer',JSON.stringify(c));
+    tsSetPendingRegistration(null);
+
+    // Avoid duplicate welcome if both callback paths run on the same load.
+    if(!window.__tsVerifiedWelcomeShown){
+      window.__tsVerifiedWelcomeShown=true;
+      setTimeout(()=>tsShowVerifiedWelcome(c.name,c.email),300);
+    }
+    setTimeout(()=>{try{drawCustomerSummary();renderAccount();}catch(e){}},420);
+    return true;
+  }catch(err){
+    console.warn('ThinkStore pending verification fallback:',err);
+    return false;
+  }
+}
+
 async function tsHandleEmailVerification(){
   const url=new URL(window.location.href);
-  if(url.searchParams.get('verified')!=='1' || !window.tsSupabase) return false;
+  if(!window.tsSupabase) return false;
+
+  const hash=window.location.hash||'';
+  const hasVerificationSignal =
+    url.searchParams.get('verified')==='1' ||
+    url.searchParams.has('code') ||
+    url.searchParams.get('type')==='signup' ||
+    hash.includes('type=signup');
+
+  // If Supabase fell back to the Site URL and removed our query string,
+  // a pending registration will still be completed below.
+  if(!hasVerificationSignal) return tsCompletePendingVerifiedRegistration();
   try{
     let { data:{session} } = await window.tsSupabase.auth.getSession();
     const code=url.searchParams.get('code');
@@ -2039,6 +2121,7 @@ async function tsHandleEmailVerification(){
       localStorage.setItem('ts_current_user',JSON.stringify(c));
       localStorage.setItem('ts_customer',JSON.stringify(c));
       tsSetPendingRegistration(null);
+      window.__tsVerifiedWelcomeShown=true;
       setTimeout(()=>tsShowVerifiedWelcome(c.name,c.email),350);
       setTimeout(()=>{ try{drawCustomerSummary();renderAccount();}catch(e){} },450);
     }else{
@@ -2050,6 +2133,8 @@ async function tsHandleEmailVerification(){
     return true;
   }catch(err){
     console.warn('ThinkStore verification callback:',err);
+    const recovered=await tsCompletePendingVerifiedRegistration({reason:'callback_error'});
+    if(recovered) return true;
     if(typeof tsShowToast==='function') tsShowToast('Tu correo fue confirmado. Inicia sesión para continuar.');
     return false;
   }
@@ -2071,6 +2156,51 @@ async function resetPassword(){
 }
 
 const tsLocalSaveCustomer = typeof saveCustomer === 'function' ? saveCustomer : null;
+
+function tsShowRegistrationCreated(email=''){
+  document.getElementById('tsRegistrationCreatedModal')?.remove();
+
+  const overlay=document.createElement('div');
+  overlay.id='tsRegistrationCreatedModal';
+  overlay.style.cssText='position:fixed;inset:0;z-index:10080;background:rgba(0,0,0,.62);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:grid;place-items:center;padding:22px;';
+
+  const card=document.createElement('div');
+  card.style.cssText='width:min(520px,100%);background:#fff;color:#111;border-radius:30px;padding:34px 32px 30px;box-shadow:0 30px 90px rgba(0,0,0,.32);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;text-align:center;';
+
+  const icon=document.createElement('div');
+  icon.textContent='✉';
+  icon.style.cssText='width:68px;height:68px;border-radius:20px;background:#111;color:#fff;display:grid;place-items:center;margin:0 auto 18px;font-size:30px;font-weight:700;';
+
+  const eyebrow=document.createElement('div');
+  eyebrow.textContent='CUENTA CREADA';
+  eyebrow.style.cssText='font-size:12px;font-weight:800;letter-spacing:.7px;color:#777;margin-bottom:10px;';
+
+  const title=document.createElement('h2');
+  title.textContent='Revisa tu correo';
+  title.style.cssText='font-size:30px;line-height:1.08;letter-spacing:-1px;margin:0 0 12px;font-weight:800;';
+
+  const body=document.createElement('p');
+  body.textContent=email
+    ? `Creamos tu cuenta correctamente. Enviamos un enlace de verificación a ${email}. Confírmalo para activar tu cuenta y continuar en ThinkStore.`
+    : 'Creamos tu cuenta correctamente. Te enviamos un enlace de verificación. Confírmalo para activar tu cuenta y continuar en ThinkStore.';
+  body.style.cssText='font-size:15px;line-height:1.65;color:#5b5b60;margin:0 auto 20px;max-width:430px;';
+
+  const hint=document.createElement('div');
+  hint.textContent='Si no lo ves, revisa Spam o Promociones.';
+  hint.style.cssText='background:#f6f6f8;border:1px solid #ececef;border-radius:15px;padding:12px 14px;color:#737378;font-size:12px;line-height:1.5;margin-bottom:20px;';
+
+  const btn=document.createElement('button');
+  btn.type='button';
+  btn.textContent='Entendido';
+  btn.style.cssText='width:100%;border:0;border-radius:14px;background:#111;color:#fff;padding:15px 20px;font-size:15px;font-weight:800;cursor:pointer;';
+  btn.onclick=()=>overlay.remove();
+
+  card.append(icon,eyebrow,title,body,hint,btn);
+  overlay.append(card);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+  document.body.append(overlay);
+}
+
 async function saveCustomer(e){
   e.preventDefault();
   const prefix = e.target && e.target.id === 'quickRegisterForm' ? 'qr' : 'r';
@@ -2119,7 +2249,7 @@ async function saveCustomer(e){
       localStorage.removeItem('ts_customer');
       closeRegister(); closeClientLogin();
       if(typeof tsShowToast==='function') tsShowToast('📩 Cuenta creada. Revisa tu correo y confirma tu cuenta para continuar.');
-      alert('Cuenta creada correctamente. Te enviamos un correo de verificación. Confirma tu cuenta y volverás a ThinkStore con un mensaje de bienvenida.');
+      tsShowRegistrationCreated(c.email || pending?.email || '');
     }
   }catch(err){
     alert('Error creando cuenta: ' + (err.message || err));
