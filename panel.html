@@ -21,7 +21,8 @@
 <body>
 <section id="gate" class="gate"><div class="gate-card"><img src="logo-thinkstore.png" alt="ThinkStore"><h1>Panel ThinkStore</h1><p>Acceso seguro: los clientes se registran públicamente; vendedores, recepción, soporte técnico, logística y administradores solo entran por invitación creada por Super Admin.</p><div class="actions"><button class="btn ghost" onclick="authMode('login')">Iniciar sesión</button><button class="btn ghost" onclick="authMode('register')">Registro cliente</button></div><div id="loginBox"><input id="email" placeholder="Correo de acceso"><input id="pass" type="password" placeholder="Clave"><input id="otp" placeholder="Código 2FA / invitación si aplica"><button class="btn" onclick="secureLogin()">Entrar</button><p class="muted">Si tu correo fue invitado por el administrador, ThinkStore cargará tu rol interno automáticamente. Si no tienes invitación, solo puedes registrarte como cliente.</p></div><div id="registerBox" style="display:none"><input id="regName" placeholder="Nombre y apellido"><input id="regEmail" placeholder="Correo"><input id="regPhone" placeholder="WhatsApp"><input id="regPass" type="password" placeholder="Crear clave"><button class="btn" onclick="registerClient()">Crear cuenta cliente</button><p class="muted">El registro público siempre crea rol Cliente. Los roles internos no se pueden seleccionar desde aquí.</p></div><pre id="authResult" class="result" style="display:none"></pre><a href="index.html" style="color:#fff">Volver a ThinkStore</a></div></section>
 <div id="app" class="app"><header class="top"><div class="top-inner"><div class="brand"><img src="logo-thinkstore.png" alt="ThinkStore"><span>ThinkStore · Panel Multi-Rol</span><span id="rolePill" class="role-pill">Rol</span></div><nav class="nav"><a href="index.html">Tienda</a><a href="admin-growth.html" data-roles="admin,superadmin">Growth Enterprise</a><button onclick="logout()">Cerrar sesión</button></nav></div></header><main class="layout"><aside class="side" id="side"></aside><section class="main-card"><div class="hero"><h1 id="heroTitle">Bienvenido</h1><p id="heroText">Tu panel mostrará solo los módulos permitidos para tu rol.</p><div class="kpis"><div class="kpi"><b id="kpi1">0</b><small>Pedidos</small></div><div class="kpi"><b id="kpi2">0</b><small>Clientes</small></div><div class="kpi"><b id="kpi3">0</b><small>Tickets</small></div><div class="kpi"><b id="kpi4">0</b><small>Envíos</small></div></div></div><div id="content"></div></section></main><footer class="footer">ThinkStore.com.ve · Sistema privado de roles y permisos</footer></div>
-<script src="data.js"></script>
+<script src="data.js">// ThinkStore V1.5.1 · Cliente: pedidos Supabase + local unificados
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="supabase-config.js"></script>
@@ -88,7 +89,15 @@ function normalizeEmail(v){return String(v||'').trim().toLowerCase()}
 function isAdminRole(){return ['admin','superadmin'].includes(role())}
 function tickets(){return store('ts_repairs').concat(store('ts_support_tickets')).filter(Boolean)}
 function shipments(){return orders().filter(o=>['Enviado','En tránsito','Disponible para entrega','Disponible para retiro','Preparando pedido','Pago verificado'].includes(o.status||o.estado))}
-function orders(){return isAdminRole()?realState.pedidos:(realState.pedidos.length?realState.pedidos:store('ts_orders').concat(store('thinkstore_orders')).filter(Boolean))}
+function orders(){
+  if(isAdminRole()) return realState.pedidos;
+  const out=[];
+  const add=(o)=>{if(!o)return;const code=String(orderCode(o)||o.id||'').trim().toLowerCase();if(!code)return;const i=out.findIndex(x=>String(orderCode(x)||x.id||'').trim().toLowerCase()===code);if(i>=0)out[i]={...out[i],...o};else out.push(o)};
+  (realState.pedidos||[]).forEach(add);
+  store('ts_orders').forEach(add);
+  store('thinkstore_orders').forEach(add);
+  return out.sort((a,b)=>new Date(b.created_at||b.date||0)-new Date(a.created_at||a.date||0));
+}
 function customers(){return isAdminRole()?realState.clientes:(realState.clientes.length?realState.clientes:store('ts_clients').concat(store('ts_customers')).concat(store('thinkstore_customers')).filter(Boolean))}
 function assignments(){return store('ts_role_assignments')||[]}
 function audit(action,detail){const l=store('ts_audit_log')||[];l.unshift({date:new Date().toLocaleString('es-VE'),user:user()?.email||'sistema',role:role(),action,detail});store('ts_audit_log',l.slice(0,300))}
@@ -164,6 +173,25 @@ async function refreshRealData(opts={}){
     if(!opts.silent) result('globalStatus',`Datos reales actualizados: ${realState.clientes.length} clientes · ${realState.pedidos.length} pedidos`);
   }catch(e){realState.error=e.message||String(e); if(!opts.silent) result('globalStatus','Error: '+realState.error)}finally{realState.loading=false;refreshKpis()}
 }
+
+async function refreshClientRealData(opts={}){
+  if(role()!=='cliente' || !window.tsPanelSupabase) return;
+  const u=user(); if(!u?.id) return;
+  realState.loading=true; realState.error='';
+  try{
+    let res=await window.tsPanelSupabase.from('pedidos').select('*, pedido_items(*)').eq('cliente_id',u.id).order('created_at',{ascending:false});
+    if(res.error) throw res.error;
+    realState.pedidos=(res.data||[]).map(mapOrder);
+    const cp=await window.tsPanelSupabase.from('clientes').select('*').eq('id',u.id).maybeSingle();
+    if(!cp.error && cp.data) realState.clientes=[mapClient(cp.data)];
+    realState.lastRefresh=new Date().toISOString();
+    if(!opts.silent) result('globalStatus',`Tus pedidos se actualizaron: ${realState.pedidos.length} en Supabase.`);
+  }catch(e){
+    realState.error=e?.message||String(e);
+    if(!opts.silent) result('globalStatus','No se pudieron sincronizar tus pedidos: '+realState.error);
+  }finally{realState.loading=false;refreshKpis()}
+}
+
 async function updateOrderRemote(code,status,guide='',note=''){
   const o=orders().find(x=>String(orderCode(x))===String(code));
   const headers=await adminApiHeaders({'Content-Type':'application/json'});
@@ -179,7 +207,7 @@ async function sendCampaign(){
 }
 function refreshKpis(){if($('kpi1'))$('kpi1').textContent=orders().length;if($('kpi2'))$('kpi2').textContent=customers().length;if($('kpi3'))$('kpi3').textContent=tickets().length;if($('kpi4'))$('kpi4').textContent=shipments().length}
 function realBar(){return `<div class="realbar"><span class="dot"></span><b>Datos reales</b><small>${realState.lastRefresh?'Actualizado '+esc(fmtDate(realState.lastRefresh)):'Pendiente de sincronizar'}</small><button class="btn ghost" onclick="refreshAndRender()">Actualizar datos</button></div><pre id="globalStatus" class="result" style="display:none"></pre>`}
-async function refreshAndRender(){await refreshRealData();openModule(window.currentModule||'dashboard')}
+async function refreshAndRender(){if(role()==='cliente')await refreshClientRealData();else await refreshRealData();openModule(window.currentModule||'dashboard')}
 
 const STATUS_OPTIONS=['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','Pago rechazado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado','Cancelado'];
 const views={
@@ -254,7 +282,11 @@ const views={
  },
  configuracion(){$('content').innerHTML=realBar()+`<div class="grid"><div class="module"><b>Supabase</b><small>${window.tsPanelSupabase?'Conectado':'No disponible'}</small></div><div class="module"><b>Admin API</b><small>Protegida con sesión Super Admin</small></div><div class="module"><b>Resend</b><small>Correos transaccionales mediante Netlify Functions</small></div><div class="module"><b>Service Center</b><small>Base independiente y aislada</small></div></div>`},
  permisos(){renderProfiles()},
- mis_pedidos(){const u=user();const mine=orders().filter(o=>{const c=orderClient(o);return normalizeEmail(c.email)===normalizeEmail(u.email)||String(o.cliente_id||'')===String(u.id||'')});$('content').innerHTML=rows(mine.map(o=>`<b>${esc(orderCode(o))}</b><br>${esc(orderStatus(o))} · ${money(orderTotal(o))}`),'Aún no tienes pedidos visibles.')},
+ mis_pedidos(){
+   const u=user();const mine=orders().filter(o=>{const c=orderClient(o);return normalizeEmail(c.email)===normalizeEmail(u.email)||String(o.cliente_id||'')===String(u.id||'')});
+   const cards=mine.map(o=>{const items=orderItems(o);const names=items.map(i=>esc(i.product||i.producto||i.name||'Producto')).join(' · ')||'Producto por confirmar';return `<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><b style="font-size:17px">${esc(orderCode(o))}</b><br><small>${esc(fmtDate(o.created_at||o.date))}</small></div><span class="badge">${esc(orderStatus(o))}</span></div><div style="margin-top:12px"><small>Productos</small><br><b>${names}</b></div><div style="margin-top:10px"><small>Total</small><br><b>${orderTotal(o)>0?money(orderTotal(o)):'Por confirmar'}</b></div>`});
+   $('content').innerHTML=`${realBar()}<div class="section-title"><h2>Mis pedidos</h2><small>${mine.length} pedido${mine.length===1?'':'s'} vinculados a tu cuenta</small></div>${rows(cards,'Aún no tienes pedidos visibles.')}`;
+ },
  mis_reparaciones(){views.tickets()},
  ventas(){$('content').innerHTML=realBar()+`<div class="section-title"><h2>Registrar venta real</h2><small>Cliente registrado · inventario real · serial · garantía</small></div><div class="notice">Usa este formulario para ventas presenciales o cerradas directamente por ThinkStore. El cliente debe estar registrado previamente.</div><div class="form"><label>Correo del cliente<input id="saleEmail" type="email" placeholder="cliente@correo.com"></label><label>Equipo / variante<select id="saleVariant" onchange="prefillSalePrice()"><option>Cargando inventario…</option></select></label><label>Número de serie<input id="saleSerial" placeholder="Serial del equipo"></label><label>Garantía (días)<input id="saleWarranty" type="number" min="0" value="90"></label><label>Precio de venta USD<input id="salePrice" type="number" min="0.01" step="0.01"></label><label>Método de pago<select id="salePayment"><option>Efectivo</option><option>Zelle</option><option>Pago Móvil</option><option>USDT</option><option>Tarjeta</option></select></label><label>Referencia de pago<input id="salePaymentRef" placeholder="Opcional"></label><label>Entrega<select id="saleDelivery"><option>Retiro en tienda</option><option>Delivery</option><option>Envío nacional</option></select></label></div><div class="actions"><button class="btn" onclick="createManualSale()">Registrar venta</button></div><pre id="saleResult" class="result"></pre>`;loadSaleInventory()},
  cotizaciones(){$('content').innerHTML=`<div class="form"><label>Cliente<input id="qClient"></label><label>Producto<input id="qProduct"></label><label>Precio USD<input id="qPrice" type="number"></label></div><div class="actions"><button class="btn" onclick="result('qResult','Cotización ThinkStore\\nCliente: '+val('qClient')+'\\nProducto: '+val('qProduct')+'\\nPrecio: '+money(val('qPrice')))">Generar</button></div><pre id="qResult" class="result"></pre>`},
@@ -497,7 +529,7 @@ async function resendDeliveryNote(code){
   }catch(e){alert('Error enviando nota: '+e.message)}
 }
 
-async function boot(){const u=user();if(!u){$('gate').style.display='flex';$('app').style.display='none';return}$('gate').style.display='none';$('app').style.display='block';const r=role();$('rolePill').textContent=ROLE_LABELS[r]||r;document.querySelectorAll('[data-roles]').forEach(el=>{const allowed=String(el.dataset.roles||'').split(',').map(x=>x.trim().toLowerCase());el.style.display=allowed.includes(r)?'':'none'});renderSide();refreshKpis();if(isAdminRole()){await refreshRealData({silent:true});if(realRefreshTimer)clearInterval(realRefreshTimer);realRefreshTimer=setInterval(async()=>{await refreshRealData({silent:true});if(['dashboard','pedidos','pagos','clientes','crm','preordenes','logistica','guias','entregas'].includes(window.currentModule||''))openModule(window.currentModule)},30000)}const home=ROLE_HOME[r]||'cuenta';await openModule(can(home)?home:(MODULES.find(m=>can(m.id))?.id||'cuenta'))}
+async function boot(){const u=user();if(!u){$('gate').style.display='flex';$('app').style.display='none';return}$('gate').style.display='none';$('app').style.display='block';const r=role();$('rolePill').textContent=ROLE_LABELS[r]||r;document.querySelectorAll('[data-roles]').forEach(el=>{const allowed=String(el.dataset.roles||'').split(',').map(x=>x.trim().toLowerCase());el.style.display=allowed.includes(r)?'':'none'});renderSide();refreshKpis();if(isAdminRole()){await refreshRealData({silent:true});if(realRefreshTimer)clearInterval(realRefreshTimer);realRefreshTimer=setInterval(async()=>{await refreshRealData({silent:true});if(['dashboard','pedidos','pagos','clientes','crm','preordenes','logistica','guias','entregas'].includes(window.currentModule||''))openModule(window.currentModule)},30000)}else if(r==='cliente'){await refreshClientRealData({silent:true});}const home=ROLE_HOME[r]||'cuenta';await openModule(can(home)?home:(MODULES.find(m=>can(m.id))?.id||'cuenta'))}
 const inviteEmail=new URLSearchParams(location.search).get('invite');if(inviteEmail){authMode('login');setTimeout(()=>{$('email').value=inviteEmail;showAuth('Invitación detectada. Ingresa tu acceso.');},200)}
 boot();
 </script>
