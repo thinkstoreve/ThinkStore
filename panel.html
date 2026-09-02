@@ -90,8 +90,10 @@ function user(){try{return JSON.parse(localStorage.getItem(LS_USER)||'null')}cat
 function setUser(u){localStorage.setItem(LS_USER,JSON.stringify(u))}
 function role(){return String(user()?.role||user()?.rol||'cliente').toLowerCase()}
 function store(k,v){if(v!==undefined)localStorage.setItem(k,JSON.stringify(v));try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return[]}}
-function rolePerms(r=role()){const custom=store('ts_role_permissions')||{};return custom[r]||PERMS[r]||PERMS.cliente}
+let TS_EFFECTIVE_ACCESS=null;
+function rolePerms(r=role()){if(TS_EFFECTIVE_ACCESS&&r===role()&&Array.isArray(TS_EFFECTIVE_ACCESS.permissions))return TS_EFFECTIVE_ACCESS.permissions;const custom=store('ts_role_permissions')||{};return custom[r]||PERMS[r]||PERMS.cliente}
 function can(id){const p=rolePerms();return p.includes('*')||p.includes(id)}
+function canAction(id){return can(id)}
 function normalizeEmail(v){return String(v||'').trim().toLowerCase()}
 function isAdminRole(){return ['admin','superadmin'].includes(role())}
 function tickets(){return store('ts_repairs').concat(store('ts_support_tickets')).filter(Boolean)}
@@ -125,6 +127,30 @@ function saveCatalogState(){localStorage.setItem('ts_admin_products',JSON.string
 function authMode(mode){$('loginBox').style.display=mode==='login'?'block':'none';$('registerBox').style.display=mode==='register'?'block':'none';$('authResult').style.display='none'}
 function showAuth(msg){$('authResult').style.display='block';$('authResult').textContent=msg}
 
+function normalizePanelRole(value){
+  const raw=String(value||'cliente').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_');
+  return ({super_admin:'superadmin',superadministrator:'superadmin',super_administrator:'superadmin',administrator:'admin',gerente:'admin',tech:'tecnico',technical:'tecnico',seller:'vendedor',sales:'vendedor',ventas:'vendedor'}[raw]||raw);
+}
+async function canonicalPanelProfile(authUser){
+  if(!window.tsPanelSupabase||!authUser?.id)return null;
+  let {data:profile,error}=await window.tsPanelSupabase.from('profiles').select('*').eq('id',authUser.id).maybeSingle();
+  if(error)throw error;
+  if(!profile && authUser.email){
+    const byMail=await window.tsPanelSupabase.from('profiles').select('*').or(`email.eq.${normalizeEmail(authUser.email)},correo.eq.${normalizeEmail(authUser.email)}`).maybeSingle();
+    if(byMail.error)throw byMail.error; profile=byMail.data||null;
+  }
+  return profile;
+}
+async function setPanelUserFromAuth(authUser,{silent=false}={}){
+  const profile=await canonicalPanelProfile(authUser);
+  if(!profile)return false;
+  const panelRole=normalizePanelRole(profile.role||profile.rol||'cliente');
+  const active=(profile.active??profile.activo??true)!==false;
+  if(!active)return false;
+  setUser({id:authUser.id,email:profile.email||profile.correo||authUser.email||'',name:profile.full_name||profile.nombre||authUser.user_metadata?.name||String(authUser.email||'Usuario').split('@')[0],role:panelRole,rol:panelRole,source:'supabase'});
+  if(!silent)audit('login_interno','Acceso Supabase: '+(authUser.email||'')+' · '+panelRole);
+  return true;
+}
 async function secureLogin(){
   const email=normalizeEmail($('email').value), pass=$('pass').value||'';
   if(!email||!pass){showAuth('Ingresa correo y contraseña.');return}
@@ -132,16 +158,19 @@ async function secureLogin(){
   showAuth('Verificando acceso seguro…');
   try{
     const {data,error}=await window.tsPanelSupabase.auth.signInWithPassword({email,password:pass}); if(error)throw error;
-    const uid=data?.user?.id;
-    const {data:profile,error:profileError}=await window.tsPanelSupabase.from('profiles').select('*').eq('id',uid).maybeSingle(); if(profileError)throw profileError;
-    if(!profile){await window.tsPanelSupabase.auth.signOut();showAuth('La cuenta existe pero no tiene perfil interno.');return}
-    const rawRole=String(profile.role||profile.rol||'cliente').toLowerCase();
-    const panelRole=({super_admin:'superadmin',administrator:'admin',gerente:'admin',tech:'tecnico'}[rawRole]||rawRole);
-    const active=(profile.active??profile.activo??true)!==false;
-    if(!active){await window.tsPanelSupabase.auth.signOut();showAuth('Este acceso interno está desactivado.');return}
-    setUser({id:uid,email:profile.email||profile.correo||email,name:profile.full_name||profile.nombre||data.user.user_metadata?.name||email.split('@')[0],role:panelRole,rol:panelRole,source:'supabase'});
-    audit('login_interno','Acceso Supabase: '+email+' · '+rawRole); boot();
+    if(!await setPanelUserFromAuth(data?.user)){await window.tsPanelSupabase.auth.signOut();showAuth('La cuenta existe pero no tiene un perfil interno activo.');return}
+    boot();
   }catch(err){const msg=String(err?.message||err||'');showAuth(/invalid login credentials/i.test(msg)?'Correo o contraseña incorrectos.':'No se pudo validar el acceso: '+msg)}
+}
+async function resumePanelSession(){
+  if(!window.tsPanelSupabase)return false;
+  try{
+    const {data}=await window.tsPanelSupabase.auth.getSession();
+    const authUser=data?.session?.user;
+    if(!authUser)return false;
+    // Siempre refresca desde profiles para corregir roles locales antiguos (ej. vendedor -> admin).
+    return await setPanelUserFromAuth(authUser,{silent:true});
+  }catch(e){console.warn('ThinkStore panel session:',e);return false}
 }
 async function registerClient(){
   showAuth('El registro de clientes se mantiene en la tienda principal para conservar los correos automáticos y el flujo de compra.');
@@ -657,7 +686,84 @@ async function resendDeliveryNote(code){
   }catch(e){alert('Error enviando nota: '+e.message)}
 }
 
-async function boot(){const u=user();if(!u){$('gate').style.display='flex';$('app').style.display='none';return}$('gate').style.display='none';$('app').style.display='block';const r=role();$('rolePill').textContent=ROLE_LABELS[r]||r;document.querySelectorAll('[data-roles]').forEach(el=>{const allowed=String(el.dataset.roles||'').split(',').map(x=>x.trim().toLowerCase());el.style.display=allowed.includes(r)?'':'none'});renderSide();refreshKpis();if(isAdminRole()){await refreshRealData({silent:true});if(realRefreshTimer)clearInterval(realRefreshTimer);realRefreshTimer=setInterval(async()=>{await refreshRealData({silent:true});if(['dashboard','pedidos','pagos','clientes','crm','preordenes','logistica','guias','entregas'].includes(window.currentModule||''))openModule(window.currentModule)},30000)}else if(r==='cliente'){await refreshClientRealData({silent:true});}const home=ROLE_HOME[r]||'cuenta';await openModule(can(home)?home:(MODULES.find(m=>can(m.id))?.id||'cuenta'))}
+
+/* ===== ThinkStore V1.6.6 · Roles + permisos personalizados ===== */
+const TS_INTERNAL_ROLES=[
+  ['cliente','Cliente'],['vendedor','Vendedor'],['recepcion','Recepción / Soporte'],['soporte','Soporte'],
+  ['tecnico','Técnico'],['logistica','Logística'],['admin','Admin'],['superadmin','Super Admin']
+];
+const TS_ACTION_PERMISSIONS=[
+ ['inventory.import','Inventario · Importar Excel'],['inventory.edit','Inventario · Editar stock/precios'],['catalog.publish','Catálogo · Publicar productos'],
+ ['orders.edit','Pedidos · Cambiar estados'],['payments.approve','Pagos · Aprobar/Rechazar'],['sales.create','Ventas · Registrar venta'],
+ ['customers.edit','Clientes · Editar'],['marketing.send','Marketing · Enviar campañas'],['users.manage','Usuarios · Asignar roles'],['roles.manage','Roles · Crear/editar permisos']
+];
+let tsAdminRoles=[];
+function tsProfileRole(p){return normalizePanelRole(p?.role||p?.rol||'cliente')}
+function tsProfileName(p){return p?.full_name||p?.nombre||p?.name||'Usuario'}
+function tsProfileEmail(p){return p?.email||p?.correo||''}
+function tsCustomRole(p){return String(p?.custom_role_key||'').trim()}
+function tsRoleLabel(key){const r=tsAdminRoles.find(x=>x.role_key===key);return r?.name||ROLE_LABELS[key]||key||'Cliente'}
+function tsBaseUiRole(v){return normalizePanelRole(v==='super_admin'?'superadmin':v)}
+async function refreshEffectiveAccess(){
+  if(!window.tsPanelSupabase)return null;
+  try{const headers=await adminApiHeaders({'Content-Type':'application/json'});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'access'})});const data=await res.json().catch(()=>({}));if(res.ok&&data.ok){TS_EFFECTIVE_ACCESS=data;return data}}catch(e){console.warn('Permisos efectivos:',e)}return null;
+}
+async function loadAdminProfiles(){
+  const headers=await adminApiHeaders({'Content-Type':'application/json'});
+  const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'list'})});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||!data.ok)throw new Error(data.error||'No se pudieron cargar usuarios y roles');
+  realState.profiles=data.profiles||[];tsAdminRoles=data.roles||[];return data;
+}
+async function renderProfiles(){
+  $('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Usuarios, roles y permisos</h2><small>Control central de acceso ThinkStore</small></div><div class="actions"><button class="btn ghost" onclick="renderProfiles()">Actualizar</button>${role()==='superadmin'?'<button class="btn" onclick="showRoleEditor()">+ Crear rol</button>':''}</div></div><div class="toolbar"><input id="profileSearch" placeholder="Buscar nombre, correo o rol" oninput="drawAdminProfiles()"></div><div id="profilesMsg"></div><div id="roleEditor"></div><div id="rolesSummary"></div><div id="profilesBox"><div class="result">Cargando usuarios…</div></div>`;
+  try{const data=await loadAdminProfiles();window.tsProfilesViewerRole=data.viewer_role||role();drawRolesSummary();drawAdminProfiles()}catch(e){$('profilesBox').innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
+}
+function drawRolesSummary(){
+ const box=$('rolesSummary');if(!box)return;const custom=tsAdminRoles.filter(r=>!r.system);
+ box.innerHTML=`<div class="section-title" style="margin-top:18px"><div><h3>Roles personalizados</h3><small>${custom.length} rol(es) creado(s)</small></div></div>${custom.length?`<div class="grid">${custom.map(r=>`<div class="module"><b>${esc(r.name)}</b><small>Base: ${esc(tsRoleLabel(tsBaseUiRole(r.base_role)))} · ${(r.permissions||[]).length} permisos</small><div class="actions"><button class="btn ghost" onclick="showRoleEditor('${esc(r.role_key)}')">Editar</button><button class="btn danger" onclick="deleteCustomRole('${esc(r.role_key)}')">Eliminar</button></div></div>`).join('')}</div>`:'<div class="notice">Aún no has creado roles personalizados. Los roles del sistema siguen disponibles.</div>'}`;
+}
+function rolePermissionCheckboxes(selected=[]){
+ const all=selected.includes('*');const moduleHtml=MODULES.filter(m=>!['permisos'].includes(m.id)).map(m=>`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="rp-check" value="${esc(m.id)}" ${all||selected.includes(m.id)?'checked':''}> ${m.icon} ${esc(m.title)}</label>`).join('');
+ const actionHtml=TS_ACTION_PERMISSIONS.map(([k,l])=>`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="rp-check" value="${esc(k)}" ${all||selected.includes(k)?'checked':''}> ${esc(l)}</label>`).join('');
+ return `<div class="notice"><b>Permisos del panel</b><small>Marca únicamente lo que este rol podrá ver o ejecutar.</small></div><div class="grid" style="margin-top:12px">${moduleHtml}${actionHtml}</div>`;
+}
+function showRoleEditor(key=''){
+ if(role()!=='superadmin')return alert('Solo Super Admin puede administrar roles.');const existing=tsAdminRoles.find(r=>r.role_key===key&&!r.system);const perms=existing?.permissions||[];
+ $('roleEditor').innerHTML=`<div class="card" style="padding:20px;margin:18px 0"><div class="section-title"><div><h3>${existing?'Editar rol':'Crear rol personalizado'}</h3><small>El rol base conserva las capacidades técnicas del sistema; los permisos controlan qué módulos y acciones aparecen.</small></div><button class="btn ghost" onclick="document.getElementById('roleEditor').innerHTML=''">Cerrar</button></div><div class="form"><label>Nombre del rol<input id="roleName" value="${esc(existing?.name||'') }" placeholder="Ej. Vendedor Senior"></label><label>Clave interna<input id="roleKey" value="${esc(existing?.role_key||'')}" ${existing?'disabled':''} placeholder="vendedor_senior"></label><label>Rol base<select id="roleBase">${TS_INTERNAL_ROLES.filter(x=>x[0]!=='superadmin').map(([v,l])=>`<option value="${v}" ${tsBaseUiRole(existing?.base_role||'cliente')===v?'selected':''}>${esc(l)}</option>`).join('')}</select></label><label>Estado<select id="roleActive"><option value="1" ${existing?.active!==false?'selected':''}>Activo</option><option value="0" ${existing?.active===false?'selected':''}>Inactivo</option></select></label></div>${rolePermissionCheckboxes(perms)}<div class="actions"><button class="btn" onclick="saveCustomRole('${esc(existing?.role_key||'')}')">Guardar rol</button><button class="btn ghost" onclick="document.getElementById('roleEditor').innerHTML=''">Cancelar</button></div></div>`;
+}
+async function saveCustomRole(existingKey=''){
+ if(role()!=='superadmin')return;const name=val('roleName'),role_key=existingKey||val('roleKey'),base_role=val('roleBase'),active=val('roleActive')!=='0';const permissions=[...document.querySelectorAll('.rp-check:checked')].map(x=>x.value);
+ if(!name||!role_key)return alert('Completa nombre y clave del rol.');
+ try{const headers=await adminApiHeaders({'Content-Type':'application/json'});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'save_role',role_key,name,base_role,permissions,active})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar el rol');audit('rol_personalizado_guardado',`${name} · ${permissions.length} permisos`);await renderProfiles()}catch(e){alert(e.message)}
+}
+async function deleteCustomRole(key){
+ if(role()!=='superadmin'||!confirm('¿Eliminar este rol personalizado? Los usuarios asignados volverán a su rol base.'))return;
+ try{const headers=await adminApiHeaders({'Content-Type':'application/json'});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'delete_role',role_key:key})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo eliminar');await renderProfiles()}catch(e){alert(e.message)}
+}
+function drawAdminProfiles(){
+  const box=$('profilesBox');if(!box)return;const q=normalizeEmail(val('profileSearch')),canEdit=role()==='superadmin';const list=(realState.profiles||[]).filter(p=>!q||JSON.stringify(p).toLowerCase().includes(q));
+  const roleOptions=(p)=>{const custom=tsCustomRole(p),base=tsProfileRole(p);return `<option value="base:${esc(base)}" ${!custom?'selected':''}>${esc(ROLE_LABELS[base]||base)} (sistema)</option>${tsAdminRoles.filter(r=>!r.system&&r.active!==false).map(r=>`<option value="custom:${esc(r.role_key)}" ${custom===r.role_key?'selected':''}>${esc(r.name)} · base ${esc(tsRoleLabel(tsBaseUiRole(r.base_role)))}</option>`).join('')}`};
+  box.innerHTML=`<div class="notice" style="margin:18px 0"><b>${canEdit?'Super Admin':'Modo consulta'}</b> · ${list.length} usuario(s). ${canEdit?'Puedes asignar rol y excepciones individuales.':'Solo Super Admin puede modificar accesos.'}</div><div class="table-wrap"><table class="table"><thead><tr><th>Usuario</th><th>Correo</th><th>Rol asignado</th><th>Estado</th><th>Acceso individual</th><th>Acción</th></tr></thead><tbody>${list.map(p=>{const id=String(p.id||''),active=(p.active??p.activo??true)!==false,self=id===String(user()?.id||''),ov=p.permission_overrides||{allow:[],deny:[]};return `<tr><td><b>${esc(tsProfileName(p))}</b>${self?' <span class="badge">Tu cuenta</span>':''}</td><td>${esc(tsProfileEmail(p)||'—')}</td><td><select id="pr-role-${esc(id)}" ${canEdit&&!self?'':'disabled'}>${roleOptions(p)}</select></td><td><select id="pr-active-${esc(id)}" ${canEdit&&!self?'':'disabled'}><option value="1" ${active?'selected':''}>Activo</option><option value="0" ${!active?'selected':''}>Inactivo</option></select></td><td>${canEdit&&!self?`<button class="btn ghost" onclick="editUserOverrides('${esc(id)}')">Personalizar (${(ov.allow||[]).length}+ / ${(ov.deny||[]).length}−)</button>`:`${(ov.allow||[]).length}+ / ${(ov.deny||[]).length}−`}</td><td>${canEdit&&!self?`<button class="btn" onclick="saveAdminProfile('${esc(id)}')">Guardar</button>`:'—'}</td></tr>`}).join('')||'<tr><td colspan="6">Sin perfiles visibles.</td></tr>'}</tbody></table></div>`;
+}
+function editUserOverrides(id){
+ const p=(realState.profiles||[]).find(x=>String(x.id)===String(id));if(!p)return;const ov=p.permission_overrides||{allow:[],deny:[]};const all=[...MODULES.map(m=>[m.id,m.title]),...TS_ACTION_PERMISSIONS];
+ $('roleEditor').innerHTML=`<div class="card" style="padding:20px;margin:18px 0"><h3>Excepciones · ${esc(tsProfileName(p))}</h3><p class="muted">Permitir agrega acceso al rol. Bloquear lo retira. “Heredar” usa exactamente el rol asignado.</p><div class="table-wrap"><table class="table"><thead><tr><th>Permiso</th><th>Comportamiento</th></tr></thead><tbody>${all.map(([k,l])=>`<tr><td>${esc(l)}</td><td><select class="uo-select" data-key="${esc(k)}"><option value="inherit">Heredar del rol</option><option value="allow" ${(ov.allow||[]).includes(k)?'selected':''}>✅ Permitir</option><option value="deny" ${(ov.deny||[]).includes(k)?'selected':''}>⛔ Bloquear</option></select></td></tr>`).join('')}</tbody></table></div><div class="actions"><button class="btn" onclick="saveUserOverrides('${esc(id)}')">Guardar excepciones</button><button class="btn ghost" onclick="document.getElementById('roleEditor').innerHTML=''">Cancelar</button></div></div>`;window.scrollTo({top:0,behavior:'smooth'});
+}
+async function saveUserOverrides(id){const p=(realState.profiles||[]).find(x=>String(x.id)===String(id));if(!p)return;const allow=[],deny=[];document.querySelectorAll('.uo-select').forEach(x=>{if(x.value==='allow')allow.push(x.dataset.key);if(x.value==='deny')deny.push(x.dataset.key)});p.permission_overrides={allow,deny};await saveAdminProfile(id,true)}
+async function saveAdminProfile(id,keepEditor=false){
+  if(role()!=='superadmin')return alert('Solo Super Admin puede modificar accesos.');const sel=$(`pr-role-${id}`)?.value||`base:${tsProfileRole((realState.profiles||[]).find(p=>String(p.id)===String(id)))}`,active=$(`pr-active-${id}`)?.value!=='0';const target=(realState.profiles||[]).find(p=>String(p.id)===String(id));const custom=sel.startsWith('custom:')?sel.slice(7):'',base=sel.startsWith('base:')?sel.slice(5):tsProfileRole(target),over=target?.permission_overrides||{allow:[],deny:[]};const label=tsProfileEmail(target)||tsProfileName(target);
+  try{const headers=await adminApiHeaders({'Content-Type':'application/json'});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'update',id,role:base,custom_role_key:custom,active,permission_overrides:over})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar');audit('acceso_usuario_actualizado',`${label} · ${custom||base}`);if(!keepEditor){const msg=$('profilesMsg');if(msg)msg.innerHTML='<div class="notice">Cambios guardados ✅</div>';}await loadAdminProfiles();drawRolesSummary();drawAdminProfiles();if(keepEditor)$('roleEditor').innerHTML='<div class="notice">Excepciones guardadas ✅</div>'}catch(e){alert(e.message)}
+}
+
+async function boot(){
+  // Si vienes desde la tienda con una sesión Supabase activa, entra directamente al panel.
+  // También sincroniza el rol canónico de profiles antes de decidir permisos.
+  await resumePanelSession();
+  await refreshEffectiveAccess();
+  const u=user();
+  if(!u){$('gate').style.display='flex';$('app').style.display='none';return}
+  $('gate').style.display='none';$('app').style.display='block';const r=role();$('rolePill').textContent=ROLE_LABELS[r]||r;document.querySelectorAll('[data-roles]').forEach(el=>{const allowed=String(el.dataset.roles||'').split(',').map(x=>x.trim().toLowerCase());el.style.display=allowed.includes(r)?'':'none'});renderSide();refreshKpis();if(isAdminRole()){await refreshRealData({silent:true});if(realRefreshTimer)clearInterval(realRefreshTimer);realRefreshTimer=setInterval(async()=>{await refreshRealData({silent:true});if(['dashboard','pedidos','pagos','clientes','crm','preordenes','logistica','guias','entregas'].includes(window.currentModule||''))openModule(window.currentModule)},30000)}else if(r==='cliente'){await refreshClientRealData({silent:true});}const home=ROLE_HOME[r]||'cuenta';await openModule(can(home)?home:(MODULES.find(m=>can(m.id))?.id||'cuenta'))}
 const inviteEmail=new URLSearchParams(location.search).get('invite');if(inviteEmail){authMode('login');setTimeout(()=>{$('email').value=inviteEmail;showAuth('Invitación detectada. Ingresa tu acceso.');},200)}
 boot();
 </script>

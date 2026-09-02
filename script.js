@@ -312,13 +312,24 @@ function drawDetail(){
 
   optButtons('conditions',getConditions(p),selectedCondition,'setCond');
 
-  const img = colorMap[selectedColor] || selectedGallery || p.main;
+  // V1.6.3: la galería es independiente de los colores.
+  // selectedGallery tiene prioridad cuando el usuario pulsa una miniatura;
+  // al cambiar de color setColor() la reinicia a la imagen de ese color.
+  const img = selectedGallery || colorMap[selectedColor] || p.main;
   selectedGallery = img;
   $('mainImg').src=asset(img);
   $('mainImg').alt=p.name;
 
-  let thumbEntries = colorEntries.length ? colorEntries : (p.gallery||[p.main]).map((g,i)=>[`Vista ${i+1}`,g]);
-  $('thumbs').innerHTML=thumbEntries.map(([color,g])=>`<button class="thumb ${g==img?'sel':''}" title="${color}" onclick="setGal('${safe(g)}','${safe(color)}')"><img loading="lazy" src="${asset(g)}" alt="${p.name} ${color}"><span>${color}</span></button>`).join('\n');
+  const galleryUrls=[];
+  const pushGallery=(url)=>{
+    const u=String(url||'').trim();
+    if(u && !galleryUrls.includes(u)) galleryUrls.push(u);
+  };
+  (p.gallery||[]).forEach(pushGallery);
+  pushGallery(p.main);
+  if(!galleryUrls.length) pushGallery(colorMap[selectedColor]);
+
+  $('thumbs').innerHTML=galleryUrls.map((g,i)=>`<button class="thumb ${g==img?'sel':''}" title="Vista ${i+1}" onclick="setGal('${safe(g)}')"><img loading="lazy" src="${asset(g)}" alt="${p.name} vista ${i+1}"><span>${i===0?'Principal':`Imagen ${i+1}`}</span></button>`).join('\n');
 
   const details=p.details||{};
   $('features').innerHTML=Object.entries(details).length
@@ -331,13 +342,18 @@ function drawDetail(){
   }
 }
 
-function setGal(g,color){
+function setGal(g){
+  // Cambiar una miniatura no cambia el color seleccionado.
   selectedGallery=g;
-  const found = color || Object.entries((selectedProduct&&selectedProduct.colors)||{}).find(([name,img])=>img===g)?.[0];
-  if(found) selectedColor=found;
   drawDetail();
 }
-function setColor(c){selectedColor=c;selectedGallery=(selectedProduct.colors||{})[c]||selectedProduct.main;drawDetail();}
+function setColor(c){
+  selectedColor=c;
+  // Si existe una imagen específica del color, pasa a ser la vista activa.
+  // La galería permanece disponible debajo sin mezclarse con otros colores.
+  selectedGallery=(selectedProduct.colors||{})[c]||selectedProduct.main||(selectedProduct.gallery||[])[0];
+  drawDetail();
+}
 function setConfig(label,value){selectedConfig[label]=value;drawDetail();}
 function setCond(c){selectedCondition=c;drawDetail();}
 function closeProduct(){$('modal').classList.remove('open');}
@@ -5467,13 +5483,14 @@ window.addEventListener('load', ()=>{
   function readUser(){ try{ return JSON.parse(localStorage.getItem('ts_current_user')||'null'); }catch(e){ return null; } }
   function writeUser(u){ if(u) localStorage.setItem('ts_current_user', JSON.stringify(u)); }
   function normalizeRole(role){
-    role=String(role||'cliente').trim().toLowerCase();
-    if(role==='seller'||role==='ventas') return 'vendedor';
+    role=String(role||'cliente').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_');
+    if(role==='seller'||role==='ventas'||role==='sales') return 'vendedor';
     if(role==='reception'||role==='recepción') return 'recepcion';
     if(role==='support') return 'soporte';
-    if(role==='technical') return 'tecnico';
+    if(role==='technical'||role==='tech') return 'tecnico';
     if(role==='logistics') return 'logistica';
-    if(role==='administrator') return 'admin';
+    if(role==='administrator'||role==='gerente') return 'admin';
+    if(role==='super_admin'||role==='superadministrator'||role==='super_administrator') return 'superadmin';
     return ROLE_LABELS[role] ? role : 'cliente';
   }
   window.tsGetCurrentRole=function(){ const u=readUser(); return normalizeRole(u?.role || u?.rol || u?.tipo || 'cliente'); };
@@ -5501,13 +5518,25 @@ window.addEventListener('load', ()=>{
       const uid=session?.data?.session?.user?.id || u.supabase_id || u.id;
       const email=session?.data?.session?.user?.email || u.email;
       let role='cliente';
+      // profiles es la fuente canónica del Panel Multi-Rol. Evita que una fila antigua
+      // de staff_profiles (por ejemplo vendedor) rebaje un Admin/Super Admin.
       if(uid){
-        const r1=await window.tsSupabase.from('staff_profiles').select('role,is_active').eq('id',uid).maybeSingle();
-        if(!r1.error && r1.data && r1.data.is_active!==false) role=normalizeRole(r1.data.role);
+        const canonical=await window.tsSupabase.from('profiles').select('role,rol,active,activo,email,correo').eq('id',uid).maybeSingle();
+        if(!canonical.error && canonical.data && (canonical.data.active??canonical.data.activo??true)!==false){
+          role=normalizeRole(canonical.data.role||canonical.data.rol||'cliente');
+        }
+        if(role==='cliente'){
+          const r1=await window.tsSupabase.from('staff_profiles').select('role,is_active').eq('id',uid).maybeSingle();
+          if(!r1.error && r1.data && r1.data.is_active!==false) role=normalizeRole(r1.data.role);
+        }
         if(role==='cliente'){
           const r2=await window.tsSupabase.from('clientes').select('role,rol,tipo').eq('id',uid).maybeSingle();
           if(!r2.error && r2.data) role=normalizeRole(r2.data.role||r2.data.rol||r2.data.tipo||'cliente');
         }
+      }
+      if(email && role==='cliente'){
+        const c2=await window.tsSupabase.from('profiles').select('role,rol,active,activo').or(`email.eq.${email},correo.eq.${email}`).maybeSingle();
+        if(!c2.error && c2.data && (c2.data.active??c2.data.activo??true)!==false) role=normalizeRole(c2.data.role||c2.data.rol||'cliente');
       }
       if(email && role==='cliente'){
         const r3=await window.tsSupabase.from('staff_profiles').select('role,is_active').eq('email',email).maybeSingle();
@@ -5528,8 +5557,11 @@ window.addEventListener('load', ()=>{
       return;
     }
     const role=window.tsGetCurrentRole();
-    btn.textContent=window.tsIsStaff() ? '🧭 Panel' : '👤 Cuenta';
-    btn.title=window.tsIsStaff() ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta ThinkStore';
+    const isAdmin=['admin','superadmin'].includes(role);
+    btn.textContent=isAdmin ? '⚙️ Administración' : (window.tsIsStaff() ? '🧭 Panel' : '👤 Cuenta');
+    btn.title=isAdmin ? 'Abrir Panel Administrativo ThinkStore' : (window.tsIsStaff() ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta ThinkStore');
+    // Forzamos la acción aquí porque módulos antiguos actualizan este mismo botón.
+    btn.onclick=()=>window.tsOpenRolePanel();
     if(!window.tsIsStaff()){
       if(!panelBtn){
         panelBtn=document.createElement('button');
@@ -6068,4 +6100,54 @@ window.addEventListener('load', ()=>{
   window.openProductFromV2=id=>window.openProduct(id);
   ['setColor','setConfig'].forEach(name=>{const old=window[name]||(typeof globalThis[name]==='function'?globalThis[name]:null);if(typeof old==='function'){window[name]=function(){const r=old.apply(this,arguments);setTimeout(refresh,30);return r};try{globalThis[name]=window[name]}catch(e){}}});
   window.tsRefreshConditionState=refresh;
+})();
+
+/* ===== ThinkStore V1.6.5 · Precio exacto por producto/color/capacidad/condición ===== */
+(function(){
+  const n=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const cap=v=>{const m=n(v).match(/(\d+(?:\.\d+)?)\s*(tb|gb)/i);return m?`${m[1]}${m[2]}`:''};
+  const color=v=>{
+    const map={titanio:'titanium',desierto:'desert',negro:'black',blanco:'white',azul:'blue',galaxia:'galaxy',natural:'natural',plata:'silver',dorado:'gold',gris:'gray',grafito:'graphite',verde:'green',rosa:'pink',rojo:'red'};
+    return n(v).split(' ').filter(Boolean).map(x=>map[x]||x).sort().join(' ');
+  };
+  const dev=v=>n(v).replace(/^apple\s+/,'').replace(/\b(2023|2024|2025|2026)\b/g,'').replace(/\s+/g,' ').trim();
+  function score(v,p){
+    const pn=dev(v.product_name),pm=dev(v.model),want=dev(p.name),wm=dev(p.model||p.family||p.name);
+    let s=0;if(pn===want)s+=100;if(pm===want||pm===wm)s+=80;if(pn===wm)s+=70;
+    if(!s && (pn.includes(want)||want.includes(pn)))s+=40;
+    return s;
+  }
+  function matchRows(rows,p,c,capacity){
+    const ck=color(c),cp=cap(capacity);
+    return (rows||[]).map(v=>({v,s:score(v,p)})).filter(x=>x.s>0).filter(x=>!ck||color(x.v.color)===ck).filter(x=>!cp||cap(x.v.capacity)===cp).sort((a,b)=>b.s-a.s).map(x=>x.v);
+  }
+  function ckey(v){return typeof tsConditionKey==='function'?tsConditionKey(v):n(v)}
+  function price(v){const x=Number(v?.price_usd||0);return x>0?x:0}
+  function money2(x){return '$'+Number(x).toLocaleString('en-US',{maximumFractionDigits:2})}
+  function available(v){return Math.max(0,Number(v?.available ?? (Number(v?.stock_on_hand||0)-Number(v?.stock_reserved||0))))}
+  async function refreshV165(){
+    if(typeof selectedProduct==='undefined'||!selectedProduct)return;
+    try{
+      const all=await tsGetInventoryVariants(true),capacity=(window.tsSelectedCapacity?window.tsSelectedCapacity():''),rows=matchRows(all,selectedProduct,(typeof selectedColor!=='undefined'?selectedColor:''),capacity);
+      if(!rows.length)return;
+      const byCond={};rows.forEach(v=>{const k=ckey(v.condition);if(!byCond[k]||score(v,selectedProduct)>score(byCond[k],selectedProduct))byCond[k]=v});
+      const immediate=['Nuevo','Renovado'].filter(c=>{const v=byCond[ckey(c)];return v&&available(v)>0});
+      const options=immediate.length?[...immediate,'Pre-Order']:['Pre-Order'];
+      let current=(typeof selectedCondition!=='undefined'?selectedCondition:'')||options[0];if(!options.some(x=>ckey(x)===ckey(current)))current=options[0];selectedCondition=current;
+      const box=document.getElementById('conditions');
+      if(box)box.innerHTML=options.map(c=>{const v=byCond[ckey(c)],pr=price(v);return `<button class="opt ${ckey(c)===ckey(current)?'sel':''}" type="button" onclick="setCond('${c}')"><span>${c}</span><small style="display:block;font-size:12px;margin-top:4px;font-weight:900">${pr?money2(pr):(ckey(c)==='preorder'?'Precio por definir':'—')}</small></button>`}).join('');
+      const inv=byCond[ckey(current)]||null,pr=price(inv);
+      let badge=document.getElementById('tsLiveStockDetail');if(!badge){badge=document.createElement('div');badge.id='tsLiveStockDetail';const conditions=document.getElementById('conditions');(conditions?.parentElement||document.getElementById('pname')?.parentElement)?.insertBefore(badge,conditions?.nextSibling||null)}
+      badge.style.cssText='margin:12px 0 16px;padding:13px 15px;border:1px solid #e5e5e7;border-radius:16px;font-weight:800;background:#f7f7f8';
+      const q=available(inv),pre=ckey(current)==='preorder';badge.innerHTML=`<div>${pre?'Pre-Order · disponible bajo pedido':(inv&&q>0?`En stock · ${q} ${q===1?'unidad disponible':'unidades disponibles'}`:'Sin stock inmediato')}</div><div id="tsConditionPrice" style="margin-top:8px;font-size:22px;font-weight:950">${pr?`Precio seleccionado · USD ${money2(pr)}`:(pre?'Precio Pre-Order por definir':'Precio por definir')}</div>`;
+      if(pr){selectedProduct.price=pr;['pprice','productPrice','detailPrice'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=money2(pr)})}
+      // Anota precios de cada capacidad para la condición seleccionada.
+      const wantCond=ckey(current),prodRows=(all||[]).map(v=>({v,s:score(v,selectedProduct)})).filter(x=>x.s>0&&(!color(selectedColor)||color(x.v.color)===color(selectedColor))&&ckey(x.v.condition)===wantCond).sort((a,b)=>b.s-a.s).map(x=>x.v);
+      document.querySelectorAll('#vars .opt').forEach(btn=>{if(!btn.dataset.tsBaseLabel)btn.dataset.tsBaseLabel=(btn.textContent||'').trim();const base=btn.dataset.tsBaseLabel,cp=cap(base);if(!cp)return;const hit=prodRows.find(v=>cap(v.capacity)===cp),pp=price(hit);btn.innerHTML=`<span>${base}</span>${pp?`<small style="display:block;font-size:11px;margin-top:3px;font-weight:900">${money2(pp)}</small>`:''}`});
+    }catch(e){console.warn('ThinkStore V1.6.5 precios:',e)}
+  }
+  const oldCond=window.setCond;window.setCond=function(c){const r=oldCond?oldCond(c):undefined;setTimeout(refreshV165,40);return r};try{globalThis.setCond=window.setCond}catch(_){}
+  ['setColor','setConfig'].forEach(name=>{const old=window[name]||(typeof globalThis[name]==='function'?globalThis[name]:null);if(typeof old==='function'){window[name]=function(){const r=old.apply(this,arguments);setTimeout(refreshV165,50);return r};try{globalThis[name]=window[name]}catch(_){}}});
+  const oldOpen=window.openProduct;window.openProduct=function(id){const r=oldOpen?oldOpen(id):undefined;setTimeout(refreshV165,100);return r};window.openProductFromV2=id=>window.openProduct(id);
+  window.tsRefreshConditionState=refreshV165;
 })();
