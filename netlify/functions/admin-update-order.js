@@ -28,10 +28,16 @@ exports.handler = async function(event) {
     const ur=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:SERVICE,Authorization:`Bearer ${token}`}});
     const u=await ur.json().catch(()=>({}));
     if(!ur.ok||!u.id)return{ok:false};
-    const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,role,active&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:{apikey:SERVICE,Authorization:`Bearer ${SERVICE}`}});
-    const rows=await pr.json().catch(()=>[]),p=rows[0],r=norm(p?.role);
+    const serviceHeaders={apikey:SERVICE,Authorization:`Bearer ${SERVICE}`};
+    const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,role,active&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:serviceHeaders});
+    const rows=await pr.json().catch(()=>[]);let p=rows[0]||null;
+    if(!p&&u.email){
+      const rr=await fetch(`${SUPABASE_URL}/rest/v1/roles_usuarios?select=id,rol,activo&email=ilike.${encodeURIComponent(u.email)}&limit=1`,{headers:serviceHeaders});
+      const roleRows=await rr.json().catch(()=>[]);const rp=roleRows[0];if(rp)p={id:rp.id,role:rp.rol,active:rp.activo};
+    }
+    const r=norm(p?.role);
     if(!p||p.active===false||!['admin','super_admin','superadmin','administrator','gerente','vendedor'].includes(r))return{ok:false};
-    return{ok:true,user_id:u.id,role:r};
+    return{ok:true,user_id:u.id,email:u.email||'',role:r};
   }
   const auth=await authorizeAdmin();
   if(!auth.ok)return reply(401,{ok:false,error:'Acceso administrador no autorizado'});
@@ -179,6 +185,7 @@ exports.handler = async function(event) {
     const updated=await updatePedido(found,payload);
     const changed=Array.isArray(updated)?updated[0]:found;
     try{await sb('order_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({pedido_id:found.id,estado:nextStatus,nota:body.note||'Actualizado desde panel ThinkStore'})})}catch(_){ }
+    try{await sb('admin_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:auth.email||auth.mode||null,action:'update_order_status',entity_type:'pedido',entity_id:String(found.id),before_data:{estado:before},after_data:{estado:nextStatus,numero_guia:guide||null}})})}catch(_){ }
     const p=normalized(await fullPedido(changed));
     const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
     let noteResult={skipped:true};

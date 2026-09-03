@@ -137,7 +137,9 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
     const matched=byProduct.get(key)||rows.filter(v=>tsCatalogNorm(v.product_name||'')===key);
     if(!matched.length)return;
     const existing=base.find(p=>[p.name,p.model,p.family].map(tsCatalogNorm).includes(key));
-    const colors=[...new Set(matched.map(v=>String(v.color||'').trim()).filter(Boolean))];
+    const inventoryColors=matched.map(v=>String(v.color||'').trim()).filter(Boolean);
+    const catalogColors=existing?Object.keys(existing.colors||{}):[];
+    const colors=[...new Set([...inventoryColors,...catalogColors])];
     const capacities=[...new Set(matched.map(v=>String(v.capacity||'').trim()).filter(Boolean))];
     const conditions=[...new Set(matched.map(v=>String(v.condition||'').trim()).filter(Boolean))];
     const eg=editorialGallery(c);
@@ -2285,8 +2287,8 @@ function downloadCsvV10(filename, rows){
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
 }
 function seedDemoAdminData(){
-  if(!localStorage.getItem('ts_orders')) localStorage.setItem('ts_orders',JSON.stringify([{code:'TS-000125',date:new Date().toLocaleString('es-VE'),status:'Pago por verificar',payment:'Pago Móvil',paymentRef:'123456',paymentAmount:'$1299',customer:{name:'Cliente Demo',email:'cliente@correo.com',phone:'0412-0000000',id:'V-00000000',city:'Caracas',state:'Distrito Capital',address:'Dirección demo',shipping:'MRW'},items:[{product:'iPhone 17 Pro',model:'iPhone',color:'Azul',config:'512GB',condition:'New',qty:1,price:1299}]}]));
-  if(!localStorage.getItem('ts_customers')) localStorage.setItem('ts_customers',JSON.stringify([{name:'Cliente Demo',email:'cliente@correo.com',phone:'0412-0000000',id:'V-00000000',city:'Caracas',state:'Distrito Capital',address:'Dirección demo'}]));
+  if(!localStorage.getItem('ts_orders')) localStorage.setItem('ts_orders','[]');
+  if(!localStorage.getItem('ts_customers')) localStorage.setItem('ts_customers','[]');
   renderAdminSuite();
 }
 
@@ -5159,7 +5161,7 @@ window.addEventListener('load', ()=>{
       setModal('🎥','Galería de videos','Guarda enlaces para reviews, unboxing y demostraciones.',`<div class="ts-feature-form"><label>Título<input id="vidTitle" placeholder="Unboxing iPhone"></label><label>URL<input id="vidUrl" placeholder="https://..."></label></div><div class="ts-feature-actions"><button onclick="tsAddVideo()">Agregar video</button></div><div id="videoList">${renderVideos(list)}</div>`);
     },
     service(){
-      setModal('🔧','Centro de Servicio Técnico','Crea órdenes TS-RP con serial, falla y diagnóstico.',`<div class="ts-feature-form"><label>Cliente<input id="rpClient" placeholder="Nombre / correo"></label><label>Equipo<input id="rpDevice" placeholder="iPhone / MacBook / iPad"></label><label>Serial<input id="rpSerial" placeholder="Serial del equipo"></label><label>Falla<textarea id="rpIssue" placeholder="Describe la falla"></textarea></label></div><div class="ts-feature-actions"><button onclick="tsCreateRepair()">Crear orden</button><button class="light ts-pro-btn" onclick="tsOpenFeature('repairTrack')">Seguimiento</button></div><pre id="rpResult" class="ts-feature-result">La orden quedará guardada localmente para seguimiento.</pre>`);
+      window.tsOpenTechnicalService('Servicio técnico general');
     },
     repairTrack(){
       setModal('📱','Seguimiento de Reparaciones','Consulta diagnóstico, reparación y listo para retirar.',`<div class="ts-feature-form"><label>Código TS-RP<input id="rpSearch" placeholder="TS-RP-0001"></label></div><div class="ts-feature-actions"><button onclick="tsTrackRepair()">Consultar reparación</button></div><div id="rpTrackResult"></div>`);
@@ -5185,8 +5187,8 @@ window.addEventListener('load', ()=>{
   window.tsQuoteWhatsApp=function(){ if(!window.tsLastQuote) window.tsBuildQuote(); wa(window.tsLastQuote||'Cotización ThinkStore'); };
   window.tsBuildPreMap=function(){ const steps=['Comprado','Miami / proveedor','Aduana','En tránsito a Venezuela','Disponible para entrega','Entregado']; const st=formVal('preStatus')||steps[0]; const idx=Math.max(0,steps.indexOf(st)); const html=steps.map((s,i)=>`<div class="ts-feature-step ${i<idx?'':'pending'} ${i===idx?'current':''}"><b>${i<idx?'✓':i+1}</b><div><strong>${s}</strong><br><small>${i<idx?'Completado':i===idx?'En proceso':'Pendiente'}</small></div></div>`).join(''); if($('preMapResult')) $('preMapResult').innerHTML=html; };
   window.tsExportExecutiveCSV=function(){ const csv='tipo,total\nventas,'+orders().length+'\nclientes,'+customers().length; const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='thinkstore_dashboard.csv'; a.click(); };
-  window.tsCreateRepair=function(){ const list=store('ts_repairs')||[]; const code='TS-RP-'+String(Date.now()).slice(-6); const item={code,client:formVal('rpClient'),device:formVal('rpDevice'),serial:formVal('rpSerial'),issue:formVal('rpIssue'),status:'Diagnóstico',created:new Date().toLocaleString()}; list.unshift(item); store('ts_repairs',list); result('rpResult',`Orden creada: ${code}\nCliente: ${item.client}\nEquipo: ${item.device}\nSerial: ${item.serial}\nFalla: ${item.issue}\nEstado: ${item.status}`); };
-  window.tsTrackRepair=function(){ const code=formVal('rpSearch').toUpperCase(); const r=(store('ts_repairs')||[]).find(x=>String(x.code).toUpperCase()===code); const el=$('rpTrackResult'); if(!el) return; if(!r){ el.innerHTML='<div class="ts-feature-box">No se encontró la reparación.</div>'; return; } const steps=['Recibido','Diagnóstico','Reparación','Listo']; const idx=Math.max(1,steps.indexOf(r.status)); el.innerHTML=`<div class="ts-feature-box"><b>${esc(r.code)}</b><p>${esc(r.device)} · ${esc(r.issue)}</p><div class="ts-repair-status">${steps.map((s,i)=>`<span class="${i<=idx?'on':''}">${s}</span>`).join('')}</div></div>`; };
+  window.tsCreateRepair=function(){ window.tsOpenTechnicalService('Servicio técnico general'); };
+  window.tsTrackRepair=function(){ const code=formVal('rpSearch').toUpperCase(); window.open(`https://soporte.thinkstore.com.ve/${code?`?orden=${encodeURIComponent(code)}`:''}`,'_blank','noopener'); };
   window.tsCalcCare=function(){ const val=Number(formVal('careValue')||0), months=Number(formVal('carePlan')||6); const price=Math.round(val*(months===12?.12:.075)); result('careResult',`ThinkStore Care\nEquipo: ${formVal('careDevice')||'Equipo Apple'}\nPlan: ${months} meses\nReferencia: ${money(price)}\n\nIncluye orientación, prioridad de atención y registro digital del equipo.`); };
   window.tsCompareApple=function(){ const a=formVal('cmpA')||'Equipo A', b=formVal('cmpB')||'Equipo B', use=formVal('cmpUse'); result('cmpResult',`Comparador Apple\n\n${a} vs ${b}\nUso principal: ${use}\n\nRecomendación comercial:\n• ${a}: buena opción si buscas mejor precio o disponibilidad inmediata.\n• ${b}: ideal si quieres más tiempo de soporte, mejor rendimiento y valor de reventa.\n\nPara ${use.toLowerCase()}, conviene revisar batería, almacenamiento y cámara antes de decidir.`); };
   window.tsAISeller=function(){ const budget=Number(formVal('aiBudget')||0), use=formVal('aiUse'), pref=formVal('aiPref'); let rec='iPhone 13 / 14 renovado o iPad base'; if(budget>=1800) rec='iPhone Pro Max reciente o MacBook Pro M4'; else if(budget>=1000) rec='iPhone 15/16, iPad Air o MacBook Air M3/M4'; else if(budget>=500) rec='iPhone 13/14, AirPods Pro o Apple Watch'; const txt=`IA Vendedora ThinkStore\nPresupuesto: ${money(budget)}\nUso: ${use}\nPreferencia: ${pref}\n\nRecomendación: ${rec}\n\nMensaje sugerido:\nTe recomiendo esta opción porque equilibra presupuesto, rendimiento y disponibilidad. También podemos cotizar accesorios compatibles.`; result('aiResult',txt); window.tsLastAI=txt; };
@@ -6173,4 +6175,24 @@ window.addEventListener('load', ()=>{
   ['setColor','setConfig'].forEach(name=>{const old=window[name]||(typeof globalThis[name]==='function'?globalThis[name]:null);if(typeof old==='function'){window[name]=function(){const r=old.apply(this,arguments);setTimeout(refreshV165,50);return r};try{globalThis[name]=window[name]}catch(_){}}});
   const oldOpen=window.openProduct;window.openProduct=function(id){const r=oldOpen?oldOpen(id):undefined;setTimeout(refreshV165,100);return r};window.openProductFromV2=id=>window.openProduct(id);
   window.tsRefreshConditionState=refreshV165;
+})();
+
+/* ===== Solicitud real de Servicio Técnico ===== */
+(function(){
+  window.tsOpenTechnicalService=function(service){
+    const requested=String(service||'Servicio técnico general').trim();
+    if(typeof window.tsOpenSmartWhatsApp==='function'){
+      window.tsOpenSmartWhatsApp('soporte');
+      setTimeout(()=>{
+        const field=document.getElementById('tsSmartWaExtra');
+        if(!field)return;
+        field.value=`Necesito solicitar ${requested}. Equipo: [modelo]. Falla o solicitud: [detalle].`;
+        field.dispatchEvent(new Event('input',{bubbles:true}));
+        field.focus();
+      },80);
+      return;
+    }
+    const message=`Hola ThinkStore, necesito solicitar ${requested}. Equipo: [modelo]. Falla o solicitud: [detalle].`;
+    window.open(`https://wa.me/584141032030?text=${encodeURIComponent(message)}`,'_blank','noopener');
+  };
 })();

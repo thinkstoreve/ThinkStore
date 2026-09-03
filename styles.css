@@ -3196,3 +3196,10 @@ body.dark .ts-smart-wa-options small{color:#c7c7cc} body.dark .ts-smart-wa-custo
 /* ===== ThinkStore V62 Multi-Rol Pro ===== */
 #growth-enterprise,#v58-sales-automation,#v59-service-care-ai,#v60-ecosistema-comercial{display:none!important;}
 .ts-role-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;background:#111;color:#fff;font-weight:800;font-size:12px;margin-left:8px;}
+
+/* ===== Servicio técnico activo ===== */
+.servgrid button{appearance:none;width:100%;min-height:112px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:24px;padding:22px;text-align:left;font:inherit;font-size:22px;cursor:pointer;display:grid;grid-template-columns:auto 1fr;column-gap:10px;row-gap:5px;align-content:center;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.servgrid button:hover,.servgrid button:focus-visible{transform:translateY(-3px);box-shadow:var(--shadow);border-color:#0071e366;outline:none}
+.servgrid button b{font-size:19px;align-self:center}.servgrid button small{grid-column:1/-1;color:var(--muted);font-size:13px;line-height:1.35}
+.service-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}.service-actions .btn{margin:0}.service-track{background:var(--card);color:var(--text);border:1px solid var(--border)}
+@media(max-width:560px){.servgrid button{min-height:96px;padding:16px;font-size:19px}.service-actions{display:grid}.service-actions .btn{justify-content:center}}
