@@ -15,25 +15,31 @@ exports.handler = async function(event) {
   const SUPABASE_SERVICE_ROLE_KEY = cleanAuth(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   async function authorizeAdmin() {
-    const provided = cleanAuth(event.headers['x-admin-secret'] || event.headers['X-Admin-Secret']);
-    const legacySecrets = [process.env.THINKSTORE_ADMIN_SECRET, process.env.THINKSTORE_ADMIN_CODE]
-      .map(cleanAuth).filter(Boolean);
-    if (provided && legacySecrets.includes(provided)) return true;
+    try {
+      const provided = cleanAuth(event.headers['x-admin-secret'] || event.headers['X-Admin-Secret']);
+      const legacySecrets = [process.env.THINKSTORE_ADMIN_SECRET, process.env.THINKSTORE_ADMIN_CODE]
+        .map(cleanAuth).filter(Boolean);
+      if (provided && legacySecrets.includes(provided)) return true;
 
-    const token = cleanAuth(event.headers.authorization || event.headers.Authorization).replace(/^Bearer\s+/i, '');
-    if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
-    const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` }
-    });
-    const authUser = await userResponse.json().catch(() => ({}));
-    if (!userResponse.ok || !authUser.id) return false;
-    const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,role,active&id=eq.${encodeURIComponent(authUser.id)}&limit=1`, {
-      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` }
-    });
-    const profiles = await profileResponse.json().catch(() => []);
-    const profile = Array.isArray(profiles) ? profiles[0] : null;
-    const role = normalizeRole(profile?.role);
-    return Boolean(profile && profile.active !== false && ['admin','super_admin','superadmin','administrator','gerente','marketing'].includes(role));
+      const token = cleanAuth(event.headers.authorization || event.headers.Authorization).replace(/^Bearer\s+/i, '');
+      if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
+      const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` }
+      });
+      const authUser = await userResponse.json().catch(() => ({}));
+      if (!userResponse.ok || !authUser.id) return false;
+      const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(authUser.id)}&limit=1`, {
+        headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` }
+      });
+      const profiles = await profileResponse.json().catch(() => []);
+      const profile = Array.isArray(profiles) ? profiles[0] : null;
+      const role = normalizeRole(profile?.role || profile?.rol);
+      const active = (profile?.active ?? profile?.activo ?? true) !== false;
+      return Boolean(profileResponse.ok && profile && active && ['admin','super_admin','superadmin','administrator','gerente','marketing'].includes(role));
+    } catch (error) {
+      console.error('ThinkStore campaign authorization:', error);
+      return false;
+    }
   }
 
   if (!(await authorizeAdmin())) {
@@ -83,23 +89,24 @@ exports.handler = async function(event) {
   }
 
   let recipients = [];
-  if (testEmail) {
-    recipients = [{ email: testEmail, nombre: 'Prueba ThinkStore' }];
-  } else {
-    const clientes = await supabaseGet('clientes?select=id,nombre,correo,email,created_at');
-    recipients = clientes
-      .map(c => ({ email: clean(c.correo || c.email), nombre: clean(c.nombre || 'Cliente') }))
-      .filter(c => c.email && c.email.includes('@'));
-
-    if (audience === 'buyers') {
-      const pedidos = await supabaseGet('pedidos?select=cliente_id');
-      const buyerIds = new Set((pedidos || []).map(p => String(p.cliente_id || '')).filter(Boolean));
-      const clientesFull = await supabaseGet('clientes?select=id,nombre,correo,email');
-      recipients = clientesFull
-        .filter(c => buyerIds.has(String(c.id || '')))
-        .map(c => ({ email: clean(c.correo || c.email), nombre: clean(c.nombre || 'Cliente') }))
+  try {
+    if (testEmail) {
+      recipients = [{ email: testEmail, nombre: 'Prueba ThinkStore' }];
+    } else {
+      // select=* mantiene compatibilidad con bases que usan correo o email.
+      const clientes = await supabaseGet('clientes?select=*');
+      recipients = clientes
+        .map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.name || 'Cliente') }))
         .filter(c => c.email && c.email.includes('@'));
+
+      if (audience === 'buyers') {
+        const pedidos = await supabaseGet('pedidos?select=cliente_id');
+        const buyerIds = new Set((pedidos || []).map(p => String(p.cliente_id || '')).filter(Boolean));
+        recipients = recipients.filter(c => buyerIds.has(String(c.id || '')));
+      }
     }
+  } catch (error) {
+    return { statusCode: 502, headers, body: JSON.stringify({ ok:false, error:`No se pudieron cargar los destinatarios: ${error.message || error}` }) };
   }
 
   recipients = Array.from(new Map(recipients.map(r => [r.email.toLowerCase(), r])).values()).slice(0, 250);
@@ -162,25 +169,30 @@ exports.handler = async function(event) {
   let sent = 0, failed = 0, errors = [];
 
   for (const r of recipients) {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from,
-        to: r.email,
-        reply_to: replyTo,
-        subject,
-        html: htmlFor(r.nombre),
-        text: `${title}\n\n${subtitle}\n\n${message}\n\n${productName}\n${productDetails}\n${offer}\n\n${actionUrl}`
-      })
-    });
-    const result = await response.json().catch(() => ({}));
-    if (response.ok) sent++; else { failed++; errors.push(`${r.email}: ${result.message || response.status}`); }
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from,
+          to: r.email,
+          reply_to: replyTo,
+          subject,
+          html: htmlFor(r.nombre),
+          text: `${title}\n\n${subtitle}\n\n${message}\n\n${productName}\n${productDetails}\n${offer}\n\n${actionUrl}`
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok) sent++; else { failed++; errors.push(`${r.email}: ${result.message || result.error || `Resend HTTP ${response.status}`}`); }
+    } catch (error) {
+      failed++;
+      errors.push(`${r.email}: ${error.message || 'No fue posible conectar con Resend'}`);
+    }
   }
 
   await supabaseInsert('marketing_campaigns', [{
     subject, title, audience, recipients_count: recipients.length, sent_count: sent, failed_count: failed, created_at: new Date().toISOString()
   }]);
 
-  return { statusCode: 200, headers, body: JSON.stringify({ ok: true, total: recipients.length, sent, failed, errors: errors.slice(0, 8) }) };
+  return { statusCode: sent > 0 ? 200 : 502, headers, body: JSON.stringify({ ok: sent > 0, total: recipients.length, sent, failed, errors: errors.slice(0, 8), error: sent > 0 ? null : (errors[0] || 'Resend no aceptó ningún correo') }) };
 };

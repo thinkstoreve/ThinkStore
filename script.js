@@ -37,6 +37,17 @@ function tsInventoryCategory(v){
   if(/pencil|mouse|keyboard|airtag|cable|cargador|adaptador|funda|accesorio/.test(t)) return 'Accesorios';
   return 'Accesorios';
 }
+function tsCatalogCategoryForProduct(name,stored){
+  const inferred=tsInventoryCategory({product_name:name});
+  const normalized=tsCatalogNorm(stored);
+  // Evita cruces imposibles guardados anteriormente, como iPhone dentro de Mac.
+  if(tsCatalogNorm(name).includes('iphone')) return 'iPhone';
+  if(tsCatalogNorm(name).includes('ipad')) return 'iPad';
+  if(tsCatalogNorm(name).includes('airpod')) return 'Audio';
+  if(tsCatalogNorm(name).includes('watch')) return 'Apple Watch';
+  if(tsCatalogNorm(name).includes('mac')) return 'Mac';
+  return normalized ? stored : inferred;
+}
 function tsCatalogFallbackImage(category){
   try{
     const c=(typeof CATEGORIES!=='undefined'&&Array.isArray(CATEGORIES)) ? CATEGORIES.find(x=>x.id===category || (category==='Audio'&&x.id==='Audio') || (category==='Apple Watch'&&/watch/i.test(x.id))) : null;
@@ -76,6 +87,16 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
     const main=String(primary?.image_url||c?.image_url||'').trim();
     if(main&&!urls.includes(main))urls.unshift(main);
     return {main,urls:urls.length?urls:(main?[main]:[])};
+  }
+  function galleryColorMap(colors,urls,main){
+    const list=(urls||[]).filter(Boolean);
+    const map={};
+    if(!colors.length)return map;
+    // Convención del panel: portada general primero; después una imagen por color.
+    // Si solo hay tantas imágenes como colores, se vinculan desde la primera.
+    const offset=list.length>colors.length?1:0;
+    colors.forEach((color,index)=>{map[color]=list[index+offset]||list[index]||main;});
+    return map;
   }
   const byProduct=new Map();
   rows.forEach(v=>{const k=tsCatalogNorm(v.product_name||'');if(!k)return;if(!byProduct.has(k))byProduct.set(k,[]);byProduct.get(k).push(v)});
@@ -121,29 +142,31 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
     const conditions=[...new Set(matched.map(v=>String(v.condition||'').trim()).filter(Boolean))];
     const eg=editorialGallery(c);
     const image=eg.main;
+    const category=tsCatalogCategoryForProduct(c.product_name,c.category);
     if(existing){
       // Producto ya existente: la galería de Supabase sustituye la visual sin mezclar modelos.
       existing.main=image; existing.gallery=eg.urls;
-      if(colors.length){const m={};colors.forEach(x=>m[x]=image);existing.colors=m}
+      if(colors.length)existing.colors=galleryColorMap(colors,eg.urls,image);
       if(capacities.length)existing.storage=capacities;
       if(conditions.length)existing.condition=conditions;
       if(c.description)existing.description=c.description;
-      if(c.category)existing.category=c.category;
+      existing.category=category;
+      existing.cat=category;
       enrich(existing,matched);
       return;
     }
     // Producto completamente nuevo: solo se agrega al catálogo público cuando el administrador lo publica.
     if(c.published!==true) return;
-    const colorMap={};(colors.length?colors:['Único']).forEach(x=>colorMap[x]=image);
+    const colorMap=galleryColorMap(colors.length?colors:['Único'],eg.urls,image);
     const p={
       id:'sb-'+String(c.product_key||tsCatalogSlug(c.product_name)),
       name:c.product_name,
       family:c.product_name,
       model:matched[0]?.model||c.product_name,
-      category:c.category,
-      cat:c.category,
+      category,
+      cat:category,
       brand:'Apple',
-      badge:conditions[0]||c.category,
+      badge:conditions[0]||category,
       description:c.description||'Producto disponible en ThinkStore.',
       main:image,
       gallery:eg.urls,
