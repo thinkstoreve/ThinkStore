@@ -9,6 +9,9 @@ html, body {
   background: #05080f !important;
 }
 
+.service-toast{position:fixed;right:24px;bottom:24px;z-index:9999;max-width:420px;padding:15px 20px;border-radius:14px;background:#16251d;color:#fff;box-shadow:0 18px 50px #0006;opacity:0;transform:translateY(18px);pointer-events:none;transition:.22s ease;font-weight:700}.service-toast.error{background:#5b1d25}.service-toast.show{opacity:1;transform:none}.order-manager{max-height:92vh;overflow:auto}.order-files{display:grid;gap:8px;margin-top:12px}.order-files a{display:block;padding:10px 12px;border-radius:10px;background:#f3f5f7;color:#111;text-decoration:none}.file-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.file-actions input{flex:1;min-width:220px}
+.stock-low{color:#c62828;background:#ffebee;padding:4px 9px;border-radius:999px}
+
 body {
   background-image:
     linear-gradient(90deg, rgba(5,8,15,.96) 0%, rgba(5,8,15,.80) 34%, rgba(5,8,15,.20) 68%, rgba(5,8,15,.04) 100%),

@@ -1,4 +1,4 @@
-const CACHE = 'thinkstore-enterprise-v9-5-pwa';
+const CACHE = 'thinkstore-enterprise-v11-launch-candidate';
 const ASSETS = [
   '/',
   '/index.html',

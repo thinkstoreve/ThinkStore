@@ -1,12 +1,12 @@
 const titles = {
   executive:["Panel Ejecutivo","Resumen general de tu negocio en tiempo real."],
-  commercial:["Control Comercial ThinkStore","Ventas, clientes, inventario, pagos, notas de entrega y correos. Lectura segura sin tocar el flujo actual."],
+  commercial:["Control Comercial ThinkStore","Ventas, clientes, inventario, pagos, notas de entrega y correos con datos reales."],
   sales:["Ventas","Pedidos, ingresos, canales y rendimiento comercial."],
   products:["Productos","Catálogo estratégico, top ventas y rentabilidad por modelo."],
   inventory:["Inventario Pro","Stock crítico, agotados, rotación y reposición preparada."],
   clients:["CRM Clientes","Clientes VIP, frecuentes, inactivos y valor comercial."],
   staff:["Accesos de vendedores","Crea, administra y limita accesos del equipo como Shopify Staff."],
-  marketing:["Marketing Center","Audiencias, segmentos y campañas preparadas sin enviar correos."],
+  marketing:["Marketing Center","Audiencias reales y acceso al remitente oficial de campañas."],
   finance:["Finanzas Pro","Ventas, ticket promedio, pagos pendientes y control financiero."],
   reports:["Inteligencia Comercial","BI, segmentos, top clientes, productos y reportes ejecutivos."],
   support:["Centro de Soporte","Control ejecutivo de soporte.thinkstore.com.ve: órdenes, diagnósticos, técnicos y entregas."],
@@ -22,31 +22,11 @@ let currentProfile = null;
 let deferredPwaPrompt = null;
 let pwaReady = false;
 
-const activity = [
-  ["green","▢","Nuevo pedido #TS-1048","Cliente: Juan Pérez","Hace 2 min"],
-  ["orange","⬡","Stock bajo en 5 productos","Revisa tu inventario","Hace 15 min"],
-  ["blue","♙","Nuevo cliente registrado","María García","Hace 30 min"],
-  ["purple","$","Pago recibido","Orden #TS-1045","Hace 1 hora"]
-];
-const products = [
-  ["📱","iPhone 16 Pro Max","$45,600.00","Ventas: 320",88],
-  ["🎧","AirPods Pro","$33,600.00","Ventas: 280",72],
-  ["💻","MacBook Air M4","$12,600.00","Ventas: 210",42]
-];
-const channels = [["#2677ff","Tienda Online","62%"],["#4b93ff","Instagram","18%"],["#91a79d","WhatsApp","12%"],["#ff951f","Marketplace","5%"],["#8e4dff","Otros","3%"]];
-const status = [["✓","Servidor","Operativo"],["✓","Pasarelas de pago","Operativo"],["✓","Integraciones","Operativo"],["✓","Actualizaciones","Al día"],["✓","Copias de seguridad","Al día"]];
-const modules = {
- sales: [["Ingresos hoy","$8,420","Ventas cerradas y pagos confirmados"],["Pedidos pendientes","18","Órdenes por procesar o verificar"],["Ticket promedio","$98.50","Valor promedio por orden"],["Canal líder","Tienda Online","62% de las ventas"],["Preórdenes activas","34","Dentro de 15 a 25 días hábiles"],["Conversión","8.9%","De visitas a compras"]],
- products: [["Top iPhone","iPhone 16 Pro Max","Mayor margen del mes"],["Top Accesorio","AirPods Pro","Alta rotación"],["Top MacBook","MacBook Air M4","Campaña recomendada"],["Productos activos","186","Catálogo visible"],["Sin imagen","4","Revisar catálogo"],["Margen premium","32%","Promedio categoría Apple"]],
- inventory: [["Stock bajo","5","Requiere reposición"],["Sin stock","2","Activar preorden"],["Rotación alta","AirPods Pro","Reabastecer semanal"],["Valor inventario","$86,400","Costo estimado"],["Reposiciones","12","Sugeridas por demanda"],["Alertas críticas","3","Prioridad alta"]],
- clients: [["Clientes activos","3,682","Base registrada"],["Clientes VIP","124","Alto valor"],["Recurrentes","38%","Compran más de una vez"],["Nuevos este mes","286","Crecimiento CRM"],["Sin seguimiento","41","Activar campaña"],["Satisfacción","96%","Postventa y soporte"]],
- marketing: [["ROI total","312%","Campañas activas"],["Gasto mensual","$24,850","Publicidad y diseño"],["Instagram","18%","Canal secundario"],["Email premium","2.8x","Retorno estimado"],["WhatsApp","12%","Conversión directa"],["Campañas activas","7","Automatizadas"]],
- finance: [["Ingresos totales","$1,248,850","Histórico"],["Utilidad estimada","$28,940","Mes actual"],["Costos operativos","$14,600","Control mensual"],["Pagos pendientes","$3,950","Verificación"],["Margen bruto","31%","Promedio"],["Flujo proyectado","$42,200","Próximo mes"]],
- reports: [["Reporte ventas","PDF/CSV","Listo para exportar"],["Reporte inventario","CSV","Stock y rotación"],["Reporte clientes","CRM","Segmentos VIP"],["Reporte marketing","ROI","Campañas"],["Reporte soporte","SLA","Órdenes técnicas"],["Reporte finanzas","Resumen","Utilidad mensual"]],
- integrations: [["Supabase","Conectado","Auth, DB y roles"],["Correo corporativo","Activo","Estados y promociones"],["Stripe","Preparado","Pasarela internacional"],["Shopify style","UI activa","Panel admin"],["MRW / Zoom / Tealca","Listo","Logística"],["Growth API","Demo","Métricas locales"]],
- automations: [["Email de estatus","Activo","Pedidos y preórdenes"],["Stock bajo","Activo","Alertas admin"],["Clientes VIP","Programado","Campañas"],["Carrito abandonado","Pendiente","Recuperación"],["Reorden automático","Sugerido","Inventario"],["Reporte semanal","Activo","Resumen ejecutivo"]],
- settings: [["Rol administrador","Activo","Acceso completo"],["Vendedores","Gestión incluida","Ventas, clientes y pedidos"],["Recepción","Limitado","Soporte técnico"],["Logística","Limitado","Envíos"],["Clientes","Privado","Solo sus órdenes"],["Supabase Auth","Activo","Login real por correo y contraseña"],["Gestión de usuarios","Profiles + Staff invitations","Roles y accesos desde Growth Enterprise"]]
-};
+const activity = [];
+const products = [];
+const channels = [];
+const status = [];
+const modules = {};
 
 function qs(id){return document.getElementById(id)}
 function safe(value){return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
@@ -160,7 +140,7 @@ async function unlock(event){
     setLoginMessage(error.message || 'No se pudo iniciar sesión.', 'error');
   }
 }
-function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); renderHome(); renderModules(); renderStaffAccess(); loadEnterpriseV1Real(); loadEnterpriseV6Support(); }
+function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); renderHome(); renderModules(); renderStaffAccess(); loadEnterpriseV1Real(); }
 
 async function sendPasswordRecovery(){
   const email = qs('adminEmail')?.value.trim();
@@ -199,10 +179,10 @@ async function bootAuth(){
   }
 }
 function renderHome(){
-  qs('activityList').innerHTML = activity.map(([color,icon,title,sub,time]) => `<div class="activity-item"><div class="round ${color}">${icon}</div><div><b>${title}</b><span>${sub}</span></div><time>${time}</time></div>`).join('');
-  qs('topProducts').innerHTML = products.map(([emoji,name,price,sales,p]) => `<div class="product-row"><div class="product-img">${emoji}</div><div><b>${name}</b><small>${sales}</small><div class="barline"><i style="width:${p}%"></i></div></div><strong>${price}</strong></div>`).join('');
-  qs('channelList').innerHTML = channels.map(([c,n,p]) => `<li><i style="background:${c}"></i><span>${n}</span><b>${p}</b></li>`).join('');
-  qs('statusList').innerHTML = status.map(([i,n,s]) => `<div class="status-row"><i>${i}</i><b>${n}</b><span>${s}</span></div>`).join('');
+  qs('activityList').innerHTML = '<div class="activity-item"><div><b>Cargando actividad real…</b><span>Sin datos simulados</span></div></div>';
+  qs('topProducts').innerHTML = '<div class="product-row"><div><b>Cargando productos reales…</b><small>Supabase</small></div></div>';
+  qs('channelList').innerHTML = '<li><span>Cargando canales reales…</span></li>';
+  qs('statusList').innerHTML = '<div class="status-row"><b>Conectando fuentes reales…</b></div>';
 }
 function renderModules(){
   Object.entries(modules).forEach(([id,items])=>{
@@ -220,7 +200,7 @@ function switchView(id){
   if(['support','client360','warranties','alerts'].includes(id)) loadEnterpriseV6Support();
 }
 function exportCSV(id='executive'){
-  const source = modules[id] || [['Ventas del mes','$124850','KPI'],['Pedidos totales','1248','KPI'],['Clientes activos','3682','KPI'],['Utilidad estimada','$28940','KPI']];
+  const source = modules[id] || [];
   const rows = [['Modulo','Metrica','Valor','Descripcion'], ...source.map(r=>[id,...r])];
   const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
   const blob = new Blob([csv],{type:'text/csv;charset=utf-8'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `thinkstore-growth-${id}.csv`; a.click(); URL.revokeObjectURL(a.href);
@@ -1587,21 +1567,25 @@ function renderV6ExecutiveSummary(data){
 function renderV6Support(data){
   const el = qs('support'); if(!el) return;
   const orders = data.serviceOrders || [];
+  const parts = data.serviceParts || [];
+  const partMovements = data.servicePartMovements || [];
+  const lowParts = parts.filter(p=>Number(p.quantity||0)<=Number(p.minimum_stock||0));
   const open = orders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado']));
   const diagnosis = orders.filter(o=>statusMatches(supportStatus(o), ['Diagnóstico','diagnostico']));
   const repair = orders.filter(o=>statusMatches(supportStatus(o), ['reparación','reparacion','aprobado']));
   const ready = orders.filter(o=>statusMatches(supportStatus(o), ['Listo para entregar','Listo']));
   const delayed = orders.filter(isSupportDelayed);
-  const recent = orders.slice(0,10).map(o=>`
+  const supportStates=['Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'];
+  const recent = orders.slice(0,20).map(o=>`
     <div class="table-row v6-row">
       <div><b>${safe(supportCode(o))}</b><br><small>${safe(supportClient(o))} · ${safe(supportDevice(o))}</small></div>
-      <span class="status-dot ${v2StatusClass(supportStatus(o))}">${safe(supportStatus(o))}</span>
-      <i class="tag">${safe(v2Date(supportDate(o)))}</i>
+      <span><select class="v2-select" onchange="enterpriseUpdateSupport('${safe(o.id||'')}',this.value)">${supportStates.map(s=>`<option ${s===supportStatus(o)?'selected':''}>${safe(s)}</option>`).join('')}</select></span>
+      <i><button class="tag" onclick="enterpriseManageSupport('${safe(o.id||'')}')">Gestionar</button> <button class="tag" onclick="enterpriseAddSupportNote('${safe(o.id||'')}','${safe(supportCode(o))}')">Bitácora</button> <button class="tag" onclick="enterpriseNotifySupport('${safe(o.id||'')}','${safe(supportCode(o))}')">Correo</button></i>
     </div>`).join('');
   el.innerHTML = `
     <article class="panel v6-hero">
-      <div class="panel-head"><h3>Centro de Soporte integrado</h3><span class="tag safe-tag">Solo lectura · soporte.thinkstore.com.ve</span></div>
-      <p class="staff-help">Enterprise V6 lee el estado del centro de soporte para llevar control ejecutivo. No cambia estados, no modifica bitácoras y no toca correos de soporte.</p>
+      <div class="panel-head"><h3>Centro de Soporte integrado</h3><span class="tag safe-tag">Datos reales · Supabase Soporte</span></div>
+      <p class="staff-help">Consulta órdenes reales, actualiza estados y registra entradas de bitácora sin mezclar la base de soporte con la tienda.</p>
       <div class="v2-toolbar"><button onclick="window.open('https://soporte.thinkstore.com.ve','_blank','noopener')">Abrir Soporte Técnico</button><button onclick="loadEnterpriseV6Support()">Actualizar</button></div>
     </article>
     <div class="module-grid control-cards">
@@ -1611,13 +1595,17 @@ function renderV6Support(data){
       <article class="module-card"><h3>En reparación</h3><strong>${formatNumber(repair.length)}</strong><p>Aprobados o en proceso técnico.</p></article>
       <article class="module-card"><h3>Listos</h3><strong>${formatNumber(ready.length)}</strong><p>Preparados para entregar al cliente.</p></article>
       <article class="module-card"><h3>Retrasados</h3><strong>${formatNumber(delayed.length)}</strong><p>Más de 5 días sin entrega final.</p></article>
+      <article class="module-card"><h3>Repuestos</h3><strong>${formatNumber(parts.length)}</strong><p>${formatNumber(lowParts.length)} con stock bajo.</p></article>
     </div>
     <div class="main-grid" style="margin-top:18px">
-      <article class="panel"><div class="panel-head"><h3>Órdenes recientes</h3><span class="tag">V6</span></div><div class="table">${recent || '<div class="table-row"><div><b>Sin órdenes visibles</b><br><small>Si soporte usa localStorage o RLS bloquea service_orders, Enterprise mostrará el enlace directo a Soporte.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>
+      <article class="panel"><div class="panel-head"><h3>Órdenes recientes</h3><span class="tag">V6</span></div><div class="table">${recent || '<div class="table-row"><div><b>Sin órdenes visibles</b><br><small>Configura el puente seguro y ejecuta la migración del Supabase de Soporte.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>
       <article class="panel"><div class="panel-head"><h3>Bitácora / técnicos</h3></div><div class="table">
         <div class="table-row"><div><b>Notas técnicas</b><br><small>${safe(data.notesTable || 'service_order_notes no disponible')}</small></div><span>${formatNumber(data.notes.length)}</span><i class="tag">Notas</i></div>
+        <div class="table-row"><div><b>Auditoría</b><br><small>Cambios de estado, gestión y correos</small></div><span>${formatNumber((window.enterpriseV9Cache?.serviceAudit||[]).length)}</span><i class="tag">Eventos</i></div>
         <div class="table-row"><div><b>Usuarios soporte</b><br><small>${safe(data.serviceUsersTable || 'service_users no disponible')}</small></div><span>${formatNumber(data.serviceUsers.length)}</span><i class="tag">Equipo</i></div>
-        <div class="table-row"><div><b>Modo de integración</b><br><small>Lectura ejecutiva sin escribir en Soporte.</small></div><span>Seguro</span><i class="tag safe-tag">OK</i></div>
+        <div class="table-row"><div><b>Inventario de repuestos</b><br><small>Entradas y consumos trazables por orden</small></div><span>${formatNumber(parts.reduce((sum,p)=>sum+Number(p.quantity||0),0))} uds.</span><i class="tag ${lowParts.length?'':'safe-tag'}">${formatNumber(partMovements.length)} movimientos</i></div>
+        <div class="table-row"><div><b>Repuestos en mínimo</b><br><small>${safe(lowParts.slice(0,4).map(p=>p.name).join(', ')||'Sin alertas')}</small></div><span>${formatNumber(lowParts.length)}</span><i class="tag ${lowParts.length?'':'safe-tag'}">${lowParts.length?'Reponer':'Correcto'}</i></div>
+        <div class="table-row"><div><b>Modo de integración</b><br><small>Puente servidor a servidor con auditoría en la bitácora.</small></div><span>Operativo</span><i class="tag safe-tag">Seguro</i></div>
       </div></article>
     </div>`;
 }
@@ -1628,10 +1616,10 @@ function renderV6Client360(data){
     <div class="table-row v6-row">
       <div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')} · Último movimiento: ${c.lastDate ? c.lastDate.toLocaleDateString('es-VE') : '—'}</small></div>
       <span>${formatNumber(c.orders.length)} pedidos · ${formatNumber(c.services.length)} soporte</span>
-      <i class="tag">${c.total >= 2000 ? 'VIP' : c.orders.length >= 2 ? 'Frecuente' : 'Cliente'}</i>
+      <i><span class="tag">${c.total >= 2000 ? 'VIP' : c.orders.length >= 2 ? 'Frecuente' : 'Cliente'}</span> ${c.email?`<button class="tag" onclick="enterpriseEditClient('${safe(c.email)}','${safe(c.name)}','${safe(c.phone)}')">Editar</button> <a class="tag" href="mailto:${safe(c.email)}">Correo</a>`:''} ${c.phone?`<a class="tag" target="_blank" rel="noopener" href="https://wa.me/${String(c.phone).replace(/\D/g,'')}">WhatsApp</a>`:''}</i>
     </div>`).join('');
   el.innerHTML = `
-    <article class="panel v6-hero"><div class="panel-head"><h3>Cliente 360</h3><span class="tag safe-tag">Compras + soporte + garantías</span></div><p class="staff-help">Vista consolidada del cliente. Cruza clientes, pedidos y órdenes de soporte por correo, teléfono o nombre. Solo lectura.</p></article>
+    <article class="panel v6-hero"><div class="panel-head"><h3>Cliente 360</h3><span class="tag safe-tag">Compras + soporte + garantías</span></div><p class="staff-help">Vista consolidada entre bases separadas, con edición autorizada del cliente y contacto directo por correo o WhatsApp.</p></article>
     <div class="module-grid control-cards">
       <article class="module-card"><h3>Clientes unificados</h3><strong>${formatNumber(list.length)}</strong><p>Base visible combinada.</p></article>
       <article class="module-card"><h3>Con compras</h3><strong>${formatNumber(list.filter(c=>c.orders.length).length)}</strong><p>Clientes con historial comercial.</p></article>
@@ -2009,7 +1997,9 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
         invitations: Array.isArray(snapshot.invitations) ? snapshot.invitations : [],
         serviceOrders: Array.isArray(snapshot.serviceOrders) ? snapshot.serviceOrders : [],
         serviceNotes: Array.isArray(snapshot.serviceNotes) ? snapshot.serviceNotes : [],
-        serviceUsers: Array.isArray(snapshot.serviceUsers) ? snapshot.serviceUsers : []
+        serviceUsers: Array.isArray(snapshot.serviceUsers) ? snapshot.serviceUsers : [],
+        servicePhotos: [],
+        serviceAudit: []
       };
       data.salesTotal = data.orders.reduce((s,o)=>s+orderTotal(o),0);
       data.salesMonth = data.orders.filter(o=>v9ThisMonth(v2OrderDate(o))).reduce((s,o)=>s+orderTotal(o),0);
@@ -2031,9 +2021,97 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     }
   }
 
+  async function enterpriseHeaders(){
+    const headers={'Content-Type':'application/json'};
+    const {data}=await window.supabaseClient.auth.getSession();
+    const token=data?.session?.access_token;
+    if(token)headers.Authorization=`Bearer ${token}`;
+    return headers;
+  }
+  function enterpriseNotice(message,type='ok'){if(typeof window.enterpriseToast==='function')window.enterpriseToast(message,type);else alert(message)}
+  async function v9LoadSupportApi(){
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-support',{headers:await enterpriseHeaders(),cache:'no-store'});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.error||'Puente de soporte no disponible');
+      return data;
+    }catch(error){console.warn('[Enterprise soporte independiente]',error.message||error);return null}
+  }
+  window.enterpriseUpdateSupport=async function(id,status){
+    if(!id)return alert('La orden no tiene ID real de Supabase.');
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-support',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'update_status',id,status})});
+      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo actualizar soporte');
+      await loadEnterpriseV9();
+      enterpriseNotice('Estado actualizado en Soporte y registrado en la bitácora.');
+    }catch(error){enterpriseNotice(error.message||error,'error')}
+  };
+  window.enterpriseAddSupportNote=async function(id,code){
+    if(!id)return alert('La orden no tiene ID real de Supabase.');
+    const note=prompt(`Nueva entrada de bitácora para ${code}:`);if(!note?.trim())return;
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-support',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'add_note',id,note:note.trim()})});
+      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar la bitácora');
+      await loadEnterpriseV9();
+      enterpriseNotice('Entrada guardada en la bitácora real de Soporte.');
+    }catch(error){enterpriseNotice(error.message||error,'error')}
+  };
+  window.enterpriseManageSupport=async function(id){
+    const o=(v9Cache?.serviceOrders||[]).find(x=>String(x.id)===String(id));if(!o)return alert('Orden no encontrada.');
+    const technician=prompt('Correo del técnico responsable:',o.assigned_technician_email||'');if(technician===null)return;
+    const amount=prompt('Monto del presupuesto:',o.quote_amount||'');if(amount===null)return;
+    const quoteStatus=prompt('Estado del presupuesto:',o.quote_status||'Pendiente');if(quoteStatus===null)return;
+    const warranty=prompt('Garantía en días:',o.warranty_days||0);if(warranty===null)return;
+    try{const res=await fetch('/.netlify/functions/enterprise-support',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'update_details',id,assigned_technician_email:technician.trim()||null,quote_amount:amount===''?null:Number(amount),quote_status:quoteStatus.trim(),warranty_days:Number(warranty||0)})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo gestionar soporte');await loadEnterpriseV9();enterpriseNotice('Datos actualizados y auditados.')}catch(error){enterpriseNotice(error.message||error,'error')}
+  };
+  window.enterpriseNotifySupport=async function(id,code){
+    if(!confirm(`¿Enviar al cliente la actualización de ${code}?`))return;
+    try{const res=await fetch('/.netlify/functions/enterprise-support',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'notify_client',id})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo enviar');enterpriseNotice('Correo de soporte enviado.')}catch(error){enterpriseNotice(error.message||error,'error')}
+  };
+  window.enterpriseUpdateOrder=async function(id,code,status){
+    if(!id&&!code)return alert('El pedido no tiene identificador real.');
+    try{
+      const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({id,code,status,note:'Actualizado desde Growth Enterprise'})});
+      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo actualizar el pedido');
+      await loadEnterpriseV9();
+      const email=data.email?.sent?' Correo enviado al cliente.':data.email?.error?` Estado guardado; correo pendiente: ${data.email.error}`:'';
+      alert('Pedido actualizado en Supabase.'+email);
+    }catch(error){alert(error.message||error)}
+  };
+  window.enterpriseEditClient=async function(email,currentName,currentPhone){
+    if(!email)return alert('Este cliente no tiene correo para identificar su registro.');
+    const nombre=prompt('Nombre del cliente:',currentName||'');if(nombre===null)return;
+    const telefono=prompt('Teléfono del cliente:',currentPhone||'');if(telefono===null)return;
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-main',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'update_client',email,nombre:nombre.trim(),telefono:telefono.trim()})});
+      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo actualizar el cliente');
+      await loadEnterpriseV9();alert('Cliente actualizado en Supabase.');
+    }catch(error){alert(error.message||error)}
+  };
+
   async function v9LoadData(){
+    const supportApi = await v9LoadSupportApi();
     const bridgeData = await v9LoadDataFromRPC();
-    if(bridgeData) return bridgeData;
+    if(bridgeData){
+      if(supportApi){
+        bridgeData.serviceOrders=supportApi.orders;
+        bridgeData.serviceNotes=supportApi.notes;
+        bridgeData.serviceUsers=supportApi.users;
+        bridgeData.servicePhotos=supportApi.photos||[];
+        bridgeData.serviceAudit=supportApi.audit||[];
+        bridgeData.serviceParts=supportApi.parts||[];
+        bridgeData.servicePartMovements=supportApi.part_movements||[];
+        bridgeData.tables.support='service_orders (Soporte independiente)';
+        bridgeData.tables.supportNotes='service_order_notes';
+        bridgeData.tables.supportUsers='service_users';
+        bridgeData.tables.supportExternal=true;
+        bridgeData.supportOpen=bridgeData.serviceOrders.filter(o=>!statusMatches(supportStatus(o),['Entregado','Cancelado','No aprobado'])).length;
+        bridgeData.supportReady=bridgeData.serviceOrders.filter(o=>statusMatches(supportStatus(o),['Listo','Listo para entregar'])).length;
+        bridgeData.supportDelayed=bridgeData.serviceOrders.filter(isSupportDelayed).length;
+      }
+      bridgeData.supportConnected=!!supportApi;
+      v9Cache=bridgeData;window.enterpriseV9Cache=bridgeData;return bridgeData;
+    }
     const supportClient = v9GetSupportClient();
     const [customers, orders, payments, products, preorders, orderItems, history, staff, invitations, internalSupport, internalNotes, internalTechs, externalSupport] = await Promise.all([
       v9Read(V9_TABLES.customers, { limit:240 }),
@@ -2050,7 +2128,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
       v9Read(V9_TABLES.serviceUsers, { limit:120 }),
       supportClient ? v9Read(V9_TABLES.serviceOrders, { client:supportClient, limit:220 }) : Promise.resolve({ table:null, data:[] })
     ]);
-    const serviceSource = externalSupport.table ? externalSupport : internalSupport;
+    const serviceSource = supportApi ? {table:'service_orders (Soporte independiente)',data:supportApi.orders} : (externalSupport.table ? externalSupport : internalSupport);
     const data = {
       version:'V9',
       tables:{
@@ -2058,7 +2136,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
         preorders:preorders.table, orderItems:orderItems.table, orderHistory:history.table,
         staff:staff.table, invitations:invitations.table,
         support:serviceSource.table, supportExternal:!!externalSupport.table,
-        supportNotes:internalNotes.table, supportUsers:internalTechs.table
+        supportNotes:supportApi?'service_order_notes':internalNotes.table, supportUsers:supportApi?'service_users':internalTechs.table
       },
       customers: customers.data || [],
       orders: orders.data || [],
@@ -2070,9 +2148,14 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
       staff: staff.data || [],
       invitations: invitations.data || [],
       serviceOrders: serviceSource.data || [],
-      serviceNotes: internalNotes.data || [],
-      serviceUsers: internalTechs.data || []
+      serviceNotes: supportApi ? supportApi.notes : (internalNotes.data || []),
+      serviceUsers: supportApi ? supportApi.users : (internalTechs.data || []),
+      servicePhotos: supportApi?.photos || [],
+      serviceAudit: supportApi?.audit || [],
+      serviceParts: supportApi?.parts || [],
+      servicePartMovements: supportApi?.part_movements || []
     };
+    data.supportConnected=!!supportApi;
     data.salesTotal = data.orders.reduce((s,o)=>s+orderTotal(o),0);
     data.salesMonth = data.orders.filter(o=>v9ThisMonth(v2OrderDate(o))).reduce((s,o)=>s+orderTotal(o),0);
     data.salesToday = data.orders.filter(o=>v9LastDays(v2OrderDate(o),1)).reduce((s,o)=>s+orderTotal(o),0);
@@ -2152,7 +2235,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     ].map(([t,v,d,k,view])=>`<div class="table-row v9-row"><div><b>${safe(t)}</b><br><small>${safe(d)}</small></div><span class="status-dot ${k}">${safe(v)}</span><button class="mini-action" onclick="switchView('${view}')">Abrir</button></div>`).join('');
     const recentOrders = data.orders.slice(0,8).map(o=>`<div class="table-row v9-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span class="status-dot ${v9StatusKind(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
     el.innerHTML = `
-      <article class="panel v9-hero"><div class="panel-head"><h3>Centro de Operaciones ThinkStore</h3><span class="tag safe-tag">V9 · ecosistema conectado</span></div><p class="staff-help">Vista única de ventas, soporte, clientes, inventario, finanzas y alertas. Todo en modo lectura: no valida pagos, no cambia estados, no toca Resend ni notas de entrega.</p><div class="v2-toolbar"><button onclick="loadEnterpriseV9()">Actualizar ecosistema</button>${v9ActionButton('Abrir CRM','clients')}${v9ActionButton('Abrir Soporte','support')}</div></article>
+      <article class="panel v9-hero"><div class="panel-head"><h3>Centro de Operaciones ThinkStore</h3><span class="tag safe-tag">V9 · ecosistema conectado</span></div><p class="staff-help">Vista única con datos reales. Pedidos, clientes y soporte permiten acciones autorizadas; pagos, inventario y Resend conservan sus flujos oficiales.</p><div class="v2-toolbar"><button onclick="loadEnterpriseV9()">Actualizar ecosistema</button>${v9ActionButton('Abrir CRM','clients')}${v9ActionButton('Abrir Soporte','support')}</div></article>
       <div class="module-grid control-cards">
         <article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(data.salesMonth)}</strong><p>${formatNumber(data.orders.length)} pedidos visibles.</p></article>
         <article class="module-card"><h3>Clientes 360</h3><strong>${formatNumber(profiles.length)}</strong><p>Clientes cruzados con pedidos y soporte.</p></article>
@@ -2162,7 +2245,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
         <article class="module-card"><h3>PWA móvil</h3><strong>Lista</strong><p>Instalable en iPhone, iPad y Android.</p></article>
       </div>
       <div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Alertas prioritarias</h3><span class="tag">V9</span></div><div class="table">${alerts}</div></article><article class="panel"><div class="panel-head"><h3>Top clientes 360</h3></div><div class="table">${v9AsRows([topCustomers].filter(Boolean),'Sin clientes para cruzar')}</div></article></div>
-      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Pedidos recientes del ecosistema</h3><span class="tag">Solo lectura</span></div><div class="table">${v9AsRows([recentOrders].filter(Boolean),'Sin pedidos visibles')}</div></article>`;
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Pedidos recientes del ecosistema</h3><span class="tag">Datos reales</span></div><div class="table">${v9AsRows([recentOrders].filter(Boolean),'Sin pedidos visibles')}</div></article>`;
   }
 
   function renderV9Mobile(data){
@@ -2238,14 +2321,15 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     const profiles = v9BuildCustomerProfiles(data);
     const vip = profiles.filter(c=>v9SegmentCustomer(c)==='VIP');
     const inactive = profiles.filter(c=>v9SegmentCustomer(c)==='Inactivo');
-    const rows = profiles.slice(0,50).map(c=>`<div class="table-row v9-row"><div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')}</small></div><span>${formatNumber(c.orders.length)} pedidos · ${formatNumber(c.support.length)} soporte</span><i class="tag">${v9SegmentCustomer(c)} · ${formatUSD(c.total)}</i></div>`).join('');
-    el.innerHTML = `<article class="panel v9-hero"><div class="panel-head"><h3>CRM Clientes Real</h3><span class="tag safe-tag">Cliente 360</span></div><p class="staff-help">CRM cruzado con clientes, pedidos y soporte. Solo lectura.</p></article><div class="module-grid control-cards"><article class="module-card"><h3>Clientes unificados</h3><strong>${formatNumber(profiles.length)}</strong><p>Base visible total.</p></article><article class="module-card"><h3>VIP</h3><strong>${formatNumber(vip.length)}</strong><p>Alto valor o compra frecuente.</p></article><article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive.length)}</strong><p>Más de 90 días sin movimiento.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Clientes 360</h3><button onclick="loadEnterpriseV9()">Actualizar</button></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin clientes visibles')}</div></article>`;
+    const rows = profiles.slice(0,50).map(c=>{const email=safe(c.email||''),phone=String(c.phone||'').replace(/\D/g,'');return `<div class="table-row v9-row"><div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')}</small></div><span>${formatNumber(c.orders.length)} pedidos · ${formatNumber(c.support.length)} soporte</span><i><button class="mini-action" onclick="enterpriseEditClient('${email}','${safe(c.name)}','${safe(c.phone)}')">Editar</button> <a class="tag" href="${email?'mailto:'+email:'#'}">Correo</a> ${phone?`<a class="tag" target="_blank" rel="noopener" href="https://wa.me/${phone}">WhatsApp</a>`:''}</i></div>`}).join('');
+    el.innerHTML = `<article class="panel v9-hero"><div class="panel-head"><h3>CRM Clientes Real</h3><span class="tag safe-tag">Cliente 360 operativo</span></div><p class="staff-help">CRM cruzado con clientes, pedidos y soporte, con contacto directo por correo y WhatsApp.</p></article><div class="module-grid control-cards"><article class="module-card"><h3>Clientes unificados</h3><strong>${formatNumber(profiles.length)}</strong><p>Base visible total.</p></article><article class="module-card"><h3>VIP</h3><strong>${formatNumber(vip.length)}</strong><p>Alto valor o compra frecuente.</p></article><article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive.length)}</strong><p>Más de 90 días sin movimiento.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Clientes 360</h3><button onclick="loadEnterpriseV9()">Actualizar</button></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin clientes visibles')}</div></article>`;
   }
 
   function renderV9RealSales(data){
     const el = qs('sales'); if(!el) return;
     const statuses = v9StatusBreakdown(data.orders, v2OrderStatus).slice(0,8).map(([st,n])=>`<div class="table-row v9-row"><div><b>${safe(st)}</b><br><small>Estado visible de pedidos.</small></div><span>${formatNumber(n)}</span><i class="tag">Pedidos</i></div>`).join('');
-    const rows = data.orders.slice(0,30).map(o=>`<div class="table-row v9-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span class="status-dot ${v9StatusKind(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    const orderStates=['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','Preparando pedido','Enviado','Disponible para retiro','Entregado','Cancelado'];
+    const rows = data.orders.slice(0,30).map(o=>`<div class="table-row v9-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span><select class="v2-select" onchange="enterpriseUpdateOrder('${safe(o.id||o.db_id||'')}','${safe(v2OrderCode(o))}',this.value)">${orderStates.map(s=>`<option ${s===v2OrderStatus(o)?'selected':''}>${safe(s)}</option>`).join('')}</select></span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
     el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(data.salesToday)}</strong><p>Últimas 24 horas.</p></article><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(data.salesMonth)}</strong><p>Mes actual visible.</p></article><article class="module-card"><h3>Pedidos pendientes</h3><strong>${formatNumber(data.pendingOrders)}</strong><p>Estados por cerrar.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Pedidos reales</h3><span class="tag">${safe(data.tables.orders || 'sin tabla')}</span></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin pedidos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Pedidos por estado</h3></div><div class="table">${v9AsRows([statuses].filter(Boolean),'Sin estados visibles')}</div></article></div>`;
   }
 
@@ -2253,7 +2337,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     const el = qs('inventory'); if(!el) return;
     const ranking = v9ProductRanking(data).slice(0,8).map(([name,count])=>`<div class="table-row v9-row"><div><b>${safe(name)}</b><br><small>Estimado por items/pedidos visibles.</small></div><span>${formatNumber(count)}</span><i class="tag">Rotación</i></div>`).join('');
     const rows = data.products.slice(0,50).map(p=>{ const stock=v2ProductStock(p); const kind = stock===0?'bad':stock!==null&&stock<=2?'warn':'ok'; return `<div class="table-row v9-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span class="status-dot ${kind}">${stock===null?'Sin stock':stock}</span><i class="tag">${formatUSD(v2ProductPrice(p))}</i></div>`; }).join('');
-    el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Productos visibles</h3><strong>${formatNumber(data.products.length)}</strong><p>Fuente: ${safe(data.tables.products || 'pendiente')}.</p></article><article class="module-card"><h3>Stock bajo</h3><strong>${formatNumber(data.lowStock)}</strong><p>2 unidades o menos.</p></article><article class="module-card"><h3>Agotados</h3><strong>${formatNumber(data.outOfStock)}</strong><p>Stock igual a 0.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Inventario real</h3></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin productos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Rotación estimada</h3></div><div class="table">${v9AsRows([ranking].filter(Boolean),'Sin items de pedido visibles')}</div></article></div>`;
+    el.innerHTML = `<article class="panel v9-hero"><div class="panel-head"><h3>Inventario conectado</h3><span class="tag safe-tag">Stock real por SKU</span></div><p class="staff-help">Disponible, reservado y vendido se calculan automáticamente. Los ajustes de stock físico se realizan en el Panel Multi-Rol.</p><div class="v2-toolbar"><button onclick="window.open('https://thinkstore.com.ve/panel.html#inventario_real','_blank','noopener')">Administrar stock físico</button><button onclick="loadEnterpriseV9()">Actualizar</button></div></article><div class="module-grid"><article class="module-card"><h3>Productos visibles</h3><strong>${formatNumber(data.products.length)}</strong><p>Fuente: ${safe(data.tables.products || 'pendiente')}.</p></article><article class="module-card"><h3>Stock bajo</h3><strong>${formatNumber(data.lowStock)}</strong><p>2 unidades o menos.</p></article><article class="module-card"><h3>Agotados</h3><strong>${formatNumber(data.outOfStock)}</strong><p>Stock igual a 0.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Inventario real</h3></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin productos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Rotación estimada</h3></div><div class="table">${v9AsRows([ranking].filter(Boolean),'Sin items de pedido visibles')}</div></article></div>`;
   }
 
   function renderV9RealMarketing(data){
@@ -2269,7 +2353,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
       ['Preórdenes', data.preordersOpen],
       ['Stock crítico', data.lowStock]
     ].map(([name,n])=>`<div class="table-row v9-row"><div><b>${safe(name)}</b><br><small>Campaña preparada en modo borrador.</small></div><span>${formatNumber(n)} objetivos</span><i class="tag">Borrador</i></div>`).join('');
-    el.innerHTML = `<article class="panel safe-panel"><div class="panel-head"><h3>Marketing Center Real</h3><span class="tag safe-tag">Sin envío</span></div><p class="staff-help">Segmenta clientes reales y prepara campañas. No toca Resend, no envía correos y no modifica plantillas.</p></article><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Audiencias reales</h3></div><div class="table">${segments}</div></article><article class="panel"><div class="panel-head"><h3>Campañas preparadas</h3></div><div class="table">${campaigns}</div></article></div>`;
+    el.innerHTML = `<article class="panel safe-panel"><div class="panel-head"><h3>Marketing Center Real</h3><span class="tag safe-tag">Resend protegido</span></div><p class="staff-help">Segmenta clientes reales y abre el remitente oficial del Panel Multi-Rol para enviar campañas sin duplicar ni alterar la configuración de Resend.</p><div class="v2-toolbar"><button onclick="window.open('https://thinkstore.com.ve/panel.html#marketing','_blank','noopener')">Crear y enviar campaña</button><button onclick="loadEnterpriseV9()">Actualizar audiencias</button></div></article><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Audiencias reales</h3></div><div class="table">${segments}</div></article><article class="panel"><div class="panel-head"><h3>Campañas recomendadas</h3></div><div class="table">${campaigns}</div></article></div>`;
   }
 
   function renderV9RealFinance(data){
@@ -2307,7 +2391,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     // Si V6 ya tiene más detalles, reforzamos cuando haya datos externos/internos visibles.
     if(typeof renderV6Support === 'function'){
       try{
-        const v6data = { serviceTable:data.tables.support, notesTable:data.tables.supportNotes, serviceUsersTable:data.tables.supportUsers, serviceOrders:data.serviceOrders, notes:data.serviceNotes, serviceUsers:data.serviceUsers, customers:data.customers, orders:data.orders, payments:data.payments, productsCount:data.products.length, productsTable:data.tables.products };
+        const v6data = { serviceTable:data.tables.support, notesTable:data.tables.supportNotes, serviceUsersTable:data.tables.supportUsers, serviceOrders:data.serviceOrders, notes:data.serviceNotes, serviceUsers:data.serviceUsers, serviceParts:data.serviceParts||[], servicePartMovements:data.servicePartMovements||[], customers:data.customers, orders:data.orders, payments:data.payments, productsCount:data.products.length, productsTable:data.tables.products };
         renderV6Support(v6data); renderV6Client360(v6data); renderV6Warranties(v6data); renderV6Alerts(v6data);
       }catch(error){ console.warn('[V9 soporte] Refuerzo V6:', error.message || error); }
     }
@@ -2329,6 +2413,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
         ['✓','Ecosistema V9', data.bridge === 'rpc' ? 'Conectado RPC' : 'Operativo'],
         ['▣','PWA móvil','Lista'],
         ['⚠','Alertas críticas',`${formatNumber(data.pendingPayments + data.lowStock + data.supportDelayed)}`],
+        [data.supportConnected?'✓':'⚠','Puente Soporte',data.supportConnected?'Conectado':'Revisar configuración'],
         ['↗','Soporte abierto',`${formatNumber(data.supportOpen)}`],
         ['◇','Resend','Intacto']
       ].map(([i,n,s])=>`<div class="status-row"><i>${i}</i><b>${safe(n)}</b><span>${safe(s)}</span></div>`).join('');
@@ -2663,6 +2748,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
     clearTimeout(window.__prod11ToastTimer);
     window.__prod11ToastTimer = setTimeout(()=>box.classList.remove('show'), 2600);
   }
+  window.enterpriseToast = toast;
   async function copyText(text, label='Registro'){
     const value = clean(text);
     if(!value){ toast('No hay contenido para copiar.', 'warn'); return; }
