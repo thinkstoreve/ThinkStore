@@ -138,6 +138,20 @@ exports.handler = async function(event) {
     }
   }
 
+  async function updatePedido(found,payload){
+    const path=`pedidos?id=eq.${encodeURIComponent(found.id)}`;
+    const options={method:'PATCH',headers:{Prefer:'return=representation'}};
+    try{
+      return await sb(path,{...options,body:JSON.stringify({...payload,updated_at:new Date().toISOString()})});
+    }catch(error){
+      // Algunas instalaciones antiguas de ThinkStore no tienen updated_at en pedidos.
+      // No debe impedir el cambio de estado ni el correo transaccional.
+      if(!/updated_at|schema cache|column/i.test(clean(error?.message))) throw error;
+      console.warn('ThinkStore pedidos sin updated_at; reintentando actualización compatible.');
+      return await sb(path,{...options,body:JSON.stringify(payload)});
+    }
+  }
+
   try{
     const found=await findPedido();
     if(!found)return reply(404,{ok:false,error:'Pedido no encontrado'});
@@ -162,7 +176,7 @@ exports.handler = async function(event) {
 
     const before=clean(found.estado);
     const payload={estado:nextStatus}; if(guide)payload.numero_guia=guide;
-    const updated=await sb(`pedidos?id=eq.${encodeURIComponent(found.id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({...payload,updated_at:new Date().toISOString()})});
+    const updated=await updatePedido(found,payload);
     const changed=Array.isArray(updated)?updated[0]:found;
     try{await sb('order_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({pedido_id:found.id,estado:nextStatus,nota:body.note||'Actualizado desde panel ThinkStore'})})}catch(_){ }
     const p=normalized(await fullPedido(changed));
