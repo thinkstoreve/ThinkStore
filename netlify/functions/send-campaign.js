@@ -1,7 +1,7 @@
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, x-admin-secret',
+    'Access-Control-Allow-Headers': 'Content-Type, x-admin-secret, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json'
   };
@@ -9,16 +9,38 @@ exports.handler = async function(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
 
-  const expectedSecret = process.env.THINKSTORE_ADMIN_SECRET;
-  const expectedCode = process.env.THINKSTORE_ADMIN_CODE;
-  const provided = event.headers['x-admin-secret'] || event.headers['X-Admin-Secret'] || '';
-  if (![String(expectedSecret || ''), String(expectedCode || '')].includes(String(provided || ''))) {
+  const cleanAuth = (v) => String(v || '').trim();
+  const normalizeRole = (v) => cleanAuth(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const SUPABASE_URL = cleanAuth(process.env.SUPABASE_URL).replace(/\/$/, '');
+  const SUPABASE_SERVICE_ROLE_KEY = cleanAuth(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  async function authorizeAdmin() {
+    const provided = cleanAuth(event.headers['x-admin-secret'] || event.headers['X-Admin-Secret']);
+    const legacySecrets = [process.env.THINKSTORE_ADMIN_SECRET, process.env.THINKSTORE_ADMIN_CODE]
+      .map(cleanAuth).filter(Boolean);
+    if (provided && legacySecrets.includes(provided)) return true;
+
+    const token = cleanAuth(event.headers.authorization || event.headers.Authorization).replace(/^Bearer\s+/i, '');
+    if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
+    const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` }
+    });
+    const authUser = await userResponse.json().catch(() => ({}));
+    if (!userResponse.ok || !authUser.id) return false;
+    const profileResponse = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,role,active&id=eq.${encodeURIComponent(authUser.id)}&limit=1`, {
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` }
+    });
+    const profiles = await profileResponse.json().catch(() => []);
+    const profile = Array.isArray(profiles) ? profiles[0] : null;
+    const role = normalizeRole(profile?.role);
+    return Boolean(profile && profile.active !== false && ['admin','super_admin','superadmin','administrator','gerente','marketing'].includes(role));
+  }
+
+  if (!(await authorizeAdmin())) {
     return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'Acceso administrador no autorizado' }) };
   }
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY || process.env.RESEND_APY_KEY;
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!RESEND_API_KEY) return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Falta RESEND_API_KEY en Netlify.' }) };
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Faltan variables de Supabase en Netlify.' }) };
 
