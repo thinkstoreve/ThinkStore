@@ -1,0 +1,9 @@
+{
+  "name": "thinkstore",
+  "version": "13.21.0",
+  "private": true,
+  "description": "ThinkStore storefront and Netlify Functions",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4"
+  }
+}
