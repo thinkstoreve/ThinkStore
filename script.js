@@ -1951,14 +1951,28 @@ function openAdminSuite(){
 
 function hiddenAdminTap(event){
   // Acceso oculto: tocar/clickear el logo ThinkStore 5 veces.
+  // Evitamos la navegación nativa al hash porque, combinada con el header
+  // compacto por scroll, podía provocar un pequeño salto/temblor visual.
+  if(event) event.preventDefault();
   tsAdminTapCount++;
   clearTimeout(tsAdminTapTimer);
   tsAdminTapTimer = setTimeout(()=>{ tsAdminTapCount = 0; }, 2500);
+
   if(tsAdminTapCount >= 5){
-    event.preventDefault();
     tsAdminTapCount = 0;
     openAdminSuite();
+    return false;
   }
+
+  // Un clic normal en el logo vuelve al inicio sin recargar ni disparar
+  // el salto nativo de #inicio. El scroll instantáneo evita oscilaciones
+  // alrededor del umbral que compacta/expande la barra superior.
+  if(window.scrollY > 1) window.scrollTo({top:0, left:0, behavior:'auto'});
+  try{
+    const clean = location.pathname + location.search + '#inicio';
+    history.replaceState(history.state, '', clean);
+  }catch(_e){}
+  return false;
 }
 
 document.addEventListener('keydown', (event)=>{
@@ -5594,9 +5608,10 @@ window.addEventListener('load', ()=>{
         panelBtn=document.createElement('button');
         panelBtn.id='tsClientPanelBtn';
         panelBtn.type='button';
-        panelBtn.className=btn.className||'';
-        panelBtn.textContent='🧭 Mi panel';
-        panelBtn.title='Abrir mi panel ThinkStore';
+        panelBtn.className=(btn.className||'')+' ts-client-panel-btn';
+        panelBtn.setAttribute('aria-label','Mi panel');
+        panelBtn.title='Mi panel';
+        panelBtn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.2"></rect><rect x="14" y="4" width="6" height="6" rx="1.2"></rect><rect x="4" y="14" width="6" height="6" rx="1.2"></rect><rect x="14" y="14" width="6" height="6" rx="1.2"></rect></svg>';
         panelBtn.onclick=()=>{ location.href='panel.html'; };
         btn.insertAdjacentElement('afterend',panelBtn);
       }

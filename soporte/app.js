@@ -4,11 +4,11 @@ const TSService=(()=>{
   const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
   const roles={
-    superadmin:['dashboard','appointments','orders','reception','technical','bitacora','sales','logistics','clients','users','permissions','reports'],
-    admin:['dashboard','appointments','orders','reception','technical','bitacora','sales','logistics','clients','reports'],
-    reception:['dashboard','appointments','orders','reception','bitacora','clients'],
-    technician:['dashboard','orders','technical','bitacora'],
-    sales:['dashboard','orders','sales','clients'],
+    superadmin:['dashboard','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports'],
+    admin:['dashboard','orders','reception','technical','bitacora','parts','sales','logistics','clients','reports'],
+    reception:['dashboard','orders','reception','bitacora','parts','clients'],
+    technician:['dashboard','orders','technical','bitacora','parts'],
+    sales:['dashboard','orders','sales','parts','clients'],
     logistics:['dashboard','orders','logistics'],
     client:['client_status']
   };
@@ -24,13 +24,38 @@ const TSService=(()=>{
   };
 
   const appleDevices=[{"name": "iPhone 8", "category": "iPhone"}, {"name": "iPhone 8 Plus", "category": "iPhone"}, {"name": "iPhone X", "category": "iPhone"}, {"name": "iPhone XR", "category": "iPhone"}, {"name": "iPhone XS", "category": "iPhone"}, {"name": "iPhone XS Max", "category": "iPhone"}, {"name": "iPhone 11", "category": "iPhone"}, {"name": "iPhone 11 Pro", "category": "iPhone"}, {"name": "iPhone 11 Pro Max", "category": "iPhone"}, {"name": "iPhone SE (2da generación)", "category": "iPhone"}, {"name": "iPhone 12 mini", "category": "iPhone"}, {"name": "iPhone 12", "category": "iPhone"}, {"name": "iPhone 12 Pro", "category": "iPhone"}, {"name": "iPhone 12 Pro Max", "category": "iPhone"}, {"name": "iPhone 13 mini", "category": "iPhone"}, {"name": "iPhone 13", "category": "iPhone"}, {"name": "iPhone 13 Pro", "category": "iPhone"}, {"name": "iPhone 13 Pro Max", "category": "iPhone"}, {"name": "iPhone SE (3ra generación)", "category": "iPhone"}, {"name": "iPhone 14", "category": "iPhone"}, {"name": "iPhone 14 Plus", "category": "iPhone"}, {"name": "iPhone 14 Pro", "category": "iPhone"}, {"name": "iPhone 14 Pro Max", "category": "iPhone"}, {"name": "iPhone 15", "category": "iPhone"}, {"name": "iPhone 15 Plus", "category": "iPhone"}, {"name": "iPhone 15 Pro", "category": "iPhone"}, {"name": "iPhone 15 Pro Max", "category": "iPhone"}, {"name": "iPhone 16", "category": "iPhone"}, {"name": "iPhone 16 Plus", "category": "iPhone"}, {"name": "iPhone 16 Pro", "category": "iPhone"}, {"name": "iPhone 16 Pro Max", "category": "iPhone"}, {"name": "iPhone 16e", "category": "iPhone"}, {"name": "iPhone 17", "category": "iPhone"}, {"name": "iPhone 17 Air", "category": "iPhone"}, {"name": "iPhone 17 Pro", "category": "iPhone"}, {"name": "iPhone 17 Pro Max", "category": "iPhone"}, {"name": "iPad 6ª generación", "category": "iPad"}, {"name": "iPad 7ª generación", "category": "iPad"}, {"name": "iPad 8ª generación", "category": "iPad"}, {"name": "iPad 9ª generación", "category": "iPad"}, {"name": "iPad 10ª generación", "category": "iPad"}, {"name": "iPad A16", "category": "iPad"}, {"name": "iPad Air 3", "category": "iPad"}, {"name": "iPad Air 4", "category": "iPad"}, {"name": "iPad Air 5", "category": "iPad"}, {"name": "iPad Air M2 11 pulgadas", "category": "iPad"}, {"name": "iPad Air M2 13 pulgadas", "category": "iPad"}, {"name": "iPad Air M3 11 pulgadas", "category": "iPad"}, {"name": "iPad Air M3 13 pulgadas", "category": "iPad"}, {"name": "iPad mini 5", "category": "iPad"}, {"name": "iPad mini 6", "category": "iPad"}, {"name": "iPad mini 7", "category": "iPad"}, {"name": "iPad Pro 11 pulgadas 2018", "category": "iPad"}, {"name": "iPad Pro 11 pulgadas 2020", "category": "iPad"}, {"name": "iPad Pro 11 pulgadas M1", "category": "iPad"}, {"name": "iPad Pro 11 pulgadas M2", "category": "iPad"}, {"name": "iPad Pro 11 pulgadas M4", "category": "iPad"}, {"name": "iPad Pro 12.9 pulgadas 2018", "category": "iPad"}, {"name": "iPad Pro 12.9 pulgadas 2020", "category": "iPad"}, {"name": "iPad Pro 12.9 pulgadas M1", "category": "iPad"}, {"name": "iPad Pro 12.9 pulgadas M2", "category": "iPad"}, {"name": "iPad Pro 13 pulgadas M4", "category": "iPad"}, {"name": "AirPods 1", "category": "AirPods"}, {"name": "AirPods 2", "category": "AirPods"}, {"name": "AirPods 3", "category": "AirPods"}, {"name": "AirPods 4", "category": "AirPods"}, {"name": "AirPods Pro", "category": "AirPods"}, {"name": "AirPods Pro 2", "category": "AirPods"}, {"name": "AirPods Pro 3", "category": "AirPods"}, {"name": "AirPods Max", "category": "AirPods"}, {"name": "Apple Watch Series 3", "category": "Apple Watch"}, {"name": "Apple Watch Series 4", "category": "Apple Watch"}, {"name": "Apple Watch Series 5", "category": "Apple Watch"}, {"name": "Apple Watch Series 6", "category": "Apple Watch"}, {"name": "Apple Watch Series 7", "category": "Apple Watch"}, {"name": "Apple Watch Series 8", "category": "Apple Watch"}, {"name": "Apple Watch Series 9", "category": "Apple Watch"}, {"name": "Apple Watch Series 10", "category": "Apple Watch"}, {"name": "Apple Watch Series 11", "category": "Apple Watch"}, {"name": "Apple Watch SE 1", "category": "Apple Watch"}, {"name": "Apple Watch SE 2", "category": "Apple Watch"}, {"name": "Apple Watch Ultra", "category": "Apple Watch"}, {"name": "Apple Watch Ultra 2", "category": "Apple Watch"}, {"name": "Apple Watch Ultra 3", "category": "Apple Watch"}, {"name": "MacBook Air Intel 2018", "category": "MacBook Air"}, {"name": "MacBook Air Intel 2019", "category": "MacBook Air"}, {"name": "MacBook Air Intel 2020", "category": "MacBook Air"}, {"name": "MacBook Air M1 13 pulgadas", "category": "MacBook Air"}, {"name": "MacBook Air M2 13 pulgadas", "category": "MacBook Air"}, {"name": "MacBook Air M2 15 pulgadas", "category": "MacBook Air"}, {"name": "MacBook Air M3 13 pulgadas", "category": "MacBook Air"}, {"name": "MacBook Air M3 15 pulgadas", "category": "MacBook Air"}, {"name": "MacBook Air M4 13 pulgadas", "category": "MacBook Air"}, {"name": "MacBook Air M4 15 pulgadas", "category": "MacBook Air"}, {"name": "MacBook Pro Intel 13 pulgadas 2018", "category": "MacBook Pro"}, {"name": "MacBook Pro Intel 15 pulgadas 2018", "category": "MacBook Pro"}, {"name": "MacBook Pro Intel 13 pulgadas 2019", "category": "MacBook Pro"}, {"name": "MacBook Pro Intel 15 pulgadas 2019", "category": "MacBook Pro"}, {"name": "MacBook Pro Intel 16 pulgadas 2019", "category": "MacBook Pro"}, {"name": "MacBook Pro Intel 13 pulgadas 2020", "category": "MacBook Pro"}, {"name": "MacBook Pro M1 13 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M1 Pro 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M1 Max 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M1 Pro 16 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M1 Max 16 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M2 13 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M2 Pro 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M2 Max 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M2 Pro 16 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M2 Max 16 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M3 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M3 Pro 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M3 Max 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M3 Pro 16 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M3 Max 16 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M4 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M4 Pro 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M4 Max 14 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M4 Pro 16 pulgadas", "category": "MacBook Pro"}, {"name": "MacBook Pro M4 Max 16 pulgadas", "category": "MacBook Pro"}, {"name": "iMac Intel 21.5 pulgadas", "category": "iMac"}, {"name": "iMac Intel 27 pulgadas", "category": "iMac"}, {"name": "iMac M1 24 pulgadas", "category": "iMac"}, {"name": "iMac M3 24 pulgadas", "category": "iMac"}, {"name": "iMac M4 24 pulgadas", "category": "iMac"}, {"name": "Mac mini Intel", "category": "Mac mini"}, {"name": "Mac mini M1", "category": "Mac mini"}, {"name": "Mac mini M2", "category": "Mac mini"}, {"name": "Mac mini M2 Pro", "category": "Mac mini"}, {"name": "Mac mini M4", "category": "Mac mini"}, {"name": "Mac mini M4 Pro", "category": "Mac mini"}, {"name": "Mac Studio M1 Max", "category": "Mac Studio"}, {"name": "Mac Studio M1 Ultra", "category": "Mac Studio"}, {"name": "Mac Studio M2 Max", "category": "Mac Studio"}, {"name": "Mac Studio M2 Ultra", "category": "Mac Studio"}, {"name": "Mac Studio M4 Max", "category": "Mac Studio"}, {"name": "Mac Studio M4 Ultra", "category": "Mac Studio"}, {"name": "Mac Pro Intel 2019", "category": "Mac Pro"}, {"name": "Mac Pro M2 Ultra", "category": "Mac Pro"}, {"name": "Mac Pro M4 Ultra", "category": "Mac Pro"}];
-  const defaultOrders=[{code:'TS-SVC-2026-0001',client:'Cliente demo',phone:'0414-0000000',device:'iPhone 15 Pro Max',issue:'No carga',status:'Recibido',priority:'Normal',tech:'Sin asignar',quote:'Pendiente',updated:new Date().toLocaleString('es-VE')}];
   let session=JSON.parse(localStorage.getItem('ts_service_session')||'null');
-  let orders=JSON.parse(localStorage.getItem('ts_service_orders')||JSON.stringify(defaultOrders));
-  let bitacora=JSON.parse(localStorage.getItem('ts_service_bitacora')||'[]');
+  let orders=[];
+  let bitacora=[];
   let serviceUsers=[];
+  let servicePhotos=[];
+  let activeOrderId=null;
+  let serviceParts=[];
+  let partMovements=[];
 
-  function save(){localStorage.setItem('ts_service_orders',JSON.stringify(orders));localStorage.setItem('ts_service_bitacora',JSON.stringify(bitacora));}
+  const dateText=v=>v?new Date(v).toLocaleString('es-VE'):'Sin fecha';
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function toast(message,type='ok'){let el=document.getElementById('serviceToast');if(!el){el=document.createElement('div');el.id='serviceToast';document.body.appendChild(el)}el.className=`service-toast ${type}`;el.textContent=message;requestAnimationFrame(()=>el.classList.add('show'));clearTimeout(window.__serviceToast);window.__serviceToast=setTimeout(()=>el.classList.remove('show'),4200)}
+  function mapOrder(row){return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist:row.reception_checklist||{},signatures:row.signatures||{},deliveredAt:row.delivered_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
+  function mapNote(row,byId){const order=byId.get(row.order_id);return{id:row.id,orderId:row.order_id,orderCode:order?.code||'Sin orden',type:row.note_type||'Seguimiento',author:row.author_name||'Soporte ThinkStore',status:row.status_after||order?.status||'',detail:row.note||'',files:row.attachments||'',created:dateText(row.created_at)};}
+  async function loadSupportData(){
+    const [orderRes,noteRes,photoRes,partsRes,movementsRes]=await Promise.all([
+      supabaseClient.from('service_orders').select('*').order('created_at',{ascending:false}),
+      supabaseClient.from('service_order_notes').select('*').order('created_at',{ascending:false}),
+      supabaseClient.from('service_order_photos').select('*').order('created_at',{ascending:false}),
+      supabaseClient.from('service_parts').select('*').order('name',{ascending:true}),
+      supabaseClient.from('service_part_movements').select('*').order('created_at',{ascending:false}).limit(300)
+    ]);
+    if(orderRes.error)throw new Error('No se pudieron cargar las órdenes: '+orderRes.error.message);
+    if(noteRes.error)throw new Error('No se pudo cargar la bitácora: '+noteRes.error.message);
+    if(photoRes.error)console.warn('No se pudieron cargar archivos:',photoRes.error.message);
+    orders=(orderRes.data||[]).map(mapOrder);
+    const byId=new Map(orders.map(o=>[o.id,o]));
+    bitacora=(noteRes.data||[]).map(row=>mapNote(row,byId));
+    servicePhotos=photoRes.data||[];
+    serviceParts=partsRes.data||[];partMovements=movementsRes.data||[];
+  }
+  async function audit(action,entityId,beforeData,afterData){try{await supabaseClient.from('service_audit_log').insert({actor_email:session?.email||null,actor_role:session?.role||null,action,entity_type:'service_order',entity_id:String(entityId||''),before_data:beforeData||null,after_data:afterData||null})}catch(_){}}
   function can(view){return session&&roles[session.role]?.includes(view)}
   function openLogin(){document.getElementById('loginModal').classList.add('open')}
   function openClientLookup(){document.getElementById('clientLookupModal').classList.add('open')}
@@ -64,7 +89,7 @@ const TSService=(()=>{
       session={name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email};
       localStorage.setItem('ts_service_session',JSON.stringify(session));
       closeModals();
-      renderApp();
+      await renderApp();
     }catch(err){
       await supabaseClient.auth.signOut();
       localStorage.removeItem('ts_service_session');
@@ -93,7 +118,7 @@ const TSService=(()=>{
         localStorage.setItem('ts_service_session',JSON.stringify(session));
         history.replaceState(null,'',location.pathname);
         closeModals();
-        renderApp();
+        await renderApp();
       }catch(err){
         msg.textContent=err.message||'Contraseña creada, pero el correo no está autorizado en service_users.';
       }
@@ -107,14 +132,15 @@ const TSService=(()=>{
     document.getElementById('roleDashboard').classList.add('hidden');
   }
 
-  function menuItems(){return[{id:'dashboard',label:'Dashboard'},{id:'appointments',label:'Citas web'},{id:'orders',label:'Órdenes de servicio'},{id:'reception',label:'Recepción'},{id:'technical',label:'Área técnica'},{id:'bitacora',label:'Bitácora'},{id:'sales',label:'Ventas / cotizaciones'},{id:'logistics',label:'Logística'},{id:'clients',label:'Clientes'},{id:'users',label:'Usuarios y roles'},{id:'permissions',label:'Permisos'},{id:'reports',label:'Reportes'}].filter(i=>can(i.id))}
+  function menuItems(){return[{id:'dashboard',label:'Dashboard'},{id:'orders',label:'Órdenes de servicio'},{id:'reception',label:'Recepción'},{id:'technical',label:'Área técnica'},{id:'bitacora',label:'Bitácora'},{id:'parts',label:'Inventario de repuestos'},{id:'sales',label:'Ventas / cotizaciones'},{id:'logistics',label:'Logística'},{id:'clients',label:'Clientes'},{id:'users',label:'Usuarios y roles'},{id:'permissions',label:'Permisos'},{id:'reports',label:'Reportes'}].filter(i=>can(i.id))}
 
-  function renderApp(){
+  async function renderApp(){
     if(!session)return;
     document.getElementById('roleDashboard').classList.remove('hidden');
     const nav=document.getElementById('roleMenu');
     nav.innerHTML=menuItems().map(i=>`<button onclick="TSService.renderPanel('${i.id}')">${i.label}</button>`).join('');
-    renderPanel('dashboard');
+    const box=document.getElementById('panelContent');if(box)box.innerHTML='<div class="notice">Cargando datos reales de soporte…</div>';
+    try{await loadSupportData();await renderPanel('dashboard')}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
   }
 
   function stats(){return{total:orders.length,received:orders.filter(o=>o.status==='Recibido').length,diagnosis:orders.filter(o=>o.status==='En diagnóstico').length,ready:orders.filter(o=>o.status==='Listo para entregar').length}}
@@ -131,15 +157,13 @@ const TSService=(()=>{
     const title=document.getElementById('panelTitle');
     const box=document.getElementById('panelContent');
     const s=stats();
-    const titles={dashboard:'Dashboard',appointments:'Citas web',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
+    const titles={dashboard:'Dashboard',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',parts:'Inventario de repuestos',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
     title.textContent=titles[view]||'Panel';
 
     if(view==='dashboard'){
       box.innerHTML=`<div class="cards"><div class="metric"><span>Sesión</span><b>${session.name}</b><small>${roleLabels[session.role]||session.role}</small></div><div class="metric"><span>Total órdenes</span><b>${s.total}</b></div><div class="metric"><span>Recibidas</span><b>${s.received}</b></div><div class="metric"><span>Diagnóstico</span><b>${s.diagnosis}</b></div><div class="metric"><span>Listas</span><b>${s.ready}</b></div></div>${ordersTable()}`;
       return;
     }
-
-    if(view==='appointments'){await renderAppointments(box);return}
 
     if(view==='orders'||view==='reception'||view==='technical'||view==='sales'||view==='logistics'){box.innerHTML=ordersTable(view);return}
 
@@ -148,6 +172,7 @@ const TSService=(()=>{
       box.innerHTML=bitacoraPanel();
       return;
     }
+    if(view==='parts'){box.innerHTML=partsPanel();return}
 
     if(view==='users'){
       const rows=await loadServiceUsers();
@@ -164,43 +189,6 @@ const TSService=(()=>{
   }
 
 
-  function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-  function appointmentStatusLabel(v){return ({pendiente_confirmacion:'Pendiente',confirmada:'Confirmada',en_recepcion:'En recepción',convertida_orden:'Orden creada',cancelada:'Cancelada'}[v]||v||'Pendiente')}
-  async function loadAppointments(){
-    const {data,error}=await supabaseClient.from('service_appointments').select('*').order('preferred_date',{ascending:true}).order('preferred_time',{ascending:true});
-    if(error) throw error;
-    return data||[];
-  }
-  async function renderAppointments(box){
-    box.innerHTML='<div class="tablewrap"><h3>Citas recibidas desde ThinkStore</h3><p>Cargando solicitudes…</p></div>';
-    try{
-      const rows=await loadAppointments();
-      box.innerHTML=`<div class="appointments-head"><div><h3>Citas recibidas desde ThinkStore</h3><p>Solicitudes enviadas desde la agenda de revisión/reparación de thinkstore.com.ve.</p></div><button class="secondary" onclick="TSService.renderPanel('appointments')">Actualizar</button></div>
-      <div class="cards"><div class="metric"><span>Total citas</span><b>${rows.length}</b></div><div class="metric"><span>Pendientes</span><b>${rows.filter(x=>x.status==='pendiente_confirmacion').length}</b></div><div class="metric"><span>Confirmadas</span><b>${rows.filter(x=>x.status==='confirmada').length}</b></div></div>
-      <div class="tablewrap appointments-table"><table><tr><th>Fecha / hora</th><th>Cliente</th><th>Equipo</th><th>Servicio / detalle</th><th>Modalidad</th><th>Estado</th><th>Acción</th></tr>${rows.length?rows.map(a=>`<tr><td><b>${esc(a.preferred_date)}</b><br><small>${esc(a.preferred_time)}</small></td><td><b>${esc(a.client_name)}</b><br><small>${esc(a.client_phone)} · ${esc(a.client_email)}</small></td><td>${esc(a.device_type)}<br><b>${esc(a.device_model)}</b></td><td>${esc(a.service_type)}<br><small>${esc(a.reported_issue)}</small></td><td>${esc(a.service_mode)}</td><td><span class="badge">${esc(appointmentStatusLabel(a.status))}</span></td><td><div class="appointment-actions">${a.status!=='convertida_orden'?`<button onclick="TSService.convertAppointment('${a.id}')">Crear orden</button>`:''}<select onchange="TSService.updateAppointmentStatus('${a.id}',this.value)">${['pendiente_confirmacion','confirmada','en_recepcion','cancelada'].map(st=>`<option value="${st}" ${a.status===st?'selected':''}>${appointmentStatusLabel(st)}</option>`).join('')}</select></div></td></tr>`).join(''):'<tr><td colspan="7">No hay citas registradas todavía.</td></tr>'}</table></div>`;
-    }catch(err){
-      console.error('Citas web:',err);
-      box.innerHTML=`<div class="tablewrap"><h3>Citas web</h3><div class="appointment-error"><b>No se pudieron leer las citas.</b><p>${esc(err.message||'Error de Supabase')}</p><p>Ejecuta el archivo <b>supabase_service_appointments_panel.sql</b> en el proyecto ThinkStore-Soporte para habilitar el acceso del personal autenticado.</p></div></div>`;
-    }
-  }
-  async function updateAppointmentStatus(id,status){
-    const {error}=await supabaseClient.from('service_appointments').update({status,updated_at:new Date().toISOString()}).eq('id',id);
-    if(error){alert('No se pudo actualizar la cita: '+error.message);return}
-    renderPanel('appointments');
-  }
-  async function convertAppointment(id){
-    try{
-      const {data:a,error}=await supabaseClient.from('service_appointments').select('*').eq('id',id).single();
-      if(error) throw error;
-      const o={code:code(),client:a.client_name,phone:a.client_phone,email:a.client_email,device:[a.device_type,a.device_model].filter(Boolean).join(' · '),serial:'',priority:'Normal',issue:a.reported_issue,accessories:'',visual:'',status:'Recibido',tech:'Sin asignar',quote:'Pendiente',updated:new Date().toLocaleString('es-VE'),appointmentId:a.id};
-      orders.unshift(o);save();
-      const {error:updateError}=await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',id);
-      if(updateError) throw updateError;
-      alert('Orden creada: '+o.code);renderPanel('orders');
-    }catch(err){console.error(err);alert('No se pudo convertir la cita en orden: '+(err.message||'Error'))}
-  }
-
-
   function openBitacora(code=''){
     if(!can('bitacora')){alert('Tu rol no tiene permiso para bitácora');return}
     document.getElementById('bOrderCode').value=code||'';
@@ -208,11 +196,13 @@ const TSService=(()=>{
     document.getElementById('bitacoraModal').classList.add('open');
   }
 
-  function saveBitacora(e){
+  async function saveBitacora(e){
     e.preventDefault();
+    const code=bOrderCode.value.trim().toUpperCase();
+    const order=orders.find(o=>o.code.toUpperCase()===code);
+    if(!order){alert('No existe una orden con el código '+code);return}
     const entry={
-      id:'BIT-'+Date.now(),
-      orderCode:bOrderCode.value.trim().toUpperCase(),
+      orderCode:code,
       type:bType.value,
       author:bAuthor.value.trim()||session?.name||'Sin responsable',
       status:bStatus.value,
@@ -220,16 +210,11 @@ const TSService=(()=>{
       files:bFiles.value.trim(),
       created:new Date().toLocaleString('es-VE')
     };
-    bitacora.unshift(entry);
-    const idx=orders.findIndex(o=>o.code.toUpperCase()===entry.orderCode);
-    if(idx>=0){
-      orders[idx].status=entry.status;
-      orders[idx].updated=entry.created;
-    }
-    save();
-    closeModals();
-    renderPanel('bitacora');
-    alert('Entrada de bitácora guardada.');
+    const {error:noteError}=await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:entry.detail,visibility:'internal',author_name:entry.author,note_type:entry.type,status_after:entry.status,attachments:entry.files||null});
+    if(noteError){alert('No se pudo guardar la bitácora: '+noteError.message);return}
+    const {error:updateError}=await supabaseClient.from('service_orders').update({status:entry.status}).eq('id',order.id);
+    if(updateError){alert('La nota se guardó, pero no se actualizó el estado: '+updateError.message);return}
+    await audit('add_note',order.id,null,entry);await loadSupportData();closeModals();await renderPanel('bitacora');toast('Entrada guardada y reflejada en la orden.');
   }
 
   function bitacoraPanel(){
@@ -247,8 +232,66 @@ const TSService=(()=>{
     </div>`;
   }
 
+  function partsPanel(){
+    const low=serviceParts.filter(p=>p.active!==false&&Number(p.quantity)<=Number(p.minimum_stock));
+    const rows=serviceParts.map(p=>`<tr><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}<br><small>${esc(p.compatible_models||'Compatibilidad no indicada')}</small></td><td>${esc(p.category||'General')}</td><td><b class="${Number(p.quantity)<=Number(p.minimum_stock)?'stock-low':''}">${Number(p.quantity||0)}</b><br><small>Mínimo ${Number(p.minimum_stock||0)}</small></td><td>${p.unit_cost!=null?'$'+Number(p.unit_cost).toFixed(2):'—'} / ${p.sale_price!=null?'$'+Number(p.sale_price).toFixed(2):'—'}</td><td>${esc(p.location||'—')}</td><td><button onclick="TSService.openPartMovement('${esc(p.id)}','in')">Entrada</button> <button class="secondary" onclick="TSService.openPartMovement('${esc(p.id)}','out')">Usar</button> <button class="secondary" onclick="TSService.openPartEditor('${esc(p.id)}')">Editar</button></td></tr>`).join('');
+    const moves=partMovements.slice(0,20).map(m=>{const p=serviceParts.find(x=>x.id===m.part_id);return `<tr><td>${dateText(m.created_at)}</td><td>${esc(p?.name||m.part_id)}</td><td>${esc(m.movement_type)}</td><td>${m.quantity>0?'+':''}${m.quantity}</td><td>${m.balance_after}</td><td>${esc(m.order_id||m.note||'—')}</td></tr>`}).join('');
+    return `<div class="cards"><div class="metric"><span>Repuestos activos</span><b>${serviceParts.filter(p=>p.active!==false).length}</b></div><div class="metric"><span>Unidades totales</span><b>${serviceParts.reduce((s,p)=>s+Number(p.quantity||0),0)}</b></div><div class="metric"><span>Stock bajo</span><b>${low.length}</b></div></div><div class="tablewrap"><div class="bitacora-header"><div><h3>Stock de repuestos</h3><p>Entradas, consumos por orden y alertas mínimas.</p></div><button onclick="TSService.openPartEditor()">Añadir repuesto</button></div><table><tr><th>SKU</th><th>Repuesto</th><th>Categoría</th><th>Stock</th><th>Costo / venta</th><th>Ubicación</th><th>Acciones</th></tr>${rows||'<tr><td colspan="7">Aún no hay repuestos registrados.</td></tr>'}</table></div><div class="tablewrap"><h3>Últimos movimientos</h3><table><tr><th>Fecha</th><th>Repuesto</th><th>Tipo</th><th>Cantidad</th><th>Saldo</th><th>Orden / nota</th></tr>${moves||'<tr><td colspan="6">Sin movimientos.</td></tr>'}</table></div>`;
+  }
+  function openPartEditor(id=''){
+    const p=serviceParts.find(x=>String(x.id)===String(id));partId.value=p?.id||'';partSku.value=p?.sku||'';partName.value=p?.name||'';partCategory.value=p?.category||'';partModels.value=p?.compatible_models||'';partMin.value=p?.minimum_stock||0;partCost.value=p?.unit_cost??'';partPrice.value=p?.sale_price??'';partLocation.value=p?.location||'';document.getElementById('partEditorModal').classList.add('open');
+  }
+  async function savePart(e){
+    e.preventDefault();const id=partId.value;const row={sku:partSku.value.trim().toUpperCase(),name:partName.value.trim(),category:partCategory.value.trim()||null,compatible_models:partModels.value.trim()||null,minimum_stock:Number(partMin.value||0),unit_cost:partCost.value===''?null:Number(partCost.value),sale_price:partPrice.value===''?null:Number(partPrice.value),location:partLocation.value.trim()||null,active:true};
+    const q=id?supabaseClient.from('service_parts').update(row).eq('id',id):supabaseClient.from('service_parts').insert({...row,quantity:0});const {error}=await q;if(error)return toast('No se pudo guardar: '+error.message,'error');await loadSupportData();closeModals();await renderPanel('parts');toast(id?'Repuesto actualizado.':'Repuesto creado; registra una entrada de stock.');
+  }
+  function openPartMovement(id,direction){const p=serviceParts.find(x=>String(x.id)===String(id));if(!p)return;movementPartId.value=p.id;movementDirection.value=direction;movementTitle.textContent=`${direction==='in'?'Entrada':'Uso'} · ${p.name}`;movementQty.value=1;movementOrder.value='';movementNote.value='';document.getElementById('partMovementModal').classList.add('open')}
+  async function savePartMovement(e){
+    e.preventDefault();const direction=movementDirection.value;const qty=Math.abs(Number(movementQty.value||0))*(direction==='out'?-1:1);if(!qty)return toast('Indica una cantidad válida.','error');const orderCode=movementOrder.value.trim().toUpperCase();const {data,error}=await supabaseClient.rpc('adjust_service_part_stock',{p_part_id:movementPartId.value,p_quantity:qty,p_type:direction==='out'?'consumo_orden':'entrada',p_order_id:orderCode||null,p_note:movementNote.value.trim()||null});if(error)return toast(error.message,'error');if(direction==='out'&&orderCode){const order=orders.find(o=>o.code.toUpperCase()===orderCode);if(order)await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:`Repuesto utilizado: ${serviceParts.find(p=>p.id===movementPartId.value)?.name||'Repuesto'} · Cantidad ${Math.abs(qty)}`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Repuesto',status_after:order.status})}await loadSupportData();closeModals();await renderPanel('parts');toast(`Movimiento registrado. Stock actual: ${data?.quantity??data?.[0]?.quantity??'actualizado'}.`);
+  }
 
-  function ordersTable(scope='orders'){return `<div class="tablewrap"><h3>Órdenes</h3><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Falla</th><th>Estado</th><th>Acción</th></tr>${orders.map((o,i)=>`<tr><td>${o.code}</td><td>${o.client}<br><small>${o.phone}</small></td><td>${o.device}</td><td>${o.issue}</td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></td><td><button onclick="TSService.printOrder(${i})">Nota</button> <button class="secondary" onclick="TSService.openBitacora(\`${o.code}\`)">Bitácora</button></td></tr>`).join('')}</table></div>`}
+
+  function ordersTable(scope='orders'){
+    const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
+    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Última carga ${new Date().toLocaleTimeString('es-VE')}</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id));return `<tr><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small></td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Nota</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
+
+  async function openOrderManager(id){
+    const o=orders.find(x=>String(x.id)===String(id));if(!o)return;
+    activeOrderId=o.id;await loadServiceUsers();
+    const modal=document.getElementById('orderManagerModal');
+    document.getElementById('mOrderTitle').textContent=`${o.code} · ${o.device}`;
+    document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
+    mQuoteAmount.value=o.quoteAmount||'';mQuoteStatus.value=o.quote;mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=o.technicalNotes||'';
+    await renderOrderFiles(o.id);modal.classList.add('open');
+  }
+  async function renderOrderFiles(orderId){
+    const box=document.getElementById('mOrderFiles');if(!box)return;const files=servicePhotos.filter(p=>String(p.order_id)===String(orderId));
+    const rows=await Promise.all(files.map(async p=>{let url=p.file_url;if(p.storage_path){const {data}=await supabaseClient.storage.from('service-order-files').createSignedUrl(p.storage_path,3600);url=data?.signedUrl||url}return `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(p.label||'Archivo')} · ${dateText(p.created_at)}</a>`}));
+    box.innerHTML=rows.join('')||'<small>Sin fotografías o archivos.</small>';
+  }
+  async function saveOrderManager(e){
+    e.preventDefault();const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o)return;
+    const changes={assigned_technician_email:mTechnician.value||null,quote_amount:mQuoteAmount.value?Number(mQuoteAmount.value):null,quote_status:mQuoteStatus.value,warranty_days:Number(mWarrantyDays.value||0),delivery_method:mDeliveryMethod.value.trim()||null,tracking_company:mTrackingCompany.value.trim()||null,tracking_code:mTrackingCode.value.trim()||null,technical_notes:mTechnicalNotes.value.trim()||null};
+    const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',o.id);if(error){toast('No se pudo guardar: '+error.message,'error');return}
+    await supabaseClient.from('service_order_notes').insert({order_id:o.id,note:'Datos operativos actualizados: técnico, presupuesto, garantía o entrega.',visibility:'internal',author_name:session?.name||'Soporte',note_type:'Gestión de orden',status_after:o.status});await audit('update_order_details',o.id,o,changes);
+    await loadSupportData();closeModals();await renderPanel('orders');toast('Orden actualizada correctamente.');
+  }
+  async function uploadOrderFile(){
+    const input=document.getElementById('mOrderFile'),file=input?.files?.[0],o=orders.find(x=>String(x.id)===String(activeOrderId));if(!file||!o)return toast('Selecciona una fotografía o archivo.','error');
+    if(file.size>8*1024*1024)return toast('El archivo supera el límite de 8 MB.','error');
+    const ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'');const path=`${o.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,{upsert:false});if(upError)return toast('No se pudo subir: '+upError.message,'error');
+    const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:'private',storage_path:path,label:file.name,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
+    await audit('upload_order_file',o.id,null,{label:file.name,storage_path:path});await loadSupportData();await renderOrderFiles(o.id);input.value='';toast('Archivo guardado de forma privada.');
+  }
+  async function notifyOrderClient(){
+    const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o?.email)return toast('La orden no tiene correo del cliente.','error');
+    if(!confirm(`¿Enviar actualización de ${o.code} a ${o.email}?`))return;
+    await sendOrderEmail(o,false);
+  }
+  async function sendOrderEmail(o,silent=true){
+    const {data:{session:sb}}=await supabaseClient.auth.getSession();const res=await fetch('/.netlify/functions/support-actions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${sb?.access_token||''}`},body:JSON.stringify({action:'notify_client',order_id:o.id})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)return toast(data.error||'No se pudo enviar el correo.','error');toast('Correo enviado al cliente.');
+  }
 
 
   function deviceClass(category){
@@ -423,11 +466,29 @@ const TSService=(()=>{
     document.getElementById('orderModal').classList.add('open');
     setTimeout(()=>document.getElementById('deviceModelSearch')?.focus(),120);
   }
-  function code(){return 'TS-SVC-'+new Date().getFullYear()+'-'+String(orders.length+1).padStart(4,'0')}
-  function saveOrder(e){e.preventDefault();const o={code:code(),client:oClient.value,phone:oPhone.value,email:oEmail.value,device:oDevice.value,serial:oSerial.value,priority:oPriority.value,issue:oIssue.value,accessories:oAccessories.value,visual:oVisual.value,status:'Recibido',tech:'Sin asignar',quote:'Pendiente',updated:new Date().toLocaleString('es-VE')};orders.unshift(o);save();closeModals();renderPanel('orders');alert('Orden creada: '+o.code)}
-  function updateStatus(i,status){orders[i].status=status;orders[i].updated=new Date().toLocaleString('es-VE');save();}
+  function code(){const year=new Date().getFullYear(),nums=orders.filter(o=>String(o.code).includes(`TS-SVC-${year}-`)).map(o=>Number(String(o.code).split('-').pop())||0);return `TS-SVC-${year}-${String(Math.max(0,...nums)+1).padStart(4,'0')}`}
+  async function saveOrder(e){
+    e.preventDefault();
+    const device=findAppleDevice(oDevice.value);
+    const checklist={};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
+    const signatures={reception:sigReceptionName.value.trim()||session?.name||'',client:sigClientName.value.trim(),technician:sigTechName.value.trim(),supervisor:sigSupervisorName.value.trim()};
+    const row={code:code(),client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:device?.category||null,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:oPasswordFlag.value==='Sí',priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:oTechNotes.value.trim()||null,reception_checklist:checklist,signatures,status:'Recibido',quote_status:'Pendiente',created_by_email:session?.email||null};
+    const {data,error}=await supabaseClient.from('service_orders').insert(row).select('*').single();
+    if(error){alert('No se pudo crear la orden: '+error.message);return}
+    await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:'Equipo recibido y checklist registrado.',visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,row);
+    await loadSupportData();closeModals();await renderPanel('orders');toast('Orden creada en Supabase: '+row.code);
+  }
+  async function updateStatus(i,status){
+    const order=orders[i];if(!order)return;
+    const previous=order.status;
+    const changes={status};if(status==='Entregado')changes.delivered_at=new Date().toISOString();
+    const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',order.id);
+    if(error){alert('No se pudo actualizar el estado: '+error.message);await renderPanel('orders');return}
+    await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:`Estado actualizado de ${previous} a ${status}`,visibility:'internal',author_name:session?.name||'Soporte ThinkStore',note_type:'Cambio de estado',status_after:status});
+    await audit('update_status',order.id,{status:previous},{status});await loadSupportData();await renderPanel('orders');toast('Estado actualizado y registrado en bitácora.');if(order.email)sendOrderEmail({...order,status},true).catch(error=>console.warn('Correo de soporte:',error));
+  }
   function printOrder(i){const o=orders[i];const txt=`ORDEN DE SERVICIO THINKSTORE / ASISTECH\n${o.code}\nCliente: ${o.client}\nTeléfono: ${o.phone}\nEquipo: ${o.device}\nSerial/IMEI: ${o.serial||'No indicado'}\nFalla: ${o.issue}\nEstado: ${o.status}\nActualizado: ${o.updated}\nConsulta: soporte.thinkstore.com.ve/?orden=${o.code}`;navigator.clipboard?.writeText(txt);alert(txt)}
-  function lookupOrder(e){e.preventDefault();const q=lookupCode.value.trim().toUpperCase();const o=orders.find(x=>x.code.toUpperCase()===q);lookupResult.innerHTML=o?`<div class="metric"><b>${o.status}</b><p>${o.device}<br>Última actualización: ${o.updated}</p></div>`:'<p>No encontré esa orden.</p>'}
+  async function lookupOrder(e){e.preventDefault();const q=lookupCode.value.trim().toUpperCase();lookupResult.innerHTML='<p>Consultando…</p>';const {data,error}=await supabaseClient.rpc('lookup_service_order',{p_code:q});const o=Array.isArray(data)?data[0]:data;lookupResult.innerHTML=!error&&o?`<div class="metric"><b>${o.status}</b><p>${o.device_model}<br>Última actualización: ${dateText(o.updated_at)}</p></div>`:`<p>No encontré esa orden.</p>`}
 
   async function initAuth(){
     const params=new URLSearchParams(location.hash.replace('#',''));
@@ -445,7 +506,7 @@ const TSService=(()=>{
         const profile=await getServiceProfile(sbSession.user.email);
         session={name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email};
         localStorage.setItem('ts_service_session',JSON.stringify(session));
-        renderApp();
+        await renderApp();
       }catch(err){
         await supabaseClient.auth.signOut();
         localStorage.removeItem('ts_service_session');
@@ -463,5 +524,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,saveOrder,updateStatus,printOrder,lookupOrder,saveNewPassword,openBitacora,saveBitacora,previewSelectedDevice,selectDeviceFromSearch,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView};
+  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,openServiceOrder,saveOrder,updateStatus,printOrder,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView};
 })();

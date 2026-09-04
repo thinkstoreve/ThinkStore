@@ -3548,3 +3548,49 @@ footer {
 .ts-tradein-link{color:#3a3a3c;text-decoration:none;font-size:clamp(13px,1vw,15px);font-weight:600;white-space:nowrap;transition:color .2s ease}
 .ts-tradein-link:hover{color:#06c}
 @media(max-width:900px){.ts-tradein-link{font-size:12px}}
+
+/* ===== ThinkStore V13.24 · Botón Mi panel compacto ===== */
+.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn{
+  display:grid!important;
+  place-items:center!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  min-height:34px!important;
+  padding:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  font-size:0!important;
+  line-height:0!important;
+  white-space:nowrap!important;
+}
+.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn svg{
+  width:22px!important;
+  height:22px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.65!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+@media (min-width:901px){
+  .top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn{margin-left:-6px!important;margin-right:-6px!important;}
+}
+@media (max-width:900px){
+  .top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;}
+  .top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn svg{width:24px!important;height:24px!important;}
+}
+
+/* === ThinkStore V13.26 · Logo/header estable al volver a Inicio === */
+.ts-clean-brand:active,
+.ts-clean-brand:focus,
+.ts-clean-brand:focus-visible{
+  transform:none!important;
+  translate:none!important;
+}
+@media (min-width:861px){
+  .top.ts-clean-header.ts-header-no-jitter,
+  .top.ts-clean-header.ts-header-no-jitter *{
+    transition:none!important;
+  }
+}
