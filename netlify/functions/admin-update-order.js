@@ -57,7 +57,7 @@ exports.handler = async function(event) {
   const nextStatus=clean(body.status||body.estado);
   const guide=clean(body.guideNumber||body.numero_guia||body.guide);
   if(!incomingId&&!incomingCode)return reply(400,{ok:false,error:'ID o código de pedido requerido'});
-  if(!['resend_delivery_note','view_delivery_note'].includes(action)&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
+  if(!['resend_delivery_note','view_delivery_note','payment_decision','unlock_payment_decision'].includes(action)&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
 
   async function findPedido(){
     const qs=[];
@@ -158,6 +158,21 @@ exports.handler = async function(event) {
     }
   }
 
+  function paymentLockInfo(p){
+    const explicit=norm(p?.payment_decision||'');
+    if(explicit)return{decision:explicit,locked:p?.payment_decision_locked===true};
+    const st=norm(p?.estado||'');
+    if(st.includes('rechaz'))return{decision:'rejected',locked:true,legacy:true};
+    if(/pago verificado|preparando|transito|enviado|entregado|disponible/.test(st))return{decision:'approved',locked:true,legacy:true};
+    return{decision:'',locked:false};
+  }
+  function managerRoleAllowed(){
+    return auth.mode==='legacy'||['admin','super_admin','superadmin','administrator','gerente'].includes(norm(auth.role));
+  }
+  async function auditPayment(found,actionName,beforeData,afterData){
+    try{await sb('admin_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:auth.email||auth.mode||null,action:actionName,entity_type:'pedido',entity_id:String(found.id),before_data:beforeData||{},after_data:afterData||{}})})}catch(_){ }
+  }
+
   try{
     const found=await findPedido();
     if(!found)return reply(404,{ok:false,error:'Pedido no encontrado'});
@@ -167,6 +182,46 @@ exports.handler = async function(event) {
     // V1.5.6: una venta entregada queda inmutable. Solo se permiten acciones de lectura/reenvío.
     if(isClosed && !['resend_delivery_note','view_delivery_note'].includes(action)){
       return reply(409,{ok:false,locked:true,error:'Venta cerrada: este pedido ya fue entregado y es de solo lectura.'});
+    }
+
+    if(action==='unlock_payment_decision'){
+      if(!managerRoleAllowed())return reply(403,{ok:false,error:'Solo Gerencia o Super Admin puede desbloquear una decisión de pago.'});
+      const supplied=clean(body.managerCode);
+      const expected=clean(process.env.THINKSTORE_MANAGER_CODE||process.env.THINKSTORE_ADMIN_CODE);
+      if(!expected)return reply(501,{ok:false,error:'Configura THINKSTORE_MANAGER_CODE en Netlify para habilitar desbloqueos.'});
+      if(!supplied||supplied!==expected)return reply(403,{ok:false,error:'Código de gerente incorrecto.'});
+      const reason=clean(body.reason); if(reason.length<5)return reply(400,{ok:false,error:'El motivo del desbloqueo es obligatorio.'});
+      const info=paymentLockInfo(found); if(!info.locked)return reply(409,{ok:false,error:'La decisión de pago ya está desbloqueada.'});
+      const payload={payment_decision_locked:false,payment_unlocked_at:new Date().toISOString(),payment_unlocked_by:auth.email||auth.user_id||auth.mode||'gerencia',payment_unlock_reason:reason};
+      let updated;
+      try{updated=await updatePedido(found,payload)}catch(e){
+        if(/payment_decision_locked|payment_unlocked|schema cache|column/i.test(clean(e.message)))return reply(409,{ok:false,migration_required:true,error:'Falta aplicar supabase_v12_payment_lock.sql en Supabase antes de usar el desbloqueo.'});
+        throw e;
+      }
+      await auditPayment(found,'unlock_payment_decision',{decision:info.decision,locked:true},{decision:info.decision,locked:false,reason});
+      try{await sb('order_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({pedido_id:found.id,estado:clean(found.estado)||'Pago',nota:`Decisión de pago desbloqueada por Gerencia. Motivo: ${reason}`})})}catch(_){ }
+      return reply(200,{ok:true,unlocked:true,pedido:Array.isArray(updated)?updated[0]:updated});
+    }
+
+    if(action==='payment_decision'){
+      const info=paymentLockInfo(found); if(info.locked)return reply(409,{ok:false,locked:true,error:'La decisión de pago está bloqueada. Solicita a Gerencia el desbloqueo antes de cambiarla.'});
+      const approved=body.approved===true||clean(body.approved)==='true';
+      const decision=approved?'approved':'rejected'; const status=approved?'Pago verificado':'Pago rechazado';
+      const now=new Date().toISOString();
+      const payload={estado:status,payment_decision:decision,payment_decision_locked:true,payment_decision_at:now,payment_decision_by:auth.email||auth.user_id||auth.mode||'panel'};
+      let updated;
+      try{updated=await updatePedido(found,payload)}catch(e){
+        if(/payment_decision|schema cache|column/i.test(clean(e.message)))return reply(409,{ok:false,migration_required:true,error:'Falta aplicar supabase_v12_payment_lock.sql en Supabase antes de aprobar o rechazar pagos.'});
+        throw e;
+      }
+      try{await sb('order_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({pedido_id:found.id,estado:status,nota:approved?'Comprobante revisado y aprobado. Decisión bloqueada.':'Comprobante rechazado. Decisión bloqueada.'})})}catch(_){ }
+      await auditPayment(found,approved?'payment_approved_locked':'payment_rejected_locked',{estado:found.estado||'',decision:info.decision||null,locked:false},{estado:status,decision,locked:true});
+      const changed=Array.isArray(updated)?updated[0]:found;
+      const p=normalized(await fullPedido(changed));
+      const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
+      let noteResult={skipped:true}; if(approved){noteResult=await send(deliveryNoteEmail(p),p.customerEmail); await logEmail(p,'nota_entrega',noteResult)}
+      const inventory=await inventoryTransition(p,status);
+      return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true}});
     }
 
     if(action==='view_delivery_note'){
@@ -181,6 +236,15 @@ exports.handler = async function(event) {
     }
 
     const before=clean(found.estado);
+    const lock=paymentLockInfo(found); const target=norm(nextStatus);
+    if(lock.locked){
+      if(lock.decision==='approved' && (target.includes('rechaz')||target.includes('por verificar')||target.includes('pago recibido'))){
+        return reply(409,{ok:false,locked:true,error:'El pago ya fue aprobado y la decisión está protegida. Gerencia debe desbloquearla antes de revertirla.'});
+      }
+      if(lock.decision==='rejected' && !target.includes('rechaz')&&!target.includes('cancel')){
+        return reply(409,{ok:false,locked:true,error:'El pago fue rechazado y la decisión está protegida. Gerencia debe desbloquearla antes de continuar el pedido.'});
+      }
+    }
     const payload={estado:nextStatus}; if(guide)payload.numero_guia=guide;
     const updated=await updatePedido(found,payload);
     const changed=Array.isArray(updated)?updated[0]:found;

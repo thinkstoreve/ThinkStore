@@ -4,8 +4,43 @@
 #growth-enterprise,#v58-sales-automation,#v59-service-care-ai,#v60-ecosistema-comercial{display:none!important;}
 .ts-admin-growth-link{background:linear-gradient(135deg,#111,#30303a)!important;color:#fff!important;border-color:#111!important;}
 </style>
+
+<style id="ts-v12-8-icon-spacing">
+/* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
+.ts-clean-nav{column-gap:clamp(14px,1.55vw,24px)!important;}
+.ts-clean-nav .ts-nav-icon{margin-left:0!important;margin-right:0!important;}
+@media (max-width:900px){.ts-clean-nav{column-gap:6px!important;}}
+</style>
+  <link rel="stylesheet" href="chatbot.css">
+  <link rel="stylesheet" href="newsletter.css">
 </head><body>
-<header class="top"><a class="brand" href="#inicio" onclick="hiddenAdminTap(event)" title="ThinkStore"><img loading="eager" decoding="async" src="assets/2D678121-65A3-4A35-91B7-D248AE166B74.jpeg"><span><b>ThinkStore</b><small>Todo lo que deseas en un mismo lugar</small></span></a><nav><a href="#inicio">🍎 Inicio</a><a href="#catalogo" onclick="openCategoryWindow('iPhone');return true;">📱 iPhone</a><a href="#catalogo" onclick="openCategoryWindow('Mac');return true;">💻 MacBook</a><a href="#catalogo" onclick="openCategoryWindow('iPad');return true;">📲 iPad</a><a href="#catalogo" onclick="openCategoryWindow('Audio','AirPods');return true;">🎧 AirPods</a><a href="#catalogo" onclick="openCategoryWindow('Apple Watch','Watch');return true;">⌚ Watch</a><a href="#catalogo" onclick="openCategoryWindow('Accesorios');return true;">🔌 Accesorios</a><a href="#envios">🚚 Envíos</a><button id="clientNavBtn" onclick="tsClientNavAction()">👤 Login</button><button onclick="openCart()">🛒 Carrito <b id="cartCount">0</b></button><button onclick="toggleTheme()">🌙</button></nav></header>
+<header class="top ts-clean-header">
+  <div class="ts-header-left">
+    <a class="brand ts-clean-brand" href="#inicio" onclick="hiddenAdminTap(event)" title="ThinkStore">
+      <img loading="eager" decoding="async" src="assets/logo-thinkstore.png" alt="ThinkStore">
+      <span><b>ThinkStore</b><small>Tecnología. Todo en un solo lugar.</small></span>
+    </a>
+    <a class="ts-home-link" href="#inicio" aria-label="Inicio">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/></svg>
+      <span>Inicio</span>
+    </a>
+    <a class="ts-tradein-link" href="trade-in.html">Trade-IN</a>
+  </div>
+  <nav class="ts-clean-nav" aria-label="Navegación principal">
+    <a href="nosotros.html">Nosotros</a>
+    <a href="#servicio-tecnico">Soporte</a>
+    <a href="contacto.html">Contacto</a>
+    <button class="ts-nav-icon ts-account-btn" id="clientNavBtn" onclick="tsClientNavAction()" aria-label="Mi cuenta" title="Mi cuenta">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8a7 7 0 0 0-14 0"/></svg>
+    </button>
+    <button class="ts-nav-icon ts-cart-btn" onclick="openCart()" aria-label="Carrito" title="Carrito">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 1.9-1.4L21 7H7"/><circle cx="10" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/></svg><b id="cartCount">0</b>
+    </button>
+    <button class="ts-nav-icon ts-search-btn" onclick="const s=document.getElementById('search'); if(s){s.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>s.focus({preventScroll:true}),420)}" aria-label="Buscar" title="Buscar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.2 4.2"/></svg>
+    </button>
+  </nav>
+</header>
 
 <section class="ts-v2-hero" id="inicio">
   <div class="ts-v2-hero-bg"></div>
@@ -84,6 +119,22 @@
 <section class="section service" id="servicio-tecnico"><p class="eyebrow">Soporte técnico</p><h2>Servicio técnico Apple</h2><p>Selecciona el servicio que necesitas. Nuestro equipo confirmará disponibilidad, diagnóstico y recepción.</p><div class="servgrid"><button type="button" onclick="tsOpenTechnicalService('Diagnóstico')">🔍 <b>Diagnóstico</b><small>Revisión completa del equipo</small></button><button type="button" onclick="tsOpenTechnicalService('Baterías')">🔋 <b>Baterías</b><small>Revisión y reemplazo</small></button><button type="button" onclick="tsOpenTechnicalService('Pantallas')">🖥️ <b>Pantallas</b><small>Evaluación y reparación</small></button><button type="button" onclick="tsOpenTechnicalService('Recuperación de datos')">💾 <b>Datos</b><small>Diagnóstico de almacenamiento</small></button><button type="button" onclick="tsOpenTechnicalService('macOS')">🍎 <b>macOS</b><small>Software, respaldo y sistema</small></button><button type="button" onclick="tsOpenTechnicalService('Mantenimiento')">🧼 <b>Mantenimiento</b><small>Limpieza y prevención</small></button></div><div class="service-actions"><button class="btn" type="button" onclick="tsOpenTechnicalService('Servicio técnico general')">Solicitar servicio</button><a class="btn service-track" href="https://soporte.thinkstore.com.ve" target="_blank" rel="noopener">Consultar reparación</a></div></section>
 <section id="envios" class="section"><p class="eyebrow">Confianza ThinkStore</p><h2>Envíos y pagos</h2><div class="panels"><div><h3>🚚 Envíos nacionales</h3><div class="logos"><img loading="lazy" decoding="async" src="assets/mrw.svg"><img loading="lazy" decoding="async" src="assets/zoom.svg"><img loading="lazy" decoding="async" src="assets/tealca.svg"></div><p>MRW, Zoom y TEALCA a toda Venezuela.</p></div><div><h3>💳 Métodos de pago</h3><div class="logos pay"><img loading="lazy" decoding="async" src="assets/zelle.svg"><img loading="lazy" decoding="async" src="assets/pago-movil.svg"><img loading="lazy" decoding="async" src="assets/efectivo.svg"><img loading="lazy" decoding="async" src="assets/binance.svg"><img loading="lazy" decoding="async" src="assets/usdt.svg"></div><p>Zelle, Pago Móvil Bancamiga, efectivo y USDT.</p></div></div></section>
 <section class="location"><div><p class="eyebrow">Tienda física</p><h2>Altamira, Caracas, Venezuela</h2><p>Delivery gratis en algunos sectores y atención por WhatsApp.</p></div><button class="btn" type="button" onclick="tsOpenSmartWhatsApp('ubicacion')">Pedir ubicación</button></section></main>
+<section class="ts-newsletter" aria-labelledby="tsNewsletterTitle">
+  <div class="ts-newsletter-inner">
+    <p class="ts-newsletter-kicker">Novedades ThinkStore</p>
+    <h2 id="tsNewsletterTitle">Recibe ofertas antes que nadie.</h2>
+    <p class="ts-newsletter-copy">Suscríbete para conocer lanzamientos, disponibilidad, preórdenes y promociones exclusivas de ThinkStore.</p>
+    <form class="ts-newsletter-form" data-source="home" novalidate>
+      <div class="ts-newsletter-field">
+        <input type="email" name="email" inputmode="email" autocomplete="email" aria-label="Correo electrónico" placeholder="Correo electrónico" required>
+        <button type="submit" aria-label="Suscribirme" title="Suscribirme">→</button>
+      </div>
+      <p class="ts-newsletter-legal">Al suscribirte aceptas recibir comunicaciones promocionales de ThinkStore. Puedes solicitar dejar de recibirlas cuando quieras. Consulta nuestra <a href="login.html#privacidad" onclick="sessionStorage.setItem('ts_open_privacy','1')">Política de privacidad</a>.</p>
+      <p class="ts-newsletter-status" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+</section>
+
 <footer><div><img loading="eager" decoding="async" src="assets/2D678121-65A3-4A35-91B7-D248AE166B74.jpeg"><b>ThinkStore</b><p>Tu tienda de confianza para productos Apple y tecnología premium.</p></div><p>WhatsApp: 0414-1032030<br>Instagram: @thinkstore_ve<br>Correo: Thinkstore.ve@gmail.com</p></footer><button class="float ts-smart-wa-float" onclick="tsOpenSmartWhatsApp('general')">💬 WhatsApp</button>
 
 
@@ -571,7 +622,8 @@
             <h3>Crear campaña</h3>
             <label>Audiencia</label>
             <select id="mkAudience">
-              <option value="all">Todos los clientes registrados</option>
+              <option value="all">Clientes + suscriptores web</option>
+              <option value="newsletter">Suscriptores de ofertas</option>
               <option value="buyers">Clientes con pedidos</option>
               <option value="test">Prueba a un correo</option>
             </select>
@@ -858,4 +910,15 @@
   </div>
 </div>
 
+
+<script>
+(function(){
+ const header=document.querySelector('.top.ts-clean-header');
+ if(!header)return;
+ const sync=()=>header.classList.toggle('ts-header-scrolled',window.scrollY>70);
+ sync(); window.addEventListener('scroll',sync,{passive:true});
+})();
+</script>
+  <script src="chatbot.js"></script>
+  <script src="newsletter.js"></script>
 </body></html>

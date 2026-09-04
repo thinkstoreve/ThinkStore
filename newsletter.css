@@ -1,0 +1,19 @@
+.ts-newsletter{padding:clamp(58px,8vw,96px) 22px;background:#f5f5f7;border-top:1px solid rgba(0,0,0,.05);border-bottom:1px solid rgba(0,0,0,.05);text-align:center;color:#1d1d1f}
+.ts-newsletter-inner{max-width:760px;margin:0 auto}
+.ts-newsletter-kicker{margin:0 0 12px;font-size:12px;font-weight:750;letter-spacing:.14em;text-transform:uppercase;color:#6e6e73}
+.ts-newsletter h2{margin:0;font-size:clamp(30px,4vw,46px);line-height:1.08;letter-spacing:-.035em;font-weight:750}
+.ts-newsletter-copy{max-width:620px;margin:16px auto 28px;color:#6e6e73;font-size:16px;line-height:1.55}
+.ts-newsletter-form{max-width:520px;margin:0 auto}
+.ts-newsletter-field{display:flex;align-items:center;background:#fff;border:1px solid #d2d2d7;border-radius:999px;padding:5px 6px 5px 18px;box-shadow:0 8px 26px rgba(0,0,0,.045);transition:border-color .2s,box-shadow .2s,transform .2s}
+.ts-newsletter-field:focus-within{border-color:#0071e3;box-shadow:0 0 0 4px rgba(0,113,227,.11),0 12px 30px rgba(0,0,0,.05)}
+.ts-newsletter-field input{min-width:0;flex:1;border:0;outline:0;background:transparent;padding:10px 8px 10px 0;font:inherit;font-size:15px;color:#1d1d1f}
+.ts-newsletter-field input::placeholder{color:#86868b}
+.ts-newsletter-field button{width:42px;height:42px;flex:0 0 42px;border:0;border-radius:50%;background:#0071e3;color:#fff;font-size:21px;line-height:1;cursor:pointer;display:grid;place-items:center;transition:transform .18s,background .18s,opacity .18s}
+.ts-newsletter-field button:hover{background:#0077ed;transform:translateX(1px)}
+.ts-newsletter-field button:disabled{opacity:.55;cursor:wait;transform:none}
+.ts-newsletter-legal{margin:13px auto 0;max-width:470px;color:#86868b;font-size:11px;line-height:1.5}
+.ts-newsletter-legal a{color:#515154;text-decoration:underline;text-underline-offset:2px}
+.ts-newsletter-status{min-height:20px;margin:12px 0 0;font-size:13px;font-weight:600;color:#6e6e73}
+.ts-newsletter-status.success{color:#147a36}.ts-newsletter-status.error{color:#b42318}
+@media(max-width:560px){.ts-newsletter{padding:52px 18px}.ts-newsletter h2{font-size:31px}.ts-newsletter-copy{font-size:15px}.ts-newsletter-field{padding-left:15px}}
+@media(prefers-reduced-motion:reduce){.ts-newsletter-field,.ts-newsletter-field button{transition:none}}

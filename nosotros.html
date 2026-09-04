@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Contacto | ThinkStore</title>
+  <style>
+    :root{--text:#1d1d1f;--muted:#6e6e73;--line:#e8e8ed;--blue:#0071e3;--bg:#fff;--soft:#f5f5f7}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+    a{text-decoration:none;color:inherit}
+    button{font:inherit}
+    .notice{min-height:44px;display:flex;align-items:center;justify-content:center;padding:9px 20px;border-bottom:1px solid var(--line);font-size:13px;letter-spacing:.035em;text-align:center;color:#3a3a3c}
+    .header{height:82px;display:flex;align-items:center;justify-content:space-between;gap:30px;padding:0 clamp(22px,5vw,72px);border-bottom:1px solid var(--line);background:rgba(255,255,255,.92);backdrop-filter:saturate(180%) blur(20px);position:sticky;top:0;z-index:20}
+    .brand{display:flex;align-items:center;gap:11px;min-width:max-content}
+    .brand img{width:42px;height:42px;border-radius:13px;object-fit:cover}
+    .brand-text{display:flex;flex-direction:column;line-height:1.04}.brand-text b{font-size:18px;letter-spacing:-.3px}.brand-text small{margin-top:5px;color:var(--muted);font-size:10px;letter-spacing:.02em}
+    .nav{display:flex;align-items:center;gap:30px;font-size:14px;font-weight:520}.nav a{transition:.2s ease}.nav a:hover,.nav a.active{color:var(--blue)}
+    .search{width:38px;height:38px;display:grid;place-items:center;border:0;background:transparent;cursor:pointer;color:#222}.search svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
+    main{min-height:calc(100vh - 126px)}
+    .hero{text-align:center;padding:66px 20px 52px}.eyebrow{margin:0 0 10px;color:var(--blue);font-size:12px;font-weight:750;letter-spacing:.13em;text-transform:uppercase}.hero h1{font-size:clamp(38px,5vw,58px);letter-spacing:-.045em;margin:0 0 22px;font-weight:650}.hero p{max-width:760px;margin:0 auto;color:#3f3f43;font-size:18px;line-height:1.65}.hero p+p{margin-top:13px}.hero strong{color:#1d1d1f}
+    .actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:29px}.btn{border:0;border-radius:14px;padding:14px 25px;background:linear-gradient(135deg,#006edc,#5454e8);color:white;font-weight:700;box-shadow:0 12px 30px rgba(0,113,227,.2);cursor:pointer;transition:.22s ease}.btn:hover{transform:translateY(-1px);box-shadow:0 15px 34px rgba(0,113,227,.27)}.btn.secondary{background:#f5f5f7;color:#1d1d1f;box-shadow:none;border:1px solid #e5e5ea}
+    .contact-grid{width:min(1180px,calc(100% - 40px));margin:20px auto 76px;display:grid;grid-template-columns:1.08fr .92fr;border-top:1px solid var(--line);padding-top:46px;gap:46px;align-items:stretch}
+    .map{min-height:390px;border-radius:24px;overflow:hidden;background:var(--soft);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.06)}.map iframe{width:100%;height:100%;min-height:390px;border:0;display:block;filter:saturate(.75) contrast(.96)}
+    .store{padding:22px 8px;display:flex;flex-direction:column;justify-content:center}.store .mini{color:#3057a8;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.store h2{font-size:31px;letter-spacing:-.035em;margin:14px 0 12px}.store .address{font-size:17px;line-height:1.55;color:#444}.info{display:grid;gap:18px;margin-top:28px}.info-row{display:grid;grid-template-columns:38px 1fr;gap:13px;align-items:center}.ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#f5f5f7;box-shadow:inset 0 0 0 1px rgba(0,0,0,.025);transition:transform .2s ease,box-shadow .2s ease}.ico svg{width:20px;height:20px;display:block}.ico.mail{color:#fff;background:linear-gradient(145deg,#2387f2,#1769d4)}.ico.whatsapp{color:#fff;background:#25D366}.ico.instagram{color:#fff;background:radial-gradient(circle at 31% 105%,#fdf497 0 5%,#fdf497 5% 10%,#fd5949 45%,#d6249f 60%,#285AEB 90%)}.ico.location{color:#fff;background:linear-gradient(145deg,#ff665e,#e6423a)}.info-row:hover .ico{transform:translateY(-1px);box-shadow:0 7px 16px rgba(0,0,0,.10)}.info-row b{display:block;font-size:14px;margin:1px 0 3px}.info-row span,.info-row a{font-size:14px;line-height:1.5;color:var(--muted)}.info-row a:hover{color:var(--blue)}
+    .store-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:30px}
+    footer{border-top:1px solid var(--line);padding:28px clamp(22px,5vw,72px);display:flex;justify-content:space-between;gap:24px;align-items:center;color:var(--muted);font-size:12px}.footer-links{display:flex;gap:18px;flex-wrap:wrap}.footer-links a:hover{color:var(--blue)}
+    @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+    .hero>*{animation:rise .55s ease both}.hero h1{animation-delay:.05s}.hero p{animation-delay:.1s}.actions{animation-delay:.16s}.contact-grid{animation:rise .62s .18s ease both}
+    @media(max-width:800px){.header{height:auto;min-height:72px;padding:12px 18px}.brand-text small{display:none}.nav{gap:14px;font-size:13px}.nav a:nth-child(2){display:none}.hero{padding:48px 18px 34px}.hero p{font-size:16px}.contact-grid{grid-template-columns:1fr;width:min(100% - 28px,680px);gap:22px;padding-top:28px}.map,.map iframe{min-height:300px}.store{padding:10px 2px}.store h2{font-size:27px}footer{align-items:flex-start;flex-direction:column}}
+    @media(max-width:520px){.notice{font-size:11px}.brand img{width:36px;height:36px}.brand-text b{font-size:16px}.nav a:nth-child(1){display:none}.hero h1{font-size:38px}.actions .btn{width:100%;max-width:330px}.map,.map iframe{min-height:260px}}
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+  </style>
+  <link rel="stylesheet" href="chatbot.css">
+  <link rel="stylesheet" href="newsletter.css">
+</head>
+<body>
+  <div class="notice">Tecnología premium · atención personalizada · servicio técnico especializado</div>
+  <header class="header">
+    <a class="brand" href="index.html" aria-label="Volver a ThinkStore">
+      <img src="assets/logo-thinkstore.png" alt="ThinkStore">
+      <span class="brand-text"><b>ThinkStore</b><small>Tecnología. Todo en un solo lugar.</small></span>
+    </a>
+    <nav class="nav" aria-label="Navegación">
+      <a href="index.html">Inicio</a>
+      <a href="trade-in.html">Trade-IN</a>
+      <a class="active" href="nosotros.html">Nosotros</a>
+      <a href="index.html#servicio-tecnico">Soporte</a>
+      <a href="contacto.html">Contacto</a>
+      <a class="search" href="index.html#catalogo" aria-label="Buscar productos" title="Buscar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.2 4.2"/></svg>
+      </a>
+    </nav>
+  </header>
+
+  <main><section class="hero"><p class="eyebrow">Conoce ThinkStore</p><h1>Nosotros</h1><p>Somos una tienda especializada en tecnología Apple, accesorios y servicio técnico, enfocada en ofrecer una experiencia de compra clara, segura y personalizada.</p><div class="actions"><a class="primary" href="contacto.html">Contáctanos</a><a class="secondary" href="index.html">Volver a la tienda</a></div></section></main><script src="privacy.js"></script><script src="chatbot.js"></script></body></html>

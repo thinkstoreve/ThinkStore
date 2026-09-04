@@ -4899,8 +4899,8 @@ window.addEventListener('load', ()=>{
     const btn = $('clientNavBtn');
     if(!btn) return;
     const logged = !!getUser();
-    btn.textContent = logged ? '👤 Cuenta' : '👤 Login';
     btn.setAttribute('aria-label', logged ? 'Abrir cuenta' : 'Iniciar sesión');
+    btn.setAttribute('title', logged ? 'Mi cuenta' : 'Iniciar sesión');
   };
   window.tsClientNavAction = function(){
     if(getUser()){
@@ -4996,7 +4996,8 @@ window.addEventListener('load', ()=>{
     });
     const accountBtn = $('clientNavBtn');
     if(accountBtn){
-      accountBtn.textContent = loggedUser() ? '👤 Cuenta' : '👤 Login';
+      accountBtn.setAttribute('aria-label', loggedUser() ? 'Abrir cuenta' : 'Iniciar sesión');
+      accountBtn.setAttribute('title', loggedUser() ? 'Mi cuenta' : 'Iniciar sesión');
       accountBtn.onclick = function(){
         if(loggedUser()){
           if(typeof window.openAccount === 'function') window.openAccount();
@@ -5577,13 +5578,14 @@ window.addEventListener('load', ()=>{
     if(!btn) return;
     let panelBtn=document.getElementById('tsClientPanelBtn');
     if(!u){
-      btn.textContent='👤 Login';
+      btn.setAttribute('aria-label','Iniciar sesión');
+      btn.setAttribute('title','Iniciar sesión');
       if(panelBtn) panelBtn.remove();
       return;
     }
     const role=window.tsGetCurrentRole();
     const isAdmin=['admin','superadmin'].includes(role);
-    btn.textContent=isAdmin ? '⚙️ Administración' : (window.tsIsStaff() ? '🧭 Panel' : '👤 Cuenta');
+    btn.setAttribute('aria-label', isAdmin ? 'Abrir Panel Administrativo ThinkStore' : (window.tsIsStaff() ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta ThinkStore'));
     btn.title=isAdmin ? 'Abrir Panel Administrativo ThinkStore' : (window.tsIsStaff() ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta ThinkStore');
     // Forzamos la acción aquí porque módulos antiguos actualizan este mismo botón.
     btn.onclick=()=>window.tsOpenRolePanel();
@@ -6194,5 +6196,29 @@ window.addEventListener('load', ()=>{
     }
     const message=`Hola ThinkStore, necesito solicitar ${requested}. Equipo: [modelo]. Falla o solicitud: [detalle].`;
     window.open(`https://wa.me/584141032030?text=${encodeURIComponent(message)}`,'_blank','noopener');
+  };
+})();
+
+
+/* ===== ThinkStore V13 · Login en página independiente ===== */
+(function(){
+  function currentUser(){
+    try{
+      const raw=localStorage.getItem('ts_current_user');
+      const u=raw?JSON.parse(raw):null;
+      return u && (u.email||u.id||u.supabase_id) ? u : null;
+    }catch(e){ return null; }
+  }
+  function loginUrl(){
+    const next=(location.pathname||'/')+(location.search||'')+(location.hash||'');
+    return 'login.html?next='+encodeURIComponent(next||'/');
+  }
+  window.openClientLogin=function(){ location.href=loginUrl(); };
+  window.tsClientNavAction=function(){
+    if(currentUser()){
+      if(typeof window.tsOpenRolePanel==='function') return window.tsOpenRolePanel();
+      if(typeof window.openAccount==='function') return window.openAccount();
+    }
+    location.href=loginUrl();
   };
 })();

@@ -103,6 +103,20 @@ exports.handler = async function(event) {
         const pedidos = await supabaseGet('pedidos?select=cliente_id');
         const buyerIds = new Set((pedidos || []).map(p => String(p.cliente_id || '')).filter(Boolean));
         recipients = recipients.filter(c => buyerIds.has(String(c.id || '')));
+      } else {
+        // V13.6: incorporar correos que dieron consentimiento desde el newsletter web.
+        // Si la tabla aún no fue activada, las campañas existentes siguen funcionando con clientes registrados.
+        try {
+          const subscribers = await supabaseGet('newsletter_subscribers?select=email,status&status=eq.subscribed');
+          const newsletterRecipients = (subscribers || [])
+            .map(n => ({ email: clean(n.email), nombre: 'Cliente ThinkStore' }))
+            .filter(n => n.email && n.email.includes('@'));
+          if (audience === 'newsletter') recipients = newsletterRecipients;
+          else recipients = recipients.concat(newsletterRecipients);
+        } catch (newsletterError) {
+          if (audience === 'newsletter') throw newsletterError;
+          console.warn('ThinkStore Newsletter aún no activado:', newsletterError.message || newsletterError);
+        }
       }
     }
   } catch (error) {

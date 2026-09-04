@@ -55,7 +55,8 @@ const PRODUCTS = [
     "colors": {
       "Verde": "2D7E0106-D37A-42C8-8718-9CC04B9CFDC3.jpeg",
       "Blanco": "84547CF2-F3E7-4ECE-AD91-EDAEF2289225.jpeg",
-      "Negro": "B11F8B70-E258-484E-9368-86F525A0AFA5.jpeg"
+      "Negro": "B11F8B70-E258-484E-9368-86F525A0AFA5.jpeg",
+      "Púrpura": "2D7E0106-D37A-42C8-8718-9CC04B9CFDC3.jpeg"
     },
     "storage": [
       "128GB",

@@ -3203,3 +3203,348 @@ body.dark .ts-smart-wa-options small{color:#c7c7cc} body.dark .ts-smart-wa-custo
 .servgrid button b{font-size:19px;align-self:center}.servgrid button small{grid-column:1/-1;color:var(--muted);font-size:13px;line-height:1.35}
 .service-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}.service-actions .btn{margin:0}.service-track{background:var(--card);color:var(--text);border:1px solid var(--border)}
 @media(max-width:560px){.servgrid button{min-height:96px;padding:16px;font-size:19px}.service-actions{display:grid}.service-actions .btn{justify-content:center}}
+
+/* === ThinkStore V12.2 · Clean top navigation === */
+.top.ts-clean-header{
+  min-height:82px;
+  padding:0 5%!important;
+  background:rgba(255,255,255,.92)!important;
+  border-bottom:1px solid rgba(0,0,0,.07)!important;
+  box-shadow:none!important;
+  backdrop-filter:saturate(180%) blur(22px);
+  -webkit-backdrop-filter:saturate(180%) blur(22px);
+  gap:28px;
+}
+.ts-clean-brand{gap:11px!important;min-width:0!important}
+.ts-clean-brand img{
+  width:42px!important;height:42px!important;border-radius:12px!important;
+  object-fit:cover!important;border:0!important;box-shadow:none!important;background:#111;
+}
+.ts-clean-brand span{display:flex;flex-direction:column;justify-content:center}
+.ts-clean-brand span b{font-size:21px!important;line-height:1.02!important;letter-spacing:-.55px!important;font-weight:650!important;color:#1d1d1f}
+.ts-clean-brand span small{font-size:10.5px!important;line-height:1.2!important;margin-top:4px;color:#86868b!important;letter-spacing:.01em}
+.top.ts-clean-header .ts-clean-nav{
+  margin:0!important;padding:0!important;width:auto!important;display:flex!important;align-items:center!important;
+  justify-content:flex-end!important;gap:28px!important;overflow:visible!important;
+}
+.top.ts-clean-header .ts-clean-nav>a{
+  border:0!important;background:transparent!important;padding:29px 0!important;border-radius:0!important;
+  font-size:14px!important;font-weight:500!important;color:#3a3a3c!important;line-height:1!important;transition:color .18s ease,opacity .18s ease!important;
+}
+.top.ts-clean-header .ts-clean-nav>a:hover{color:#0071e3!important;opacity:1!important;transform:none!important;box-shadow:none!important}
+.top.ts-clean-header .ts-nav-icon{
+  position:relative;display:grid!important;place-items:center!important;width:34px!important;height:34px!important;min-height:34px!important;
+  padding:0!important;margin:0!important;border:0!important;border-radius:50%!important;background:transparent!important;color:#3a3a3c!important;
+  transition:background .18s ease,color .18s ease,transform .18s ease!important;
+}
+.top.ts-clean-header .ts-nav-icon:hover{background:#f2f2f4!important;color:#111!important;transform:translateY(-1px)!important;box-shadow:none!important}
+.top.ts-clean-header .ts-nav-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.top.ts-clean-header .ts-cart-btn #cartCount{
+  position:absolute;right:-4px;top:-3px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#0071e3;color:#fff;
+  display:grid;place-items:center;font-size:9px;line-height:1;font-weight:700;border:2px solid rgba(255,255,255,.96)
+}
+.dark .top.ts-clean-header{background:rgba(22,22,24,.92)!important;border-color:rgba(255,255,255,.08)!important}
+.dark .ts-clean-brand span b,.dark .top.ts-clean-header .ts-clean-nav>a,.dark .top.ts-clean-header .ts-nav-icon{color:#f5f5f7!important}
+.dark .ts-clean-brand span small{color:#a1a1a6!important}
+.dark .top.ts-clean-header .ts-nav-icon:hover{background:#2a2a2d!important}
+.dark .top.ts-clean-header .ts-cart-btn #cartCount{border-color:#161618}
+@media(max-width:860px){
+  .top.ts-clean-header{min-height:72px;padding:0 18px!important;display:flex!important;align-items:center!important;gap:12px!important}
+  .ts-clean-brand img{width:38px!important;height:38px!important}
+  .ts-clean-brand span b{font-size:18px!important}
+  .ts-clean-brand span small{display:none!important}
+  .top.ts-clean-header .ts-clean-nav{margin:0 0 0 auto!important;gap:14px!important;width:auto!important;overflow:visible!important;padding:0!important}
+  .top.ts-clean-header .ts-clean-nav>a{font-size:13px!important;padding:26px 0!important}
+}
+@media(max-width:620px){
+  .top.ts-clean-header{padding:0 14px!important}
+  .ts-clean-brand span{display:none!important}
+  .top.ts-clean-header .ts-clean-nav{gap:10px!important}
+  .top.ts-clean-header .ts-clean-nav>a{display:none!important}
+  .top.ts-clean-header .ts-nav-icon{width:36px!important;height:36px!important;min-height:36px!important}
+  .top.ts-clean-header .ts-nav-icon svg{width:21px;height:21px}
+}
+
+/* === ThinkStore V12.3 · Menu superior refinado === */
+.top.ts-clean-header{
+  min-height:88px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  padding:0 5%!important;
+  gap:28px!important;
+  background:rgba(255,255,255,.96)!important;
+  box-shadow:none!important;
+  filter:none!important;
+  text-shadow:none!important;
+}
+.ts-header-left{display:flex;align-items:center;gap:30px;min-width:0;flex:1 1 auto}
+.ts-clean-brand,
+.ts-clean-brand *{filter:none!important;text-shadow:none!important;opacity:1!important;transform:none!important}
+.ts-clean-brand{flex:0 0 auto!important;transition:none!important}
+.ts-clean-brand:hover{filter:none!important;opacity:1!important;transform:none!important;box-shadow:none!important}
+.ts-clean-brand img{width:44px!important;height:44px!important;border-radius:13px!important;box-shadow:none!important;filter:none!important}
+.ts-clean-brand span b{font-size:22px!important;font-weight:650!important;color:#1d1d1f!important;letter-spacing:-.6px!important}
+.ts-clean-brand span small{font-size:11px!important;color:#77777c!important;margin-top:4px!important;white-space:nowrap}
+.ts-home-link{
+  display:flex!important;align-items:center!important;gap:8px!important;
+  padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;
+  color:#3a3a3c!important;font-size:14px!important;font-weight:500!important;line-height:1!important;
+  white-space:nowrap!important;box-shadow:none!important;text-shadow:none!important;filter:none!important;opacity:1!important;
+  transition:color .16s ease!important;
+}
+.ts-home-link svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ts-home-link:hover{color:#0071e3!important;transform:none!important;box-shadow:none!important;filter:none!important;opacity:1!important}
+.top.ts-clean-header .ts-clean-nav{flex:0 0 auto!important;margin-left:auto!important;gap:27px!important}
+.top.ts-clean-header .ts-clean-nav>a,
+.top.ts-clean-header .ts-nav-icon,
+.top.ts-clean-header .ts-clean-nav>a *,
+.top.ts-clean-header .ts-nav-icon *{
+  text-shadow:none!important;filter:none!important;opacity:1!important;box-shadow:none!important;
+}
+.top.ts-clean-header .ts-clean-nav>a{transition:color .16s ease!important}
+.top.ts-clean-header .ts-clean-nav>a:hover{transform:none!important;filter:none!important;text-shadow:none!important}
+.top.ts-clean-header .ts-nav-icon{transition:color .16s ease,background-color .16s ease!important;transform:none!important}
+.top.ts-clean-header .ts-nav-icon:hover{transform:none!important;filter:none!important;text-shadow:none!important;background:#f5f5f7!important}
+.top.ts-clean-header .ts-nav-icon svg{stroke-width:1.65!important}
+@media(max-width:980px){
+  .ts-header-left{gap:18px}
+  .top.ts-clean-header .ts-clean-nav{gap:18px!important}
+  .ts-clean-brand span small{font-size:10px!important}
+}
+@media(max-width:860px){
+  .top.ts-clean-header{min-height:76px!important;padding:0 18px!important}
+  .ts-header-left{gap:16px}
+  .ts-home-link span{display:none}
+  .ts-clean-brand span small{display:none!important}
+}
+@media(max-width:620px){
+  .top.ts-clean-header{min-height:68px!important;padding:0 12px!important;gap:8px!important}
+  .ts-header-left{gap:10px;flex:0 1 auto}
+  .ts-clean-brand img{width:38px!important;height:38px!important}
+  .ts-clean-brand span{display:none!important}
+  .ts-home-link{width:34px;height:34px;justify-content:center!important}
+  .ts-home-link svg{width:20px;height:20px}
+  .top.ts-clean-header .ts-clean-nav{gap:8px!important}
+}
+
+/* === ThinkStore V12.4 · Header aprobado (referencia visual exacta) === */
+@media (min-width:861px){
+  .top.ts-clean-header{
+    min-height:92px!important;
+    padding:0 3.1%!important;
+    gap:26px!important;
+    background:#fff!important;
+    border-bottom:1px solid #ededf0!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+  .ts-header-left{
+    flex:0 0 auto!important;
+    gap:34px!important;
+  }
+  .ts-clean-brand{
+    margin:0!important;
+  }
+  .ts-home-link{
+    color:#147ce5!important;
+    font-size:16px!important;
+    font-weight:500!important;
+    gap:10px!important;
+  }
+  .ts-home-link svg{
+    width:25px!important;
+    height:25px!important;
+    stroke-width:1.7!important;
+  }
+  .top.ts-clean-header .ts-clean-nav{
+    margin-left:auto!important;
+    gap:34px!important;
+    align-items:center!important;
+  }
+  .top.ts-clean-header .ts-clean-nav>a{
+    color:#1d1d1f!important;
+    font-size:16px!important;
+    font-weight:500!important;
+    padding:36px 0!important;
+    line-height:1!important;
+  }
+  .top.ts-clean-header .ts-account-btn{
+    margin-left:42px!important;
+  }
+  .top.ts-clean-header .ts-nav-icon{
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+    min-height:36px!important;
+    padding:0!important;
+    color:#111827!important;
+    background:transparent!important;
+    border:0!important;
+    border-radius:0!important;
+  }
+  .top.ts-clean-header .ts-nav-icon:hover{
+    color:#111827!important;
+    background:transparent!important;
+    transform:none!important;
+  }
+  .top.ts-clean-header .ts-nav-icon svg{
+    width:27px!important;
+    height:27px!important;
+    stroke-width:1.65!important;
+  }
+  .top.ts-clean-header .ts-cart-btn #cartCount{
+    top:-6px!important;
+    right:-7px!important;
+    min-width:22px!important;
+    height:22px!important;
+    padding:0 5px!important;
+    border:2px solid #fff!important;
+    background:#1683f3!important;
+    color:#fff!important;
+    font-size:12px!important;
+    font-weight:600!important;
+    line-height:18px!important;
+  }
+}
+
+/* === ThinkStore V12.5 · Ajuste final de header ===
+   - Inicio neutro (azul solo al hover)
+   - Iconos con separación equilibrada, conservando tamaño aprobado
+*/
+@media (min-width:861px){
+  .ts-home-link{
+    color:#3a3a3c!important;
+  }
+  .ts-home-link:hover{
+    color:#0071e3!important;
+  }
+  .top.ts-clean-header .ts-clean-nav{
+    gap:32px!important;
+  }
+  .top.ts-clean-header .ts-account-btn{
+    margin-left:12px!important;
+  }
+  .top.ts-clean-header .ts-nav-icon{
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+    min-height:36px!important;
+  }
+  .top.ts-clean-header .ts-nav-icon svg{
+    width:27px!important;
+    height:27px!important;
+  }
+}
+
+/* === ThinkStore V12.6 · Header ligeramente más compacto === */
+@media (min-width:861px){
+  .ts-home-link{font-size:15px!important;}
+  .ts-home-link svg{width:23px!important;height:23px!important;}
+  .top.ts-clean-header .ts-clean-nav>a{font-size:15px!important;}
+  .top.ts-clean-header .ts-nav-icon{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;}
+  .top.ts-clean-header .ts-nav-icon svg{width:25px!important;height:25px!important;}
+  .top.ts-clean-header .ts-cart-btn #cartCount{min-width:20px!important;height:20px!important;font-size:11px!important;line-height:16px!important;}
+}
+
+/* === ThinkStore V12.7 · Header dinámico al hacer scroll === */
+@media (min-width:861px){
+  .top.ts-clean-header{transition:min-height .24s ease,padding .24s ease,background .24s ease!important;}
+  .top.ts-clean-header .ts-clean-brand img,
+  .top.ts-clean-header .ts-clean-brand span,
+  .top.ts-clean-header .ts-home-link,
+  .top.ts-clean-header .ts-clean-nav>a,
+  .top.ts-clean-header .ts-nav-icon{transition:all .24s ease!important;}
+  .top.ts-clean-header.ts-header-scrolled{min-height:60px!important;padding-top:0!important;padding-bottom:0!important;background:rgba(255,255,255,.96)!important;}
+  .top.ts-clean-header.ts-header-scrolled .ts-clean-brand img{width:34px!important;height:34px!important;border-radius:10px!important;}
+  .top.ts-clean-header.ts-header-scrolled .ts-clean-brand span{transform:scale(.92)!important;transform-origin:left center!important;}
+  .top.ts-clean-header.ts-header-scrolled .ts-home-link{font-size:14px!important;}
+  .top.ts-clean-header.ts-header-scrolled .ts-home-link svg{width:21px!important;height:21px!important;}
+  .top.ts-clean-header.ts-header-scrolled .ts-clean-nav>a{padding:21px 0!important;font-size:14px!important;}
+  .top.ts-clean-header.ts-header-scrolled .ts-nav-icon{width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;}
+  .top.ts-clean-header.ts-header-scrolled .ts-nav-icon svg{width:23px!important;height:23px!important;}
+}
+
+/* =========================================================
+   ThinkStore V13.1 — Entrada premium de página
+   Animación discreta al abrir, sin alterar lógica ni layout.
+   ========================================================= */
+@keyframes tsPageHeaderIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes tsPageFadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes tsPageFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Header entra primero */
+.top.ts-clean-header {
+  animation: tsPageHeaderIn .42s cubic-bezier(.22,.7,.2,1) both;
+  will-change: opacity, transform;
+}
+
+/* Hero: fondo, texto y producto aparecen por capas */
+.ts-v2-hero-bg {
+  animation: tsPageFadeIn .58s ease-out .06s both;
+}
+.ts-v2-hero-content {
+  animation: tsPageFadeUp .58s cubic-bezier(.22,.7,.2,1) .10s both;
+  will-change: opacity, transform;
+}
+.ts-v2-hero-device {
+  animation: tsPageFadeUp .68s cubic-bezier(.22,.7,.2,1) .16s both;
+  will-change: opacity, transform;
+}
+
+/* Primera sección entra después del hero para evitar el efecto “todo de golpe” */
+.ts-v2-categories,
+.ts-v2-featured {
+  animation: tsPageFadeUp .52s cubic-bezier(.22,.7,.2,1) .22s both;
+}
+
+/* El contenido heredado aparece con un fade casi imperceptible */
+main,
+footer,
+.ts-smart-wa-float {
+  animation: tsPageFadeIn .48s ease-out .20s both;
+}
+
+/* Al interactuar, ninguna animación de entrada bloquea clicks */
+.top.ts-clean-header,
+.ts-v2-hero-content,
+.ts-v2-hero-device,
+.ts-v2-categories,
+.ts-v2-featured,
+main,
+footer {
+  pointer-events: auto;
+}
+
+/* Accesibilidad: usuarios que prefieren menos movimiento ven todo inmediatamente. */
+@media (prefers-reduced-motion: reduce) {
+  .top.ts-clean-header,
+  .ts-v2-hero-bg,
+  .ts-v2-hero-content,
+  .ts-v2-hero-device,
+  .ts-v2-categories,
+  .ts-v2-featured,
+  main,
+  footer,
+  .ts-smart-wa-float {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* ThinkStore V13.8 · Trade-IN junto a Inicio */
+.ts-header-left{gap:clamp(12px,1.4vw,22px)}
+.ts-tradein-link{color:#3a3a3c;text-decoration:none;font-size:clamp(13px,1vw,15px);font-weight:600;white-space:nowrap;transition:color .2s ease}
+.ts-tradein-link:hover{color:#06c}
+@media(max-width:900px){.ts-tradein-link{font-size:12px}}

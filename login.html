@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Iniciar sesión | ThinkStore</title>
+  <link rel="icon" href="assets/logo-thinkstore.png">
+  <style>
+    :root{--ink:#121214;--muted:#6e6e73;--line:#d9d9de;--soft:#f5f5f7;--blue:#1677ff;--blue2:#4e39ff}
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;background:#fff;color:var(--ink)}
+    body{min-height:100vh;display:flex;flex-direction:column}
+    .ts-login-top{height:76px;display:flex;align-items:center;padding:0 clamp(22px,5vw,72px);border-bottom:1px solid #f0f0f2;background:rgba(255,255,255,.94);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+    .ts-login-top a{display:inline-flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
+    .ts-login-top img{width:38px;height:38px;object-fit:contain;border-radius:10px}
+    .ts-login-top strong{font-size:19px;letter-spacing:-.4px}
+    .ts-login-top span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+    main{flex:1;display:grid;place-items:center;padding:52px 22px 64px}
+    .auth-shell{width:min(470px,100%)}
+    .auth-brand{display:grid;place-items:center;margin-bottom:58px}
+    .auth-brand img{width:84px;height:84px;object-fit:contain;border-radius:24px;box-shadow:0 10px 34px rgba(0,0,0,.06)}
+    h1{font-size:31px;line-height:1.1;letter-spacing:-1px;margin:0 0 8px;font-weight:760}
+    .sub{font-size:15px;color:var(--muted);margin:0 0 28px}
+    .field{position:relative;margin-bottom:14px}
+    .field input{width:100%;height:58px;border:1.5px solid var(--line);border-radius:14px;padding:0 48px 0 16px;font-size:16px;outline:none;background:#fff;transition:border-color .18s,box-shadow .18s}
+    .field input:focus{border-color:#7c7cff;box-shadow:0 0 0 4px rgba(88,79,255,.10)}
+    .field .arrow{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:24px;color:#2d2d32;pointer-events:none}
+    .primary{width:100%;height:56px;border:0;border-radius:14px;background:linear-gradient(90deg,#1324e5 0%,#6c15f5 100%);color:#fff;font-size:16px;font-weight:720;cursor:pointer;transition:transform .16s,filter .16s}
+    .primary:hover{filter:brightness(1.04)} .primary:active{transform:scale(.992)} .primary:disabled{opacity:.6;cursor:wait}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px}
+    .link{border:0;background:none;padding:0;color:#2b2b31;text-decoration:underline;text-underline-offset:3px;font-size:14px;cursor:pointer}
+    .hint{font-size:12px;line-height:1.5;color:#77777d;margin-top:24px;text-align:center}
+    .divider{display:flex;align-items:center;gap:12px;margin:24px 0;color:#929298;font-size:12px}.divider:before,.divider:after{content:"";height:1px;background:#ececf0;flex:1}
+    .secondary{width:100%;height:54px;border:1.5px solid #d6d6dc;border-radius:14px;background:#fff;color:#202024;font-size:15px;font-weight:680;cursor:pointer}
+    .panel{display:none}.panel.active{display:block}
+    .status{display:none;margin:14px 0 0;padding:12px 14px;border-radius:12px;font-size:13px;line-height:1.45}.status.show{display:block}.status.ok{background:#effaf3;color:#176b37}.status.err{background:#fff1f1;color:#a52828}
+    .privacy{padding:18px 20px 28px;text-align:center;font-size:12px;color:#76767c}.privacy a{color:inherit;text-underline-offset:3px}
+    .back{position:fixed;top:20px;right:24px;width:38px;height:38px;border:1px solid #ececf0;border-radius:50%;background:#fff;display:grid;place-items:center;text-decoration:none;color:#222;font-size:21px;box-shadow:0 4px 18px rgba(0,0,0,.04)}
+    .register-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.register-grid .wide{grid-column:1/-1}
+    .register-grid input{width:100%;height:52px;border:1.5px solid var(--line);border-radius:13px;padding:0 14px;font-size:15px;outline:none}.register-grid input:focus{border-color:#7c7cff;box-shadow:0 0 0 4px rgba(88,79,255,.09)}
+    @media(max-width:640px){.ts-login-top{height:66px;padding:0 18px}.ts-login-top span{display:none}.auth-brand{margin-bottom:42px}.auth-brand img{width:72px;height:72px}.register-grid{grid-template-columns:1fr}.register-grid .wide{grid-column:auto}main{padding-top:34px}.back{top:14px;right:14px}}
+    .privacy-btn{border:0;background:none;padding:0;color:inherit;text-decoration:underline;text-underline-offset:3px;font:inherit;cursor:pointer}
+    .privacy-modal{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:28px;background:rgba(16,20,24,.38);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    .privacy-modal.open{display:flex;animation:tsPrivacyFade .2s ease-out both}
+    .privacy-card{position:relative;width:min(680px,94vw);max-height:min(78vh,760px);overflow:auto;background:rgba(255,255,255,.98);border:1px solid rgba(0,0,0,.07);border-radius:24px;box-shadow:0 28px 80px rgba(0,0,0,.18);padding:34px 38px 38px;animation:tsPrivacyCard .28s cubic-bezier(.22,.75,.2,1) both}
+    .privacy-card h2{margin:0 46px 8px 0;font-size:28px;letter-spacing:-.6px}
+    .privacy-card .updated{margin:0 0 24px;color:#68686e;font-size:14px}
+    .privacy-card h3{font-size:17px;margin:26px 0 8px}
+    .privacy-card p,.privacy-card li{font-size:14px;line-height:1.65;color:#343438}
+    .privacy-card ul{padding-left:20px}
+    .privacy-close{position:sticky;float:right;top:0;margin:-8px -10px 0 0;width:38px;height:38px;border:0;border-radius:50%;background:#f3f3f5;color:#68686e;font-size:25px;line-height:1;cursor:pointer;display:grid;place-items:center}
+    .privacy-close:hover{background:#e9e9ec;color:#111}
+    @keyframes tsPrivacyFade{from{opacity:0}to{opacity:1}}
+    @keyframes tsPrivacyCard{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+    body.privacy-open{overflow:hidden}
+    @media(max-width:640px){.privacy-modal{padding:14px}.privacy-card{padding:26px 22px 30px;border-radius:20px;max-height:84vh}.privacy-card h2{font-size:24px}}
+
+  </style>
+
+<style id="ts-v13-1-login-entry">
+@keyframes tsLoginPageIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes tsLoginLogoIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+body{animation:tsLoginPageIn .5s cubic-bezier(.22,.7,.2,1) both}
+body img:first-of-type{animation:tsLoginLogoIn .42s ease-out .06s both}
+@media (prefers-reduced-motion:reduce){body,body img:first-of-type{animation:none!important;opacity:1!important;transform:none!important}}
+</style>
+  <link rel="stylesheet" href="chatbot.css">
+</head>
+<body>
+  <header class="ts-login-top">
+    <a href="/" aria-label="Volver a ThinkStore"><img src="assets/logo-thinkstore.png" alt="ThinkStore"><div><strong>ThinkStore</strong><span>Tecnología. Todo en un solo lugar.</span></div></a>
+  </header>
+  <a class="back" href="/" aria-label="Cerrar">×</a>
+  <main>
+    <section class="auth-shell">
+      <div class="auth-brand"><img src="assets/logo-thinkstore.png" alt="ThinkStore"></div>
+
+      <div id="loginPanel" class="panel active">
+        <h1>Iniciar sesión</h1>
+        <p class="sub">Inicia sesión o crea una cuenta.</p>
+        <form id="loginForm">
+          <div class="field"><input id="email" type="email" autocomplete="email" placeholder="Correo electrónico" required><span class="arrow">→</span></div>
+          <div class="field"><input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required></div>
+          <button id="loginBtn" class="primary" type="submit">Continuar con ThinkStore</button>
+        </form>
+        <div id="loginStatus" class="status"></div>
+        <div class="row"><button class="link" type="button" data-view="forgot">¿Olvidaste tu contraseña?</button><button class="link" type="button" data-view="register">Crear cuenta</button></div>
+        <p class="hint">Si continúas, aceptas nuestros términos de servicio y la <button class="privacy-btn" type="button" data-open-privacy>política de privacidad de ThinkStore</button>.</p>
+      </div>
+
+      <div id="registerPanel" class="panel">
+        <h1>Crear cuenta</h1>
+        <p class="sub">Regístrate para comprar, consultar pedidos y recibir tus notas de entrega.</p>
+        <form id="registerForm" class="register-grid">
+          <input id="regName" class="wide" required placeholder="Nombre y apellido">
+          <input id="regId" required placeholder="Cédula o RIF">
+          <input id="regPhone" required placeholder="Teléfono / WhatsApp">
+          <input id="regEmail" class="wide" type="email" required autocomplete="email" placeholder="Correo electrónico">
+          <input id="regState" placeholder="Estado">
+          <input id="regCity" placeholder="Ciudad">
+          <input id="regAddress" class="wide" placeholder="Dirección completa">
+          <input id="regPass" class="wide" type="password" minlength="6" required autocomplete="new-password" placeholder="Crea una contraseña">
+          <button id="registerBtn" class="primary wide" type="submit">Crear cuenta ThinkStore</button>
+        </form>
+        <div id="registerStatus" class="status"></div>
+        <div class="divider">o</div>
+        <button class="secondary" type="button" data-view="login">Ya tengo una cuenta</button>
+      </div>
+
+      <div id="forgotPanel" class="panel">
+        <h1>Recuperar contraseña</h1>
+        <p class="sub">Te enviaremos un enlace seguro a tu correo.</p>
+        <form id="forgotForm">
+          <div class="field"><input id="forgotEmail" type="email" required autocomplete="email" placeholder="Correo electrónico"><span class="arrow">→</span></div>
+          <button id="forgotBtn" class="primary" type="submit">Enviar enlace</button>
+        </form>
+        <div id="forgotStatus" class="status"></div>
+        <div class="divider">o</div>
+        <button class="secondary" type="button" data-view="login">Volver a iniciar sesión</button>
+      </div>
+
+      <div id="recoveryPanel" class="panel">
+        <h1>Nueva contraseña</h1>
+        <p class="sub">Crea una nueva contraseña para tu cuenta ThinkStore.</p>
+        <form id="recoveryForm">
+          <div class="field"><input id="newPassword" type="password" minlength="6" required autocomplete="new-password" placeholder="Nueva contraseña"></div>
+          <button id="recoveryBtn" class="primary" type="submit">Actualizar contraseña</button>
+        </form>
+        <div id="recoveryStatus" class="status"></div>
+      </div>
+    </section>
+  </main>
+  <footer class="privacy"><button class="privacy-btn" type="button" data-open-privacy>Política de privacidad</button></footer>
+
+
+  <div id="privacyModal" class="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" aria-hidden="true">
+    <article class="privacy-card" tabindex="-1">
+      <button class="privacy-close" type="button" aria-label="Cerrar política de privacidad" data-close-privacy>×</button>
+      <h2 id="privacyTitle">Política de privacidad</h2>
+      <p class="updated">Última actualización: 4 de septiembre de 2026</p>
+      <p>ThinkStore gestiona esta tienda y sus servicios digitales para ofrecer una experiencia de compra, atención y servicio técnico segura y personalizada (los “Servicios”). Esta Política de privacidad explica cómo recopilamos, utilizamos, conservamos y, cuando es necesario, compartimos información personal cuando visitas ThinkStore, creas una cuenta, realizas una compra, solicitas soporte técnico o te comunicas con nosotros.</p>
+      <p>Al utilizar nuestros Servicios, reconoces haber leído esta Política de privacidad y comprender la forma en que tratamos tu información de acuerdo con las finalidades descritas a continuación y la legislación aplicable.</p>
+
+      <h3>Información personal que recopilamos o tratamos</h3>
+      <p>Por “información personal” entendemos los datos que te identifican o que pueden vincularse razonablemente contigo. Dependiendo de cómo utilices ThinkStore, podemos tratar las siguientes categorías:</p>
+      <ul>
+        <li><strong>Datos de contacto:</strong> nombre, correo electrónico, número de teléfono, dirección, ciudad, estado y datos necesarios para entrega o retiro.</li>
+        <li><strong>Datos de identificación y facturación:</strong> cédula o RIF y demás información que nos facilites cuando sea necesaria para gestionar tu compra o documento comercial.</li>
+        <li><strong>Información de la cuenta:</strong> identificador de usuario, preferencias, configuración y datos necesarios para autenticar y administrar tu cuenta. Las contraseñas son gestionadas mediante nuestro sistema de autenticación y no son visibles para el personal de ThinkStore.</li>
+        <li><strong>Información de compras y transacciones:</strong> productos consultados o adquiridos, variantes, carrito, pedidos, preórdenes, devoluciones, cambios, garantías, estado de la compra y método de entrega.</li>
+        <li><strong>Información de pago:</strong> método de pago, referencia, monto, fecha y comprobantes que nos envíes para verificar una operación. ThinkStore no solicita ni almacena contraseñas bancarias.</li>
+        <li><strong>Servicio técnico:</strong> datos del equipo recibido, número de serie o identificadores cuando sean necesarios, condición del dispositivo, diagnóstico, fotografías, checklist, autorizaciones, reparaciones, repuestos utilizados y bitácora del servicio.</li>
+        <li><strong>Comunicaciones:</strong> información que nos proporciones al escribirnos por correo, WhatsApp, formularios de la tienda, soporte o cualquier otro canal oficial.</li>
+        <li><strong>Información técnica y de uso:</strong> datos básicos del navegador, dispositivo, sesión, dirección IP y registros técnicos que puedan generarse para funcionamiento, seguridad, diagnóstico de errores y prevención de fraude.</li>
+      </ul>
+
+      <h3>Fuentes de información personal</h3>
+      <p>Podemos obtener información directamente de ti cuando creas una cuenta, realizas una compra, envías un comprobante, registras un equipo en servicio técnico o te comunicas con nosotros; automáticamente a través del funcionamiento normal de nuestros Servicios; y de proveedores que utilizamos para operar la plataforma, siempre dentro de la finalidad del servicio que prestan.</p>
+
+      <h3>Cómo utilizamos tu información</h3>
+      <ul>
+        <li><strong>Prestar y mejorar los Servicios:</strong> crear y administrar cuentas, recordar preferencias, gestionar carrito, pedidos, inventario, preórdenes, garantías, devoluciones y atención al cliente.</li>
+        <li><strong>Procesar y verificar compras:</strong> validar pagos y comprobantes, preparar pedidos, emitir documentos asociados a la operación y coordinar retiro, delivery o envío.</li>
+        <li><strong>Servicio técnico:</strong> recibir equipos, documentar su condición, realizar diagnóstico, registrar autorizaciones, reparaciones y repuestos, mantener la bitácora y gestionar la entrega.</li>
+        <li><strong>Comunicarnos contigo:</strong> enviar confirmaciones, estados de pedidos, avisos de pago, recuperación de cuenta, actualizaciones de soporte y otras comunicaciones necesarias para prestarte el servicio.</li>
+        <li><strong>Marketing:</strong> cuando corresponda y esté permitido, enviarte promociones o novedades. Podrás solicitar dejar de recibir comunicaciones promocionales sin afectar los mensajes necesarios sobre tu cuenta, pedidos o servicios activos.</li>
+        <li><strong>Seguridad y prevención de fraude:</strong> autenticar cuentas, proteger operaciones, detectar comportamientos anómalos, prevenir accesos no autorizados y proteger a ThinkStore y a sus clientes.</li>
+        <li><strong>Cumplimiento legal:</strong> conservar o utilizar información cuando sea razonablemente necesario para cumplir obligaciones legales, contables, administrativas, resolver disputas o atender requerimientos válidos de autoridades competentes.</li>
+      </ul>
+
+      <h3>Pagos y comprobantes</h3>
+      <p>ThinkStore puede solicitar referencias, montos y comprobantes para confirmar pagos realizados mediante los métodos disponibles en la tienda. Estos datos se utilizan para verificar la operación y vincularla con el pedido correspondiente. No debes enviarnos contraseñas, códigos de acceso, claves bancarias ni otra credencial secreta. Si en el futuro incorporamos procesadores de pago externos, el tratamiento realizado directamente por dichos proveedores estará sujeto también a sus propios términos y políticas.</p>
+
+      <h3>Cómo podemos compartir información</h3>
+      <p>No vendemos tu información personal. Podemos facilitar únicamente la información necesaria a proveedores tecnológicos, operadores de correo, servicios de infraestructura, empresas de logística o transporte seleccionadas para completar un envío, y otros proveedores que nos ayuden a operar ThinkStore. También podremos divulgar información cuando tú lo solicites o autorices, cuando sea necesario para completar un servicio, o cuando exista una obligación legal válida.</p>
+      <p>ThinkStore utiliza infraestructura y servicios de terceros para funciones como autenticación, almacenamiento, alojamiento, seguridad, comunicaciones y operación de la tienda. Estos proveedores pueden tratar datos únicamente en la medida necesaria para prestar sus respectivos servicios y de acuerdo con sus propias obligaciones de privacidad.</p>
+
+      <h3>Envíos y servicios de terceros</h3>
+      <p>Cuando solicitas un envío, podemos compartir con la empresa de transporte seleccionada los datos razonablemente necesarios para realizar la entrega, como nombre, teléfono, destino y datos del pedido. Si accedes desde ThinkStore a sitios, redes sociales, servicios de mensajería o plataformas administradas por terceros, sus propias políticas de privacidad serán aplicables a la información que les proporciones.</p>
+
+      <h3>Cookies y tecnologías similares</h3>
+      <p>ThinkStore puede utilizar almacenamiento local, cookies u otras tecnologías necesarias para mantener sesiones, conservar preferencias, operar el carrito, mejorar el rendimiento y proteger la plataforma. Cuando la legislación aplicable requiera consentimiento para usos no esenciales, podremos solicitarlo mediante los mecanismos correspondientes.</p>
+
+      <h3>Datos de menores</h3>
+      <p>Los Servicios de compra no están dirigidos a menores que no tengan capacidad legal para contratar. Cuando corresponda, una compra o solicitud realizada para un menor deberá ser gestionada por su padre, madre o representante legal. Si consideras que hemos recibido información de un menor de forma inadecuada, puedes comunicarte con nosotros para solicitar su revisión o eliminación cuando proceda.</p>
+
+      <h3>Seguridad y conservación de la información</h3>
+      <p>Aplicamos medidas técnicas y organizativas razonables para proteger cuentas, pedidos, comprobantes y registros de servicio frente a accesos no autorizados, pérdida o uso indebido. Sin embargo, ningún sistema conectado a Internet puede garantizar seguridad absoluta.</p>
+      <p>Conservamos la información durante el tiempo necesario para mantener tu cuenta, completar pedidos o servicios, atender garantías, resolver incidencias, prevenir fraude y cumplir obligaciones legales o administrativas. Cuando la información deja de ser necesaria, procuramos eliminarla, anonimizarla o limitar su tratamiento, según corresponda.</p>
+
+      <h3>Transferencias y tratamiento por proveedores</h3>
+      <p>Algunos proveedores tecnológicos pueden operar infraestructura en países distintos al tuyo. Cuando esto ocurra, procuraremos utilizar proveedores con medidas adecuadas de protección y tratar los datos conforme a la legislación que resulte aplicable. No afirmamos que todos los datos se almacenen exclusivamente en Venezuela.</p>
+
+      <h3>Tus derechos y opciones</h3>
+      <p>Dependiendo de la legislación aplicable y de las circunstancias, puedes solicitar acceso a determinada información personal que conservamos sobre ti, su corrección o actualización, su eliminación cuando proceda, o información sobre su tratamiento. También puedes retirar tu consentimiento para comunicaciones promocionales cuando estas se basen en consentimiento.</p>
+      <p>Algunas solicitudes pueden requerir que verifiquemos tu identidad. Ciertos registros no podrán eliminarse inmediatamente cuando debamos conservarlos por motivos de seguridad, garantía, prevención de fraude, obligaciones contables o legales.</p>
+
+      <h3>Reclamaciones</h3>
+      <p>Si tienes alguna inquietud sobre la manera en que tratamos tu información, puedes comunicarte primero con ThinkStore para que podamos revisarla. Esto no limita los derechos que puedan corresponderte ante una autoridad competente conforme a la legislación aplicable.</p>
+
+      <h3>Cambios en esta Política de privacidad</h3>
+      <p>Podemos actualizar esta Política de privacidad para reflejar cambios en nuestros Servicios, prácticas, proveedores o requisitos legales. Cuando realicemos una actualización, modificaremos la fecha indicada al inicio y, cuando corresponda, comunicaremos los cambios por los medios disponibles.</p>
+
+      <h3>Contacto</h3>
+      <p>Si tienes preguntas sobre esta Política de privacidad, deseas realizar una solicitud relacionada con tus datos o necesitas comunicar una inquietud de privacidad, puedes escribir a <strong>contacto@thinkstore.com.ve</strong>. Utiliza únicamente los canales oficiales de ThinkStore y nunca envíes contraseñas o credenciales bancarias por correo o mensajería.</p>
+    </article>
+  </div>
+
+  <script>
+  (()=>{
+    const modal=document.getElementById('privacyModal');
+    const card=modal?.querySelector('.privacy-card');
+    let lastFocus=null;
+    function openPrivacy(){if(!modal)return;lastFocus=document.activeElement;modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.classList.add('privacy-open');requestAnimationFrame(()=>card?.focus());}
+    function closePrivacy(){if(!modal)return;modal.classList.remove('open');modal.setAttribute('aria-hidden','true');document.body.classList.remove('privacy-open');lastFocus?.focus?.();}
+    document.querySelectorAll('[data-open-privacy]').forEach(el=>el.addEventListener('click',openPrivacy));
+    document.querySelectorAll('[data-close-privacy]').forEach(el=>el.addEventListener('click',closePrivacy));
+    modal?.addEventListener('click',e=>{if(e.target===modal)closePrivacy();});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal?.classList.contains('open'))closePrivacy();});
+  })();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script>
+  (()=>{
+    const $=id=>document.getElementById(id);
+    const cfg=window.THINKSTORE_SUPABASE||{};
+    const sb=(window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY)?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
+    const params=new URLSearchParams(location.search);
+    const next=params.get('next')||'/';
+    function safeNext(){ return next.startsWith('/')&&!next.startsWith('//')?next:'/'; }
+    function show(view){['login','register','forgot','recovery'].forEach(v=>$(v+'Panel')?.classList.toggle('active',v===view)); history.replaceState(null,'',view==='login'?'login.html':`login.html?view=${view}${next&&next!=='/'?'&next='+encodeURIComponent(next):''}`); }
+    function status(id,msg,type='err'){const el=$(id);if(!el)return;el.textContent=msg;el.className='status show '+type;}
+    document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.view)));
+    const initial=params.get('view'); if(initial) show(initial);
+    if(!sb){status('loginStatus','Supabase no está disponible en esta vista.','err');return;}
+
+    async function cacheUser(user){
+      let profile=null;
+      try{const r=await sb.from('clientes').select('*').eq('id',user.id).maybeSingle();profile=r.data||null;}catch(e){}
+      const c={id:profile?.cedula_rif||'',supabase_id:user.id,name:profile?.nombre||user.user_metadata?.name||user.email?.split('@')[0]||'Cliente ThinkStore',email:profile?.correo||user.email||'',phone:profile?.telefono||'',address:profile?.direccion||'',city:profile?.ciudad||'',state:profile?.estado||'',ref:profile?.referencia||'',shipping:profile?.metodo_envio_preferido||'',agency:profile?.agencia_destino||'',role:profile?.rol||profile?.role||user.user_metadata?.role||'cliente'};
+      localStorage.setItem('ts_current_user',JSON.stringify(c));localStorage.setItem('ts_customer',JSON.stringify(c));return c;
+    }
+
+    $('loginForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('loginBtn');btn.disabled=true;status('loginStatus','Iniciando sesión…','ok');try{const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim().toLowerCase(),password:$('password').value});if(error)throw error;await cacheUser(data.user);status('loginStatus','Sesión iniciada. Redirigiendo…','ok');setTimeout(()=>location.href=safeNext(),350);}catch(err){status('loginStatus',err.message||'No se pudo iniciar sesión.','err');btn.disabled=false;}});
+
+    $('registerForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('registerBtn');btn.disabled=true;try{const email=$('regEmail').value.trim().toLowerCase();const meta={name:$('regName').value.trim(),phone:$('regPhone').value.trim()};const site=(cfg.SITE_URL||location.origin).replace(/\/$/,'');const {data,error}=await sb.auth.signUp({email,password:$('regPass').value,options:{emailRedirectTo:site+'/login.html?verified=1',data:meta}});if(error)throw error;const u=data.user;if(u?.id){try{await sb.from('clientes').upsert({id:u.id,nombre:meta.name,correo:email,telefono:meta.phone,cedula_rif:$('regId').value.trim(),estado:$('regState').value.trim(),ciudad:$('regCity').value.trim(),direccion:$('regAddress').value.trim()},{onConflict:'id'});}catch(e){}}
+      if(data.session){await cacheUser(data.user);location.href=safeNext();}else{status('registerStatus','Cuenta creada. Revisa tu correo y confirma tu dirección para activar ThinkStore.','ok');btn.disabled=false;}
+    }catch(err){status('registerStatus',err.message||'No se pudo crear la cuenta.','err');btn.disabled=false;}});
+
+    $('forgotForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('forgotBtn');btn.disabled=true;try{const site=(cfg.SITE_URL||location.origin).replace(/\/$/,'');const {error}=await sb.auth.resetPasswordForEmail($('forgotEmail').value.trim().toLowerCase(),{redirectTo:site+'/login.html?view=recovery'});if(error)throw error;status('forgotStatus','Listo. Revisa tu correo para continuar.','ok');}catch(err){status('forgotStatus',err.message||'No se pudo enviar el enlace.','err');}finally{btn.disabled=false;}});
+
+    $('recoveryForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('recoveryBtn');btn.disabled=true;try{const {error}=await sb.auth.updateUser({password:$('newPassword').value});if(error)throw error;status('recoveryStatus','Contraseña actualizada. Ya puedes iniciar sesión.','ok');setTimeout(()=>show('login'),900);}catch(err){status('recoveryStatus',err.message||'No se pudo actualizar la contraseña.','err');btn.disabled=false;}});
+
+    sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY') show('recovery');});
+    if(params.get('verified')==='1') status('loginStatus','Correo verificado correctamente. Ya puedes iniciar sesión.','ok');
+    sb.auth.getSession().then(({data})=>{if(data?.session?.user&&!params.get('view')){cacheUser(data.session.user).then(()=>location.href=safeNext());}});
+  })();
+  </script>
+  <script src="chatbot.js"></script>
+</body>
+</html>

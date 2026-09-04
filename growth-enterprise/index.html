@@ -16,6 +16,13 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="application-name" content="ThinkStore" />
   <link rel="stylesheet" href="styles.css" />
+
+<style id="ts-v12-8-icon-spacing">
+/* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
+.ts-clean-nav{column-gap:clamp(14px,1.55vw,24px)!important;}
+.ts-clean-nav .ts-nav-icon{margin-left:0!important;margin-right:0!important;}
+@media (max-width:900px){.ts-clean-nav{column-gap:14px!important;}}
+</style>
 </head>
 <body>
 

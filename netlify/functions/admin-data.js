@@ -62,31 +62,9 @@ exports.handler = async function(event) {
     return fallback;
   }
 
-  async function signReceiptPath(filePath) {
-    const raw = String(filePath || '').trim();
-    if (!raw) return '';
-    if (/^https?:\/\//i.test(raw)) return raw;
+  // Los comprobantes se firman bajo demanda desde admin-receipt.js.
+  // Aquí solo devolvemos la ruta persistente almacenada en Supabase.
 
-    const storageBase = SUPABASE_URL.replace(/\/$/, '') + '/storage/v1/object/sign/comprobantes/';
-    const encodedPath = raw.split('/').map(encodeURIComponent).join('/');
-    try {
-      const res = await fetch(storageBase + encodedPath, {
-        method: 'POST',
-        headers: baseHeaders,
-        body: JSON.stringify({ expiresIn: 900 })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || data.error || 'No se pudo firmar el comprobante');
-      const signed = data.signedURL || data.signedUrl || data.url || '';
-      if (!signed) return '';
-      return /^https?:\/\//i.test(signed)
-        ? signed
-        : SUPABASE_URL.replace(/\/$/, '') + '/storage/v1' + (signed.startsWith('/') ? signed : '/' + signed);
-    } catch (e) {
-      console.warn('ThinkStore comprobante signed URL:', raw, e && e.message);
-      return '';
-    }
-  }
 
   try {
     // Clientes se lee SIEMPRE de forma independiente para que el dashboard nunca quede en 1 por fallo de pedidos.
@@ -104,10 +82,7 @@ exports.handler = async function(event) {
       'comprobantes?select=*&order=created_at.desc'
     ], []);
 
-    const comprobantes = await Promise.all((comprobantesRaw || []).map(async (c) => ({
-      ...c,
-      signed_url: await signReceiptPath(c.url_archivo)
-    })));
+    const comprobantes = (comprobantesRaw || []).map(c => ({ ...c, signed_url: '' }));
 
     return {
       statusCode: 200,
