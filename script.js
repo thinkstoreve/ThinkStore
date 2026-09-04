@@ -5590,38 +5590,29 @@ window.addEventListener('load', ()=>{
     const btn=document.getElementById('clientNavBtn');
     const u=readUser();
     if(!btn) return;
-    let panelBtn=document.getElementById('tsClientPanelBtn');
+    // V13.33: un solo acceso de cuenta. Nunca se vuelve a inyectar el antiguo botón "Mi panel".
+    document.getElementById('tsClientPanelBtn')?.remove();
     if(!u){
       btn.setAttribute('aria-label','Iniciar sesión');
       btn.setAttribute('title','Iniciar sesión');
-      if(panelBtn) panelBtn.remove();
+      btn.classList.remove('ts-account-logged');
+      const label=btn.querySelector('.ts-account-label'); if(label) label.textContent='';
       return;
     }
     const role=window.tsGetCurrentRole();
-    const isAdmin=['admin','superadmin'].includes(role);
-    btn.setAttribute('aria-label', isAdmin ? 'Abrir Panel Administrativo ThinkStore' : (window.tsIsStaff() ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta ThinkStore'));
-    btn.title=isAdmin ? 'Abrir Panel Administrativo ThinkStore' : (window.tsIsStaff() ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta ThinkStore');
-    // Forzamos la acción aquí porque módulos antiguos actualizan este mismo botón.
+    const staff=window.tsIsStaff();
+    btn.classList.add('ts-account-logged');
+    let label=btn.querySelector('.ts-account-label');
+    if(!label){ label=document.createElement('span'); label.className='ts-account-label'; btn.appendChild(label); }
+    label.textContent=staff ? 'Panel' : 'Mi cuenta';
+    btn.setAttribute('aria-label', staff ? ('Abrir panel '+window.tsRoleLabel(role)) : 'Abrir Mi cuenta');
+    btn.title=staff ? ('Panel '+window.tsRoleLabel(role)) : 'Mi cuenta';
     btn.onclick=()=>window.tsOpenRolePanel();
-    if(!window.tsIsStaff()){
-      if(!panelBtn){
-        panelBtn=document.createElement('button');
-        panelBtn.id='tsClientPanelBtn';
-        panelBtn.type='button';
-        panelBtn.className='ts-nav-icon ts-client-panel-btn';
-        panelBtn.setAttribute('aria-label','Mi panel');
-        panelBtn.title='Mi panel';
-        panelBtn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.2"></rect><rect x="14" y="4" width="6" height="6" rx="1.2"></rect><rect x="4" y="14" width="6" height="6" rx="1.2"></rect><rect x="14" y="14" width="6" height="6" rx="1.2"></rect></svg>';
-        panelBtn.onclick=()=>{ location.href='panel.html'; };
-        btn.insertAdjacentElement('afterend',panelBtn);
-      }
-    }else if(panelBtn){ panelBtn.remove(); }
   }
   window.tsOpenRolePanel=function(){
     const u=readUser();
     if(!u){ if(typeof window.openClientLogin==='function') window.openClientLogin(); return; }
-    if(window.tsIsStaff()) location.href='panel.html';
-    else if(typeof window.openAccount==='function') window.openAccount();
+    location.href='panel.html';
   };
   window.tsClientNavAction=function(){ window.tsOpenRolePanel(); };
   const oldLogin=window.loginClient;
@@ -6298,4 +6289,69 @@ window.addEventListener('load', ()=>{
   window.addEventListener('load',refreshAccountNav);
   window.addEventListener('storage',refreshAccountNav);
   setInterval(refreshAccountNav,1200);
+})();
+
+
+/* ===== ThinkStore V13.33 · Header Mi cuenta definitivo ===== */
+(function(){
+  function clean(){
+    document.querySelectorAll('#tsClientPanelBtn,.ts-client-panel-btn').forEach(el=>el.remove());
+    const btn=document.getElementById('clientNavBtn');
+    if(!btn) return;
+    let u=null; try{u=JSON.parse(localStorage.getItem('ts_current_user')||'null')}catch(e){}
+    let label=btn.querySelector('.ts-account-label');
+    if(!label){label=document.createElement('span');label.className='ts-account-label';btn.appendChild(label)}
+    if(u){
+      const role=String(u.role||u.rol||'cliente').toLowerCase();
+      const staff=['admin','superadmin','super_admin','vendedor','recepcion','recepción','tecnico','técnico','logistica','logística'].includes(role);
+      btn.classList.add('ts-account-logged');
+      label.textContent=staff?'Panel':'Mi cuenta';
+      btn.title=staff?'Panel':'Mi cuenta';
+      btn.setAttribute('aria-label',staff?'Abrir panel':'Abrir Mi cuenta');
+      btn.onclick=(e)=>{e?.preventDefault?.();location.href='panel.html'};
+    }else{
+      btn.classList.remove('ts-account-logged'); label.textContent='';
+    }
+  }
+  document.addEventListener('DOMContentLoaded',clean);
+  window.addEventListener('load',clean);
+  setTimeout(clean,250); setTimeout(clean,900); setInterval(clean,2000);
+})();
+
+/* ===== ThinkStore V13.34 · Un solo icono de cuenta ===== */
+(function(){
+  function user(){
+    try{
+      const raw=localStorage.getItem('ts_current_user');
+      const u=raw?JSON.parse(raw):null;
+      return u && (u.email||u.id||u.supabase_id) ? u : null;
+    }catch(_){ return null; }
+  }
+  function loginUrl(){
+    const next=(location.pathname||'/')+(location.search||'')+(location.hash||'');
+    return 'login.html?next='+encodeURIComponent(next||'/');
+  }
+  function cleanAccountIcon(){
+    document.getElementById('tsClientPanelBtn')?.remove();
+    document.querySelectorAll('.ts-panel-access,.ts-client-panel-btn').forEach(el=>el.remove());
+    const btn=document.getElementById('clientNavBtn');
+    if(!btn) return;
+    const label=btn.querySelector('.ts-account-label');
+    if(label) label.textContent='';
+    btn.classList.remove('ts-account-logged');
+    const logged=!!user();
+    btn.title=logged?'Mi cuenta':'Iniciar sesión';
+    btn.setAttribute('aria-label',logged?'Abrir Mi cuenta':'Iniciar sesión');
+    btn.onclick=function(e){
+      e?.preventDefault?.();
+      location.href=logged?'panel.html':loginUrl();
+    };
+  }
+  window.tsClientNavAction=function(){
+    location.href=user()?'panel.html':loginUrl();
+  };
+  document.addEventListener('DOMContentLoaded',cleanAccountIcon);
+  window.addEventListener('load',cleanAccountIcon);
+  window.addEventListener('storage',cleanAccountIcon);
+  setTimeout(cleanAccountIcon,100);setTimeout(cleanAccountIcon,700);setInterval(cleanAccountIcon,1800);
 })();

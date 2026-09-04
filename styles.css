@@ -3626,3 +3626,70 @@ footer {
 }
 /* El botón duplicado de versiones anteriores nunca debe ocupar espacio. */
 .top.ts-clean-header #tsClientPanelBtn{display:none!important;}
+
+
+/* ===== ThinkStore V13.33 · Mi cuenta separado del carrito ===== */
+.top.ts-clean-header .ts-clean-nav{
+  display:flex!important;
+  align-items:center!important;
+  column-gap:16px!important;
+}
+.top.ts-clean-header #clientNavBtn.ts-account-btn{
+  position:relative!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-width:34px!important;
+  padding:0!important;
+  margin:0!important;
+  overflow:visible!important;
+}
+.top.ts-clean-header #clientNavBtn.ts-account-btn .ts-account-label{
+  display:none!important;
+  font-size:14px!important;
+  font-weight:600!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  margin:0!important;
+}
+/* Texto solo cuando realmente hay espacio. El carrito siempre conserva su propia columna. */
+@media (min-width:1180px){
+  .top.ts-clean-header #clientNavBtn.ts-account-btn.ts-account-logged{
+    padding:0 4px!important;
+  }
+  .top.ts-clean-header #clientNavBtn.ts-account-btn.ts-account-logged .ts-account-label{
+    display:inline-block!important;
+  }
+}
+@media (max-width:1179px){
+  .top.ts-clean-header #clientNavBtn.ts-account-btn{
+    width:34px!important;
+    min-width:34px!important;
+    padding:0!important;
+  }
+}
+.top.ts-clean-header .ts-cart-btn{
+  position:relative!important;
+  flex:0 0 34px!important;
+  width:34px!important;
+  min-width:34px!important;
+  margin:0!important;
+}
+.top.ts-clean-header #tsClientPanelBtn,
+.top.ts-clean-header .ts-client-panel-btn{
+  display:none!important;
+  width:0!important;
+  min-width:0!important;
+  height:0!important;
+  padding:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+}
+
+/* ===== ThinkStore V13.34 · Cuenta limpia en header ===== */
+#clientNavBtn.ts-account-btn .ts-account-label{display:none!important;width:0!important;max-width:0!important;overflow:hidden!important;margin:0!important;padding:0!important;opacity:0!important;pointer-events:none!important}
+#clientNavBtn.ts-account-btn{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;padding:0!important;margin:0!important;display:grid!important;place-items:center!important;flex:0 0 42px!important}
+#clientNavBtn.ts-account-btn svg{width:22px!important;height:22px!important;margin:0!important}
