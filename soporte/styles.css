@@ -9,9 +9,6 @@ html, body {
   background: #05080f !important;
 }
 
-.service-toast{position:fixed;right:24px;bottom:24px;z-index:9999;max-width:420px;padding:15px 20px;border-radius:14px;background:#16251d;color:#fff;box-shadow:0 18px 50px #0006;opacity:0;transform:translateY(18px);pointer-events:none;transition:.22s ease;font-weight:700}.service-toast.error{background:#5b1d25}.service-toast.show{opacity:1;transform:none}.order-manager{max-height:92vh;overflow:auto}.order-files{display:grid;gap:8px;margin-top:12px}.order-files a{display:block;padding:10px 12px;border-radius:10px;background:#f3f5f7;color:#111;text-decoration:none}.file-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.file-actions input{flex:1;min-width:220px}
-.stock-low{color:#c62828;background:#ffebee;padding:4px 9px;border-radius:999px}
-
 body {
   background-image:
     linear-gradient(90deg, rgba(5,8,15,.96) 0%, rgba(5,8,15,.80) 34%, rgba(5,8,15,.20) 68%, rgba(5,8,15,.04) 100%),
@@ -929,3 +926,7 @@ html,body{
   .diagram-left{left:14%;height:55%;top:27%}
   .diagram-right{left:50%;height:55%;top:27%}
 }
+
+/* V7 · Citas web ThinkStore */
+.appointments-head{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}.appointments-head h3{margin:0 0 6px}.appointments-head p{margin:0;opacity:.72}.appointments-table{overflow-x:auto}.appointments-table table{min-width:1050px}.appointment-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.appointment-actions select{min-width:130px}.appointment-error{padding:18px;border:1px solid rgba(255,100,100,.28);border-radius:16px;background:rgba(255,80,80,.07)}
+@media(max-width:760px){.appointments-head{align-items:flex-start;flex-direction:column}}
