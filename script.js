@@ -6355,3 +6355,80 @@ window.addEventListener('load', ()=>{
   window.addEventListener('storage',cleanAccountIcon);
   setTimeout(cleanAccountIcon,100);setTimeout(cleanAccountIcon,700);setInterval(cleanAccountIcon,1800);
 })();
+
+/* ===== ThinkStore V13.35 · Cuenta única definitiva (sin Mi panel ni modal legado) ===== */
+(function(){
+  function getUser(){
+    try{
+      const raw=localStorage.getItem('ts_current_user');
+      const u=raw?JSON.parse(raw):null;
+      return u && (u.email||u.id||u.supabase_id) ? u : null;
+    }catch(_){ return null; }
+  }
+  function loginUrl(){
+    const next=(location.pathname||'/')+(location.search||'')+(location.hash||'');
+    return 'login.html?next='+encodeURIComponent(next||'/');
+  }
+  function accountUrl(){ return 'panel.html'; }
+
+  function removeLegacyPanelAccess(){
+    document.querySelectorAll('#tsClientPanelBtn,.ts-client-panel-btn,.ts-panel-access,[data-ts-panel-access]').forEach(el=>el.remove());
+    const header=document.querySelector('.top,header');
+    if(header){
+      header.querySelectorAll('button,a,span,div').forEach(el=>{
+        if(el.id==='clientNavBtn' || el.closest?.('#clientNavBtn')) return;
+        const t=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
+        if(t==='mi panel' || t==='panel cliente' || t==='mi cuenta panel'){
+          const clickable=el.closest('button,a')||el;
+          clickable.remove();
+        }
+      });
+    }
+  }
+
+  function wireAccountButton(){
+    removeLegacyPanelAccess();
+    const btn=document.getElementById('clientNavBtn');
+    if(!btn) return;
+    const label=btn.querySelector('.ts-account-label');
+    if(label){
+      label.textContent='';
+      label.style.display='none';
+      label.setAttribute('aria-hidden','true');
+    }
+    btn.classList.remove('ts-account-logged');
+    btn.style.removeProperty('width');
+    const logged=!!getUser();
+    btn.title=logged?'Mi cuenta':'Iniciar sesión';
+    btn.setAttribute('aria-label',logged?'Abrir Mi cuenta':'Iniciar sesión');
+    btn.onclick=function(e){
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+      location.href=logged?accountUrl():loginUrl();
+      return false;
+    };
+  }
+
+  // Desde esta versión, cualquier intento legado de abrir el modal de cuenta
+  // redirige a la única cuenta real del cliente.
+  window.openAccount=function(){
+    location.href=getUser()?accountUrl():loginUrl();
+  };
+  window.tsClientNavAction=function(){
+    location.href=getUser()?accountUrl():loginUrl();
+  };
+  window.tsOpenRolePanel=function(){
+    location.href=getUser()?accountUrl():loginUrl();
+  };
+
+  const observer=new MutationObserver(()=>wireAccountButton());
+  document.addEventListener('DOMContentLoaded',()=>{
+    wireAccountButton();
+    observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+  });
+  window.addEventListener('load',wireAccountButton);
+  window.addEventListener('storage',wireAccountButton);
+  setTimeout(wireAccountButton,50);
+  setTimeout(wireAccountButton,400);
+  setTimeout(wireAccountButton,1200);
+})();

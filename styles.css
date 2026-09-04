@@ -3693,3 +3693,9 @@ footer {
 #clientNavBtn.ts-account-btn .ts-account-label{display:none!important;width:0!important;max-width:0!important;overflow:hidden!important;margin:0!important;padding:0!important;opacity:0!important;pointer-events:none!important}
 #clientNavBtn.ts-account-btn{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;padding:0!important;margin:0!important;display:grid!important;place-items:center!important;flex:0 0 42px!important}
 #clientNavBtn.ts-account-btn svg{width:22px!important;height:22px!important;margin:0!important}
+
+/* ===== ThinkStore V13.35 · Header: solo icono de cuenta ===== */
+#tsClientPanelBtn,.ts-client-panel-btn,.ts-panel-access,[data-ts-panel-access]{display:none!important}
+#clientNavBtn .ts-account-label{display:none!important;width:0!important;max-width:0!important;overflow:hidden!important;margin:0!important;padding:0!important;opacity:0!important;visibility:hidden!important}
+#clientNavBtn.ts-account-btn,#clientNavBtn.ts-account-btn.ts-account-logged{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;padding:0!important;margin:0!important;display:grid!important;place-items:center!important;flex:0 0 42px!important}
+#clientNavBtn.ts-account-btn svg{width:22px!important;height:22px!important;margin:0!important}
