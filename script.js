@@ -6237,3 +6237,65 @@ window.addEventListener('load', ()=>{
     location.href=loginUrl();
   };
 })();
+
+/* ===== ThinkStore V13.31 · Una sola Mi cuenta, sin panel duplicado ===== */
+(function(){
+  function currentUser(){
+    try{
+      const raw=localStorage.getItem('ts_current_user');
+      const u=raw?JSON.parse(raw):null;
+      return u && (u.email||u.id||u.supabase_id) ? u : null;
+    }catch(e){ return null; }
+  }
+  function roleOf(u){
+    return String((u&&(u.role||u.rol))||'cliente').toLowerCase().trim();
+  }
+  function isStaff(u){
+    return ['admin','superadmin','super_admin','vendedor','recepcion','recepción','tecnico','técnico','logistica','logística'].includes(roleOf(u));
+  }
+  function loginUrl(){
+    const next=(location.pathname||'/')+(location.search||'')+(location.hash||'');
+    return 'login.html?next='+encodeURIComponent(next||'/');
+  }
+  function refreshAccountNav(){
+    const btn=document.getElementById('clientNavBtn');
+    if(!btn) return;
+    // V13.31 elimina el segundo botón que versiones anteriores inyectaban.
+    document.getElementById('tsClientPanelBtn')?.remove();
+    const u=currentUser();
+    let label=btn.querySelector('.ts-account-label');
+    if(!label){
+      label=document.createElement('span');
+      label.className='ts-account-label';
+      btn.appendChild(label);
+    }
+    if(u){
+      btn.classList.add('ts-account-logged');
+      label.textContent=isStaff(u)?'Panel':'Mi cuenta';
+      btn.setAttribute('aria-label',isStaff(u)?'Abrir panel':'Abrir Mi cuenta');
+      btn.title=isStaff(u)?'Panel':'Mi cuenta';
+    }else{
+      btn.classList.remove('ts-account-logged');
+      label.textContent='';
+      btn.setAttribute('aria-label','Iniciar sesión');
+      btn.title='Iniciar sesión';
+    }
+    btn.onclick=function(ev){
+      ev?.preventDefault?.();
+      const user=currentUser();
+      if(!user){ location.href=loginUrl(); return; }
+      // Clientes y personal entran al panel.html; allí el rol decide qué interfaz mostrar.
+      location.href='panel.html';
+    };
+  }
+  window.tsClientNavAction=function(){
+    const u=currentUser();
+    if(!u){ location.href=loginUrl(); return; }
+    location.href='panel.html';
+  };
+  // Evita que módulos anteriores vuelvan a abrir la cuenta modal desde el header.
+  document.addEventListener('DOMContentLoaded',()=>{ refreshAccountNav(); setTimeout(refreshAccountNav,350); setTimeout(refreshAccountNav,1200); });
+  window.addEventListener('load',refreshAccountNav);
+  window.addEventListener('storage',refreshAccountNav);
+  setInterval(refreshAccountNav,1200);
+})();

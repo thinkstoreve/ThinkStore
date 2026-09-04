@@ -3595,3 +3595,34 @@ footer {
   }
 }
 \n\n/* ===== ThinkStore V13.27 · Acceso al panel limpio ===== */\n.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn{\n  appearance:none!important;\n  border:0!important;\n  background:transparent!important;\n  color:#1d1d1f!important;\n  text-indent:0!important;\n  letter-spacing:0!important;\n  box-shadow:none!important;\n}\n.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn::before,\n.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn::after{content:none!important;display:none!important;}\n.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn:hover{background:#f2f2f4!important;}\n
+/* ===== ThinkStore V13.31 · Mi cuenta integrada al header ===== */
+.top.ts-clean-header #clientNavBtn.ts-account-btn{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  overflow:visible!important;
+  white-space:nowrap!important;
+  flex:0 0 auto!important;
+}
+.top.ts-clean-header #clientNavBtn.ts-account-btn.ts-account-logged{
+  width:auto!important;
+  min-width:34px!important;
+  padding:0 2px!important;
+}
+.top.ts-clean-header #clientNavBtn .ts-account-label{
+  display:none;
+  font-size:14px;
+  line-height:1;
+  font-weight:600;
+  letter-spacing:-.01em;
+  color:inherit;
+}
+@media (min-width:1060px){
+  .top.ts-clean-header #clientNavBtn.ts-account-btn.ts-account-logged .ts-account-label{display:inline-block;}
+}
+@media (max-width:1059px){
+  .top.ts-clean-header #clientNavBtn.ts-account-btn.ts-account-logged{width:34px!important;padding:0!important;}
+}
+/* El botón duplicado de versiones anteriores nunca debe ocupar espacio. */
+.top.ts-clean-header #tsClientPanelBtn{display:none!important;}
