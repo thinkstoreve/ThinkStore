@@ -5608,7 +5608,7 @@ window.addEventListener('load', ()=>{
         panelBtn=document.createElement('button');
         panelBtn.id='tsClientPanelBtn';
         panelBtn.type='button';
-        panelBtn.className=(btn.className||'')+' ts-client-panel-btn';
+        panelBtn.className='ts-nav-icon ts-client-panel-btn';
         panelBtn.setAttribute('aria-label','Mi panel');
         panelBtn.title='Mi panel';
         panelBtn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.2"></rect><rect x="14" y="4" width="6" height="6" rx="1.2"></rect><rect x="4" y="14" width="6" height="6" rx="1.2"></rect><rect x="14" y="14" width="6" height="6" rx="1.2"></rect></svg>';

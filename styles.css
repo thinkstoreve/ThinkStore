@@ -3594,3 +3594,4 @@ footer {
     transition:none!important;
   }
 }
+\n\n/* ===== ThinkStore V13.27 · Acceso al panel limpio ===== */\n.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn{\n  appearance:none!important;\n  border:0!important;\n  background:transparent!important;\n  color:#1d1d1f!important;\n  text-indent:0!important;\n  letter-spacing:0!important;\n  box-shadow:none!important;\n}\n.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn::before,\n.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn::after{content:none!important;display:none!important;}\n.top.ts-clean-header #tsClientPanelBtn.ts-client-panel-btn:hover{background:#f2f2f4!important;}\n
