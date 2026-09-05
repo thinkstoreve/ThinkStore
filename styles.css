@@ -3699,3 +3699,20 @@ footer {
 #clientNavBtn .ts-account-label{display:none!important;width:0!important;max-width:0!important;overflow:hidden!important;margin:0!important;padding:0!important;opacity:0!important;visibility:hidden!important}
 #clientNavBtn.ts-account-btn,#clientNavBtn.ts-account-btn.ts-account-logged{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;padding:0!important;margin:0!important;display:grid!important;place-items:center!important;flex:0 0 42px!important}
 #clientNavBtn.ts-account-btn svg{width:22px!important;height:22px!important;margin:0!important}
+
+
+/* ===== ThinkStore V13.37 · Cuenta única hard reset ===== */
+.top.ts-clean-header .ts-clean-nav{display:flex!important;align-items:center!important;gap:14px!important}
+.top.ts-clean-header #clientNavBtn.ts-account-btn{
+  display:grid!important;place-items:center!important;
+  width:40px!important;min-width:40px!important;max-width:40px!important;height:40px!important;
+  flex:0 0 40px!important;padding:0!important;margin:0!important;
+  font-size:0!important;line-height:0!important;overflow:hidden!important;text-decoration:none!important;
+}
+.top.ts-clean-header #clientNavBtn.ts-account-btn *:not(svg):not(path){display:none!important}
+.top.ts-clean-header #clientNavBtn.ts-account-btn svg{display:block!important;width:22px!important;height:22px!important;margin:0!important}
+.top.ts-clean-header #tsClientPanelBtn,
+.top.ts-clean-header .ts-client-panel-btn,
+.top.ts-clean-header .ts-panel-access,
+.top.ts-clean-header [data-ts-panel-access]{display:none!important;width:0!important;height:0!important;margin:0!important;padding:0!important}
+.top.ts-clean-header .ts-cart-btn{flex:0 0 40px!important;width:40px!important;min-width:40px!important;max-width:40px!important;margin:0!important}

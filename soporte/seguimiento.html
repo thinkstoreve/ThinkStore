@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Seguimiento de servicio | ThinkStore</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <style>
+    :root{color-scheme:dark;--bg:#070b10;--card:#0e1620;--line:#203043;--text:#f7f9fb;--muted:#93a4b8;--blue:#2794ff;--green:#33c77a}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 80% 10%,#12283c 0,transparent 28%),linear-gradient(145deg,#05080c,#0a1017 55%,#071018);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
+    .wrap{width:min(760px,calc(100% - 28px));margin:0 auto;padding:48px 0}.brand{display:flex;align-items:center;gap:12px;margin-bottom:40px}.logo{width:48px;height:48px;border-radius:14px;background:#fff;color:#111;display:grid;place-items:center;font-weight:900;font-size:20px}.brand b{font-size:21px}.brand span{display:block;color:var(--muted);font-size:13px}.hero{text-align:center;margin-bottom:24px}.hero .eyebrow{color:#58b5ff;font-weight:800;letter-spacing:.16em;font-size:12px}.hero h1{font-size:clamp(34px,7vw,56px);line-height:1.02;margin:12px 0}.hero p{color:var(--muted);font-size:17px;line-height:1.6}
+    .card{background:linear-gradient(180deg,rgba(18,27,38,.95),rgba(11,18,26,.96));border:1px solid rgba(255,255,255,.09);border-radius:28px;padding:24px;box-shadow:0 28px 80px rgba(0,0,0,.32)}form{display:flex;gap:10px}input{flex:1;border:1px solid var(--line);background:#08111a;color:#fff;border-radius:14px;padding:15px 16px;font:inherit;text-transform:uppercase}button{border:0;border-radius:14px;background:var(--blue);color:#fff;font-weight:750;padding:15px 20px;cursor:pointer}.result{display:none;margin-top:24px}.result.show{display:block}.statusline{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding-bottom:18px;border-bottom:1px solid var(--line)}.status-pill{background:rgba(51,199,122,.13);border:1px solid rgba(51,199,122,.35);color:#7ae5a7;border-radius:999px;padding:7px 11px;font-size:13px;font-weight:750}.order-code{font-size:25px;margin:6px 0}.device{color:var(--muted)}.timeline{margin:24px 0 4px;display:grid;gap:0}.step{display:grid;grid-template-columns:28px 1fr;gap:14px;position:relative;padding-bottom:24px}.step:not(:last-child):before{content:"";position:absolute;left:13px;top:26px;bottom:0;width:2px;background:#263548}.dot{width:28px;height:28px;border-radius:50%;border:2px solid #33465b;background:#0b131c;display:grid;place-items:center;font-size:12px;z-index:1}.step.done .dot{border-color:var(--green);background:var(--green);color:#07140d}.step.current .dot{border-color:var(--blue);box-shadow:0 0 0 5px rgba(39,148,255,.12)}.step b{display:block;margin-top:3px}.step small{color:var(--muted);display:block;margin-top:4px}.last-update{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}.error{display:none;margin-top:18px;padding:14px;border:1px solid rgba(255,90,90,.35);background:rgba(255,90,90,.08);border-radius:14px;color:#ffaaaa}.error.show{display:block}.foot{text-align:center;margin-top:28px;color:var(--muted);font-size:12px}@media(max-width:600px){.wrap{padding-top:26px}.brand{margin-bottom:28px}form{flex-direction:column}.statusline{flex-direction:column}.card{padding:18px;border-radius:22px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="brand"><div class="logo">TS</div><div><b>ThinkStore</b><span>Servicio Técnico Apple</span></div></div>
+    <section class="hero"><div class="eyebrow">SEGUIMIENTO EN VIVO</div><h1>Consulta tu equipo</h1><p>Ingresa el número de orden o escanea el QR de tu hoja de recepción para ver el estado actualizado.</p></section>
+    <section class="card">
+      <form id="lookup"><input id="code" required placeholder="TS-SVC-2026-0001" autocomplete="off"/><button>Consultar</button></form>
+      <div id="error" class="error"></div>
+      <div id="result" class="result">
+        <div class="statusline"><div><div class="order-code" id="orderCode"></div><div class="device" id="device"></div></div><span class="status-pill" id="status"></span></div>
+        <div class="timeline" id="timeline"></div>
+        <div class="last-update" id="updated"></div>
+      </div>
+    </section>
+    <div class="foot">ThinkStore · Tecnología. Todo en un solo lugar.</div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const sb=window.supabase.createClient('https://tnezvnziqnjxhcwjtcuy.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZXp2bnppcW5qeGhjd2p0Y3V5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwODk5ODUsImV4cCI6MjA5NzY2NTk4NX0.OsFkefVeW4FN_uVML1ncE0i6FR_Dmg8eLPY9TEnezpM');
+    let liveTimer=null; let lastCode='';
+    const steps=['Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado'];
+    const canonical=s=>String(s||'Recibido');
+    function renderTimeline(current){
+      let idx=steps.indexOf(current);if(idx<0){if(current==='No aprobado'||current==='Cancelado')idx=1;else idx=0}
+      document.getElementById('timeline').innerHTML=steps.map((s,i)=>`<div class="step ${i<idx?'done':i===idx?'current':''}"><span class="dot">${i<idx?'✓':i+1}</span><div><b>${s}</b><small>${i===idx?'Estado actual':i<idx?'Completado':'Pendiente'}</small></div></div>`).join('');
+    }
+    async function runLookup(value){
+      const q=String(value||'').trim().toUpperCase(); if(!q)return; lastCode=q;
+      document.getElementById('error').classList.remove('show');document.getElementById('result').classList.remove('show');
+      const {data, error:err}=await sb.rpc('lookup_service_order',{p_code:q});
+      const o=Array.isArray(data)?data[0]:data;
+      const errorBox=document.getElementById('error'); const resultBox=document.getElementById('result');
+      if(err||!o){errorBox.textContent='No encontramos una orden con ese número. Verifica el código e inténtalo de nuevo.';errorBox.classList.add('show');return}
+      document.getElementById('orderCode').textContent=o.code;document.getElementById('device').textContent=o.device_model||'Equipo Apple';document.getElementById('status').textContent=canonical(o.status);document.getElementById('updated').textContent='Última actualización: '+new Date(o.updated_at).toLocaleString('es-VE')+' · actualización automática cada 15 s';renderTimeline(canonical(o.status));resultBox.classList.add('show');
+      clearInterval(liveTimer); liveTimer=setInterval(()=>{if(lastCode)runLookup(lastCode)},15000);
+    }
+    document.getElementById('lookup').addEventListener('submit',e=>{e.preventDefault();runLookup(document.getElementById('code').value)});
+    const initial=new URLSearchParams(location.search).get('orden');if(initial){document.getElementById('code').value=initial;runLookup(initial)}
+  </script>
+</body>
+</html>

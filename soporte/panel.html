@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Soporte ThinkStore | Service Center</title>
+  <title>Panel de Soporte | ThinkStore</title>
   <link rel="stylesheet" href="styles.css" />
 
 <style id="ts-v12-8-icon-spacing">
@@ -13,7 +13,14 @@
 @media (max-width:900px){.ts-clean-nav{column-gap:14px!important;}}
 </style>
 </head>
-<body>
+<body class="support-panel-page">
+  <div id="supportPanelLoader" class="support-panel-loader" aria-live="polite">
+    <div class="support-panel-loader-card">
+      <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
+      <strong>Preparando Soporte ThinkStore…</strong>
+      <span class="support-loader-line"><i></i></span>
+    </div>
+  </div>
   <main class="ts-service-app">
     <section class="hero">
       <img class="hero-logo" src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
@@ -28,18 +35,21 @@
 
     <section id="roleDashboard" class="dashboard hidden">
       <aside class="sidebar">
-        <h2>ThinkStore</h2>
-        <small>Service Center</small>
-        <nav id="roleMenu"></nav>
-        <button class="logout" onclick="TSService.logout()">Cerrar sesión</button>
+        <div class="support-brand">
+          <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
+          <div><h2>ThinkStore</h2><small>Service Center</small></div>
+        </div>
+        <div class="support-online"><i></i><span>Centro operativo</span></div>
+        <nav id="roleMenu" aria-label="Navegación de soporte"></nav>
+        <button class="logout" onclick="TSService.logout()"><span aria-hidden="true">↩</span> Cerrar sesión</button>
       </aside>
       <section class="workspace">
         <div class="topline">
           <div>
-            <p class="eyebrow">Panel privado</p>
+            <p class="eyebrow">Centro de soporte</p>
             <h2 id="panelTitle">Dashboard</h2>
           </div>
-          <button onclick="TSService.openServiceOrder()">Nueva orden</button>
+          <button class="topline-primary" onclick="TSService.openServiceOrder()"><span aria-hidden="true">＋</span> Nueva orden</button>
         </div>
         <div id="panelContent"></div>
       </section>
@@ -74,13 +84,20 @@
     <form class="order-sheet" onsubmit="TSService.saveOrder(event)">
       <header class="order-sheet-head">
         <div>
-          <h2>Nueva orden de servicio</h2>
-          <p>Complete la recepción del equipo, seleccione el modelo y marque detalles visibles sobre el esquema.</p>
+          <h2 id="orderModalTitle">Nueva recepción</h2>
+          <p id="orderModalSubtitle">Complete todos los datos del ingreso. La orden de servicio se genera únicamente al finalizar la recepción.</p>
         </div>
         <button type="button" class="order-close" onclick="TSService.closeModals()">×</button>
       </header>
 
       <datalist id="appleDeviceModels"></datalist>
+
+      <div class="reception-flow" aria-label="Etapas de recepción">
+        <div class="reception-flow-step active"><span>1</span><div><b>Cliente y equipo</b><small>Datos de ingreso</small></div></div>
+        <div class="reception-flow-step"><span>2</span><div><b>Inspección visual</b><small>Condición física</small></div></div>
+        <div class="reception-flow-step"><span>3</span><div><b>Checklist</b><small>Pruebas rápidas</small></div></div>
+        <div class="reception-flow-step"><span>4</span><div><b>Firmas</b><small>Cierre de recepción</small></div></div>
+      </div>
 
       <section class="order-layout">
         <aside class="order-left">
@@ -214,7 +231,7 @@
 
       <footer class="order-actions">
         <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
-        <button>Guardar orden</button>
+        <button id="orderSaveBtn">Finalizar ingreso y crear orden</button>
       </footer>
     </form>
   </div>
@@ -286,7 +303,30 @@
     </form>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <div id="receptionCompleteModal" class="modal">
+    <div class="card wide reception-complete-card">
+      <button type="button" class="order-close reception-complete-close" onclick="TSService.closeModals()">×</button>
+      <span class="eyebrow">INGRESO FINALIZADO</span>
+      <h2>Orden de servicio creada</h2>
+      <p>La recepción quedó registrada. Ya puedes imprimir la hoja del cliente y la etiqueta QR para identificar el equipo.</p>
+      <div class="reception-created-summary">
+        <div><span>Número de orden</span><b id="rcCode">—</b></div>
+        <div><span>Equipo</span><b id="rcDevice">—</b></div>
+      </div>
+      <div class="tracking-preview">
+        <span>Seguimiento del cliente</span>
+        <code id="rcTracking">—</code>
+      </div>
+      <div class="reception-print-actions">
+        <button type="button" onclick="TSService.printCompletedReception()">🧾 Imprimir hoja de recepción</button>
+        <button type="button" class="secondary" onclick="TSService.printCompletedLabel()">🏷️ Imprimir etiqueta QR</button>
+        <button type="button" class="secondary" onclick="TSService.openCompletedTracking()">↗ Ver seguimiento</button>
+      </div>
+      <p class="reception-privacy-note">El QR contiene únicamente el enlace público de seguimiento y el número de orden; no incluye datos personales del cliente.</p>
+    </div>
+  </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
 </body>
 </html>

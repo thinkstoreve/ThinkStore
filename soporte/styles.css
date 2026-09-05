@@ -929,3 +929,135 @@ html,body{
   .diagram-left{left:14%;height:55%;top:27%}
   .diagram-right{left:50%;height:55%;top:27%}
 }
+
+
+/* Restaurado · Citas web ThinkStore */
+.appointments-head{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}.appointments-head h3{margin:0 0 6px}.appointments-head p{margin:0;opacity:.72}.appointments-table{overflow-x:auto}.appointments-table table{min-width:1050px}.appointment-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.appointment-actions select{min-width:130px}.appointment-error{padding:18px;border:1px solid rgba(255,100,100,.28);border-radius:16px;background:rgba(255,80,80,.07)}
+@media(max-width:760px){.appointments-head{align-items:flex-start;flex-direction:column}}
+
+/* ===== ThinkStore Soporte V7.3 · acceso al panel en vista independiente ===== */
+.support-panel-page{overflow-x:hidden;background:#05070c}
+.support-panel-page .hero{display:none!important}
+.support-panel-page .ts-service-app{min-height:100vh;background:linear-gradient(90deg,rgba(5,7,12,.98) 0%,rgba(5,7,12,.91) 38%,rgba(5,7,12,.48) 67%,rgba(5,7,12,.3) 100%),linear-gradient(180deg,rgba(5,7,12,.08),rgba(5,7,12,.88)),url("assets/repair-background.jpg") right center/cover fixed no-repeat}
+.support-panel-page #roleDashboard{opacity:0;transform:translateY(18px) scale(.992);filter:blur(5px);transition:opacity .52s cubic-bezier(.22,.61,.36,1),transform .52s cubic-bezier(.22,.61,.36,1),filter .42s ease}
+.support-panel-page.support-panel-ready #roleDashboard{opacity:1;transform:none;filter:none}
+.support-panel-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#151c2c 0,#080b12 42%,#05070c 78%);opacity:1;transition:opacity .45s ease,visibility .45s ease}
+.support-panel-loader.done{opacity:0;visibility:hidden;pointer-events:none}
+.support-panel-loader-card{display:flex;flex-direction:column;align-items:center;gap:15px;text-align:center;color:#f7f9ff;padding:28px}
+.support-panel-loader-card img{width:82px;height:auto;object-fit:contain;filter:drop-shadow(0 14px 28px rgba(0,0,0,.45));animation:tsSupportLogoIn .65s cubic-bezier(.2,.7,.2,1) both}
+.support-panel-loader-card strong{font-size:1rem;letter-spacing:.01em;animation:tsSupportTextIn .6s .12s both}
+.support-loader-line{width:170px;height:3px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+.support-loader-line i{display:block;width:42%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#0071e3,#59b7ff);animation:tsSupportLoad 1.05s ease-in-out infinite}
+@keyframes tsSupportLogoIn{from{opacity:0;transform:translateY(10px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes tsSupportTextIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes tsSupportLoad{0%{transform:translateX(-110%)}50%{transform:translateX(150%)}100%{transform:translateX(340%)}}
+@media (prefers-reduced-motion:reduce){.support-panel-page #roleDashboard,.support-panel-loader,.support-panel-loader-card img,.support-panel-loader-card strong,.support-loader-line i{animation:none!important;transition:none!important}.support-panel-page #roleDashboard{transform:none;filter:none}}
+
+/* ===== ThinkStore Soporte V7.4 · Dashboard ejecutivo real ===== */
+.dash-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;padding:26px 28px;margin-bottom:18px;border:1px solid var(--line);border-radius:30px;background:linear-gradient(135deg,rgba(20,31,50,.94),rgba(8,12,20,.86));box-shadow:0 24px 60px rgba(0,0,0,.28)}
+.dash-hero h2{font-size:clamp(1.7rem,3vw,2.7rem);margin:7px 0 5px}.dash-hero p{margin:0;color:var(--muted)}
+.dash-session{min-width:190px;padding:15px 18px;border-radius:22px;background:rgba(255,255,255,.055);border:1px solid var(--line);display:grid;gap:3px}.dash-session span,.dash-session small{color:var(--muted)}.dash-session b{font-size:1.1rem}
+.dash-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:14px}.dash-kpi{appearance:none;text-align:left;border-radius:25px;padding:20px;background:rgba(14,20,32,.9);border:1px solid var(--line);color:var(--text);display:grid;gap:6px;transition:.2s transform,.2s border-color,.2s background}.dash-kpi:hover{transform:translateY(-2px);border-color:rgba(31,155,255,.5);background:rgba(22,31,49,.96)}.dash-kpi span,.dash-kpi small{color:var(--muted)}.dash-kpi b{font-size:2.15rem;line-height:1}
+.dash-status-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}.dash-status{padding:15px 18px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.035);display:flex;justify-content:space-between;gap:12px;align-items:center}.dash-status span{color:#cad5e8}.dash-status b{font-size:1.45rem}
+.dash-columns{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}.dash-panel{padding:20px}.dash-panel-head{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:12px}.dash-panel-head h3{margin:0 0 4px}.dash-panel-head p{margin:0}.dash-list{display:grid;gap:9px}.dash-list-row{width:100%;border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:18px;padding:13px 15px;color:var(--text);display:flex;justify-content:space-between;align-items:center;gap:15px;text-align:left}.dash-list-row:hover:not(.static){background:rgba(31,155,255,.09)}.dash-list-row span:first-child{display:grid;gap:4px;min-width:0}.dash-list-row small{color:var(--muted);overflow:hidden;text-overflow:ellipsis}.dash-list-row.static{cursor:default}.dash-empty{padding:26px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:18px}
+@media(max-width:1100px){.dash-grid,.dash-status-row{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-columns{grid-template-columns:1fr}}
+@media(max-width:680px){.dash-hero{align-items:flex-start;flex-direction:column}.dash-session{width:100%}.dash-grid,.dash-status-row{grid-template-columns:1fr}.dash-panel-head{align-items:flex-start;flex-direction:column}.dash-list-row{align-items:flex-start;flex-direction:column}}
+
+
+/* ThinkStore Soporte V7.6 · Recepción, impresión y QR */
+.reception-complete-card{position:relative;max-width:760px}.reception-complete-close{position:absolute;right:18px;top:14px}.reception-created-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0}.reception-created-summary>div,.tracking-preview{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);border-radius:18px;padding:16px}.reception-created-summary span,.tracking-preview span{display:block;font-size:12px;opacity:.7;margin-bottom:6px;text-transform:uppercase;letter-spacing:.08em}.reception-created-summary b{font-size:20px}.tracking-preview code{display:block;white-space:normal;word-break:break-all;color:#8dc8ff}.reception-print-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.reception-print-actions button{flex:1;min-width:190px}.reception-privacy-note{font-size:12px;opacity:.65;margin-top:16px}.eyebrow{font-size:12px;letter-spacing:.16em;color:#62b5ff;font-weight:800}.order-actions #orderSaveBtn{min-width:260px}.appointment-actions button{white-space:nowrap}
+@media(max-width:700px){.reception-created-summary{grid-template-columns:1fr}.reception-print-actions button{width:100%}.order-actions #orderSaveBtn{min-width:0}}
+
+/* ===== ThinkStore Soporte V7.8 · interfaz limpia y navegación refinada ===== */
+.support-panel-page{
+  --sidebar-w:260px;
+  --surface:rgba(8,12,20,.78);
+  --surface-strong:rgba(13,19,31,.94);
+  --surface-soft:rgba(255,255,255,.045);
+  --border-soft:rgba(255,255,255,.085);
+  --border-hover:rgba(90,178,255,.34);
+}
+.support-panel-page .dashboard{
+  grid-template-columns:var(--sidebar-w) minmax(0,1fr);
+  background:linear-gradient(90deg,rgba(4,7,12,.97),rgba(5,8,14,.80) 36%,rgba(4,7,12,.38));
+}
+.support-panel-page .sidebar{
+  padding:22px 16px 18px;
+  background:linear-gradient(180deg,rgba(4,7,12,.94),rgba(7,11,18,.86));
+  border-right:1px solid var(--border-soft);
+  box-shadow:14px 0 45px rgba(0,0,0,.18);
+}
+.support-brand{display:flex;align-items:center;gap:11px;padding:6px 10px 14px}.support-brand img{width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}.support-brand h2{font-size:1.05rem;margin:0;letter-spacing:-.02em}.support-brand small{display:block;margin-top:2px;font-size:.72rem;color:#8e9ab0}.support-online{margin:0 8px 16px;display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border-soft);border-radius:12px;background:rgba(255,255,255,.025);font-size:.72rem;color:#aeb9cc}.support-online i{width:7px;height:7px;border-radius:50%;background:#34c759;box-shadow:0 0 0 4px rgba(52,199,89,.1)}
+.support-panel-page .sidebar nav{margin:0;display:grid;gap:3px;padding:0 0 14px}.nav-group-label{display:block;padding:15px 11px 6px;font-size:.62rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#66738a}.support-nav-btn{position:relative!important;min-height:42px!important;border:0!important;border-radius:13px!important;padding:9px 11px!important;gap:10px!important;color:#cbd4e3!important;background:transparent!important;font-size:.83rem!important;font-weight:680!important;transition:background .18s ease,color .18s ease,transform .18s ease!important}.support-nav-btn:hover{background:rgba(255,255,255,.055)!important;color:#fff!important;transform:translateX(2px)}.support-nav-btn.active{background:linear-gradient(90deg,rgba(10,132,255,.20),rgba(10,132,255,.07))!important;color:#fff!important;box-shadow:inset 0 0 0 1px rgba(80,173,255,.16)}.support-nav-btn.active:before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:99px;background:#2f9bff;box-shadow:0 0 18px rgba(47,155,255,.55)}.support-nav-icon{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:.91rem;color:#8d9cb4;background:rgba(255,255,255,.035);flex:0 0 auto}.support-nav-btn.active .support-nav-icon{color:#69b9ff;background:rgba(47,155,255,.12)}
+.support-panel-page .logout{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;border:1px solid var(--border-soft);background:rgba(255,255,255,.035);color:#9eabc0;box-shadow:none}.support-panel-page .logout:hover{background:rgba(255,74,74,.10);border-color:rgba(255,90,90,.20);color:#ffc0c0}
+.support-panel-page .workspace{max-width:none;padding:28px clamp(22px,3vw,46px) 56px;overflow:hidden}.support-panel-page .topline{margin:0 0 20px;padding:0 0 18px;border-bottom:1px solid var(--border-soft)}.support-panel-page .topline .eyebrow{margin:0 0 6px;font-size:.64rem;letter-spacing:.16em;color:#6ab9ff}.support-panel-page #panelTitle{font-size:clamp(1.55rem,2.4vw,2.2rem);letter-spacing:-.035em;margin:0}.topline-primary{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:10px 16px!important;border-radius:13px!important;font-size:.82rem;box-shadow:0 10px 28px rgba(0,113,227,.19)!important}.topline-primary span{font-size:1.05rem;line-height:1}
+.support-panel-page #panelContent{animation:tsSupportViewIn .28s cubic-bezier(.22,.61,.36,1) both}@keyframes tsSupportViewIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.support-panel-page .tablewrap,.support-panel-page .metric,.support-panel-page .card,.support-panel-page .dash-panel{border-radius:20px;background:linear-gradient(180deg,rgba(15,21,34,.86),rgba(8,13,22,.78));border-color:var(--border-soft);box-shadow:0 14px 42px rgba(0,0,0,.18)}.support-panel-page .tablewrap{padding:18px;margin-top:12px}.support-panel-page .tablewrap>h3{margin:2px 0 14px;font-size:1rem}.support-panel-page table{font-size:.84rem}.support-panel-page th{padding:11px 12px;color:#8fb2dd;font-size:.72rem;text-transform:uppercase;letter-spacing:.055em}.support-panel-page td{padding:13px 12px;vertical-align:middle}.support-panel-page tbody tr{transition:background .16s ease}.support-panel-page tbody tr:hover{background:rgba(255,255,255,.028)}
+.support-panel-page .badge{padding:5px 9px;background:rgba(255,255,255,.055);border:1px solid var(--border-soft);font-size:.72rem}.support-panel-page .actions,.support-panel-page .appointment-actions{gap:6px}.support-panel-page .actions button,.support-panel-page .appointment-actions button,.support-panel-page td button{padding:8px 11px;border-radius:11px;font-size:.74rem;box-shadow:none}.support-panel-page td .secondary{background:rgba(255,255,255,.045)}
+.support-panel-page .dash-hero{padding:22px 24px;border-radius:22px;margin-bottom:14px;background:linear-gradient(135deg,rgba(16,24,39,.88),rgba(8,13,22,.75));box-shadow:0 16px 44px rgba(0,0,0,.19)}.support-panel-page .dash-grid{gap:10px}.support-panel-page .dash-kpi{border-radius:18px;padding:17px}.support-panel-page .dash-kpi b{font-size:1.8rem}.support-panel-page .dash-status-row{gap:9px}.support-panel-page .dash-status{border-radius:15px;padding:13px 15px}.support-panel-page .appointments-head{padding-bottom:12px;border-bottom:1px solid var(--border-soft)}
+@media(max-width:1100px){.support-panel-page .dashboard{grid-template-columns:230px minmax(0,1fr)}.support-panel-page{--sidebar-w:230px}.support-panel-page .workspace{padding-left:22px;padding-right:22px}}
+@media(max-width:900px){.support-panel-page .dashboard{display:block}.support-panel-page .sidebar{position:relative;height:auto;padding:14px}.support-brand{padding-bottom:8px}.support-online{display:none}.support-panel-page .sidebar nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.nav-group-label{grid-column:1/-1;padding-top:12px}.support-nav-btn{min-height:44px!important}.support-panel-page .workspace{padding:18px 14px 90px}.support-panel-page .topline{position:relative;top:auto;background:none;backdrop-filter:none}.topline-primary{width:auto!important}}
+@media(max-width:560px){.support-panel-page .sidebar nav{grid-template-columns:1fr}.support-nav-btn{font-size:.86rem!important}.support-panel-page .topline{align-items:flex-start}.topline-primary{width:100%!important;justify-content:center}.support-panel-page .tablewrap{padding:13px;border-radius:17px}}
+
+
+/* === V7.9 Recepción limpia / estilo técnico premium === */
+.order-fullscreen{background:#070a0f!important}
+.order-sheet{
+  --rx-card:rgba(17,22,31,.86);
+  --rx-card-2:rgba(11,15,22,.92);
+  --rx-border:rgba(255,255,255,.09);
+  width:min(1580px,100vw);margin:0 auto;padding:0 26px 34px;
+  background:radial-gradient(circle at 52% 12%,rgba(10,132,255,.08),transparent 32%),linear-gradient(180deg,#090c12 0%,#070a10 100%);
+}
+.order-sheet-head{position:sticky;top:0;z-index:15;margin:0 -26px 18px;padding:20px 26px 16px;background:rgba(8,11,17,.90);border-bottom:1px solid rgba(255,255,255,.07);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.order-sheet-head h2{font-size:clamp(1.75rem,2vw,2.45rem);letter-spacing:-.035em}.order-sheet-head p{font-size:.92rem;max-width:760px}.order-close{border-radius:999px;width:40px;height:40px;font-size:1.45rem;background:rgba(255,255,255,.06)}
+.reception-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 18px}
+.reception-flow-step{min-width:0;display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--rx-border);border-radius:16px;background:rgba(255,255,255,.025);color:#aeb9ca}
+.reception-flow-step>span{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.07);font-size:.78rem;font-weight:900;color:#dbe7f7}.reception-flow-step b{display:block;color:#eaf1fb;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.reception-flow-step small{display:block;color:#778396;font-size:.69rem;margin-top:2px}.reception-flow-step.active{border-color:rgba(10,132,255,.38);background:rgba(10,132,255,.08)}.reception-flow-step.active>span{background:#0a84ff;color:white;box-shadow:0 0 0 5px rgba(10,132,255,.11)}
+.order-layout{grid-template-columns:270px minmax(480px,1fr) 330px;gap:14px}.order-left,.order-center,.order-right{gap:12px}
+.order-box{border-radius:18px;padding:15px;background:linear-gradient(180deg,var(--rx-card),var(--rx-card-2));border:1px solid var(--rx-border);box-shadow:none}.order-box h3{font-size:.76rem;letter-spacing:.08em;color:#b8c5d8;margin-bottom:12px}.order-box label{font-size:.78rem;color:#9eabba}
+.order-box input,.order-box select,.order-box textarea,.model-search-wrap input{min-height:40px;border-radius:11px;border-color:rgba(255,255,255,.09);background:rgba(0,0,0,.20);padding:10px 11px;font-size:.88rem}.order-box input:focus,.order-box select:focus,.order-box textarea:focus,.model-search-wrap input:focus{outline:none;border-color:rgba(10,132,255,.78);box-shadow:0 0 0 3px rgba(10,132,255,.11)}
+.model-selector-box{padding:14px 15px}.selected-device-summary{margin-top:10px;padding:10px 0 0;border-top:1px solid rgba(255,255,255,.055)}.selected-device-summary .device-art{width:44px;height:58px;border-radius:13px}.selected-device-summary strong{font-size:.93rem}.selected-device-summary p{font-size:.76rem;color:#8591a3;margin:.22rem 0 0}
+.diagram-box{padding:14px 15px}.diagram-toolbar{margin-bottom:9px}.diagram-toolbar p{font-size:.78rem;line-height:1.35}.mark-tools{gap:6px}.mark-tool{padding:7px 9px;border-radius:10px;font-size:.76rem}.mark-dot{width:28px;height:28px}.device-view-tabs{gap:6px;margin-bottom:8px}.device-view-tabs button{padding:7px 11px;border-radius:10px;font-size:.76rem}
+.device-diagram{min-height:365px!important;max-height:390px;border-radius:16px;background:radial-gradient(circle at 50% 48%,rgba(10,132,255,.085),transparent 58%),rgba(0,0,0,.12)}.diagram-help{font-size:.76rem;margin:8px 0 0;color:#7f8a9b}
+.checklist-box{padding:14px}.checklist-grid{gap:4px}.checklist-grid label{min-height:34px;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,.045);grid-template-columns:auto minmax(86px,1fr) 116px;font-size:.77rem;color:#dbe3ee}.checklist-grid label:last-child{border-bottom:0}.checklist-grid input[type="checkbox"]{width:16px;height:16px;accent-color:#0a84ff}.checklist-grid select{min-width:0;width:116px;padding:6px 8px;border-radius:9px;font-size:.72rem;background:rgba(0,0,0,.18)}
+.order-signatures{margin-top:14px;padding:15px 16px}.order-signatures h3{margin-bottom:10px}.signature-grid{gap:10px}.signature-grid label{font-size:.75rem}.signature-grid input{min-height:38px}.signature-grid button{margin-top:6px;padding:9px 12px;font-size:.75rem;background:rgba(255,255,255,.055);border:1px dashed rgba(255,255,255,.15)}
+.order-actions{z-index:12;margin:0 -4px;padding:14px 4px 2px;background:linear-gradient(180deg,transparent 0%,rgba(7,10,16,.94) 30%,#070a10 100%)}.order-actions button{min-height:42px;padding:11px 18px}.order-actions #orderSaveBtn{box-shadow:0 10px 30px rgba(10,132,255,.19)}
+.order-left,.order-right{max-height:none!important;overflow:visible!important;padding-right:0!important}
+@media(min-width:1201px){.order-right{position:sticky;top:108px;align-self:start}}
+@media(max-width:1200px){.order-sheet{width:100%;padding:0 18px 28px}.order-sheet-head{margin:0 -18px 16px;padding:18px}.reception-flow{grid-template-columns:repeat(2,1fr)}.order-layout{grid-template-columns:1fr 1fr}.order-center{grid-column:1/-1;order:-1}.order-left,.order-right{grid-template-columns:1fr}.device-diagram{min-height:340px!important}}
+@media(max-width:760px){.order-sheet{padding:0 12px 24px}.order-sheet-head{margin:0 -12px 12px;padding:15px 12px 13px}.reception-flow{display:flex;overflow:auto;gap:8px;padding-bottom:3px}.reception-flow-step{min-width:190px}.order-layout{grid-template-columns:1fr}.order-center{grid-column:auto}.device-diagram{min-height:300px!important;max-height:320px}.checklist-grid label{grid-template-columns:auto 1fr 108px}.checklist-grid select{grid-column:auto;width:108px}}
+
+
+/* ===== ThinkStore Soporte V7.16 · imagen real de inspección sin esquema genérico ===== */
+.device-diagram.has-model-image{
+  background-size:contain!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important;
+  background-color:#070a10!important;
+}
+.device-diagram.has-model-image::before,
+.device-diagram.has-model-image > .diagram-side,
+.device-diagram.has-model-image > .diagram-front,
+.device-diagram.has-model-image > .diagram-back,
+.device-diagram.has-model-image > .diagram-top,
+.device-diagram.has-model-image > .diagram-bottom{
+  display:none!important;
+}
+.device-diagram.has-model-image .damage-layer{display:block!important;z-index:5!important}
+
+
+/* ===== ThinkStore Soporte V7.13 · miniatura real por modelo ===== */
+.selected-device-summary{align-items:center!important;gap:14px!important}
+.device-art.has-model-image{
+  width:88px!important;height:88px!important;min-width:88px!important;
+  border-radius:16px!important;background:#fff!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  overflow:hidden!important;padding:4px!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.24)!important;
+}
+.device-art.has-model-image::before,.device-art.has-model-image::after{display:none!important}
+.selected-device-img{display:none;width:100%;height:100%;object-fit:contain;object-position:center;border-radius:12px;background:#fff}
+.device-art:not(.has-model-image) .selected-device-img{display:none!important}
+@media(max-width:700px){.device-art.has-model-image{width:72px!important;height:72px!important;min-width:72px!important}}
