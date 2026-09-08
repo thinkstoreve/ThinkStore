@@ -57,7 +57,7 @@ exports.handler = async function(event) {
   const nextStatus=clean(body.status||body.estado);
   const guide=clean(body.guideNumber||body.numero_guia||body.guide);
   if(!incomingId&&!incomingCode)return reply(400,{ok:false,error:'ID o código de pedido requerido'});
-  if(!['resend_delivery_note','view_delivery_note','payment_decision','unlock_payment_decision'].includes(action)&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
+  if(!['resend_delivery_note','view_delivery_note','payment_decision','unlock_payment_decision','delete_order'].includes(action)&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
 
   async function findPedido(){
     const qs=[];
@@ -99,7 +99,7 @@ exports.handler = async function(event) {
   function trackingUrl(p){return `https://thinkstore.com.ve/?tracking=${encodeURIComponent(p.code)}#estatus`}
 
   function shell(title,subtitle,content,buttonUrl){
-    return `<div style="margin:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 12px"><tr><td align="center"><table role="presentation" width="680" style="max-width:680px;width:100%;background:#fff;border-radius:28px;overflow:hidden"><tr><td style="background:#08080c;padding:30px;text-align:center"><img src="https://thinkstore.com.ve/assets/thinkstore-email-logo.jpg" alt="ThinkStore" width="260" style="max-width:90%;background:#fff;border-radius:18px;padding:12px"><h1 style="color:#fff;margin:22px 0 4px;font-size:34px">${esc(title)}</h1><div style="color:#b7b7bd">${esc(subtitle)}</div></td></tr><tr><td style="padding:30px">${content}${buttonUrl?`<div style="text-align:center;margin:28px 0 4px"><a href="${esc(buttonUrl)}" style="background:#111;color:#fff;text-decoration:none;border-radius:999px;padding:14px 24px;font-weight:800">Ver pedido</a></div>`:''}</td></tr><tr><td style="background:#f5f5f7;padding:20px;text-align:center;color:#6e6e73;font-size:13px"><b style="color:#111">ThinkStore</b><br>Altamira, Caracas · Venezuela<br>ventas@thinkstore.com.ve</td></tr></table></td></tr></table></div>`;
+    return `<div style="margin:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px"><tr><td align="center"><table role="presentation" width="680" style="max-width:680px;width:100%;background:#fff;border:1px solid #e5e5ea;border-radius:20px;overflow:hidden"><tr><td style="padding:26px 30px 22px;border-bottom:1px solid #e5e5ea"><img src="https://thinkstore.com.ve/assets/logo-thinkstore-email-transparent.png" alt="ThinkStore" width="154" style="display:block;width:154px;max-width:100%;height:auto;border:0"><h1 style="color:#1d1d1f;margin:24px 0 6px;font-size:28px;line-height:1.2;font-weight:700">${esc(title)}</h1><div style="color:#6e6e73;font-size:14px">${esc(subtitle)}</div></td></tr><tr><td style="padding:26px 30px">${content}${buttonUrl?`<div style="text-align:center;margin:28px 0 4px"><a href="${esc(buttonUrl)}" style="background:#1d1d1f;color:#fff;text-decoration:none;border-radius:999px;padding:13px 24px;font-size:14px;font-weight:700">Ver pedido</a></div>`:''}</td></tr><tr><td style="background:#f5f5f7;padding:20px;text-align:center;color:#6e6e73;font-size:12px;line-height:1.7"><b style="color:#1d1d1f">ThinkStore</b><br>Altamira, Caracas · Venezuela<br>ventas@thinkstore.com.ve</td></tr></table></td></tr></table></div>`;
   }
   function deliveryNoteEmail(p){
     const rows=p.items.map((i,idx)=>{
@@ -182,6 +182,47 @@ exports.handler = async function(event) {
     // V1.5.6: una venta entregada queda inmutable. Solo se permiten acciones de lectura/reenvío.
     if(isClosed && !['resend_delivery_note','view_delivery_note'].includes(action)){
       return reply(409,{ok:false,locked:true,error:'Venta cerrada: este pedido ya fue entregado y es de solo lectura.'});
+    }
+
+    if(action==='delete_order'){
+      if(!managerRoleAllowed())return reply(403,{ok:false,error:'Solo Gerencia, Admin o Super Admin puede eliminar pedidos.'});
+      const status=norm(found.estado||'');
+      const lock=paymentLockInfo(found);
+      const guide=clean(found.numero_guia||'');
+      const advanced=/pago verificado|preparando|comprando proveedor|transito|enviado|disponible|entregado|completado/.test(status);
+      if(lock.decision==='approved'||advanced||guide){
+        return reply(409,{ok:false,protected:true,error:'Este pedido ya avanzó a una etapa protegida. No puede eliminarse; usa Cancelado y conserva el historial.'});
+      }
+      const suppliedCode=clean(body.confirmCode||body.confirm_code).toUpperCase();
+      const realCode=clean(found.codigo||'').toUpperCase();
+      if(!suppliedCode||suppliedCode!==realCode)return reply(400,{ok:false,error:'Confirma el número exacto del pedido para eliminarlo.'});
+
+      // Primero deja el registro en un estado seguro. Si algo posterior falla,
+      // la orden no queda activa con stock liberado.
+      if(!status.includes('cancel')){
+        try{await updatePedido(found,{estado:'Cancelado'})}catch(e){return reply(500,{ok:false,error:'No se pudo cancelar el pedido antes de eliminarlo: '+e.message})}
+      }
+
+      const p=normalized(await fullPedido({...found,estado:'Cancelado'}));
+      const inventory=await inventoryTransition(p,'Cancelado');
+      if(inventory?.ok===false){
+        return reply(409,{ok:false,inventory,error:'No se eliminó el pedido porque no se pudo liberar el stock reservado. '+(inventory.error||'')});
+      }
+
+      // Auditoría persistente antes del borrado. No depende de la FK del pedido.
+      try{await sb('admin_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:auth.email||auth.mode||null,action:'delete_abandoned_order',entity_type:'pedido',entity_id:String(found.id),before_data:{codigo:found.codigo,estado:found.estado,total_usd:found.total_usd,cliente_id:found.cliente_id},after_data:{deleted:true,inventory_released:true,reason:clean(body.reason)||'Pedido no concretado'}})})}catch(_){ }
+
+      // Limpiar registros auxiliares conocidos que pueden tener FK sin cascade.
+      for(const table of ['order_status_history','email_delivery_log']){
+        try{await sb(`${table}?pedido_id=eq.${encodeURIComponent(found.id)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}})}catch(_){ }
+      }
+
+      try{
+        await sb(`pedidos?id=eq.${encodeURIComponent(found.id)}`,{method:'DELETE',headers:{Prefer:'return=representation'}});
+      }catch(e){
+        return reply(500,{ok:false,inventory,error:'El stock fue liberado y el pedido quedó Cancelado, pero no pudo eliminarse. '+e.message});
+      }
+      return reply(200,{ok:true,deleted:true,code:realCode,inventory,message:'Pedido eliminado y stock reservado devuelto a disponible.'});
     }
 
     if(action==='unlock_payment_decision'){
