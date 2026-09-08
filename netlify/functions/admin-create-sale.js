@@ -3,6 +3,7 @@ exports.handler=async function(event){
   const r=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
   if(event.httpMethod==='OPTIONS')return r(200,{ok:true});
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
+  const {getRate}=require('./fx-rate-core');
   const clean=v=>String(v??'').trim(), norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const url=clean(process.env.SUPABASE_URL).replace(/\/$/,''); const service=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if(!url||!service)return r(501,{ok:false,error:'Faltan variables de Supabase'});
@@ -45,13 +46,18 @@ exports.handler=async function(event){
     const dup=await first(`pedido_items?select=id&numero_serie=eq.${encodeURIComponent(serial)}&limit=1`);
     if(dup)return r(409,{ok:false,error:'Ese número de serie ya está asociado a otra venta.'});
 
+    let fxQuote=null;
+    if(/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta/i.test(payment)){
+      const q=await getRate(true);
+      fxQuote={...q,total_usd:Math.round(price*100)/100,total_ves:Math.round(price*q.rate*100)/100};
+    }
     // Consecutivo único y progresivo generado por Supabase (mismo flujo que la tienda).
     const cr=await fetch(`${url}/rest/v1/rpc/ts_next_order_code`,{method:'POST',headers:sh,body:'{}'});
     const cd=await cr.json().catch(()=>null);
     if(!cr.ok)throw new Error(cd?.message||cd?.error||'No se pudo generar el consecutivo del pedido');
     const code=String(cd||'').replace(/^"|"$/g,'').trim();
     if(!/^TS-\d{4}-\d{4,}$/.test(code))throw new Error('Supabase devolvió un consecutivo inválido');
-    const po=await req('pedidos',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({codigo:code,cliente_id:customer.id,estado:'Pago verificado',metodo_pago:payment,referencia_pago:paymentRef,total_usd:price,metodo_envio:clean(b.delivery_method||'Retiro en tienda')})});
+    const po=await req('pedidos',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({codigo:code,cliente_id:customer.id,estado:'Pago verificado',metodo_pago:payment,referencia_pago:paymentRef,total_usd:price,total_bs:fxQuote?.total_ves??null,metodo_envio:clean(b.delivery_method||'Retiro en tienda')})});
     const pedido=Array.isArray(po)?po[0]:null; if(!pedido?.id)throw new Error('No se pudo crear el pedido');
 
     try{
@@ -63,6 +69,6 @@ exports.handler=async function(event){
       throw e;
     }
 
-    return r(200,{ok:true,pedido:{...pedido,codigo:code},variant:{id:v.id,sku:v.sku,product_name:v.product_name,model:v.model,color:v.color,capacity:v.capacity,condition:v.condition},message:'Venta creada y stock reservado. La nota de entrega se enviará/reemitirá desde el pedido.'});
+    return r(200,{ok:true,fx_quote:fxQuote,pedido:{...pedido,codigo:code},variant:{id:v.id,sku:v.sku,product_name:v.product_name,model:v.model,color:v.color,capacity:v.capacity,condition:v.condition},message:'Venta creada y stock reservado. La nota de entrega se enviará/reemitirá desde el pedido.'});
   }catch(e){console.error('admin-create-sale',e);return r(500,{ok:false,error:e.message||'No se pudo registrar la venta'})}
 }

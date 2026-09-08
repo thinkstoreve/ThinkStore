@@ -251,7 +251,7 @@ const TSService=(()=>{
 
     if(view==='appointments'){await renderAppointments(box);return}
 
-    if(view==='orders'||view==='reception'||view==='technical'||view==='sales'||view==='logistics'){box.innerHTML=ordersTable(view);return}
+    if(view==='orders'||view==='reception'||view==='technical'||view==='sales'||view==='logistics'){box.innerHTML=ordersTable(view);if(view==='sales')window.ThinkStoreFX?.mountCalculator('tsFxSupportSales',box);return}
 
 
     if(view==='bitacora'){

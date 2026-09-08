@@ -681,6 +681,10 @@ function renderPaymentDetails(pay){
         <div><small>C.I./RIF</small><b>E-84554142</b></div>
       </div>
       <button type="button" class="copy-pay-btn" onclick="tsCopyText('Pago Móvil Bancamiga\\nTeléfono: 0412-0142898\\nC.I./RIF: E-84554142')">📋 Copiar datos de pago</button>`;
+  }else if(method==='Punto de venta'){
+    needsProof=false;
+    html=`<div class="pay-details-head"><div class="cash-mark">💳 Punto de venta</div><span class="pay-status">Pago presencial</span></div>
+      <p class="cash-note">El monto en bolívares se calcula con la tasa oficial mostrada. El personal verificará el pago antes de confirmar la venta.</p>`;
   }else if(method==='Zelle'){
     html=`<div class="pay-details-head"><div class="zelle-mark">Zelle</div><span class="pay-status">Esperando comprobante</span></div>
       <div class="pay-data-grid one"><div><small>Número Zelle</small><b>(954) 445-9161</b></div></div>
@@ -895,6 +899,7 @@ function buildOrder(status='Recibido', persist=true){
     status: cart.some(i=>String(i.condition).toLowerCase().includes('pre')) ? 'Preorden recibida' : status,
     customer:{...customer},
     payment:pay,
+    fxQuote: window.ThinkStoreFX?.needsVES(pay) ? window.ThinkStoreFX.snapshot(cart.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0)) : null,
     paymentRef:$('paymentRef') ? $('paymentRef').value.trim() : '',
     paymentAmount:$('paymentAmount') ? $('paymentAmount').value.trim() : '',
     deliveryType:$('deliveryType') ? $('deliveryType').value : 'Envío nacional',
@@ -1482,6 +1487,7 @@ function buildOrder(status='Recibido', persist=true){
     status: cart.some(i=>String(i.condition).toLowerCase().includes('pre')) ? 'Preorden recibida' : status,
     customer:{...customer},
     payment:pay,
+    fxQuote: window.ThinkStoreFX?.needsVES(pay) ? window.ThinkStoreFX.snapshot(cart.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0)) : null,
     paymentRef:$('paymentRef') ? $('paymentRef').value.trim() : '',
     paymentAmount:$('paymentAmount') ? $('paymentAmount').value.trim() : '',
     deliveryType:$('deliveryType') ? $('deliveryType').value : 'Envío nacional',
@@ -1513,6 +1519,11 @@ function generateDeliveryNote(){
 }
 function tsShowOrderCreated(order){document.getElementById('tsOrderCreatedModal')?.remove();const modal=document.createElement('div');modal.id='tsOrderCreatedModal';modal.style.cssText='position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,.68);backdrop-filter:blur(14px);display:grid;place-items:center;padding:22px';const card=document.createElement('div');card.style.cssText='width:min(560px,100%);background:#fff;color:#111;border-radius:32px;padding:34px;box-shadow:0 30px 100px rgba(0,0,0,.40);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center';const icon=document.createElement('div');icon.textContent='✓';icon.style.cssText='width:72px;height:72px;border-radius:50%;background:#111;color:#fff;display:grid;place-items:center;margin:0 auto 18px;font-size:36px;font-weight:900';const h=document.createElement('h2');h.textContent='Pedido creado correctamente';h.style.cssText='font-size:30px;margin:0 0 10px';const p=document.createElement('p');p.textContent=`Tu pedido ${order.code} fue registrado en ThinkStore. Los detalles y el seguimiento fueron enviados a ${order.customer?.email||'tu correo electrónico'}.`;p.style.cssText='color:#555;line-height:1.6;margin:0 0 20px';const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';const account=document.createElement('button');account.textContent='Ver mi pedido';account.style.cssText='border:0;border-radius:999px;background:#111;color:#fff;padding:14px 22px;font-weight:800;cursor:pointer';account.onclick=()=>{modal.remove();try{openAccount()}catch(e){location.hash='cuenta'}};const shop=document.createElement('button');shop.textContent='Seguir comprando';shop.style.cssText='border:1px solid #ddd;border-radius:999px;background:#fff;color:#111;padding:14px 22px;font-weight:800;cursor:pointer';shop.onclick=()=>modal.remove();actions.append(account,shop);card.append(icon,h,p,actions);modal.append(card);document.body.append(modal)}
 async function checkoutWhatsApp(){
+  const fx=window.ThinkStoreFX;
+  if(fx?.needsVES($('payMethod')?.value)){
+    try{await fx.refresh(true)}
+    catch(e){alert('No se pudo consultar la tasa oficial. Intenta nuevamente antes de confirmar el pago en bolívares.');return}
+  }
   const order = buildOrder('Recibido', false);
   if(!order) return;
   try{
@@ -1526,7 +1537,7 @@ async function checkoutWhatsApp(){
 
     const orderLines=(order.items||[]).map(i=>`- ${i.product||'Producto'}${i.color?' · '+i.color:''}${i.config?' · '+i.config:''} × ${Number(i.qty||1)}`).join('\n')||'- Producto por confirmar';
     const orderTotalValue=(order.items||[]).reduce((sum,i)=>sum+Number(i.price||0)*Number(i.qty||1),0);
-    const simpleEmail=`Hola ${order.customer.name},\n\n¡Tu pedido ${order.code} fue creado correctamente!\n\nEstado: ${order.status}\n\nProductos:\n${orderLines}\n\nTotal: ${orderTotalValue>0?'$'+orderTotalValue.toLocaleString('en-US',{maximumFractionDigits:2}):'Por confirmar'}\nPago: ${order.payment||'Por confirmar'}\nEnvío: ${[order.deliveryType,order.customer?.shipping].filter(Boolean).join(' · ')||'Por confirmar'}\n\nPuedes revisar el seguimiento iniciando sesión en tu cuenta ThinkStore.\n\nGracias por confiar en ThinkStore.`;
+    const simpleEmail=`Hola ${order.customer.name},\n\n¡Tu pedido ${order.code} fue creado correctamente!\n\nEstado: ${order.status}\n\nProductos:\n${orderLines}\n\nTotal: ${orderTotalValue>0?'$'+orderTotalValue.toLocaleString('en-US',{maximumFractionDigits:2}):'Por confirmar'}\nPago: ${order.payment||'Por confirmar'}\n${order.fxQuote?'Equivalente: '+window.ThinkStoreFX.ves(order.fxQuote.total_ves)+' · Tasa '+order.fxQuote.rate+' · '+order.fxQuote.source_date+'\n':''}Envío: ${[order.deliveryType,order.customer?.shipping].filter(Boolean).join(' · ')||'Por confirmar'}\n\nPuedes revisar el seguimiento iniciando sesión en tu cuenta ThinkStore.\n\nGracias por confiar en ThinkStore.`;
     if(order.customer.email){
       await openEmail(
         order.customer.email,
@@ -2751,7 +2762,8 @@ async function saveOrderToSupabase(order){
     metodo_envio: order.deliveryType,
     empresa_envio: order.customer?.shipping,
     numero_guia: order.guideNumber,
-    total_usd: total
+    total_usd: total,
+    total_bs: order.fxQuote?.total_ves ?? null
   }).select('id,codigo,estado,created_at').single();
 
   if(error) throw error;
@@ -6431,4 +6443,23 @@ window.addEventListener('load', ()=>{
   setTimeout(wireAccountButton,50);
   setTimeout(wireAccountButton,400);
   setTimeout(wireAccountButton,1200);
+})();
+
+/* V13.40: Cotización visible solo en pagos en bolívares. */
+(function(){
+ const fx=window.ThinkStoreFX;
+ if(!fx)return;
+ const oldPayment=renderPaymentDetails;
+ renderPaymentDetails=function(method){
+   const result=oldPayment.apply(this,arguments);
+   const el=document.getElementById('tsFxCheckout');
+   if(el)fx.show(el,cart.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0),method);
+   return result;
+ };
+ const oldCart=drawCart;
+ drawCart=function(){
+   const result=oldCart.apply(this,arguments);
+   if(typeof window.tsFxCheckoutUpdate==='function')window.tsFxCheckoutUpdate();
+   return result;
+ };
 })();

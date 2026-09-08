@@ -294,12 +294,14 @@
           </div>
           <select id="payMethod" class="premium-hidden-select" onchange="syncCheckoutCards()">
             <option>Pago Móvil</option>
+            <option>Punto de venta</option>
             <option>Zelle</option>
             <option>Efectivo</option>
             <option>USDT</option>
           </select>
           <div class="pay-choice-grid pay-grid-4">
             <button type="button" class="pay-choice" data-pay="Pago Móvil" onclick="selectPayMethod('Pago Móvil')">📱<b>Pago Móvil</b></button>
+            <button type="button" class="pay-choice" data-pay="Punto de venta" onclick="selectPayMethod('Punto de venta')">💳<b>Punto de venta</b></button>
             <button type="button" class="pay-choice" data-pay="Zelle" onclick="selectPayMethod('Zelle')">⚡<b>Zelle</b></button>
             <button type="button" class="pay-choice" data-pay="Efectivo" onclick="selectPayMethod('Efectivo')">💵<b>Efectivo</b></button>
             <button type="button" class="pay-choice" data-pay="USDT" onclick="selectPayMethod('USDT')">₮<b>USDT</b></button>
@@ -730,6 +732,7 @@
 <script src="data.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="ts-fx.js?v=13.40"></script>
 <script src="script.js?v=13.38"></script>
 
 <div id="categoryModalV2" class="modal ts-v2-category-modal">
