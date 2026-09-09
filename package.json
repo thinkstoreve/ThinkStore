@@ -1,6 +1,6 @@
 {
   "name": "thinkstore",
-  "version": "13.63.0",
+  "version": "13.65.0",
   "private": true,
   "description": "ThinkStore storefront and Netlify Functions",
   "dependencies": {

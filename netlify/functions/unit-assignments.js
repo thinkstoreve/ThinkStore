@@ -51,6 +51,7 @@ exports.handler=async(event)=>{
   const itemQty=i=>Math.max(1,Number(i?.cantidad||i?.qty||1)||1);
   const isPhone=name=>/\biphone\b|smartphone|telefono|teléfono/i.test(clean(name));
   const isPreOwned=v=>/pre.?owned|renovado|reacondicionado|refurbished|renewed/i.test(clean(v));
+  const supportsBatteryHealth=name=>/\biphone\b|\bipad\b|macbook|apple watch|\bwatch\b/i.test(clean(name));
   async function resolveVariantForItem(item){
     try{
       const product=itemName(item),color=clean(item?.color),capacity=clean(item?.capacidad||item?.capacity||item?.config),condition=itemCondition(item);
@@ -124,7 +125,7 @@ exports.handler=async(event)=>{
       if(isPhone(product)&&!imei)return reply(400,{ok:false,error:'El IMEI es obligatorio para teléfonos'});
       if(condition==='Pre-Owned'){
         if(!['Excelente','Bueno','Bien'].includes(general))return reply(400,{ok:false,error:'Selecciona condición general'});
-        if(!Number.isInteger(battery)||battery<1||battery>100)return reply(400,{ok:false,error:'La salud de batería debe estar entre 1 y 100%'});
+        if(supportsBatteryHealth(product)&&(!Number.isInteger(battery)||battery<1||battery>100))return reply(400,{ok:false,error:'La salud de batería debe estar entre 1 y 100% para este equipo.'});
       }
       const row={
         variant_id:clean(b.variant_id)||null,product_name:product,model:clean(b.model)||null,serial_number:serial,imei:imei||null,
@@ -138,6 +139,33 @@ exports.handler=async(event)=>{
 
     if(action==='order_summary'){
       const order=await findOrder();if(!order)return reply(404,{ok:false,error:'Pedido no encontrado'});
+      // Compatibilidad con ventas presenciales anteriores: si un equipo NUEVO ya tenía serial en pedido_items,
+      // se convierte automáticamente en unidad física. Pre-Owned queda pendiente si faltan condición/batería.
+      try{
+        const current=await assignmentsFor(order);
+        const assignedSlots=new Set(current.map(a=>`${a.pedido_item_id}:${Number(a.slot_index||1)}`));
+        for(const item of order.pedido_items||[]){
+          const serial=clean(item.numero_serie||item.serial_number||item.serial);
+          if(!serial||assignedSlots.has(`${item.id}:1`)||isPreOwned(itemCondition(item)))continue;
+          let unit=(await req(`inventory_units?select=*&serial_number=ilike.${encodeURIComponent(serial)}&limit=1`))?.[0]||null;
+          if(unit&&unit.status!=='available')continue;
+          if(!unit){
+            const created=await req('inventory_units',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({
+              variant_id:await resolveVariantForItem(item),product_name:itemName(item),model:clean(item.model_code||item.modelo||item.model)||null,
+              serial_number:serial,imei:clean(item.imei)||null,commercial_condition:'Nuevo',general_condition:'Nuevo',
+              battery_health_pct:null,notes:clean(item.item_note||item.nota)||null,status:'available',
+              created_by_email:actor.email||actor.mode||null,updated_at:new Date().toISOString()
+            })});
+            unit=created?.[0]||null;
+          }
+          if(unit){
+            await req('order_unit_assignments',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({
+              pedido_id:order.id,pedido_item_id:item.id,unit_id:unit.id,slot_index:1,active:true,assigned_by_email:actor.email||actor.mode||null
+            })});
+            await req(`inventory_units?id=eq.${encodeURIComponent(unit.id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'assigned',updated_at:new Date().toISOString()})});
+          }
+        }
+      }catch(e){console.warn('Legacy serial bootstrap:',e.message)}
       const assignments=await assignmentsFor(order),cov=coverage(order,assignments);
       const available=await req('inventory_units?select=*&status=eq.available&order=product_name.asc,created_at.desc&limit=500');
       return reply(200,{ok:true,order:{id:order.id,code:order.codigo||order.code,estado:order.estado||order.status,items:order.pedido_items||[]},assignments,coverage:cov,available_units:(available||[]).map(unitPublic)});
@@ -175,7 +203,7 @@ exports.handler=async(event)=>{
         if(isPhone(product)&&!imei)return reply(400,{ok:false,error:'El IMEI es obligatorio para teléfonos'});
         if(condition==='Pre-Owned'){
           if(!['Excelente','Bueno','Bien'].includes(general))return reply(400,{ok:false,error:'Selecciona condición general: Excelente, Bueno o Bien'});
-          if(!Number.isInteger(battery)||battery<1||battery>100)return reply(400,{ok:false,error:'La salud de batería Pre-Owned debe estar entre 1 y 100%'});
+          if(supportsBatteryHealth(product)&&(!Number.isInteger(battery)||battery<1||battery>100))return reply(400,{ok:false,error:'La salud de batería Pre-Owned debe estar entre 1 y 100% para este equipo.'});
         }
         const row={
           variant_id:clean(b.variant_id)||await resolveVariantForItem(item),product_name:product,model:clean(b.model)||clean(item.modelo||item.model)||null,

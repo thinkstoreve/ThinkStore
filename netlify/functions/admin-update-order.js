@@ -1,4 +1,5 @@
 const crypto=require('crypto');
+const {getRate}=require('./fx-rate-core');
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -58,7 +59,7 @@ exports.handler = async function(event) {
   const nextStatus=clean(body.status||body.estado);
   const guide=clean(body.guideNumber||body.numero_guia||body.guide);
   if(!incomingId&&!incomingCode)return reply(400,{ok:false,error:'ID o código de pedido requerido'});
-  if(!['resend_delivery_note','view_delivery_note','payment_decision','unlock_payment_decision','delete_order'].includes(action)&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
+  if(!['resend_delivery_note','view_delivery_note','payment_decision','unlock_payment_decision','delete_order','update_discount'].includes(action)&&!nextStatus)return reply(400,{ok:false,error:'Estatus requerido'});
 
   async function findPedido(){
     const qs=[];
@@ -87,6 +88,8 @@ exports.handler = async function(event) {
       customerName:c.nombre||c.name||c.full_name||p?.guest_name||'Cliente',customerEmail:c.correo||c.email||p?.guest_email||'',customerPhone:c.telefono||c.phone||p?.guest_phone||'',
       customerDocument:c.cedula_rif||c.document||p?.guest_document||'',customerAddress:c.direccion||c.address||p?.guest_address||'',customerCity:c.ciudad||c.city||p?.guest_city||'',customerState:c.estado||c.state||p?.guest_state||'',
       paymentMethod:p?.metodo_pago||p?.payment||'',paymentRef:p?.referencia_pago||p?.paymentRef||'',guide:p?.numero_guia||p?.guide||'',shippingCompany:p?.empresa_envio||'',
+      subtotal:Number(p?.subtotal_usd||0),discountType:p?.discount_type||'',discountValue:Number(p?.discount_value||0),
+      discountUsd:Number(p?.discount_usd||0),discountReason:p?.discount_reason||'',
       total:Number(p?.total_usd||p?.total||0),items:Array.isArray(items)?items:[]
     };
   }
@@ -160,7 +163,7 @@ exports.handler = async function(event) {
   }
   function deliveryNoteEmail(p){
     const html=require('./delivery-note-template').render(p);
-    const text=`NOTA DE ENTREGA THINKSTORE\nGracias por tu compra, ${p.customerName}.\nPedido: ${p.code}\nCliente: ${p.customerName}\nDocumento: ${p.customerDocument||'No indicado'}\nCorreo: ${p.customerEmail}\nTeléfono: ${p.customerPhone}\nPago: ${p.paymentMethod||'Por confirmar'}\nReferencia: ${p.paymentRef||'No aplica'}\nEstado: ${p.status}\n\n${p.items.map((i,n)=>{const units=Array.isArray(i.assigned_units)&&i.assigned_units.length?i.assigned_units.map((u,k)=>`Unidad ${k+1}: Serial ${u.serial_number||'—'}${u.imei?` | IMEI ${u.imei}`:''}${u.general_condition?` | ${u.general_condition}`:''}${u.battery_health_pct?` | Batería ${u.battery_health_pct}%`:''}`).join(' / '):`Serie: ${itemSerial(i)}`;return `${n+1}. ${itemName(i)} | ${[i.color,i.capacidad||i.capacity,i.chip,i.ram,i.model_code].filter(Boolean).join(' · ')} | ${itemCondition(i)} | ${units}${itemWarranty(i)?` | Garantía: ${itemWarranty(i)} días`:''} | ${itemQty(i)} x ${money(itemPrice(i))}`}).join('\n')}\n\nTotal: ${p.total>0?money(p.total):'A confirmar'}\nSeguimiento: ${trackingUrl(p)}`;
+    const text=`NOTA DE ENTREGA THINKSTORE\nGracias por tu compra, ${p.customerName}.\nPedido: ${p.code}\nCliente: ${p.customerName}\nDocumento: ${p.customerDocument||'No indicado'}\nCorreo: ${p.customerEmail}\nTeléfono: ${p.customerPhone}\nPago: ${p.paymentMethod||'Por confirmar'}\nReferencia: ${p.paymentRef||'No aplica'}\nEstado: ${p.status}\n\n${p.items.map((i,n)=>{const units=Array.isArray(i.assigned_units)&&i.assigned_units.length?i.assigned_units.map((u,k)=>`Unidad ${k+1}: Serial ${u.serial_number||'—'}${u.imei?` | IMEI ${u.imei}`:''}${u.general_condition?` | ${u.general_condition}`:''}${u.battery_health_pct?` | Batería ${u.battery_health_pct}%`:''}`).join(' / '):`Serie: ${itemSerial(i)}`;return `${n+1}. ${itemName(i)} | ${[i.color,i.capacidad||i.capacity,i.chip,i.ram,i.model_code].filter(Boolean).join(' · ')} | ${itemCondition(i)} | ${units}${itemWarranty(i)?` | Garantía: ${itemWarranty(i)} días`:''} | ${itemQty(i)} x ${money(itemPrice(i))}`}).join('\n')}\n\n${p.subtotal>0?`Subtotal: ${money(p.subtotal)}\n`:''}${p.discountUsd>0?`Descuento: -${money(p.discountUsd)}${p.discountReason?` · ${p.discountReason}`:''}\n`:''}Total: ${p.total>0?money(p.total):'A confirmar'}\nSeguimiento: ${trackingUrl(p)}`;
     return{subject:`ThinkStore — Gracias por tu compra | ${p.code}`,text,html,department:'pedidos'};
   }
   function statusEmail(p){
@@ -326,7 +329,40 @@ exports.handler = async function(event) {
       return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true}});
     }
 
+    const notePaymentReady=()=>{
+      const st=norm(found.estado||found.status||'');
+      const lock=paymentLockInfo(found);
+      return lock.decision==='approved'||/pago verificado|preparando|comprando proveedor|transito|disponible|enviado|entregado/.test(st);
+    };
+
+    if(action==='update_discount'){
+      const full=await fullPedido(found);
+      const items=Array.isArray(full?.pedido_items)?full.pedido_items:[];
+      const subtotal=Math.round(items.reduce((s,i)=>s+Number(i.precio_usd||i.price||0)*Math.max(1,Number(i.cantidad||i.qty||1)||1),0)*100)/100;
+      const type=clean(body.discount_type||'usd')==='percent'?'percent':'usd';
+      const value=Math.max(0,Number(body.discount_value||0));
+      const reason=clean(body.discount_reason||'').slice(0,160);
+      const raw=type==='percent'?subtotal*Math.min(value,100)/100:Math.min(value,subtotal);
+      const discount=Math.round(raw*100)/100;
+      const total=Math.round((subtotal-discount)*100)/100;
+      let totalBs=found.total_bs??null;
+      if(/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta/i.test(clean(found.metodo_pago||''))){
+        try{const q=await getRate(true);totalBs=Math.round(total*q.rate*100)/100}catch(_){}
+      }
+      const payload={subtotal_usd:subtotal,discount_type:type,discount_value:value,discount_usd:discount,discount_reason:reason||null,total_usd:total,total_bs:totalBs};
+      let updated;
+      try{updated=await updatePedido(found,payload)}
+      catch(e){
+        if(/subtotal_usd|discount_|schema cache|column/i.test(clean(e.message)))return reply(409,{ok:false,migration_required:true,error:'Ejecuta supabase_v13_65_descuentos_venta_presencial.sql antes de aplicar descuentos.'});
+        throw e;
+      }
+      try{await sb('admin_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:auth.email||auth.mode||null,action:'order_discount_updated',entity_type:'pedido',entity_id:String(found.id),before_data:{subtotal_usd:found.subtotal_usd||null,discount_type:found.discount_type||null,discount_value:found.discount_value||null,discount_usd:found.discount_usd||null,discount_reason:found.discount_reason||null,total_usd:found.total_usd||null},after_data:payload})})}catch(_){}
+      try{await sb(`delivery_note_versions?pedido_id=eq.${encodeURIComponent(found.id)}&status=eq.active`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'invalidated',invalidated_at:new Date().toISOString(),invalidated_reason:'Cambio de precio/descuento de la venta'})})}catch(_){}
+      return reply(200,{ok:true,pedido:Array.isArray(updated)?updated[0]:updated,pricing:payload});
+    }
+
     if(action==='view_delivery_note'){
+      if(!notePaymentReady())return reply(409,{ok:false,payment_required:true,error:'Confirma el pago antes de generar la Nota de Entrega.'});
       const full=await fullPedido(found);
       const state=await normalizedWithUnits(full);
       if(!state.coverage.complete)return reply(409,{ok:false,note_locked:true,coverage:state.coverage,error:`Asigna todas las unidades físicas antes de generar la nota (${state.coverage.assigned}/${state.coverage.required}).`});
@@ -335,6 +371,7 @@ exports.handler = async function(event) {
       return reply(200,{ok:true,pedido:state.p,coverage:state.coverage,version,html:note.html,text:note.text,subject:note.subject});
     }
     if(action==='resend_delivery_note'){
+      if(!notePaymentReady())return reply(409,{ok:false,payment_required:true,error:'Confirma el pago antes de enviar la Nota de Entrega.'});
       const full=await fullPedido(found);
       const state=await normalizedWithUnits(full);
       if(!state.coverage.complete)return reply(409,{ok:false,note_locked:true,coverage:state.coverage,error:`Asigna todas las unidades físicas antes de enviar la nota (${state.coverage.assigned}/${state.coverage.required}).`});
