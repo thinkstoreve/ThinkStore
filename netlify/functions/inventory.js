@@ -1,4 +1,14 @@
 const H={'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization, x-admin-secret','Access-Control-Allow-Methods':'GET,POST,OPTIONS'};
+const DEFAULT_CATEGORIES=[
+  {name:'iPhone',description:'iPhone y sus variantes.',sort_order:10,active:true},
+  {name:'iPad',description:'iPad y accesorios específicos.',sort_order:20,active:true},
+  {name:'Mac',description:'Equipos Mac de escritorio y portátiles.',sort_order:30,active:true},
+  {name:'MacBook',description:'MacBook Air, MacBook Pro y portátiles Apple.',sort_order:40,active:true},
+  {name:'iMac',description:'Equipos iMac y configuraciones disponibles.',sort_order:50,active:true},
+  {name:'Accesorios Apple',description:'Cables, cargadores, cases, vidrios y otros.',sort_order:60,active:true},
+  {name:'Audio',description:'AirPods, audífonos y productos de audio.',sort_order:70,active:true},
+  {name:'Otro',description:'Productos que no pertenecen a las categorías anteriores.',sort_order:999,active:true}
+];
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS')return {statusCode:200,headers:H,body:''};
   const url=String(process.env.SUPABASE_URL||'').replace(/\/$/,'');
@@ -8,17 +18,22 @@ exports.handler=async(event)=>{
   if(event.httpMethod==='GET'){
     const q=event.queryStringParameters||{};
     const sku=q.sku?`&sku=eq.${encodeURIComponent(q.sku)}`:'';
-    const rr=await fetch(`${url}/rest/v1/inventory_variants?select=id,sku,product_name,model,color,capacity,condition,chip,ram,stock_on_hand,stock_reserved,stock_sold,stock_min,price_usd,active&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
+    const rr=await fetch(`${url}/rest/v1/inventory_variants?select=id,sku,product_name,category,model,color,capacity,condition,chip,ram,stock_on_hand,stock_reserved,stock_sold,stock_min,price_usd,active&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
     const rows=await rr.json().catch(()=>[]);
     if(!rr.ok)return r(rr.status,{ok:false,error:'No se pudo consultar inventario',details:rows});
-    let catalog=[],catalogImages=[];
+    let catalog=[],catalogImages=[],catalogCategories=DEFAULT_CATEGORIES.map((x,i)=>({id:`default-${i}`,...x,is_default:true}));
     try{
       const cr=await fetch(`${url}/rest/v1/catalog_products?select=id,product_key,product_name,category,description,image_url,published,sort_order,created_at,updated_at&order=sort_order.asc,product_name.asc`,{headers:sh});
       if(cr.ok)catalog=await cr.json().catch(()=>[]);
       const ir=await fetch(`${url}/rest/v1/catalog_product_images?select=id,product_key,image_url,storage_path,sort_order,is_primary,created_at&order=product_key.asc,sort_order.asc`,{headers:sh});
       if(ir.ok)catalogImages=await ir.json().catch(()=>[]);
+      const catr=await fetch(`${url}/rest/v1/catalog_categories?select=id,name,description,sort_order,active,created_at,updated_at&order=sort_order.asc,name.asc`,{headers:sh});
+      if(catr.ok){
+        const loaded=await catr.json().catch(()=>[]);
+        if(Array.isArray(loaded)&&loaded.length)catalogCategories=loaded;
+      }
     }catch(_e){}
-    return r(200,{ok:true,variants:rows.map(v=>({...v,available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog,catalog_images:catalogImages});
+    return r(200,{ok:true,variants:rows.map(v=>({...v,available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
   }
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const auth=await authorizeAdmin(event,url,service);
@@ -83,14 +98,96 @@ exports.handler=async(event)=>{
     const published=body.published===true;
     const sort_order=Number.isFinite(Number(body.sort_order))?Math.trunc(Number(body.sort_order)):1000;
     if(!product_name||!product_key)return r(400,{ok:false,error:'Producto requerido'});
-    const allowedCats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios','Repuestos'];
-    if(!allowedCats.includes(category))return r(400,{ok:false,error:'Categoría inválida'});
+    if(!category)return r(400,{ok:false,error:'Categoría requerida'});
+    if(category.length>80)return r(400,{ok:false,error:'Categoría demasiado larga'});
     if(published&&!image_url)return r(409,{ok:false,error:'Sube una imagen correcta antes de publicar el producto'});
     const payload={product_key,product_name,category,description,image_url,published,sort_order,updated_at:new Date().toISOString()};
     const ur=await fetch(`${url}/rest/v1/catalog_products?on_conflict=product_key`,{method:'POST',headers:{...sh,Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
     const out=await ur.json().catch(()=>[]);
     if(!ur.ok)return r(ur.status,{ok:false,error:'No se pudo guardar la publicación',details:out});
     return r(200,{ok:true,catalog_product:out[0]||payload});
+  }
+
+
+  if(body.action==='save_category'){
+    const name=String(body.name||'').trim(),original=String(body.original_name||'').trim(),description=String(body.description||'').trim()||null;
+    const sort_order=Number.isFinite(Number(body.sort_order))?Math.trunc(Number(body.sort_order)):1000;
+    const active=body.active!==false;
+    if(!name)return r(400,{ok:false,error:'Nombre de categoría requerido'});
+    if(name.length>80)return r(400,{ok:false,error:'Nombre de categoría demasiado largo'});
+    const payload={name,description,sort_order,active,updated_at:new Date().toISOString()};
+    let cr,out;
+    if(original&&original!==name){
+      const dup=await fetch(`${url}/rest/v1/catalog_categories?select=id&name=eq.${encodeURIComponent(name)}&limit=1`,{headers:sh});
+      const dupRows=await dup.json().catch(()=>[]);
+      if(dup.ok&&Array.isArray(dupRows)&&dupRows.length)return r(409,{ok:false,error:'Ya existe una categoría con ese nombre'});
+      cr=await fetch(`${url}/rest/v1/catalog_categories?name=eq.${encodeURIComponent(original)}`,{method:'PATCH',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify(payload)});
+      out=await cr.json().catch(()=>[]);
+      if(cr.ok){
+        await fetch(`${url}/rest/v1/catalog_products?category=eq.${encodeURIComponent(original)}`,{method:'PATCH',headers:sh,body:JSON.stringify({category:name,updated_at:new Date().toISOString()})});
+        await fetch(`${url}/rest/v1/inventory_variants?category=eq.${encodeURIComponent(original)}`,{method:'PATCH',headers:sh,body:JSON.stringify({category:name})});
+      }
+    }else{
+      cr=await fetch(`${url}/rest/v1/catalog_categories?on_conflict=name`,{method:'POST',headers:{...sh,Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
+      out=await cr.json().catch(()=>[]);
+    }
+    if(!cr.ok){
+      const msg=JSON.stringify(out||{});
+      if(/catalog_categories|schema cache|relation/i.test(msg))return r(409,{ok:false,migration_required:true,error:'Falta ejecutar supabase_v13_48_catalogo_categorias.sql'});
+      return r(cr.status,{ok:false,error:'No se pudo guardar la categoría',details:out});
+    }
+    return r(200,{ok:true,category:out[0]||payload});
+  }
+
+  if(body.action==='delete_category'){
+    const name=String(body.name||'').trim();
+    if(!name)return r(400,{ok:false,error:'Categoría requerida'});
+    const used=await fetch(`${url}/rest/v1/catalog_products?select=id&category=eq.${encodeURIComponent(name)}&limit=1`,{headers:sh});
+    const usedRows=await used.json().catch(()=>[]);
+    if(used.ok&&Array.isArray(usedRows)&&usedRows.length)return r(409,{ok:false,error:'No puedes eliminar una categoría que todavía tiene productos. Mueve esos productos primero.'});
+    const dr=await fetch(`${url}/rest/v1/catalog_categories?name=eq.${encodeURIComponent(name)}`,{method:'DELETE',headers:sh});
+    if(!dr.ok)return r(dr.status,{ok:false,error:'No se pudo eliminar la categoría'});
+    return r(200,{ok:true});
+  }
+
+  if(body.action==='set_product_price'){
+    const product_name=String(body.product_name||'').trim();
+    const price=Number(body.price_usd);
+    if(!product_name||!Number.isFinite(price)||price<0)return r(400,{ok:false,error:'Producto o precio inválido'});
+    const ur=await fetch(`${url}/rest/v1/inventory_variants?product_name=eq.${encodeURIComponent(product_name)}`,{method:'PATCH',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify({price_usd:Math.round(price*100)/100})});
+    const out=await ur.json().catch(()=>[]);
+    if(!ur.ok)return r(ur.status,{ok:false,error:'No se pudo actualizar el precio del producto',details:out});
+    return r(200,{ok:true,updated:Array.isArray(out)?out.length:0,variants:out});
+  }
+
+  if(body.action==='create_product'){
+    const product_name=String(body.product_name||'').trim();
+    const category=String(body.category||'').trim();
+    const description=String(body.description||'').trim()||null;
+    const price=Number(body.price_usd||0),stock=Number(body.stock_on_hand||0);
+    const condition=String(body.condition||'Nuevo').trim()||'Nuevo';
+    const image_url=String(body.image_url||'').trim()||null;
+    const product_key=slug(body.product_key||product_name);
+    let sku=String(body.sku||'').trim();
+    if(!product_name||!category)return r(400,{ok:false,error:'Nombre y categoría son obligatorios'});
+    if(!Number.isFinite(price)||price<0)return r(400,{ok:false,error:'Precio inválido'});
+    if(!Number.isInteger(stock)||stock<0)return r(400,{ok:false,error:'Stock inválido'});
+    if(!sku)sku=`${product_key}-${Date.now().toString(36)}`.slice(0,72);
+    const dup=await fetch(`${url}/rest/v1/inventory_variants?select=id&sku=eq.${encodeURIComponent(sku)}&limit=1`,{headers:sh});
+    const dupRows=await dup.json().catch(()=>[]);
+    if(dup.ok&&Array.isArray(dupRows)&&dupRows.length)return r(409,{ok:false,error:'Ese SKU ya existe'});
+    const variant={sku,product_name,category,condition,stock_on_hand:stock,stock_reserved:0,stock_sold:0,stock_min:0,price_usd:Math.round(price*100)/100,active:true};
+    const vr=await fetch(`${url}/rest/v1/inventory_variants`,{method:'POST',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify(variant)});
+    const vout=await vr.json().catch(()=>[]);
+    if(!vr.ok)return r(vr.status,{ok:false,error:'No se pudo crear el producto en inventario',details:vout});
+    const cp={product_key,product_name,category,description,image_url,published:false,sort_order:1000,updated_at:new Date().toISOString()};
+    const cr=await fetch(`${url}/rest/v1/catalog_products?on_conflict=product_key`,{method:'POST',headers:{...sh,Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(cp)});
+    const cout=await cr.json().catch(()=>[]);
+    if(!cr.ok){
+      try{await fetch(`${url}/rest/v1/inventory_variants?sku=eq.${encodeURIComponent(sku)}`,{method:'DELETE',headers:sh})}catch(_){}
+      return r(cr.status,{ok:false,error:'No se pudo crear la ficha del catálogo',details:cout});
+    }
+    return r(200,{ok:true,variant:vout[0]||variant,catalog_product:cout[0]||cp});
   }
 
   if(body.action==='save_catalog_gallery'){
@@ -125,12 +222,11 @@ exports.handler=async(event)=>{
     const data=await rr.json().catch(()=>({}));if(!rr.ok)return r(rr.status,{ok:false,error:data?.message||data?.error||'No se pudo importar',details:data});
     // Todo producto nuevo importado se registra también como borrador editorial.
     // Nunca sobreescribe una ficha ya existente: imagen, descripción y publicación quedan intactas.
-    const allowedCats=['iPhone','Mac','iPad','Audio','Apple Watch','Accesorios','Repuestos'];
     const byProduct=new Map();
     for(const row of rows){
       const name=String(row.product_name||'').trim(); if(!name)continue;
       let category=String(row.category||'').trim();
-      if(!allowedCats.includes(category)) category=inferCategory(name);
+      if(!category) category=inferCategory(name);
       const key=slug(name); if(!byProduct.has(key))byProduct.set(key,{product_key:key,product_name:name,category,description:null,image_url:null,published:false,sort_order:1000,updated_at:new Date().toISOString()});
     }
     let drafts_created=0;
@@ -154,7 +250,7 @@ function normalizeRows(rows){
   }
   return out;
 }
-function inferCategory(name){const n=String(name||'');return /repuesto|pantalla|bateria|batería|camara|cámara|flex|tapa trasera|display|modulo|módulo/i.test(n)?'Repuestos':/iphone/i.test(n)?'iPhone':/ipad/i.test(n)?'iPad':/airpod/i.test(n)?'Audio':/watch/i.test(n)?'Apple Watch':/mac/i.test(n)?'Mac':'Accesorios'}
+function inferCategory(name){const n=String(name||'');return /iphone/i.test(n)?'iPhone':/ipad/i.test(n)?'iPad':/macbook/i.test(n)?'MacBook':/imac/i.test(n)?'iMac':/airpod|audio|audifono|audífono|beats/i.test(n)?'Audio':/cable|cargador|case|forro|vidrio|magsafe|pencil|mouse|keyboard|airtag/i.test(n)?'Accesorios Apple':/\bmac\b|mac mini|mac pro/i.test(n)?'Mac':'Otro'}
 function slug(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto'}
 function r(statusCode,body){return{statusCode,headers:H,body:JSON.stringify(body)}}
 async function authorizeAdmin(event,url,service){
