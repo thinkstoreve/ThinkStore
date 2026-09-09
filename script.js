@@ -6,6 +6,7 @@ let selectedConfig={};
 let selectedCondition='';
 let selectedGallery='';
 let cart=JSON.parse(localStorage.getItem('ts_cart')||'[]');
+window.tsCartItems=()=>Array.isArray(cart)?cart:[];
 let customer=JSON.parse(localStorage.getItem('ts_customer')||'null');
 let currentUser=JSON.parse(localStorage.getItem('ts_current_user')||'null');
 if(currentUser){ customer=currentUser; }
@@ -537,6 +538,71 @@ function formatCheckoutMoney(value){
 }
 function cartSubtotalValue(){return cart.reduce((sum,i)=>sum+(Number(i.price||0)*Number(i.qty||1)),0);}
 
+function tsCheckoutNeedsProof(method){
+  return ['Pago Móvil','Zelle'].includes(String(method||''));
+}
+function tsCheckoutIsUnavailable(method){
+  return String(method||'')==='USDT';
+}
+function tsCheckoutUsdTotal(){return cartSubtotalValue()}
+function tsCheckoutFxSnapshot(){
+  try{return window.ThinkStoreFX?.snapshot(tsCheckoutUsdTotal())||null}catch(_){return null}
+}
+function tsFmtVES(v){
+  try{return new Intl.NumberFormat('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v||0))+' Bs'}catch{return Number(v||0).toFixed(2)+' Bs'}
+}
+function tsFmtUSD(v){
+  try{return 'USD $'+new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v||0))}catch{return 'USD $'+Number(v||0).toFixed(2)}
+}
+async function tsSyncPaymentAmount(){
+  const pay=$('payMethod')?.value||'Pago Móvil',amount=$('paymentAmount'),hint=$('paymentAmountHint'),usd=tsCheckoutUsdTotal();
+  if(!amount)return;
+  if(pay==='Pago Móvil'){
+    amount.readOnly=true;amount.placeholder='Calculando monto en bolívares…';
+    try{
+      await window.ThinkStoreFX?.refresh();
+      const s=tsCheckoutFxSnapshot();
+      amount.value=s?Number(s.total_ves).toFixed(2):'';
+      if(hint)hint.textContent=s?`${tsFmtUSD(s.total_usd)} · tasa ${Number(s.rate).toLocaleString('es-VE',{maximumFractionDigits:4})} · ${tsFmtVES(s.total_ves)}`:'No se pudo calcular el monto en bolívares.';
+    }catch(e){amount.value='';if(hint)hint.textContent='Tasa BCV no disponible. Actualiza antes de confirmar.'}
+  }else if(pay==='Zelle'){
+    amount.readOnly=true;amount.value=usd?Number(usd).toFixed(2):'';
+    amount.placeholder='Monto en USD';if(hint)hint.textContent=usd?tsFmtUSD(usd):'Monto por confirmar';
+  }else if(pay==='Punto de venta'){
+    amount.value='';amount.readOnly=true;
+    try{await window.ThinkStoreFX?.refresh()}catch(_){}
+    const s=tsCheckoutFxSnapshot();
+    if(hint)hint.textContent=s?`Referencia: ${tsFmtUSD(s.total_usd)} · ${tsFmtVES(s.total_ves)}. El cobro se confirma en el punto de venta.`:'El monto se confirma directamente en el punto de venta.';
+  }else{
+    amount.value='';amount.readOnly=true;
+    if(hint)hint.textContent=pay==='Efectivo'?'El monto se confirma al recibir el pago.':'';
+  }
+}
+function tsUpdateCheckoutEligibility(){
+  const pay=$('payMethod')?.value||'Pago Móvil',btn=$('checkoutConfirmBtn'),hint=$('checkoutConfirmHint');
+  if(!btn)return;
+  const needs=tsCheckoutNeedsProof(pay),unavailable=tsCheckoutIsUnavailable(pay);
+  const hasRef=!!String($('paymentRef')?.value||'').trim();
+  const hasFile=!!($('paymentFile')?.files?.length);
+  const amountReady=pay!=='Pago Móvil'||!!String($('paymentAmount')?.value||'').trim();
+  const enabled=!unavailable&&(!needs||(hasRef&&hasFile&&amountReady));
+  btn.disabled=!enabled;btn.setAttribute('aria-disabled',enabled?'false':'true');
+  if(hint){
+    if(unavailable)hint.textContent='USDT estará disponible próximamente.';
+    else if(!needs)hint.textContent='Este método no requiere comprobante ni referencia.';
+    else if(!hasFile&&!hasRef)hint.textContent='Carga el comprobante y escribe la referencia para continuar.';
+    else if(!hasFile)hint.textContent='Falta cargar el comprobante.';
+    else if(!hasRef)hint.textContent='Falta escribir la referencia de pago.';
+    else if(!amountReady)hint.textContent='Esperando cálculo del monto en bolívares.';
+    else hint.textContent='Pago listo para confirmar.';
+  }
+}
+function tsRenderCheckoutTotals(){
+  const usd=tsCheckoutUsdTotal(),pay=$('payMethod')?.value||'Pago Móvil',snap=tsCheckoutFxSnapshot(),showBs=window.ThinkStoreFX?.needsVES(pay)&&snap;
+  if($('cartSubtotal'))$('cartSubtotal').innerHTML=usd?`<span class="money-main">${tsFmtUSD(usd)}</span>${showBs?`<small class="money-alt">${tsFmtVES(snap.total_ves)}</small>`:''}`:'Por confirmar';
+  if($('cartTotal'))$('cartTotal').innerHTML=usd?`<span class="money-main">${tsFmtUSD(usd)}</span>${showBs?`<small class="money-alt">${tsFmtVES(snap.total_ves)}</small>`:''}`:'USD —';
+}
+
 function checkoutColorHex(color){
   const c=String(color||'').toLowerCase();
   const map=[
@@ -571,8 +637,7 @@ function drawCart(){
     summary.innerHTML=cart.length?cart.map(i=>`<div class="summary-item"><img src="${asset(i.image)}"><div><b>${i.product}</b><small>${i.color||''} · ${i.config||''}</small></div><strong>${formatCheckoutMoney(i.price)}</strong></div>`).join('\n'):'<p class="muted">Sin productos seleccionados.</p>';
   }
   const subtotal=cartSubtotalValue();
-  if($('cartSubtotal')) $('cartSubtotal').textContent=formatCheckoutMoney(subtotal);
-  if($('cartTotal')) $('cartTotal').textContent=subtotal?'USD '+formatCheckoutMoney(subtotal):'USD —';
+  tsRenderCheckoutTotals();
   drawCustomerSummary();
   syncCheckoutCards();
   polishCartProductImages();
@@ -671,8 +736,7 @@ function renderPaymentDetails(pay){
   const upload=document.getElementById('paymentUploadPanel');
   if(!box) return;
   const method=String(pay||'Pago Móvil');
-  let html='';
-  let needsProof=true;
+  let html='',needsProof=tsCheckoutNeedsProof(method);
   if(method==='Pago Móvil'){
     html=`<div class="pay-details-head"><img src="assets/bancamiga.svg" alt="Bancamiga"><span class="pay-status">Esperando comprobante</span></div>
       <div class="pay-data-grid">
@@ -682,34 +746,42 @@ function renderPaymentDetails(pay){
       </div>
       <button type="button" class="copy-pay-btn" onclick="tsCopyText('Pago Móvil Bancamiga\\nTeléfono: 0412-0142898\\nC.I./RIF: E-84554142')">📋 Copiar datos de pago</button>`;
   }else if(method==='Punto de venta'){
-    needsProof=false;
     html=`<div class="pay-details-head"><div class="cash-mark">💳 Punto de venta</div><span class="pay-status">Pago presencial</span></div>
-      <p class="cash-note">El monto en bolívares se calcula con la tasa oficial mostrada. El personal verificará el pago antes de confirmar la venta.</p>`;
+      <p class="cash-note">No necesitas cargar comprobante ni referencia. El monto se confirma directamente en el punto de venta.</p>`;
   }else if(method==='Zelle'){
     html=`<div class="pay-details-head"><div class="zelle-mark">Zelle</div><span class="pay-status">Esperando comprobante</span></div>
       <div class="pay-data-grid one"><div><small>Número Zelle</small><b>(954) 445-9161</b></div></div>
       <button type="button" class="copy-pay-btn" onclick="tsCopyText('(954) 445-9161')">📋 Copiar número</button>`;
   }else if(method==='Efectivo'){
-    needsProof=false;
     html=`<div class="pay-details-head"><div class="cash-mark">💵 Efectivo</div><span class="pay-status cash">Sin comprobante requerido</span></div>
-      <p class="cash-note">Pagar en tienda o en el lugar de destino en caso de envío por Delivery.</p>`;
+      <p class="cash-note">Puedes pagar en tienda o contra entrega cuando aplique. No se exige comprobante ni referencia.</p>`;
   }else if(method==='USDT'){
-    needsProof=false;
     html=`<div class="pay-details-head"><div class="usdt-mark">₮ USDT</div><span class="pay-status pending">Próximamente</span></div>
-      <p class="cash-note">Este método queda visible para configurar la wallet más adelante.</p>`;
+      <p class="cash-note">Este método todavía no está habilitado para confirmar pedidos.</p>`;
   }
   box.innerHTML=html;
-  if(inputs) inputs.style.display=needsProof?'grid':'none';
-  if(upload) upload.style.display=needsProof?'block':'none';
+  if(inputs)inputs.style.display=needsProof?'grid':'none';
+  if(upload)upload.style.display=needsProof?'block':'none';
 }
-
-function selectDeliveryType(value){ if($('deliveryType')) $('deliveryType').value=value; syncCheckoutCards(); }
-function syncCheckoutCards(){
-  const pay=$('payMethod')?.value || 'Pago Móvil';
-  document.querySelectorAll('.pay-choice').forEach(b=>b.classList.toggle('active', b.dataset.pay===pay));
+function selectDeliveryType(value){
+  if($('deliveryType'))$('deliveryType').value=value;
+  syncCheckoutCards();
+}
+async function syncCheckoutCards(){
+  const pay=$('payMethod')?.value||'Pago Móvil';
+  document.querySelectorAll('.pay-choice').forEach(b=>b.classList.toggle('active',b.dataset.pay===pay));
   renderPaymentDetails(pay);
-  const delivery=$('deliveryType')?.value;
-  document.querySelectorAll('.delivery-choice').forEach(b=>b.classList.toggle('active', b.dataset.delivery===delivery));
+  const delivery=$('deliveryType')?.value||'Envío nacional';
+  document.querySelectorAll('.delivery-choice').forEach(b=>b.classList.toggle('active',b.dataset.delivery===delivery));
+  const gps=$('deliveryGpsBox');if(gps)gps.hidden=delivery!=='Delivery local';
+  const gpsStatus=$('deliveryGpsStatus'),c=currentUser||customer||{};
+  if(gpsStatus&&delivery==='Delivery local'&&c.delivery_lat&&c.delivery_lng){
+    const url=c.delivery_maps_url||`https://www.google.com/maps?q=${c.delivery_lat},${c.delivery_lng}`;
+    gpsStatus.innerHTML=`Ubicación guardada · precisión aprox. ${Number(c.delivery_accuracy_m||0)} m · <a href="${url}" target="_blank" rel="noopener">ver punto</a>`;
+  }
+  await tsSyncPaymentAmount();
+  tsRenderCheckoutTotals();
+  tsUpdateCheckoutEligibility();
 }
 
 function openRegister(){
@@ -756,23 +828,62 @@ function tsCustomerDocument(c){
   return (!v || tsLooksLikeUuid(v)) ? '' : v;
 }
 
+
+function tsSaveCheckoutUser(patch){
+  currentUser={...(currentUser||{}),...(patch||{})};
+  customer=currentUser;
+  try{localStorage.setItem('ts_current_user',JSON.stringify(currentUser));localStorage.setItem('ts_customer',JSON.stringify(currentUser))}catch(_){}
+  try{drawCustomerSummary()}catch(_){}
+}
+function tsEditCheckoutCustomer(field){
+  const c=currentUser||customer||{};
+  const config={
+    document:{label:'C.I. / RIF',value:tsCustomerDocument(c)},
+    phone:{label:'Teléfono',value:c.phone||''},
+    address:{label:'Dirección de envío',value:c.address||''}
+  }[field];
+  if(!config)return;
+  const value=prompt(`Editar ${config.label}:`,config.value||'');
+  if(value===null)return;
+  const clean=String(value).trim();
+  if(field==='document')tsSaveCheckoutUser({document:clean,cedula_rif:clean,id:tsLooksLikeUuid(c.id)?c.id:(clean||c.id)});
+  else tsSaveCheckoutUser({[field]:clean});
+}
+function tsCaptureDeliveryLocation(){
+  const status=$('deliveryGpsStatus');
+  if(!navigator.geolocation){
+    if(status)status.textContent='Este navegador no permite obtener ubicación GPS.';
+    return;
+  }
+  if(status)status.textContent='Solicitando ubicación…';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const lat=Number(pos.coords.latitude),lng=Number(pos.coords.longitude),accuracy=Math.round(Number(pos.coords.accuracy||0));
+    const maps=`https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
+    tsSaveCheckoutUser({delivery_lat:lat,delivery_lng:lng,delivery_accuracy_m:accuracy,delivery_maps_url:maps});
+    if(status)status.innerHTML=`Ubicación guardada · precisión aprox. ${accuracy} m · <a href="${maps}" target="_blank" rel="noopener">ver punto</a>`;
+  },err=>{
+    if(status)status.textContent=err.code===1?'Permiso de ubicación denegado. Puedes activarlo en el navegador.':'No se pudo obtener la ubicación. Intenta nuevamente.';
+  },{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
+}
 function drawCustomerSummary(){
   const el=$('customerSummary');
-  if(!el) return;
-  if(!customer){
+  if(!el)return;
+  const c=currentUser||customer;
+  if(!c){
     el.innerHTML='<div class="customer-empty">👤 <b>Aún no hay cliente registrado</b><small>Presiona “Registrar cliente” para completar los datos.</small></div>';
     return;
   }
-  const locationLine=[customer.city, customer.state].filter(Boolean).join(' · ');
+  customer=c;
+  const doc=tsCustomerDocument(c),locationLine=[c.city,c.state].filter(Boolean).join(' · ');
+  const gps=c.delivery_lat&&c.delivery_lng?`GPS ${Number(c.delivery_lat).toFixed(5)}, ${Number(c.delivery_lng).toFixed(5)}`:'Sin ubicación GPS';
   el.innerHTML=`<div class="customer-grid-premium customer-grid-v19">
-    <div class="customer-card customer-name"><span>👤 Nombre</span><b>${customer.name||'Por definir'}</b></div>
-    <div class="customer-card customer-id"><span>🪪 C.I / RIF</span><b>${tsCustomerDocument(customer)||'Por definir'}</b></div>
-    <div class="customer-card customer-phone"><span>📞 Teléfono</span><b>${customer.phone||'Por definir'}</b></div>
-    <div class="customer-card customer-ship"><span>🚚 Envío</span><b>${customer.shipping||'Por definir'}</b><small>${customer.agency||''}</small></div>
-    <div class="customer-card customer-address"><span>📍 Dirección</span><b>${customer.address||'Por definir'}</b><small>${locationLine||'Sin ciudad / estado'}</small></div>
+    <div class="customer-card customer-name"><span>👤 Nombre</span><b>${c.name||'Por definir'}</b><small>${c.email||''}</small></div>
+    <button type="button" class="customer-card customer-id customer-edit-card" onclick="tsEditCheckoutCustomer('document')"><span>🪪 C.I / RIF</span><b>${doc||'Por definir'}</b><small>${doc?'Editar':'Toca para añadir'}</small></button>
+    <button type="button" class="customer-card customer-phone customer-edit-card" onclick="tsEditCheckoutCustomer('phone')"><span>📞 Teléfono</span><b>${c.phone||'Por definir'}</b><small>${c.phone?'Editar':'Toca para añadir'}</small></button>
+    <div class="customer-card customer-ship"><span>🚚 Envío</span><b>${$('deliveryType')?.value||c.shipping||'Por definir'}</b><small>${c.agency||''}</small></div>
+    <button type="button" class="customer-card customer-address customer-edit-card" onclick="tsEditCheckoutCustomer('address')"><span>📍 Dirección de envío</span><b>${c.address||'Por definir'}</b><small>${[locationLine,c.delivery_lat&&c.delivery_lng?'GPS guardado':''].filter(Boolean).join(' · ')||gps}</small></button>
   </div>`;
 }
-
 function noteText(){
   const date=new Date();
   const number='TS-'+date.getFullYear()+String(date.getMonth()+1).padStart(2,'0')+String(date.getDate()).padStart(2,'0')+'-'+String(date.getHours()).padStart(2,'0')+String(date.getMinutes()).padStart(2,'0');
@@ -897,7 +1008,7 @@ function buildOrder(status='Recibido', persist=true){
     code,
     date:new Date().toLocaleString('es-VE'),
     status: cart.some(i=>String(i.condition).toLowerCase().includes('pre')) ? 'Preorden recibida' : status,
-    customer:{...customer},
+    customer:{...(customer||{}),...(currentUser||{}),shipping:$('deliveryType')?.value||customer?.shipping||currentUser?.shipping||'',delivery_lat:(currentUser||customer||{}).delivery_lat??null,delivery_lng:(currentUser||customer||{}).delivery_lng??null,delivery_accuracy_m:(currentUser||customer||{}).delivery_accuracy_m??null,delivery_maps_url:(currentUser||customer||{}).delivery_maps_url||''},
     payment:pay,
     fxQuote: window.ThinkStoreFX?.needsVES(pay) ? window.ThinkStoreFX.snapshot(cart.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0)) : null,
     paymentRef:$('paymentRef') ? $('paymentRef').value.trim() : '',
@@ -909,8 +1020,10 @@ function buildOrder(status='Recibido', persist=true){
     note:''
   };
   order.note = createNote(order);
-  orders.push(order);
-  saveAll();
+  if(persist){
+    orders.push(order);
+    saveAll();
+  }
   return order;
 }
 
@@ -1063,6 +1176,7 @@ function createNote(order){
   lines.push('Dirección: '+order.customer.address+', '+order.customer.city+', '+order.customer.state);
   lines.push('Referencia: '+(order.customer.ref||'No indicada'));
   lines.push('Envío: '+order.customer.shipping+(order.customer.agency?' / '+order.customer.agency:''));
+  if(order.customer.delivery_maps_url)lines.push('Ubicación delivery: '+order.customer.delivery_maps_url);
   lines.push('');
   lines.push('PRODUCTOS');
   order.items.forEach((i,n)=>{
@@ -1076,7 +1190,9 @@ function createNote(order){
   });
   lines.push('');
   lines.push('Método de pago: '+order.payment);
-  lines.push('Total: A confirmar por ThinkStore');
+  const orderUsd=(order.items||[]).reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0);
+  lines.push('Total USD: '+(orderUsd?tsFmtUSD(orderUsd):'Por confirmar'));
+  if(order.fxQuote?.total_ves)lines.push('Total Bs: '+tsFmtVES(order.fxQuote.total_ves)+' · Tasa '+order.fxQuote.rate);
   lines.push('');
   lines.push('Seguimiento: usa el código '+order.code+' en la sección Estatus de compra.');
   lines.push('Observación: disponibilidad, precio final y despacho sujetos a confirmación.');
@@ -1519,6 +1635,13 @@ function generateDeliveryNote(){
 }
 function tsShowOrderCreated(order){document.getElementById('tsOrderCreatedModal')?.remove();const modal=document.createElement('div');modal.id='tsOrderCreatedModal';modal.style.cssText='position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,.68);backdrop-filter:blur(14px);display:grid;place-items:center;padding:22px';const card=document.createElement('div');card.style.cssText='width:min(560px,100%);background:#fff;color:#111;border-radius:32px;padding:34px;box-shadow:0 30px 100px rgba(0,0,0,.40);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:center';const icon=document.createElement('div');icon.textContent='✓';icon.style.cssText='width:72px;height:72px;border-radius:50%;background:#111;color:#fff;display:grid;place-items:center;margin:0 auto 18px;font-size:36px;font-weight:900';const h=document.createElement('h2');h.textContent='Pedido creado correctamente';h.style.cssText='font-size:30px;margin:0 0 10px';const p=document.createElement('p');p.textContent=`Tu pedido ${order.code} fue registrado en ThinkStore. Los detalles y el seguimiento fueron enviados a ${order.customer?.email||'tu correo electrónico'}.`;p.style.cssText='color:#555;line-height:1.6;margin:0 0 20px';const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;justify-content:center;flex-wrap:wrap';const account=document.createElement('button');account.textContent='Ver mi pedido';account.style.cssText='border:0;border-radius:999px;background:#111;color:#fff;padding:14px 22px;font-weight:800;cursor:pointer';account.onclick=()=>{modal.remove();try{openAccount()}catch(e){location.hash='cuenta'}};const shop=document.createElement('button');shop.textContent='Seguir comprando';shop.style.cssText='border:1px solid #ddd;border-radius:999px;background:#fff;color:#111;padding:14px 22px;font-weight:800;cursor:pointer';shop.onclick=()=>modal.remove();actions.append(account,shop);card.append(icon,h,p,actions);modal.append(card);document.body.append(modal)}
 async function checkoutWhatsApp(){
+  tsUpdateCheckoutEligibility();
+  const confirmBtn=$('checkoutConfirmBtn');
+  if(confirmBtn?.disabled){
+    const msg=$('checkoutConfirmHint')?.textContent||'Completa los datos de pago requeridos antes de confirmar.';
+    if(typeof tsShowToast==='function')tsShowToast(msg);else alert(msg);
+    return;
+  }
   const fx=window.ThinkStoreFX;
   if(fx?.needsVES($('payMethod')?.value)){
     try{await fx.refresh(true)}
@@ -1526,34 +1649,56 @@ async function checkoutWhatsApp(){
   }
   const order = buildOrder('Recibido', false);
   if(!order) return;
+
+  let persisted=false;
   try{
     if(typeof tsShowToast==='function') tsShowToast('Guardando tu pedido de forma segura…');
     await saveOrderToSupabase(order);
+    persisted=true;
 
-    orders.push(order);
-    saveAll();
-    renderAccount();
+    // Guardado local idempotente: evita duplicar si una acción posterior falla.
+    if(!orders.some(x=>String(x.code||'')===String(order.code||''))) orders.push(order);
+    try{saveAll()}catch(e){console.warn('Pedido local:',e)}
+    try{renderAccount()}catch(e){console.warn('Cuenta:',e)}
     lastNote=order.note;
 
     const orderLines=(order.items||[]).map(i=>`- ${i.product||'Producto'}${i.color?' · '+i.color:''}${i.config?' · '+i.config:''} × ${Number(i.qty||1)}`).join('\n')||'- Producto por confirmar';
     const orderTotalValue=(order.items||[]).reduce((sum,i)=>sum+Number(i.price||0)*Number(i.qty||1),0);
     const simpleEmail=`Hola ${order.customer.name},\n\n¡Tu pedido ${order.code} fue creado correctamente!\n\nEstado: ${order.status}\n\nProductos:\n${orderLines}\n\nTotal: ${orderTotalValue>0?'$'+orderTotalValue.toLocaleString('en-US',{maximumFractionDigits:2}):'Por confirmar'}\nPago: ${order.payment||'Por confirmar'}\n${order.fxQuote?'Equivalente: '+window.ThinkStoreFX.ves(order.fxQuote.total_ves)+' · Tasa '+order.fxQuote.rate+' · '+order.fxQuote.source_date+'\n':''}Envío: ${[order.deliveryType,order.customer?.shipping].filter(Boolean).join(' · ')||'Por confirmar'}\n\nPuedes revisar el seguimiento iniciando sesión en tu cuenta ThinkStore.\n\nGracias por confiar en ThinkStore.`;
+
+    // El correo y WhatsApp son posteriores al guardado; si fallan, el pedido sigue creado.
     if(order.customer.email){
-      await openEmail(
-        order.customer.email,
-        `ThinkStore | Pedido ${order.code}`,
-        simpleEmail,
-        String(order.status||'').toLowerCase().includes('preorden')?'preordenes':'pedidos',
-        {silent:true}
-      );
+      try{
+        await openEmail(
+          order.customer.email,
+          `ThinkStore | Pedido ${order.code}`,
+          simpleEmail,
+          String(order.status||'').toLowerCase().includes('preorden')?'preordenes':'pedidos',
+          {silent:true}
+        );
+      }catch(e){console.warn('Correo de pedido:',e)}
     }
 
     if(typeof tsShowToast==='function') tsShowToast('✅ Pedido creado correctamente');
-    tsShowOrderCreated(order);
-    open('https://wa.me/584141032030?text='+encodeURIComponent(lastNote),'_blank');
-    cart=[]; count(); drawCart(); renderAccount();
+    try{tsShowOrderCreated(order)}catch(e){console.warn('Modal de confirmación:',e)}
+    try{open('https://wa.me/584141032030?text='+encodeURIComponent(lastNote),'_blank')}catch(e){console.warn('WhatsApp:',e)}
+
+    cart=[];
+    try{count()}catch(e){console.warn('Contador carrito:',e)}
+    try{drawCart()}catch(e){console.warn('Render carrito:',e)}
+    try{renderAccount()}catch(e){console.warn('Cuenta post-pedido:',e)}
+    try{window.dispatchEvent(new CustomEvent('ts:cart-updated'))}catch(e){}
   }catch(err){
     console.error('ThinkStore pedido:',err);
+    if(persisted){
+      // Nunca comunicar fallo de compra si Supabase ya confirmó el pedido.
+      try{if(typeof tsShowOrderCreated==='function')tsShowOrderCreated(order)}catch(e){}
+      try{if(typeof tsShowToast==='function')tsShowToast('✅ Pedido creado correctamente')}catch(e){}
+      cart=[];
+      try{count()}catch(e){}
+      try{drawCart()}catch(e){}
+      return;
+    }
     alert('No pudimos registrar el pedido. No se ha confirmado la compra.\n\n'+(err.message||err));
     if(/sesión|sesion|confirma tu correo/i.test(String(err.message||err))) openClientLogin();
   }
@@ -2793,25 +2938,29 @@ async function saveOrderToSupabase(order){
 
   const file = document.getElementById('paymentFile')?.files?.[0];
   if(file && inserted?.id){
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const filePath = `private/${userId}/${inserted.id}-${Date.now()}.${ext}`;
     const status = document.getElementById('paymentFileStatus');
-    if(status) status.textContent = 'Subiendo comprobante...';
-
-    const { error: uploadError } = await window.tsSupabase.storage.from('comprobantes').upload(filePath,file,{
-      cacheControl:'3600', upsert:false, contentType:file.type
-    });
-    if(uploadError) throw uploadError;
-
-    const { error:receiptError } = await window.tsSupabase.from('comprobantes').insert({
-      pedido_id: inserted.id,
-      cliente_id: userId,
-      url_archivo: filePath,
-      referencia: order.paymentRef || '',
-      monto: Number(String(order.paymentAmount || '').replace(',', '.')) || null
-    });
-    if(receiptError) throw receiptError;
-    if(status) status.textContent = 'Comprobante subido correctamente ✅';
+    try{
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const filePath = `private/${userId}/${inserted.id}-${Date.now()}.${ext}`;
+      if(status) status.textContent = 'Subiendo comprobante...';
+      const { error: uploadError } = await window.tsSupabase.storage.from('comprobantes').upload(filePath,file,{
+        cacheControl:'3600', upsert:false, contentType:file.type
+      });
+      if(uploadError) throw uploadError;
+      const { error:receiptError } = await window.tsSupabase.from('comprobantes').insert({
+        pedido_id: inserted.id,
+        cliente_id: userId,
+        url_archivo: filePath,
+        referencia: order.paymentRef || '',
+        monto: Number(String(order.paymentAmount || '').replace(',', '.')) || null
+      });
+      if(receiptError) throw receiptError;
+      if(status) status.textContent = 'Comprobante subido correctamente ✅';
+    }catch(receiptErr){
+      console.error('Comprobante posterior al pedido:',receiptErr);
+      inserted.receipt_warning=String(receiptErr?.message||receiptErr);
+      if(status)status.textContent='Pedido creado · comprobante pendiente de sincronizar';
+    }
   }
 
   return inserted;
@@ -3062,7 +3211,7 @@ function setupPaymentFilePreview(){
   const box = document.getElementById('paymentUploadBox');
   if(!input || input.dataset.previewReady === '1') return;
   input.dataset.previewReady = '1';
-  input.addEventListener('change', () => renderPaymentFilePreview(input.files && input.files[0]));
+  input.addEventListener('change', () => {renderPaymentFilePreview(input.files && input.files[0]);tsUpdateCheckoutEligibility();});
   if(box){
     ['dragenter','dragover'].forEach(ev => box.addEventListener(ev, e => { e.preventDefault(); box.classList.add('dragover'); }));
     ['dragleave','drop'].forEach(ev => box.addEventListener(ev, e => { e.preventDefault(); box.classList.remove('dragover'); }));
@@ -3073,10 +3222,17 @@ function setupPaymentFilePreview(){
       dt.items.add(file);
       input.files = dt.files;
       renderPaymentFilePreview(file);
+      tsUpdateCheckoutEligibility();
     });
   }
 }
-window.addEventListener('load', setupPaymentFilePreview);
+window.addEventListener('load', ()=>{
+  setupPaymentFilePreview();
+  $('paymentRef')?.addEventListener('input',tsUpdateCheckoutEligibility);
+  $('paymentAmount')?.addEventListener('input',tsUpdateCheckoutEligibility);
+  $('deliveryType')?.addEventListener('change',()=>{drawCustomerSummary();tsUpdateCheckoutEligibility()});
+  tsUpdateCheckoutEligibility();
+});
 
 /* ===== ThinkStore V15 - FIX cierre robusto de nota de entrega premium ===== */
 (function(){
@@ -4589,7 +4745,7 @@ window.addEventListener('load', ()=>{
     const steps=[...document.querySelectorAll('.ts-v552-step')]; if(!steps.length) return;
     let active=0;
     try{
-      if((window.cart||[]).length) active=1;
+      if((typeof window.tsCartItems==='function'?window.tsCartItems():[]).length) active=1;
       if(window.currentUser || window.currentClient) active=2;
       if(($('deliveryType')?.value||'').trim()) active=3;
       if(($('paymentRef')?.value||'').trim() || ($('paymentFile')?.files||[]).length) active=4;
@@ -5078,7 +5234,7 @@ window.addEventListener('load', ()=>{
   }
   function cartContext(){
     try{
-      const list=Array.isArray(window.cart) ? window.cart : [];
+      const list=typeof window.tsCartItems==='function'?window.tsCartItems():[];
       if(!list.length) return '\n\nCarrito: vacío / por confirmar.';
       const lines=list.map((i,idx)=>`${idx+1}. ${i.product||i.name||'Producto'} ${i.color?'- '+i.color:''} ${i.config?'- '+i.config:''} x${i.qty||1}`).join('\n');
       return `\n\nCarrito ThinkStore:\n${lines}`;

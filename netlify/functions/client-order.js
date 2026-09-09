@@ -66,9 +66,29 @@ exports.handler = async function(event) {
   }
 
   if(body.action==='view_delivery_note'){
-    if(!approved)return reply(409,{ok:false,error:'La nota de entrega estará disponible cuando el pedido haya sido aprobado.'});
-    const html=require('./delivery-note-template').render(order);
-    return reply(200,{ok:true,html});
+    if(!approved)return reply(409,{ok:false,error:'La nota de entrega estará disponible cuando el pago haya sido aprobado y el equipo físico esté asignado.'});
+    try{
+      const assignments=await sb(`order_unit_assignments?select=*&pedido_id=eq.${encodeURIComponent(order.id)}&active=eq.true&order=pedido_item_id.asc,slot_index.asc`)||[];
+      const ids=[...new Set(assignments.map(a=>a.unit_id).filter(Boolean))];
+      let units=[];
+      if(ids.length)units=await sb(`inventory_units?select=*&id=in.(${ids.map(x=>`"${String(x).replace(/"/g,'')}"`).join(',')})`)||[];
+      const unitMap=new Map(units.map(u=>[String(u.id),u]));
+      const byItem=new Map();
+      assignments.forEach(a=>{
+        const k=String(a.pedido_item_id||'');if(!byItem.has(k))byItem.set(k,[]);
+        const u=unitMap.get(String(a.unit_id))||{};
+        byItem.get(k).push({slot_index:Number(a.slot_index||1),serial_number:u.serial_number||'',imei:u.imei||'',commercial_condition:u.commercial_condition||'',general_condition:u.general_condition||'',battery_health_pct:u.battery_health_pct??null,unit_notes:u.notes||''});
+      });
+      const items=Array.isArray(order.pedido_items)?order.pedido_items:[];
+      const required=items.reduce((n,i)=>n+Math.max(1,Number(i.cantidad||i.qty||1)||1),0);
+      if(required<1||assignments.length<required)return reply(409,{ok:false,note_locked:true,error:`Tu equipo todavía está pendiente de asignación (${assignments.length}/${required}). La nota se habilitará cuando ThinkStore registre el serial/IMEI correspondiente.`});
+      order.pedido_items=items.map(i=>({...i,assigned_units:(byItem.get(String(i.id))||[]).sort((a,b)=>a.slot_index-b.slot_index)}));
+      const html=require('./delivery-note-template').render(order);
+      return reply(200,{ok:true,html,coverage:{required,assigned:assignments.length,complete:true}});
+    }catch(e){
+      if(/order_unit_assignments|inventory_units|relation .* does not exist|schema cache/i.test(clean(e.message)))return reply(409,{ok:false,migration_required:true,error:'La asignación física todavía no está habilitada en el sistema.'});
+      return reply(500,{ok:false,error:e.message});
+    }
   }
 
   return reply(400,{ok:false,error:'Acción no válida'});

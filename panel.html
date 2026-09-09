@@ -189,6 +189,19 @@ body{background:#fff}
 .ts-admin-insight{margin-top:14px;border:1px solid #e5e5ea;border-radius:18px;padding:14px 16px;background:linear-gradient(135deg,#f8f9fb,#fff);display:flex;justify-content:space-between;gap:12px;align-items:center}.ts-admin-insight strong{font-size:18px}
 @media(max-width:1050px){.ts-priority-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ts-admin-two{grid-template-columns:1fr}}@media(max-width:620px){.ts-priority-grid{grid-template-columns:1fr}.ts-admin-home-head{padding:22px}.ts-admin-home-head h2{font-size:28px}.ts-quick-grid{grid-template-columns:1fr}.ts-recent-order{grid-template-columns:1fr auto}.ts-recent-order>div:nth-child(2){display:none}}
 </style>
+
+<style id="ts-v1363-unit-assignment">
+.ts-unit-state{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:850;background:#fff7e8;color:#9a5300;border:1px solid #f7d8a8}.ts-unit-state.ready{background:#ecfdf3;color:#027a48;border-color:#a6f4c5}
+.ts-note-locked-btn{opacity:.48!important;cursor:not-allowed!important}
+.ts-unit-manager{min-width:0}.ts-unit-manager-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:15px}.ts-unit-coverage{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ts-unit-item{border:1px solid #e5e5ea;border-radius:18px;padding:15px;margin:12px 0;background:#fff}.ts-unit-item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.ts-unit-item-head h3{margin:0 0 4px}.ts-unit-slots{display:grid;gap:9px;margin-top:12px}
+.ts-unit-slot{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #ececf0;border-radius:14px;padding:12px;background:#fafafa}.ts-unit-slot strong,.ts-unit-slot small{display:block}.ts-unit-slot small{color:#6e6e73;margin-top:3px}
+.ts-unit-data{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}.ts-unit-data span{font-size:11px;background:#fff;border:1px solid #e5e5ea;border-radius:999px;padding:5px 8px}
+.ts-unit-editor-note{font-size:12px;color:#6e6e73;line-height:1.45;background:#f7f7f9;border-radius:12px;padding:10px;margin:10px 0}.ts-unit-existing{margin-bottom:14px}
+.ts-unit-manager .client-modal-grid select,.ts-unit-manager .client-modal-grid input,.ts-unit-manager .client-modal-grid textarea{width:100%}
+.ts-unit-manager textarea{min-height:80px;resize:vertical}
+@media(max-width:700px){.ts-unit-slot{grid-template-columns:1fr}.ts-unit-item-head{flex-direction:column}}
+</style>
 </head>
 <body>
 <div id="panelBoot" class="panel-boot" aria-live="polite"><div class="panel-boot-card"><img class="panel-boot-logo" src="logo-thinkstore.png" alt="ThinkStore"><div id="panelBootText">Preparando tu cuenta…</div><div class="panel-boot-bar"><i></i></div></div></div>
@@ -772,7 +785,7 @@ const views={
  },
  clientes(){const q='';$('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Clientes / CRM</h2><small>Registrados + ventas directas · etiquetas, notas internas y segmentación.</small></div><button class="btn ghost" onclick="exportCustomersCSV()">Exportar CSV</button></div><div class="toolbar"><input id="customerSearch" placeholder="Buscar nombre, correo, teléfono o pedido" oninput="renderCustomersTable()"><select id="customerSegment" onchange="renderCustomersTable()"><option value="">Todos los segmentos</option><option>VIP</option><option>Frecuente</option><option>Nuevo</option><option>Mayorista</option><option>Garantía activa</option><option>Venta directa</option><option>Preferente</option></select></div><div id="customersBox"></div>`;loadCrmMeta().then(renderCustomersTable)},
  crm(){views.clientes()},
- pedidos(){tsOrderChannel='all';$('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Pedidos reales</h2><small>${orders().length} registros</small></div></div><div class="toolbar"><button class="btn ghost active" data-order-channel="all" onclick="setOrderChannel('all')">Todos</button><button class="btn ghost" data-order-channel="online" onclick="setOrderChannel('online')">Ventas online</button><button class="btn ghost" data-order-channel="presencial" onclick="setOrderChannel('presencial')">Ventas presenciales</button></div><div class="toolbar"><input id="orderSearch" placeholder="Buscar pedido, cliente o correo" oninput="renderOrdersList()"><select id="orderFilter" onchange="renderOrdersList()"><option value="">Todos los estados</option>${STATUS_OPTIONS.map(s=>`<option>${esc(s)}</option>`).join('')}</select></div><div id="ordersBox" class="stack"></div>`;renderOrdersList()},
+ async pedidos(){tsOrderChannel='all';$('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Pedidos reales</h2><small>${orders().length} registros</small></div></div><div class="toolbar"><button class="btn ghost active" data-order-channel="all" onclick="setOrderChannel('all')">Todos</button><button class="btn ghost" data-order-channel="online" onclick="setOrderChannel('online')">Ventas online</button><button class="btn ghost" data-order-channel="presencial" onclick="setOrderChannel('presencial')">Ventas presenciales</button></div><div class="toolbar"><input id="orderSearch" placeholder="Buscar pedido, cliente o correo" oninput="renderOrdersList()"><select id="orderFilter" onchange="renderOrdersList()"><option value="">Todos los estados</option>${STATUS_OPTIONS.map(s=>`<option>${esc(s)}</option>`).join('')}</select></div><div id="ordersBox" class="stack"></div>`;await loadUnitAssignmentSummaries();renderOrdersList()},
  pagos(){$('content').innerHTML=realBar()+`<div class="section-title"><h2>Pagos y comprobantes</h2><small>${realState.comprobantes.length} comprobantes</small></div><div id="paymentsBox"></div>`;renderPayments()},
  preordenes(){$('content').innerHTML=realBar()+`<div class="section-title"><h2>Preórdenes</h2></div><div id="preordersBox" class="stack"></div>`;renderPreorders()},
  logistica(){$('content').innerHTML=realBar()+`<div class="section-title"><h2>Envíos y logística</h2></div><div id="shippingBox" class="stack"></div>`;renderShipping()},
@@ -789,7 +802,7 @@ const views={
 },
  inventario(){$('content').innerHTML=`<div class="section-title"><h2>Inventario</h2><button class="btn ghost" onclick="exportInventoryCSV()">Exportar CSV</button></div><div class="toolbar"><input id="inventorySearch" placeholder="Buscar SKU o producto" oninput="renderInventory()"></div><div id="inventoryBox"></div>`;renderInventory()},
  inventario_real(){
-   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario visual</b><small>Productos agrupados por categoría, capacidad, color, condición, estado estético y disponibilidad · Supabase sigue siendo la fuente oficial.</small></div><div class="actions"><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice inv-filter-note" style="margin:12px 0"><span><b>Importación protegida:</b> reservado y vendido nunca se modifican desde Excel.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="inventory-stage">Cargando…</div></div>`;
+   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario visual</b><small>Productos agrupados por categoría, capacidad, color, condición, estado estético y disponibilidad · Supabase sigue siendo la fuente oficial.</small></div><div class="actions"><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn ghost" onclick="openPhysicalUnits()">🔢 Unidades físicas</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice inv-filter-note" style="margin:12px 0"><span><b>Importación protegida:</b> reservado y vendido nunca se modifican desde Excel.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="inventory-stage">Cargando…</div></div>`;
    loadRealInventory();
  },
  configuracion(){$('content').innerHTML=realBar()+`<div class="grid"><div class="module"><b>Supabase</b><small>${window.tsPanelSupabase?'Conectado':'No disponible'}</small></div><div class="module"><b>Admin API</b><small>Protegida con sesión Super Admin</small></div><div class="module"><b>Resend</b><small>Correos transaccionales mediante Netlify Functions</small></div><div class="module"><b>Service Center</b><small>Base independiente y aislada</small></div></div>`},
@@ -1001,6 +1014,138 @@ async function deleteAbandonedOrder(code){
   }catch(e){alert('Error: '+e.message)}
 }
 
+
+let tsUnitAssignmentCounts={},tsUnitsMigrationReady=true,tsUnitManagerState=null;
+function tsOrderRequiredUnits(o){return orderItems(o).reduce((n,i)=>n+Math.max(1,Number(i.qty||i.cantidad||1)||1),0)}
+function tsOrderAssignedUnits(o){return Number(tsUnitAssignmentCounts[String(o.id||'')]||0)}
+function tsOrderUnitsReady(o){const r=tsOrderRequiredUnits(o);return r>0&&tsOrderAssignedUnits(o)>=r}
+async function unitAssignmentApi(action,payload={}){
+  const headers=await adminApiHeaders({'Content-Type':'application/json'});
+  const res=await fetch('/.netlify/functions/unit-assignments',{method:'POST',headers,body:JSON.stringify({action,...payload})});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||!data.ok){const e=new Error(data.error||'No se pudo completar la operación');e.data=data;throw e}
+  return data;
+}
+async function loadUnitAssignmentSummaries(){
+  try{
+    const data=await unitAssignmentApi('summaries');
+    tsUnitAssignmentCounts=data.counts||{};tsUnitsMigrationReady=true;
+  }catch(e){
+    tsUnitAssignmentCounts={};
+    tsUnitsMigrationReady=!(e.data?.migration_required);
+    if(!e.data?.migration_required)console.warn('Resumen de unidades:',e);
+  }
+}
+function unitItemName(i){return i.producto||i.product_name||i.product||i.nombre||'Producto'}
+function unitItemCondition(i){const v=String(i.condicion||i.condition||'Nuevo');return /pre.?owned|renovado|reacondicionado/i.test(v)?'Pre-Owned':'Nuevo'}
+function unitItemQty(i){return Math.max(1,Number(i.cantidad||i.qty||1)||1)}
+function unitIsPhone(i){return /\biphone\b|smartphone|telefono|teléfono/i.test(unitItemName(i))}
+function unitAssignmentFor(itemId,slot){return (tsUnitManagerState?.assignments||[]).find(a=>String(a.pedido_item_id)===String(itemId)&&Number(a.slot_index||1)===Number(slot))}
+function unitExistingOptions(item){
+  const cond=unitItemCondition(item),name=String(unitItemName(item)).toLowerCase();
+  return (tsUnitManagerState?.available_units||[]).filter(u=>String(u.product_name||'').toLowerCase()===name&&String(u.commercial_condition||'Nuevo')===cond);
+}
+async function openUnitAssignment(code){
+  try{
+    showClientModal('<div class="result">Cargando unidades físicas…</div>');
+    document.querySelector('#tsClientModal .client-modal')?.classList.add('ts-unit-manager');
+    const data=await unitAssignmentApi('order_summary',{code});
+    tsUnitManagerState=data;renderUnitManager();
+  }catch(e){
+    showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">ASIGNACIÓN</span><h2>No disponible</h2></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="notice critical">${esc(e.message)}</div>${e.data?.migration_required?'<div class="notice"><b>SQL requerido</b><small>Ejecuta supabase_v13_63_unidades_fisicas.sql en Supabase.</small></div>':''}`);
+  }
+}
+function renderUnitManager(){
+  const s=tsUnitManagerState;if(!s)return;
+  const code=s.order?.code||'Pedido',cov=s.coverage||{required:0,assigned:0,complete:false};
+  const items=s.order?.items||[];
+  const body=items.map(item=>{
+    const qty=unitItemQty(item),cond=unitItemCondition(item);
+    const slots=Array.from({length:qty},(_,k)=>{
+      const slot=k+1,a=unitAssignmentFor(item.id,slot),u=a?.unit;
+      return `<div class="ts-unit-slot"><div><strong>Unidad ${slot}</strong>${u?`<small>${esc(u.serial_number)}${u.imei?' · IMEI '+esc(u.imei):''}</small><div class="ts-unit-data"><span>${esc(u.commercial_condition)}</span>${u.general_condition?`<span>${esc(u.general_condition)}</span>`:''}${u.battery_health_pct?`<span>🔋 ${Number(u.battery_health_pct)}%</span>`:''}</div>`:'<small>Sin unidad física asignada.</small>'}</div><div class="actions">${u?`<button class="btn ghost" onclick="openUnitSlotEditor('${esc(item.id)}',${slot})">Reemplazar</button><button class="btn ghost" style="color:#b42318" onclick="releaseUnitSlot('${esc(a.id)}')">Liberar</button>`:`<button class="btn" onclick="openUnitSlotEditor('${esc(item.id)}',${slot})">Asignar equipo</button>`}</div></div>`;
+    }).join('');
+    return `<section class="ts-unit-item"><div class="ts-unit-item-head"><div><small>${esc(cond)}</small><h3>${esc(unitItemName(item))}</h3><div class="muted">${esc([item.color,item.capacidad||item.capacity,item.modelo||item.model].filter(Boolean).join(' · '))}</div></div><span class="badge">${qty} unidad(es)</span></div><div class="ts-unit-slots">${slots}</div></section>`;
+  }).join('');
+  showClientModal(`<div class="ts-unit-manager"><div class="ts-unit-manager-head"><div><span class="client-eyebrow">UNIDADES FÍSICAS</span><h2>${esc(code)}</h2><p class="muted">La nota de entrega se habilita únicamente cuando todas las unidades del pedido tienen serial asignado.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="ts-unit-coverage"><span class="ts-unit-state ${cov.complete?'ready':''}">${cov.complete?'✓ Nota habilitada':'🔒 Nota bloqueada'} · ${cov.assigned}/${cov.required}</span></div>${body||'<div class="notice">Este pedido no tiene productos asignables.</div>'}<div class="actions" style="margin-top:16px">${cov.complete?`<button class="btn" onclick="closeClientModal();viewDeliveryNote('${esc(code)}')">Ver / imprimir nota</button><button class="btn ghost" onclick="closeClientModal();resendDeliveryNote('${esc(code)}')">Enviar nota al cliente</button>`:'<button class="btn ghost" disabled>🔒 Nota pendiente de asignación</button>'}<button class="btn ghost" onclick="closeClientModal()">Cerrar</button></div></div>`);
+  document.querySelector('#tsClientModal .client-modal')?.classList.add('ts-unit-manager');
+}
+function openUnitSlotEditor(itemId,slot){
+  const s=tsUnitManagerState,item=(s?.order?.items||[]).find(i=>String(i.id)===String(itemId));if(!item)return;
+  const cond=unitItemCondition(item),phone=unitIsPhone(item),existing=unitExistingOptions(item);
+  showClientModal(`<div class="ts-unit-manager"><div class="client-modal-head"><div><span class="client-eyebrow">ASIGNAR EQUIPO</span><h2>${esc(unitItemName(item))}</h2><p class="muted">Unidad ${slot} · ${esc(cond)} · ${esc([item.color,item.capacidad||item.capacity].filter(Boolean).join(' · '))}</p></div><button class="client-modal-close" onclick="renderUnitManager()">×</button></div>
+  <div class="field ts-unit-existing"><label>Usar unidad física existente<select id="uaExisting" onchange="toggleUnitRegistrationFields()"><option value="">Registrar una nueva unidad</option>${existing.map(u=>`<option value="${esc(u.id)}">${esc(u.serial_number)}${u.imei?' · '+esc(u.imei):''}${u.general_condition?' · '+esc(u.general_condition):''}</option>`).join('')}</select></label></div>
+  <div id="uaNewFields"><div class="client-modal-grid"><label>Serial / Número de serie<input id="uaSerial" placeholder="Obligatorio"></label>${phone?'<label>IMEI<input id="uaImei" placeholder="Obligatorio para iPhone"></label>':''}<label>Modelo<input id="uaModel" value="${esc(item.modelo||item.model||unitItemName(item))}"></label><label>Condición comercial<input value="${esc(cond)}" disabled></label>${cond==='Pre-Owned'?`<label>Condición general<select id="uaGeneral"><option value="">Seleccionar</option><option>Excelente</option><option>Bueno</option><option>Bien</option></select></label><label>Salud de batería %<input id="uaBattery" type="number" min="1" max="100" placeholder="Ej. 91"></label>`:''}<label class="wide">Observaciones<textarea id="uaNotes" placeholder="${cond==='Pre-Owned'?'Marcas o detalles relevantes de esta unidad.':'Opcional'}"></textarea></label></div><div class="ts-unit-editor-note">${cond==='Pre-Owned'?'Para Pre-Owned son obligatorios la condición general y el porcentaje de batería.':'Para equipos nuevos solo se requiere serial y, en teléfonos, IMEI.'}</div></div>
+  <div class="actions"><button class="btn" onclick="saveUnitSlot('${esc(item.id)}',${slot})">Guardar asignación</button><button class="btn ghost" onclick="renderUnitManager()">Cancelar</button></div></div>`);
+  document.querySelector('#tsClientModal .client-modal')?.classList.add('ts-unit-manager');
+}
+function toggleUnitRegistrationFields(){const box=$('uaNewFields');if(box)box.style.display=val('uaExisting')?'none':'block'}
+async function saveUnitSlot(itemId,slot){
+  const s=tsUnitManagerState,item=(s?.order?.items||[]).find(i=>String(i.id)===String(itemId));if(!item)return;
+  const existing=val('uaExisting'),payload={code:s.order.code,pedido_item_id:itemId,slot_index:slot};
+  if(existing)payload.unit_id=existing;
+  else{
+    payload.serial_number=val('uaSerial');payload.imei=val('uaImei');payload.model=val('uaModel');
+    payload.general_condition=val('uaGeneral');payload.battery_health_pct=val('uaBattery');payload.notes=val('uaNotes');
+  }
+  try{
+    const data=await unitAssignmentApi('assign',payload);
+    tsUnitManagerState={...s,...data,order:s.order,available_units:(s.available_units||[]).filter(u=>String(u.id)!==String(data.unit?.id))};
+    await loadUnitAssignmentSummaries();renderUnitManager();renderOrdersList();
+    if(data.note_ready)alert('Todas las unidades quedaron asignadas. La nota de entrega ya está disponible.');
+  }catch(e){alert(e.message)}
+}
+async function releaseUnitSlot(assignmentId){
+  if(!confirm('¿Liberar esta unidad del pedido? La nota de entrega volverá a quedar bloqueada.'))return;
+  try{
+    const data=await unitAssignmentApi('release',{code:tsUnitManagerState.order.code,assignment_id:assignmentId,reason:'Liberada manualmente desde Pedidos'});
+    await openUnitAssignment(tsUnitManagerState.order.code);await loadUnitAssignmentSummaries();renderOrdersList();
+  }catch(e){alert(e.message)}
+}
+
+async function openPhysicalUnits(){
+  try{
+    showClientModal('<div class="result">Cargando unidades físicas…</div>');
+    const data=await unitAssignmentApi('units_list',{});
+    window.tsPhysicalUnitsRows=data.rows||[];
+    renderPhysicalUnits();
+  }catch(e){
+    showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">UNIDADES FÍSICAS</span><h2>No disponible</h2></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="notice critical">${esc(e.message)}</div>`);
+  }
+}
+function renderPhysicalUnits(){
+  const rows=window.tsPhysicalUnitsRows||[];
+  const counts={available:0,assigned:0,sold:0,returned:0,in_service:0};rows.forEach(u=>counts[u.status]=(counts[u.status]||0)+1);
+  const q=String(val('unitListSearch')).toLowerCase(),status=val('unitListStatus');
+  const list=rows.filter(u=>(!status||u.status===status)&&(!q||JSON.stringify(u).toLowerCase().includes(q)));
+  showClientModal(`<div class="ts-unit-manager"><div class="client-modal-head"><div><span class="client-eyebrow">INVENTARIO POR UNIDAD</span><h2>Unidades físicas</h2><p class="muted">Serial, IMEI, batería, condición y estado operativo de cada equipo.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div>
+  <div class="kpis"><div class="kpi"><b>${counts.available||0}</b><small>Disponibles</small></div><div class="kpi"><b>${counts.assigned||0}</b><small>Asignadas</small></div><div class="kpi"><b>${counts.sold||0}</b><small>Vendidas</small></div><div class="kpi"><b>${rows.length}</b><small>Total</small></div></div>
+  <div class="toolbar"><input id="unitListSearch" placeholder="Buscar serial, IMEI o producto" value="${esc(q)}" oninput="filterPhysicalUnitsView()"><select id="unitListStatus" onchange="filterPhysicalUnitsView()"><option value="">Todos los estados</option><option value="available" ${status==='available'?'selected':''}>Disponible</option><option value="assigned" ${status==='assigned'?'selected':''}>Asignada</option><option value="sold" ${status==='sold'?'selected':''}>Vendida</option><option value="returned" ${status==='returned'?'selected':''}>Devuelta</option><option value="in_service" ${status==='in_service'?'selected':''}>En servicio</option></select><button class="btn" onclick="openPhysicalUnitCreator()">+ Registrar unidad</button></div>
+  <div id="physicalUnitsTable">${physicalUnitsTableHTML(list)}</div></div>`);
+  document.querySelector('#tsClientModal .client-modal')?.classList.add('ts-unit-manager');
+}
+function filterPhysicalUnitsView(){
+  const rows=window.tsPhysicalUnitsRows||[],q=String(val('unitListSearch')).toLowerCase(),status=val('unitListStatus');
+  const list=rows.filter(u=>(!status||u.status===status)&&(!q||JSON.stringify(u).toLowerCase().includes(q)));
+  const box=$('physicalUnitsTable');if(box)box.innerHTML=physicalUnitsTableHTML(list);
+}
+function physicalUnitsTableHTML(list){
+  const label={available:'Disponible',assigned:'Asignada',sold:'Vendida',returned:'Devuelta',in_service:'En servicio'};
+  return `<div class="table-wrap"><table class="table"><thead><tr><th>Producto</th><th>Serial / IMEI</th><th>Condición</th><th>Batería</th><th>Estado</th></tr></thead><tbody>${list.map(u=>`<tr><td><b>${esc(u.product_name)}</b><br><small>${esc(u.model||'')}</small></td><td><code>${esc(u.serial_number)}</code>${u.imei?`<br><small>IMEI ${esc(u.imei)}</small>`:''}</td><td>${esc(u.commercial_condition)}${u.general_condition?`<br><small>${esc(u.general_condition)}</small>`:''}</td><td>${u.battery_health_pct?Number(u.battery_health_pct)+'%':'—'}</td><td><span class="badge">${esc(label[u.status]||u.status)}</span></td></tr>`).join('')||'<tr><td colspan="5">Sin unidades.</td></tr>'}</tbody></table></div>`;
+}
+function openPhysicalUnitCreator(){
+  const rows=tsCatalogInventoryRows||[];
+  const products=[...new Set(rows.map(v=>v.product_name).filter(Boolean))].sort();
+  showClientModal(`<div class="ts-unit-manager"><div class="client-modal-head"><div><span class="client-eyebrow">NUEVA UNIDAD</span><h2>Registrar equipo físico</h2><p class="muted">Quedará disponible para asignarlo a un pedido confirmado.</p></div><button class="client-modal-close" onclick="openPhysicalUnits()">×</button></div><div class="client-modal-grid"><label>Producto<select id="puProduct">${products.map(x=>`<option>${esc(x)}</option>`).join('')}</select></label><label>Modelo<input id="puModel"></label><label>Serial<input id="puSerial" placeholder="Obligatorio"></label><label>IMEI<input id="puImei" placeholder="Obligatorio si es iPhone"></label><label>Condición<select id="puCondition" onchange="togglePhysicalPreOwned()"><option>Nuevo</option><option>Pre-Owned</option></select></label><label id="puGeneralField" style="display:none">Condición general<select id="puGeneral"><option value="">Seleccionar</option><option>Excelente</option><option>Bueno</option><option>Bien</option></select></label><label id="puBatteryField" style="display:none">Batería %<input id="puBattery" type="number" min="1" max="100"></label><label class="wide">Observaciones<textarea id="puNotes"></textarea></label></div><div class="actions"><button class="btn" onclick="savePhysicalUnit()">Guardar unidad</button><button class="btn ghost" onclick="openPhysicalUnits()">Cancelar</button></div></div>`);
+  document.querySelector('#tsClientModal .client-modal')?.classList.add('ts-unit-manager');
+}
+function togglePhysicalPreOwned(){const pre=val('puCondition')==='Pre-Owned';if($('puGeneralField'))$('puGeneralField').style.display=pre?'flex':'none';if($('puBatteryField'))$('puBatteryField').style.display=pre?'flex':'none'}
+async function savePhysicalUnit(){
+  try{
+    await unitAssignmentApi('unit_create',{product_name:val('puProduct'),model:val('puModel'),serial_number:val('puSerial'),imei:val('puImei'),commercial_condition:val('puCondition'),general_condition:val('puGeneral'),battery_health_pct:val('puBattery'),notes:val('puNotes')});
+    alert('Unidad física registrada y disponible.');await openPhysicalUnits();
+  }catch(e){alert(e.message)}
+}
 function openOrderRecord(code){
   const o=orders().find(x=>String(orderCode(x))===String(code));if(!o)return alert('No se encontró el pedido.');
   try{localStorage.setItem('ts_order_detail_snapshot',JSON.stringify({order:o,receipt:receiptForOrder(o)}))}catch(_){}
@@ -1017,12 +1162,15 @@ function renderOrdersList(){
     const c=orderClient(o),code=orderCode(o),pmt=receiptForOrder(o),saleClosed=/entreg/i.test(String(orderStatus(o)||'')),channel=String(o.order_channel||o.channel||'online').toLowerCase()==='presencial'?'presencial':'online';
     const items=orderItems(o).map(i=>`${i.image_url?`<img src="${esc(i.image_url)}" alt="" style="width:52px;height:52px;object-fit:contain;vertical-align:middle;margin-right:10px;border-radius:10px;background:#f7f7f8">`:''}<span>${esc(i.product||i.producto||i.name||'Producto')} · ${esc(i.color||'')} · ${esc(i.capacity||i.capacidad||'')} · ${esc(i.condition||i.condicion||'')} × ${Number(i.qty||i.cantidad||1)}${(i.numero_serie||i.serial_number)?`<br><small>Serie: ${esc(i.numero_serie||i.serial_number)}${(i.model_code)?` · Modelo: ${esc(i.model_code)}`:''}${(i.garantia_dias||i.warranty_days)?` · Garantía: ${Number(i.garantia_dias||i.warranty_days)} días`:''}</small>`:''}</span>`).join('<br><br>')||'Producto por confirmar';
     const wa=whatsappLink(c,code);
+    const requiredUnits=tsOrderRequiredUnits(o),assignedUnits=tsOrderAssignedUnits(o),noteReady=requiredUnits>0&&assignedUnits>=requiredUnits;
+    const paymentReady=/pago verificado|preparando|comprando proveedor|tránsito|transito|disponible|enviado|entregado/i.test(String(orderStatus(o)||''))||channel==='presencial';
+    const unitState=tsUnitsMigrationReady?`<span class="ts-unit-state ${noteReady?'ready':''}">${noteReady?'✓ Equipo asignado':'🔒 Pendiente de asignación'} · ${assignedUnits}/${requiredUnits}</span>`:'<span class="ts-unit-state">SQL de unidades pendiente</span>';
     const waiting=!paymentDecisionState(o).locked&&!/pago verificado|rechaz|entreg/i.test(String(orderStatus(o)||''));
     const paymentInfo=pmt
       ?`<div class="notice success"><b>Comprobante recibido</b><br><small>Referencia: ${esc(pmt.referencia||o.paymentRef||o.referencia_pago||'—')} · Monto: ${money(pmt.monto||orderTotal(o))} · ${esc(fmtDate(pmt.created_at))}</small><div class="actions">${receiptButton(pmt)}${saleClosed?'':paymentActionsHtml(o,code)}</div></div>`
       :`<div class="notice ${channel==='presencial'?'':'warn'}"><b>${channel==='presencial'?'Venta presencial':'Sin comprobante cargado'}</b><br><small>${channel==='presencial'?(/efectivo/i.test(o.payment||o.metodo_pago||'')?'Efectivo: no requiere comprobante ni referencia.':'Confirmación manual disponible para la venta presencial.'):'El cliente todavía no ha cargado comprobante.'}</small>${channel==='presencial'&&waiting?`<div class="actions">${paymentActionsHtml(o,code)}</div>`:''}</div>`;
     const sourceBadge=channel==='presencial'?'<span class="badge" style="background:#f1ecff;color:#6941c6">🏬 Venta presencial</span>':'<span class="badge">🌐 Venta online</span>';
-    return `<div class="order-card ${saleClosed?'ts-sale-closed':''}"><div class="order-top"><div><b>${esc(code)}</b><br><small>${esc(fmtDate(o.created_at||o.date))}</small><div style="margin-top:7px">${sourceBadge}</div></div><span><span class="badge">${esc(orderStatus(o))}</span>${saleClosed?'<span class="ts-sale-lock">🔒 Venta cerrada</span>':''}</span></div>${orderTimelineHtml(o)}<div class="order-detail"><div><small>Cliente</small><b>${esc(c.name)}</b><br>${esc(c.email)}<br>${esc(c.phone||'')}<br><small>${esc(c.document||'')}</small></div><div><small>Dirección</small><b>${esc([c.address,c.city,c.state].filter(Boolean).join(', ')||'Por confirmar')}</b></div><div><small>Pago</small><b>${esc(o.payment||o.metodo_pago||'Por confirmar')}</b><br>${esc(o.paymentRef||o.referencia_pago||'')}</div><div><small>Entrega</small><b>${esc(o.shippingCompany||o.empresa_envio||o.metodo_envio||c.shipping||'Por confirmar')}</b><br>Guía: ${esc(o.guideNumber||o.numero_guia||'Pendiente')}</div></div><div class="order-items"><b>Productos</b><br>${items}</div>${paymentInfo}${historyHtml(o)}<div class="toolbar"><select class="status-select" id="st-${esc(code)}" ${saleClosed?'disabled':''}>${STATUS_OPTIONS.map(st=>`<option ${st===orderStatus(o)?'selected':''}>${esc(st)}</option>`).join('')}</select><input id="gd-${esc(code)}" value="${esc(o.guideNumber||o.numero_guia||'')}" placeholder="Número de guía" ${saleClosed?'disabled':''}><input id="nt-${esc(code)}" placeholder="${saleClosed?'Venta finalizada · solo lectura':'Nota interna / historial'}" ${saleClosed?'disabled':''}>${saleClosed?'':`<button class="btn" onclick="saveOrderStatus('${esc(code)}')">Guardar estado</button>`}<button class="btn ghost" onclick="sendOrderEmail('${esc(code)}')">Reenviar correo</button><button class="btn ghost" onclick="viewDeliveryNote('${esc(code)}')">Ver / imprimir nota</button><button class="btn ghost" onclick="openOrderRecord('${esc(code)}')">Abrir ficha completa ↗</button><button class="btn ghost" onclick="resendDeliveryNote('${esc(code)}')">Reenviar nota</button>${isAdminRole()&&canDeleteAbandonedOrder(o)?`<button class="btn ghost" style="color:#b42318;border-color:#fecaca;background:#fff7f7" onclick="deleteAbandonedOrder('${esc(code)}')">Eliminar pedido</button>`:''}${wa?`<a class="btn ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>`:''}</div><b>${money(orderTotal(o))}</b></div>`
+    return `<div class="order-card ${saleClosed?'ts-sale-closed':''}"><div class="order-top"><div><b>${esc(code)}</b><br><small>${esc(fmtDate(o.created_at||o.date))}</small><div style="margin-top:7px">${sourceBadge}</div></div><span><span class="badge">${esc(orderStatus(o))}</span>${saleClosed?'<span class="ts-sale-lock">🔒 Venta cerrada</span>':''}</span></div>${orderTimelineHtml(o)}<div class="order-detail"><div><small>Cliente</small><b>${esc(c.name)}</b><br>${esc(c.email)}<br>${esc(c.phone||'')}<br><small>${esc(c.document||'')}</small></div><div><small>Dirección</small><b>${esc([c.address,c.city,c.state].filter(Boolean).join(', ')||'Por confirmar')}</b></div><div><small>Pago</small><b>${esc(o.payment||o.metodo_pago||'Por confirmar')}</b><br>${esc(o.paymentRef||o.referencia_pago||'')}</div><div><small>Entrega</small><b>${esc(o.shippingCompany||o.empresa_envio||o.metodo_envio||c.shipping||'Por confirmar')}</b><br>Guía: ${esc(o.guideNumber||o.numero_guia||'Pendiente')}</div></div><div class="order-items"><b>Productos</b><br>${items}<div style="margin-top:10px">${unitState}</div></div>${paymentInfo}${historyHtml(o)}<div class="toolbar"><select class="status-select" id="st-${esc(code)}" ${saleClosed?'disabled':''}>${STATUS_OPTIONS.map(st=>`<option ${st===orderStatus(o)?'selected':''}>${esc(st)}</option>`).join('')}</select><input id="gd-${esc(code)}" value="${esc(o.guideNumber||o.numero_guia||'')}" placeholder="Número de guía" ${saleClosed?'disabled':''}><input id="nt-${esc(code)}" placeholder="${saleClosed?'Venta finalizada · solo lectura':'Nota interna / historial'}" ${saleClosed?'disabled':''}>${saleClosed?'':`<button class="btn" onclick="saveOrderStatus('${esc(code)}')">Guardar estado</button>`}<button class="btn ghost" onclick="sendOrderEmail('${esc(code)}')">Reenviar correo</button><button class="btn ${paymentReady?'':'ghost'}" ${paymentReady?'':`disabled title="Confirma el pago antes de asignar equipo"`} onclick="openUnitAssignment('${esc(code)}')">${noteReady?'✓ Ver asignación':'Asignar equipo'}</button><button class="btn ghost ${noteReady?'':'ts-note-locked-btn'}" ${noteReady?'':`disabled title="Asigna todas las unidades antes de generar la nota"`} onclick="viewDeliveryNote('${esc(code)}')">${noteReady?'Ver / imprimir nota':'🔒 Nota bloqueada'}</button><button class="btn ghost" onclick="openOrderRecord('${esc(code)}')">Abrir ficha completa ↗</button><button class="btn ghost ${noteReady?'':'ts-note-locked-btn'}" ${noteReady?'':`disabled title="Asigna todas las unidades antes de enviar la nota"`} onclick="resendDeliveryNote('${esc(code)}')">${noteReady?'Reenviar nota':'🔒 Reenviar nota'}</button>${isAdminRole()&&canDeleteAbandonedOrder(o)?`<button class="btn ghost" style="color:#b42318;border-color:#fecaca;background:#fff7f7" onclick="deleteAbandonedOrder('${esc(code)}')">Eliminar pedido</button>`:''}${wa?`<a class="btn ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>`:''}</div><b>${money(orderTotal(o))}</b></div>`
   }).join('')||'<div class="result">Sin pedidos en esta categoría.</div>';
 }
 async function saveOrderStatus(code){const existing=orders().find(o=>orderCode(o)===code);if(existing&&/entreg/i.test(String(orderStatus(existing)||''))){alert('Esta venta ya fue entregada y está cerrada. El registro es de solo lectura.');return;}try{const st=$('st-'+code)?.value||'Pedido recibido',gd=$('gd-'+code)?.value||'',note=$('nt-'+code)?.value||'';const data=await updateOrderRemote(code,st,gd,note);renderOrdersList();refreshKpis();const sent=data?.email?.sent?' Correo automático enviado.':'';const noteSent=data?.deliveryNoteEmail?.sent?' Nota de entrega enviada.':'';alert('Pedido actualizado correctamente.'+sent+noteSent)}catch(e){alert('Error: '+e.message)}}

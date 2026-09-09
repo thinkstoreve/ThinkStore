@@ -1,3 +1,4 @@
+const crypto=require('crypto');
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -89,6 +90,62 @@ exports.handler = async function(event) {
       total:Number(p?.total_usd||p?.total||0),items:Array.isArray(items)?items:[]
     };
   }
+  async function normalizedWithUnits(raw){
+    const p=normalized(raw);
+    const items=p.items||[];
+    if(!p.id)return{p,coverage:{required:0,assigned:0,complete:false},assignments:[]};
+    let assignments=[];
+    try{
+      assignments=await sb(`order_unit_assignments?select=*&pedido_id=eq.${encodeURIComponent(p.id)}&active=eq.true&order=pedido_item_id.asc,slot_index.asc`)||[];
+    }catch(e){
+      if(/order_unit_assignments|relation .* does not exist|schema cache/i.test(clean(e.message))){
+        const err=new Error('Ejecuta supabase_v13_63_unidades_fisicas.sql antes de generar la nota de entrega.');
+        err.migration_required=true;throw err;
+      }
+      throw e;
+    }
+    const ids=[...new Set(assignments.map(a=>a.unit_id).filter(Boolean))];
+    let units=[];
+    if(ids.length){
+      units=await sb(`inventory_units?select=*&id=in.(${ids.map(x=>`"${String(x).replace(/"/g,'')}"`).join(',')})`)||[];
+    }
+    const unitMap=new Map(units.map(u=>[String(u.id),u]));
+    const byItem=new Map();
+    assignments.forEach(a=>{
+      const key=String(a.pedido_item_id||'');
+      if(!byItem.has(key))byItem.set(key,[]);
+      const u=unitMap.get(String(a.unit_id))||{};
+      byItem.get(key).push({
+        assignment_id:a.id,slot_index:Number(a.slot_index||1),unit_id:a.unit_id,
+        serial_number:u.serial_number||'',imei:u.imei||'',commercial_condition:u.commercial_condition||'',
+        general_condition:u.general_condition||'',battery_health_pct:u.battery_health_pct??null,unit_notes:u.notes||''
+      });
+    });
+    p.items=items.map(i=>({...i,assigned_units:(byItem.get(String(i.id))||[]).sort((a,b)=>a.slot_index-b.slot_index)}));
+    const required=items.reduce((n,i)=>n+Math.max(1,Number(i.cantidad||i.qty||1)||1),0);
+    const assigned=assignments.length;
+    return{p,coverage:{required,assigned,complete:required>0&&assigned>=required},assignments};
+  }
+  function assignmentFingerprint(p){
+    const rows=(p.items||[]).flatMap(i=>(i.assigned_units||[]).map(u=>[i.id||'',u.slot_index||1,u.unit_id||'',u.serial_number||'',u.imei||'',u.battery_health_pct??'',u.general_condition||''].join('|'))).sort();
+    return crypto.createHash('sha256').update(rows.join('||')).digest('hex');
+  }
+  async function recordDeliveryNoteVersion(p,note){
+    try{
+      const fp=assignmentFingerprint(p);
+      const latest=await sb(`delivery_note_versions?select=version,assignments_fingerprint,status&pedido_id=eq.${encodeURIComponent(p.id)}&order=version.desc&limit=1`)||[];
+      const last=latest[0];
+      if(last&&last.status==='active'&&last.assignments_fingerprint===fp)return{version:Number(last.version||1),reused:true};
+      if(last&&last.status==='active'){
+        await sb(`delivery_note_versions?pedido_id=eq.${encodeURIComponent(p.id)}&status=eq.active`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'invalidated',invalidated_at:new Date().toISOString(),invalidated_reason:'Cambio de unidad asignada'})});
+      }
+      const version=Number(last?.version||0)+1;
+      await sb('delivery_note_versions',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({
+        pedido_id:p.id,version,status:'active',assignments_fingerprint:fp,html_snapshot:note.html,text_snapshot:note.text,created_by_email:auth.email||auth.mode||null
+      })});
+      return{version,reused:false};
+    }catch(e){console.warn('ThinkStore delivery note version',e);return{version:null,error:e.message}}
+  }
   function itemName(i){return i.producto||i.product_name||i.product||i.nombre||'Producto'}
   function itemCondition(i){return i.condicion||i.condition||'Por confirmar'}
   function itemSerial(i){return i.numero_serie||i.serial_number||i.serial||'Por registrar'}
@@ -103,7 +160,7 @@ exports.handler = async function(event) {
   }
   function deliveryNoteEmail(p){
     const html=require('./delivery-note-template').render(p);
-    const text=`NOTA DE ENTREGA THINKSTORE\nGracias por tu compra, ${p.customerName}.\nPedido: ${p.code}\nCliente: ${p.customerName}\nDocumento: ${p.customerDocument||'No indicado'}\nCorreo: ${p.customerEmail}\nTeléfono: ${p.customerPhone}\nPago: ${p.paymentMethod||'Por confirmar'}\nReferencia: ${p.paymentRef||'No aplica'}\nEstado: ${p.status}\n\n${p.items.map((i,n)=>`${n+1}. ${itemName(i)} | ${[i.color,i.capacidad||i.capacity,i.chip,i.ram,i.model_code].filter(Boolean).join(' · ')} | ${itemCondition(i)} | Serie: ${itemSerial(i)}${itemWarranty(i)?` | Garantía: ${itemWarranty(i)} días`:''} | ${itemQty(i)} x ${money(itemPrice(i))}`).join('\n')}\n\nTotal: ${p.total>0?money(p.total):'A confirmar'}\nSeguimiento: ${trackingUrl(p)}`;
+    const text=`NOTA DE ENTREGA THINKSTORE\nGracias por tu compra, ${p.customerName}.\nPedido: ${p.code}\nCliente: ${p.customerName}\nDocumento: ${p.customerDocument||'No indicado'}\nCorreo: ${p.customerEmail}\nTeléfono: ${p.customerPhone}\nPago: ${p.paymentMethod||'Por confirmar'}\nReferencia: ${p.paymentRef||'No aplica'}\nEstado: ${p.status}\n\n${p.items.map((i,n)=>{const units=Array.isArray(i.assigned_units)&&i.assigned_units.length?i.assigned_units.map((u,k)=>`Unidad ${k+1}: Serial ${u.serial_number||'—'}${u.imei?` | IMEI ${u.imei}`:''}${u.general_condition?` | ${u.general_condition}`:''}${u.battery_health_pct?` | Batería ${u.battery_health_pct}%`:''}`).join(' / '):`Serie: ${itemSerial(i)}`;return `${n+1}. ${itemName(i)} | ${[i.color,i.capacidad||i.capacity,i.chip,i.ram,i.model_code].filter(Boolean).join(' · ')} | ${itemCondition(i)} | ${units}${itemWarranty(i)?` | Garantía: ${itemWarranty(i)} días`:''} | ${itemQty(i)} x ${money(itemPrice(i))}`}).join('\n')}\n\nTotal: ${p.total>0?money(p.total):'A confirmar'}\nSeguimiento: ${trackingUrl(p)}`;
     return{subject:`ThinkStore — Gracias por tu compra | ${p.code}`,text,html,department:'pedidos'};
   }
   function statusEmail(p){
@@ -131,6 +188,16 @@ exports.handler = async function(event) {
     if(!rpc||!p.id)return{skipped:true};
     try{
       const result=await sb(`rpc/${rpc}`,{method:'POST',body:JSON.stringify(args)});
+      try{
+        const assignments=await sb(`order_unit_assignments?select=id,unit_id&pedido_id=eq.${encodeURIComponent(p.id)}&active=eq.true`)||[];
+        const ids=[...new Set(assignments.map(a=>a.unit_id).filter(Boolean))];
+        if(ids.length&&n.includes('entreg')){
+          await sb(`inventory_units?id=in.(${ids.map(x=>`"${String(x).replace(/"/g,'')}"`).join(',')})`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'sold',updated_at:new Date().toISOString()})});
+        }else if(ids.length&&(n.includes('cancel')||n.includes('rechaz'))){
+          await sb(`order_unit_assignments?pedido_id=eq.${encodeURIComponent(p.id)}&active=eq.true`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({active:false,released_at:new Date().toISOString(),release_reason:`Liberación por estado: ${status}`})});
+          await sb(`inventory_units?id=in.(${ids.map(x=>`"${String(x).replace(/"/g,'')}"`).join(',')})`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'available',updated_at:new Date().toISOString()})});
+        }
+      }catch(unitErr){console.warn('ThinkStore physical unit transition',unitErr)}
       return{ok:true,rpc,result};
     }catch(e){
       console.error('ThinkStore inventory transition',rpc,p.id,e);
@@ -254,20 +321,27 @@ exports.handler = async function(event) {
       const changed=Array.isArray(updated)?updated[0]:found;
       const p=normalized(await fullPedido(changed));
       const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
-      let noteResult={skipped:true}; if(approved){noteResult=await send(deliveryNoteEmail(p),p.customerEmail); await logEmail(p,'nota_entrega',noteResult)}
+      const noteResult={skipped:true,reason:approved?'La nota se habilita cuando todas las unidades físicas estén asignadas.':'Pago no aprobado'};
       const inventory=await inventoryTransition(p,status);
       return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true}});
     }
 
     if(action==='view_delivery_note'){
-      const p=normalized(await fullPedido(found));
-      const note=deliveryNoteEmail(p);
-      return reply(200,{ok:true,pedido:p,html:note.html,text:note.text,subject:note.subject});
+      const full=await fullPedido(found);
+      const state=await normalizedWithUnits(full);
+      if(!state.coverage.complete)return reply(409,{ok:false,note_locked:true,coverage:state.coverage,error:`Asigna todas las unidades físicas antes de generar la nota (${state.coverage.assigned}/${state.coverage.required}).`});
+      const note=deliveryNoteEmail(state.p);
+      const version=await recordDeliveryNoteVersion(state.p,note);
+      return reply(200,{ok:true,pedido:state.p,coverage:state.coverage,version,html:note.html,text:note.text,subject:note.subject});
     }
     if(action==='resend_delivery_note'){
-      const p=normalized(await fullPedido(found));
-      const r=await send(deliveryNoteEmail(p),p.customerEmail); await logEmail(p,'nota_entrega_reenvio',r);
-      return reply(r.sent?200:502,{ok:r.sent,pedido:p,email:r});
+      const full=await fullPedido(found);
+      const state=await normalizedWithUnits(full);
+      if(!state.coverage.complete)return reply(409,{ok:false,note_locked:true,coverage:state.coverage,error:`Asigna todas las unidades físicas antes de enviar la nota (${state.coverage.assigned}/${state.coverage.required}).`});
+      const note=deliveryNoteEmail(state.p);
+      const version=await recordDeliveryNoteVersion(state.p,note);
+      const r=await send(note,state.p.customerEmail); await logEmail(state.p,'nota_entrega_reenvio',r);
+      return reply(r.sent?200:502,{ok:r.sent,pedido:state.p,coverage:state.coverage,version,email:r});
     }
 
     const before=clean(found.estado);
@@ -287,10 +361,7 @@ exports.handler = async function(event) {
     try{await sb('admin_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:auth.email||auth.mode||null,action:'update_order_status',entity_type:'pedido',entity_id:String(found.id),before_data:{estado:before},after_data:{estado:nextStatus,numero_guia:guide||null}})})}catch(_){ }
     const p=normalized(await fullPedido(changed));
     const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
-    let noteResult={skipped:true};
-    if(norm(nextStatus)==='pago verificado' && norm(before)!=='pago verificado'){
-      noteResult=await send(deliveryNoteEmail(p),p.customerEmail); await logEmail(p,'nota_entrega',noteResult);
-    }
+    const noteResult={skipped:true,reason:norm(nextStatus)==='pago verificado'?'La nota queda pendiente de asignación de unidad física.':'Sin envío automático de nota'};
     const inventory=await inventoryTransition(p,nextStatus);
     return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory});
   }catch(e){

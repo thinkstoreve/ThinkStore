@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ThinkStore | Apple, accesorios y soporte técnico</title><link rel="stylesheet" href="styles.css?v=13.38">
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ThinkStore | Apple, accesorios y soporte técnico</title><link rel="stylesheet" href="styles.css?v=13.62">
 <style>
 /* ThinkStore admin-only: enterprise modules moved to admin-growth.html */
 #growth-enterprise,#v58-sales-automation,#v59-service-care-ai,#v60-ecosistema-comercial{display:none!important;}
@@ -308,8 +308,9 @@
           </div>
           <div id="paymentDetailsCard" class="payment-details-card"></div>
           <div id="paymentInputs" class="checkout-extra-grid premium-inputs">
-            <input id="paymentRef" placeholder="Referencia de pago / comprobante">
-            <input id="paymentAmount" placeholder="Monto pagado">
+            <input id="paymentRef" placeholder="Referencia de pago" autocomplete="off">
+            <input id="paymentAmount" placeholder="Monto calculado automáticamente" inputmode="decimal" readonly>
+            <small id="paymentAmountHint" class="payment-amount-hint"></small>
           </div>
         </section>
 
@@ -319,14 +320,14 @@
               <span>04</span>
               <div><b>Comprobante</b><small>JPG, PNG o PDF</small></div>
             </div>
-            <label id="paymentUploadBox" class="premium-upload payment-preview">
+            <div id="paymentUploadPanel" class="payment-upload-panel"><label id="paymentUploadBox" class="premium-upload payment-preview">
               <input id="paymentFile" type="file" accept="image/png,image/jpeg,application/pdf">
               <div id="paymentPreview" class="payment-preview-content">
                 <span class="upload-cloud">☁️</span>
                 <b>Arrastra tu comprobante aquí</b>
                 <small id="paymentFileStatus" class="muted">o selecciona un archivo</small>
               </div>
-            </label>
+            </label></div>
           </div>
           <div>
             <div class="panel-title mini">
@@ -344,6 +345,10 @@
               <button type="button" class="delivery-choice" data-delivery="Delivery local" onclick="selectDeliveryType('Delivery local')">🛵<b>Delivery local</b><small>Zonas cercanas</small></button>
             </div>
             <input id="guideNumber" class="guide-premium" placeholder="Número de guía (opcional)">
+            <div id="deliveryGpsBox" class="delivery-gps-box" hidden>
+              <div><b>📍 Ubicación para delivery</b><small id="deliveryGpsStatus">Añade la ubicación exacta del cliente.</small></div>
+              <button type="button" class="gps-btn" onclick="tsCaptureDeliveryLocation()">Usar ubicación actual</button>
+            </div>
           </div>
         </section>
 
@@ -361,7 +366,7 @@
         <div class="summary-line"><span>Envío</span><b class="green">Gratis*</b></div>
         <div class="summary-total"><span>Total</span><b id="cartTotal">USD —</b></div>
         <div class="summary-alert">🔒 Al confirmar, serás redirigido a WhatsApp para enviar tu pedido y comprobante.</div>
-        <button class="btn wa checkout-primary" onclick="checkoutWhatsApp()">💬 Confirmar pedido <span>→</span></button>
+        <button id="checkoutConfirmBtn" class="btn wa checkout-primary" onclick="checkoutWhatsApp()" disabled aria-disabled="true">💬 Confirmar pedido <span>→</span></button><small id="checkoutConfirmHint" class="checkout-confirm-hint">Carga comprobante y referencia para continuar.</small>
         <button id="generateNoteBtn" class="btn checkout-secondary ts-note-locked" onclick="generateDeliveryNote()" disabled title="Disponible cuando el pago esté verificado">🔒 Nota disponible después de verificar pago</button>
         <p class="muted tiny">El total y disponibilidad se confirman por ThinkStore antes del despacho.</p>
       </aside>
@@ -732,8 +737,8 @@
 <script src="data.js?v=13.60"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
-<script src="ts-fx.js?v=13.40"></script>
-<script src="script.js?v=13.60"></script>
+<script src="ts-fx.js?v=13.62"></script>
+<script src="script.js?v=13.62"></script>
 
 <div id="categoryModalV2" class="modal ts-v2-category-modal">
   <div class="ts-v2-category-window">

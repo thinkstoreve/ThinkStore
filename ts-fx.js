@@ -49,7 +49,7 @@ function init(){
  const payment=document.getElementById('paymentDetailsCard');
  if(payment){
   const el=box('tsFxCheckout',payment);
-  const update=()=>show(el,(g.cart||[]).reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0),document.getElementById('payMethod')?.value);
+  const update=()=>{const list=(typeof g.tsCartItems==='function'?g.tsCartItems():[]);return show(el,(Array.isArray(list)?list:[]).reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0),document.getElementById('payMethod')?.value)};
   document.getElementById('payMethod')?.addEventListener('change',update);
   g.addEventListener('ts:cart-updated',update);
   g.tsFxCheckoutUpdate=update;
