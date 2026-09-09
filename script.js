@@ -16,7 +16,7 @@ const asset=p=>{ const v=String(p||'').trim(); if(!v) return ''; if(v.startsWith
 const getCat=p=>p.category||p.cat||'Catálogo';
 const getDesc=p=>p.description||p.desc||'';
 const getConfigs=p=>p.storage||p.variants||p.capacities||['Consultar configuración'];
-const getConditions=p=>p.condition||['Nuevo','Como nuevo','Renovado','Preorden'];
+const getConditions=p=>p.condition||['Nuevo','Pre-Owned','Pre-Order'];
 
 
 /* ===== ThinkStore V1.3 · Catálogo vivo desde Supabase ===== */
@@ -395,7 +395,7 @@ let tsInventoryVariantCache={at:0,rows:[]};
 function tsConditionKey(v){
   const n=tsInventoryNorm(v);
   if(/pre order|preorden/.test(n)) return 'preorder';
-  if(/renovado|reacondicionado|refurbished|renewed/.test(n)) return 'renovado';
+  if(/pre owned|preowned|renovado|reacondicionado|refurbished|renewed/.test(n)) return 'preowned';
   if(/nuevo|new/.test(n)) return 'nuevo';
   return n;
 }
@@ -433,7 +433,7 @@ async function tsLoadCartConditionPrices(item){
   try{
     const rows=await tsGetInventoryVariants(true);
     const prices={};
-    ['Nuevo','Renovado','Pre-Order'].forEach(c=>{
+    ['Nuevo','Pre-Owned','Pre-Order'].forEach(c=>{
       const v=tsResolveInventoryVariant(rows,item.product,item.model||item.product,item.color,item.capacity||'',c);
       if(v&&Number(v.price_usd||0)>0) prices[tsConditionKey(c)]=Number(v.price_usd);
     });
@@ -561,7 +561,7 @@ function drawCart(){
     return `<div class="cartrow premium-cartrow ts-selected-row" style="--product-color:${colorHex}">
     <div class="cart-index ts-qty-badge">${Number(i.qty||1)}</div>
     <div class="ts-thumb-stage"><span class="ts-color-halo"></span><span class="ts-color-chip" title="${colorName}"><i></i>${colorName}</span><img class="cart-product-img js-remove-white-bg" data-original-src="${asset(i.image)}" src="${asset(i.image)}" alt="${i.product}"></div>
-    <div class="cart-info"><b>${i.product}</b><span>${i.model||''}</span><div class="cart-chips ts-cart-chips-v23"><em class="cart-color-pill" style="--chip-color:${colorHex}"><i></i>${colorName}</em><em class="cart-config-pill">📦 ${compactConfig}</em></div><label class="ts-cart-condition-label">Condición <select class="ts-cart-condition-select" onchange="updateCartCondition(${n},this.value)">${['Nuevo','Renovado', ...(tsIsPreorderCondition(i.condition)||i.condition_prices?.preorder?['Pre-Order']:[])].map(c=>{const cp=i.condition_prices?.[tsConditionKey(c)];return `<option value="${c}" ${tsConditionKey(i.condition)===tsConditionKey(c)?'selected':''}>${c}${cp?' — $'+Number(cp).toLocaleString('es-VE'):''}</option>`}).join('')}</select></label></div>
+    <div class="cart-info"><b>${i.product}</b><span>${i.model||''}</span><div class="cart-chips ts-cart-chips-v23"><em class="cart-color-pill" style="--chip-color:${colorHex}"><i></i>${colorName}</em><em class="cart-config-pill">📦 ${compactConfig}</em></div><label class="ts-cart-condition-label">Condición <select class="ts-cart-condition-select" onchange="updateCartCondition(${n},this.value)">${['Nuevo','Pre-Owned', ...(tsIsPreorderCondition(i.condition)||i.condition_prices?.preorder?['Pre-Order']:[])].map(c=>{const cp=i.condition_prices?.[tsConditionKey(c)];return `<option value="${c}" ${tsConditionKey(i.condition)===tsConditionKey(c)?'selected':''}>${c}${cp?' — $'+Number(cp).toLocaleString('es-VE'):''}</option>`}).join('')}</select></label></div>
     <div class="cart-price"><strong>${formatCheckoutMoney(i.price)}</strong><small>USD</small></div>
     <button class="cart-remove" onclick="removeCart(${n})" title="Eliminar">×</button>
   </div>`}).join('\n'):'<div class="empty-cart-premium">🛒<b>Tu carrito está vacío</b><small>Agrega un producto para iniciar tu pedido.</small></div>';
@@ -585,7 +585,7 @@ async function updateCartCondition(n,value){
   item.condition=value;
 
   // Resolver SIEMPRE la variante exacta por producto + color + capacidad + condición.
-  // Así Nuevo, Renovado y Pre-Order pueden tener precios distintos en Supabase.
+  // Así Nuevo, Pre-Owned y Pre-Order pueden tener precios distintos en Supabase.
   let capacity=String(item.capacity||'').trim();
   if(!capacity){
     const cfg=String(item.config||'');
@@ -5034,12 +5034,9 @@ window.addEventListener('load', ()=>{
     }
   }
   const previousOpenCart = window.openCart;
+  // V13.58: el carrito siempre puede abrirse. La autenticación se exige al confirmar,
+  // no para revisar los productos que el cliente ya añadió.
   window.openCart = function(){
-    if(!loggedUser()){
-      if(typeof window.openClientLogin === 'function') window.openClientLogin();
-      alert('Inicia sesión para ver tu carrito y continuar la compra.');
-      return;
-    }
     return previousOpenCart && previousOpenCart.apply(this, arguments);
   };
   document.addEventListener('DOMContentLoaded', refreshMainNav);
@@ -5163,7 +5160,7 @@ window.addEventListener('load', ()=>{
           <label>Producto<input id="qProduct" placeholder="Ej: iPhone 16 Pro Max"></label>
           <label>Precio USD<input id="qPrice" type="number" placeholder="0"></label>
           <label>Vigencia<select id="qDays"><option>24 horas</option><option>48 horas</option><option>72 horas</option><option>7 días</option></select></label>
-          <label>Condición<select id="qCondition"><option>Nuevo</option><option>Renovado</option><option>Preorden</option></select></label>
+          <label>Condición<select id="qCondition"><option>Nuevo</option><option>Pre-Owned</option><option>Preorden</option></select></label>
           <label>Entrega<select id="qShip"><option>Retiro en tienda</option><option>Envío nacional MRW</option><option>Envío nacional Zoom</option><option>Delivery Caracas</option></select></label>
         </div>
         <div class="ts-feature-actions"><button onclick="tsBuildQuote()">Generar cotización</button><button class="light ts-pro-btn" onclick="window.print()">Guardar como PDF</button><button class="light ts-pro-btn" onclick="tsQuoteWhatsApp()">Enviar por WhatsApp</button></div>
@@ -5218,7 +5215,7 @@ window.addEventListener('load', ()=>{
   window.tsTrackRepair=function(){ const code=formVal('rpSearch').toUpperCase(); window.open(`https://soporte.thinkstore.com.ve/${code?`?orden=${encodeURIComponent(code)}`:''}`,'_blank','noopener'); };
   window.tsCalcCare=function(){ const val=Number(formVal('careValue')||0), months=Number(formVal('carePlan')||6); const price=Math.round(val*(months===12?.12:.075)); result('careResult',`ThinkStore Care\nEquipo: ${formVal('careDevice')||'Equipo Apple'}\nPlan: ${months} meses\nReferencia: ${money(price)}\n\nIncluye orientación, prioridad de atención y registro digital del equipo.`); };
   window.tsCompareApple=function(){ const a=formVal('cmpA')||'Equipo A', b=formVal('cmpB')||'Equipo B', use=formVal('cmpUse'); result('cmpResult',`Comparador Apple\n\n${a} vs ${b}\nUso principal: ${use}\n\nRecomendación comercial:\n• ${a}: buena opción si buscas mejor precio o disponibilidad inmediata.\n• ${b}: ideal si quieres más tiempo de soporte, mejor rendimiento y valor de reventa.\n\nPara ${use.toLowerCase()}, conviene revisar batería, almacenamiento y cámara antes de decidir.`); };
-  window.tsAISeller=function(){ const budget=Number(formVal('aiBudget')||0), use=formVal('aiUse'), pref=formVal('aiPref'); let rec='iPhone 13 / 14 renovado o iPad base'; if(budget>=1800) rec='iPhone Pro Max reciente o MacBook Pro M4'; else if(budget>=1000) rec='iPhone 15/16, iPad Air o MacBook Air M3/M4'; else if(budget>=500) rec='iPhone 13/14, AirPods Pro o Apple Watch'; const txt=`IA Vendedora ThinkStore\nPresupuesto: ${money(budget)}\nUso: ${use}\nPreferencia: ${pref}\n\nRecomendación: ${rec}\n\nMensaje sugerido:\nTe recomiendo esta opción porque equilibra presupuesto, rendimiento y disponibilidad. También podemos cotizar accesorios compatibles.`; result('aiResult',txt); window.tsLastAI=txt; };
+  window.tsAISeller=function(){ const budget=Number(formVal('aiBudget')||0), use=formVal('aiUse'), pref=formVal('aiPref'); let rec='iPhone 13 / 14 Pre-Owned o iPad base'; if(budget>=1800) rec='iPhone Pro Max reciente o MacBook Pro M4'; else if(budget>=1000) rec='iPhone 15/16, iPad Air o MacBook Air M3/M4'; else if(budget>=500) rec='iPhone 13/14, AirPods Pro o Apple Watch'; const txt=`IA Vendedora ThinkStore\nPresupuesto: ${money(budget)}\nUso: ${use}\nPreferencia: ${pref}\n\nRecomendación: ${rec}\n\nMensaje sugerido:\nTe recomiendo esta opción porque equilibra presupuesto, rendimiento y disponibilidad. También podemos cotizar accesorios compatibles.`; result('aiResult',txt); window.tsLastAI=txt; };
   window.tsAIWhatsApp=function(){ if(!window.tsLastAI) window.tsAISeller(); wa(window.tsLastAI||'Recomendación ThinkStore'); };
   window.tsImportCalc=function(){ const value=Number(formVal('impValue')||0); const fee=Math.max(25,Math.round(value*.08)); result('impResult',`Importaciones Premium ThinkStore\nProducto: ${formVal('impProduct')||'Producto'}\nProveedor: ${formVal('impProvider')||'Por confirmar'}\nModalidad: ${formVal('impMode')}\nValor declarado: ${money(value)}\nGestión estimada: ${money(fee)}\nRuta: Proveedor → Miami → Aduana → Venezuela\nTiempo referencial: 15 a 25 días hábiles según disponibilidad y liberación aduanal.`); };
   function activateCards(){
@@ -5337,7 +5334,7 @@ window.addEventListener('load', ()=>{
   window.tsGrowthCreateWarranty=function(){ const list=store('ts_digital_warranties')||[]; const d=new Date(); d.setMonth(d.getMonth()+Number(val('gtMonths')||12)); list.unshift({code:'GT-'+String(Date.now()).slice(-6),client:val('gtClient'),product:val('gtProduct')||'Equipo Apple',serial:val('gtSerial'),expires:d.toLocaleDateString('es-VE')}); store('ts_digital_warranties',list); if($('gtList')) $('gtList').innerHTML=renderWarranties(list); };
   function renderGiftCards(list){ return (list||[]).map(g=>`<div class="ts-feature-box"><b>🎟️ ${esc(g.code)}</b><p>Valor: ${money(g.value)} · Para: ${esc(g.client)} · ${g.used?'Usada':'Activa'}</p></div>`).join('') || '<p class="muted">Sin gift cards.</p>'; }
   window.tsGrowthCreateGiftCard=function(){ const list=store('ts_gift_cards')||[]; list.unshift({code:'GC-'+Math.random().toString(36).slice(2,8).toUpperCase(),value:val('gcValue')||50,client:val('gcClient')||'Cliente ThinkStore',used:false}); store('ts_gift_cards',list); if($('gcList')) $('gcList').innerHTML=renderGiftCards(list); };
-  window.tsGrowthAI=function(){ const b=Number(val('gaBudget')||0), use=val('gaUse'), pref=val('gaPref'); let rec='iPhone 13/14 renovado o iPad base'; if(b>=1800) rec='iPhone Pro Max reciente o MacBook Pro M4'; else if(b>=1000) rec='iPhone 15/16, iPad Air o MacBook Air M4'; else if(b>=500) rec='iPhone 13/14, AirPods Pro o Apple Watch'; const txt=`Asistente IA ThinkStore\nPresupuesto: ${money(b)}\nUso: ${use}\nPreferencia: ${pref}\n\nRecomendación: ${rec}\n\nSiguiente paso: validar disponibilidad, color y capacidad para enviar cotización.`; window.tsLastGrowthAI=txt; if($('gaResult')) $('gaResult').textContent=txt; };
+  window.tsGrowthAI=function(){ const b=Number(val('gaBudget')||0), use=val('gaUse'), pref=val('gaPref'); let rec='iPhone 13/14 Pre-Owned o iPad base'; if(b>=1800) rec='iPhone Pro Max reciente o MacBook Pro M4'; else if(b>=1000) rec='iPhone 15/16, iPad Air o MacBook Air M4'; else if(b>=500) rec='iPhone 13/14, AirPods Pro o Apple Watch'; const txt=`Asistente IA ThinkStore\nPresupuesto: ${money(b)}\nUso: ${use}\nPreferencia: ${pref}\n\nRecomendación: ${rec}\n\nSiguiente paso: validar disponibilidad, color y capacidad para enviar cotización.`; window.tsLastGrowthAI=txt; if($('gaResult')) $('gaResult').textContent=txt; };
   window.tsGrowthAIWA=function(){ if(!window.tsLastGrowthAI) window.tsGrowthAI(); wa(window.tsLastGrowthAI||'Asesoría ThinkStore'); };
   window.tsGrowthSegmentCSV=function(){ const csv='segmento,descripcion\niphone,Clientes interesados en iPhone\nmac,Clientes interesados en Mac\nvip,Clientes con compras altas\ninactivos,Clientes para reactivación'; const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='thinkstore_segmentos.csv'; a.click(); };
   function renderBirthdays(list){ return (list||[]).map(b=>`<div class="ts-feature-box"><b>🎂 ${esc(b.client)}</b><p>${esc(b.contact)} · Cupón: ${esc(b.discount)} · Vigencia 7 días</p></div>`).join('') || '<p class="muted">Sin campañas creadas.</p>'; }
@@ -6031,7 +6028,7 @@ window.addEventListener('load', ()=>{
 
 /* ===== ThinkStore V1.4.8 · stock exacto por modelo + condiciones válidas ===== */
 (function(){
-  const IMMEDIATE=['Nuevo','Renovado'];
+  const IMMEDIATE=['Nuevo','Pre-Owned'];
   function norm(v){return typeof tsInventoryNorm==='function'?tsInventoryNorm(v):String(v||'').toLowerCase().trim();}
   function detailButton(){
     const m=document.getElementById('modal');
@@ -6176,7 +6173,7 @@ window.addEventListener('load', ()=>{
       const all=await tsGetInventoryVariants(true),capacity=(window.tsSelectedCapacity?window.tsSelectedCapacity():''),rows=matchRows(all,selectedProduct,(typeof selectedColor!=='undefined'?selectedColor:''),capacity);
       if(!rows.length)return;
       const byCond={};rows.forEach(v=>{const k=ckey(v.condition);if(!byCond[k]||score(v,selectedProduct)>score(byCond[k],selectedProduct))byCond[k]=v});
-      const immediate=['Nuevo','Renovado'].filter(c=>{const v=byCond[ckey(c)];return v&&available(v)>0});
+      const immediate=['Nuevo','Pre-Owned'].filter(c=>{const v=byCond[ckey(c)];return v&&available(v)>0});
       const options=immediate.length?[...immediate,'Pre-Order']:['Pre-Order'];
       let current=(typeof selectedCondition!=='undefined'?selectedCondition:'')||options[0];if(!options.some(x=>ckey(x)===ckey(current)))current=options[0];selectedCondition=current;
       const box=document.getElementById('conditions');

@@ -138,6 +138,57 @@ body{background:#fff}
 }
 </style>
 
+
+<style id="ts-inventory-visual-v1357">
+.inv-visual-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin:18px 0 12px}
+.inv-category-tabs,.inv-filter-pills,.inv-facet-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.inv-category-tab,.inv-filter-pill,.inv-facet-btn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 13px;font:inherit;font-size:12px;font-weight:750;cursor:pointer;transition:.18s ease}
+.inv-category-tab:hover,.inv-filter-pill:hover,.inv-facet-btn:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(15,23,42,.08)}
+.inv-category-tab.active,.inv-filter-pill.active,.inv-facet-btn.active{background:#111;color:#fff;border-color:#111}
+.inv-filter-pill.grade.active{background:#344054;border-color:#344054}
+.inv-view-toggle{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:#f8f9fb}
+.inv-view-toggle button{border:0;background:transparent;border-radius:999px;padding:8px 11px;cursor:pointer;font-weight:750}
+.inv-view-toggle button.active{background:#111;color:#fff}
+.inv-alerts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 16px}
+.inv-alert-card{border:1px solid var(--line);background:#fff;border-radius:16px;padding:13px;cursor:pointer;text-align:left}
+.inv-alert-card b{font-size:20px;display:block}.inv-alert-card small{color:var(--muted)}
+.inv-product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-top:14px}
+.inv-product-card{border:1px solid var(--line);border-radius:24px;background:#fff;padding:18px;box-shadow:0 10px 30px rgba(15,23,42,.05);transition:.2s ease}
+.inv-product-card:hover{transform:translateY(-2px);box-shadow:0 16px 38px rgba(15,23,42,.08)}
+.inv-product-top{display:grid;grid-template-columns:92px 1fr;gap:15px;align-items:center}
+.inv-product-image{width:92px;height:92px;border-radius:18px;object-fit:contain;background:#f7f7f9;border:1px solid #eceef2}
+.inv-product-title h3{margin:3px 0 5px;font-size:18px}.inv-product-title small{color:var(--muted)}
+.inv-code-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:7px}
+.inv-short-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#111;color:#fff;border-radius:8px;padding:4px 7px;font-size:11px;font-weight:800;letter-spacing:.04em}
+.inv-model-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#475467}
+.inv-facet{margin-top:14px}.inv-facet-label{font-size:11px;color:#667085;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+.inv-facet-btn{padding:7px 10px;background:#f9fafb}.inv-facet-btn.active{background:#111;color:#fff}
+.inv-variant-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:15px}
+.inv-variant-summary>div{background:#f8f9fb;border-radius:14px;padding:10px}.inv-variant-summary small{display:block;color:#667085;font-size:10px;text-transform:uppercase;font-weight:800}.inv-variant-summary b{display:block;margin-top:4px;font-size:16px}
+.inv-card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.inv-stock-state{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;border-radius:999px;padding:5px 8px;background:#ecfdf3;color:#027a48}.inv-stock-state.low{background:#fffaeb;color:#b54708}.inv-stock-state.out{background:#f2f4f7;color:#667085}
+.inv-grade{display:inline-flex;padding:5px 8px;border-radius:999px;background:#eef2ff;font-size:11px;font-weight:800;color:#3538cd}
+.inv-hidden-sku summary{cursor:pointer;color:#667085;font-size:11px}.inv-hidden-sku code{font-size:10px;word-break:break-all}
+@media(max-width:860px){.inv-alerts{grid-template-columns:1fr}.inv-product-grid{grid-template-columns:1fr}.inv-visual-head{align-items:stretch;flex-direction:column}}
+@media(max-width:520px){.inv-product-top{grid-template-columns:72px 1fr}.inv-product-image{width:72px;height:72px}.inv-variant-summary{grid-template-columns:1fr 1fr}}
+</style>
+
+<style id="ts-v1358-admin-home">
+.admin-dashboard-hero-hidden{display:none!important}
+.ts-admin-home{padding-top:4px}
+.ts-admin-home-head{position:relative;overflow:hidden;background:linear-gradient(135deg,#0c0c0d 0%,#232329 58%,#34343d 100%);color:#fff;border-radius:28px;padding:28px;margin:10px 0 18px;box-shadow:0 18px 50px rgba(0,0,0,.12)}
+.ts-admin-home-head:after{content:"";position:absolute;width:240px;height:240px;border-radius:50%;right:-70px;top:-105px;background:radial-gradient(circle,rgba(255,255,255,.17),rgba(255,255,255,0) 70%)}
+.ts-admin-home-head small{display:block;color:#b9bbc3;font-weight:750;letter-spacing:.08em;text-transform:uppercase}.ts-admin-home-head h2{font-size:34px;letter-spacing:-1px;margin:7px 0}.ts-admin-home-head p{max-width:720px;color:#d7d7dc;margin:0}
+.ts-admin-home-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}.ts-admin-home-actions button{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.1);color:#fff;border-radius:999px;padding:10px 14px;font-weight:800;cursor:pointer}.ts-admin-home-actions button:first-child{background:#fff;color:#111}
+.ts-priority-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+.ts-priority-card{border:1px solid #e6e6eb;border-radius:20px;padding:16px;background:#fff;text-align:left;cursor:pointer;transition:.2s}.ts-priority-card:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(15,23,42,.08)}.ts-priority-card small{color:#73737a}.ts-priority-card b{font-size:27px;display:block;margin:7px 0 4px}.ts-priority-card .warn{color:#b54708}.ts-priority-card .danger{color:#b42318}.ts-priority-card .good{color:#027a48}
+.ts-admin-two{display:grid;grid-template-columns:1.45fr .85fr;gap:14px;margin-top:14px}.ts-admin-panel{border:1px solid #e5e5ea;background:#fff;border-radius:22px;padding:18px}.ts-admin-panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.ts-admin-panel-head h3{margin:0;font-size:18px}.ts-admin-panel-head small{color:#73737a}
+.ts-recent-order{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr) auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee}.ts-recent-order:last-child{border-bottom:0}.ts-recent-order b,.ts-recent-order small{display:block}.ts-recent-order small{color:#73737a;margin-top:3px}
+.ts-status-chip{display:inline-flex;border-radius:999px;padding:5px 8px;background:#f2f4f7;font-size:11px;font-weight:800}.ts-status-chip.pending{background:#fffaeb;color:#b54708}.ts-status-chip.ok{background:#ecfdf3;color:#027a48}
+.ts-quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.ts-quick{border:1px solid #e5e5ea;background:#fafafa;border-radius:16px;padding:13px;text-align:left;cursor:pointer;font-weight:800}.ts-quick small{display:block;color:#73737a;font-weight:500;margin-top:4px}
+.ts-admin-insight{margin-top:14px;border:1px solid #e5e5ea;border-radius:18px;padding:14px 16px;background:linear-gradient(135deg,#f8f9fb,#fff);display:flex;justify-content:space-between;gap:12px;align-items:center}.ts-admin-insight strong{font-size:18px}
+@media(max-width:1050px){.ts-priority-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ts-admin-two{grid-template-columns:1fr}}@media(max-width:620px){.ts-priority-grid{grid-template-columns:1fr}.ts-admin-home-head{padding:22px}.ts-admin-home-head h2{font-size:28px}.ts-quick-grid{grid-template-columns:1fr}.ts-recent-order{grid-template-columns:1fr auto}.ts-recent-order>div:nth-child(2){display:none}}
+</style>
 </head>
 <body>
 <div id="panelBoot" class="panel-boot" aria-live="polite"><div class="panel-boot-card"><img class="panel-boot-logo" src="logo-thinkstore.png" alt="ThinkStore"><div id="panelBootText">Preparando tu cuenta…</div><div class="panel-boot-bar"><i></i></div></div></div>
@@ -575,53 +626,60 @@ async function openCashHistory(){
 }
 const views={
  generic(id){$('content').innerHTML=`<div class="notice warn">Este módulo conserva la interfaz Multi-Rol. Su integración profunda se mantiene separada del panel administrativo real.</div>`},
- dashboard(){
-  const all=orders(), now=Date.now(), monthAgo=now-30*86400000;
-  const total=all.reduce((s,o)=>s+orderTotal(o),0);
-  const paid=all.filter(o=>/pago verificado|preparando|tránsito|transito|enviado|entregado|disponible/i.test(orderStatus(o)));
-  const paidTotal=paid.reduce((s,o)=>s+orderTotal(o),0);
-  const pendingOrders=all.filter(o=>/pago por verificar|pago recibido/i.test(orderStatus(o)));
-  const preOrders=all.filter(o=>/preorden|proveedor|tránsito|transito/i.test(orderStatus(o)));
-  const newClientRows=customers().filter(c=>{const d=Date.parse(c.created_at||'');return d&&d>=monthAgo});
-  const shippedOrders=all.filter(o=>/enviado|entregado|tránsito|transito/i.test(orderStatus(o)));
-  const cards=[
-    {type:'orders',value:all.length,label:'Pedidos reales',icon:'📦',note:'Todos los pedidos registrados',rows:all},
-    {type:'clients',value:customers().length,label:'Clientes registrados',icon:'👥',note:'Base real de clientes',rows:customers()},
-    {type:'payments',value:pendingOrders.length,label:'Pagos por revisar',icon:'💳',note:'Pendientes de validación',rows:pendingOrders},
-    {type:'receipts',value:realState.comprobantes.length,label:'Comprobantes cargados',icon:'🧾',note:'Soportes de pago recibidos',rows:realState.comprobantes},
-    {type:'preorders',value:preOrders.length,label:'Preórdenes / tránsito',icon:'⏳',note:'Compras y pedidos en tránsito',rows:preOrders},
-    {type:'shipping',value:shippedOrders.length,label:'Envíos / entregas',icon:'🚚',note:'Pedidos en proceso logístico',rows:shippedOrders},
-    {type:'paid',value:money(paidTotal),label:'Ventas con pago validado',icon:'💰',note:'Monto confirmado',rows:paid},
-    {type:'newclients',value:newClientRows.length,label:'Clientes nuevos · 30 días',icon:'✨',note:'Altas recientes',rows:newClientRows}
-  ];
+ async dashboard(){
+  const all=orders(),clients=customers(),now=Date.now(),todayKey=(()=>{try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}catch{return new Date().toISOString().slice(0,10)}})();
+  const dayKey=v=>{try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v||Date.now()))}catch{return String(v||'').slice(0,10)}};
+  const paidRe=/pago verificado|preparando|tránsito|transito|enviado|entregado|disponible/i;
+  const paid=all.filter(o=>paidRe.test(orderStatus(o))),pending=all.filter(o=>/pago por verificar|pago recibido/i.test(orderStatus(o))),preorders=all.filter(o=>/preorden|proveedor|tránsito|transito/i.test(orderStatus(o)));
+  const todayOrders=all.filter(o=>dayKey(o.created_at||o.date)===todayKey),todayPaid=todayOrders.filter(o=>paidRe.test(orderStatus(o))),todaySales=todayPaid.reduce((n,o)=>n+orderTotal(o),0);
+  const recent=all.slice().sort((a,b)=>new Date(b.created_at||b.date||0)-new Date(a.created_at||a.date||0)).slice(0,6);
+  const monthAgo=now-30*86400000,newClients=clients.filter(c=>{const d=Date.parse(c.created_at||'');return d&&d>=monthAgo});
+  let inv={variants:0,available:0,low:0,out:0};
   try{
-    localStorage.setItem('ts_dashboard_snapshot',JSON.stringify({
-      created_at:new Date().toISOString(),
-      orders:all,customers:customers(),receipts:realState.comprobantes||[],
-      pending:pendingOrders,preorders:preOrders,shipping:shippedOrders,paid,newclients:newClientRows
-    }));
-  }catch(e){console.warn('Dashboard snapshot:',e)}
-  $('content').innerHTML=realBar()+`
-    <style>
-      .ts-dash-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:18px 0 12px}
-      .ts-dash-head h2{margin:0;font-size:30px;letter-spacing:-.5px}.ts-dash-head p{margin:5px 0 0;color:#6e6e73}
-      .ts-dash-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-      .ts-dash-card{position:relative;overflow:hidden;text-align:left;border:1px solid #e5e5ea;background:#fff;border-radius:22px;padding:18px;cursor:pointer;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;min-height:142px}
-      .ts-dash-card:before{content:"";position:absolute;inset:0;background:linear-gradient(145deg,rgba(0,113,227,.06),transparent 42%);opacity:0;transition:.22s}
-      .ts-dash-card:hover{transform:translateY(-4px);box-shadow:0 18px 42px rgba(0,0,0,.09);border-color:#c7d9ef}.ts-dash-card:hover:before{opacity:1}
-      .ts-dash-card:focus-visible{outline:3px solid rgba(0,113,227,.25);outline-offset:2px}
-      .ts-dash-icon{width:38px;height:38px;border-radius:13px;background:#f5f5f7;display:grid;place-items:center;font-size:19px;margin-bottom:18px}
-      .ts-dash-value{display:block;font-size:30px;font-weight:850;letter-spacing:-.6px;line-height:1}.ts-dash-label{display:block;font-weight:780;margin-top:7px}.ts-dash-note{display:block;color:#6e6e73;font-size:12px;margin-top:4px}
-      .ts-dash-arrow{position:absolute;right:16px;top:16px;width:29px;height:29px;border-radius:50%;display:grid;place-items:center;background:#f5f5f7;color:#6e6e73;transition:.2s}.ts-dash-card:hover .ts-dash-arrow{background:#111;color:#fff;transform:translateX(2px)}
-      .ts-dash-summary{margin-top:16px;border:1px solid #e5e5ea;background:linear-gradient(135deg,#fff,#f7f7f9);border-radius:20px;padding:15px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-      .ts-dash-summary strong{font-size:19px}.ts-dash-refresh{color:#6e6e73;font-size:13px}
-      @media(max-width:1050px){.ts-dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.ts-dash-grid{grid-template-columns:1fr}.ts-dash-head{align-items:flex-start;flex-direction:column}}
-    </style>
-    <div class="ts-dash-head"><div><h2>Resumen operativo</h2><p>Haz clic en cualquier resultado para ver el detalle en una nueva ventana.</p></div></div>
-    <div class="ts-dash-grid">
-      ${cards.map(c=>`<button class="ts-dash-card" type="button" onclick="openDashboardDetail('${c.type}')"><span class="ts-dash-arrow">↗</span><span class="ts-dash-icon">${c.icon}</span><span class="ts-dash-value">${esc(c.value)}</span><span class="ts-dash-label">${esc(c.label)}</span><span class="ts-dash-note">${esc(c.note)}</span></button>`).join('')}
+    const ir=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),ij=await ir.json().catch(()=>({}));
+    if(ir.ok&&ij.ok&&Array.isArray(ij.variants)){
+      inv.variants=ij.variants.length;inv.available=ij.variants.reduce((n,v)=>n+Number(v.available||0),0);inv.low=ij.variants.filter(v=>Number(v.available||0)>0&&Number(v.available||0)<=Number(v.stock_min||0)).length;inv.out=ij.variants.filter(v=>Number(v.available||0)<=0).length;
+    }
+  }catch(_){}
+  try{
+    localStorage.setItem('ts_dashboard_snapshot',JSON.stringify({created_at:new Date().toISOString(),orders:all,customers:clients,receipts:realState.comprobantes||[],pending,preorders,paid,newclients:newClients}));
+  }catch(_){}
+  const pendingAttention=pending.length+inv.low;
+  $('content').innerHTML=realBar()+`<div class="ts-admin-home">
+    <section class="ts-admin-home-head">
+      <small>Centro de operaciones · ThinkStore</small>
+      <h2>Control del negocio en tiempo real</h2>
+      <p>Pedidos, caja, clientes e inventario en una sola vista. Lo importante aparece primero para que puedas actuar sin recorrer todo el panel.</p>
+      <div class="ts-admin-home-actions"><button onclick="openPosSale()">＋ Nueva venta</button><button onclick="openModule('pedidos')">Ver pedidos</button><button onclick="openModule('inventario_real')">Inventario visual</button><button onclick="openModule('clientes')">Clientes / CRM</button></div>
+    </section>
+
+    <div class="ts-priority-grid">
+      <button class="ts-priority-card" onclick="openModule('ventas')"><small>Ventas confirmadas hoy</small><b class="good">${money(todaySales)}</b><span>${todayPaid.length} operación(es)</span></button>
+      <button class="ts-priority-card" onclick="openModule('pagos')"><small>Pagos que requieren revisión</small><b class="${pending.length?'warn':''}">${pending.length}</b><span>${pending.length?'Revisar comprobantes':'Sin pendientes'}</span></button>
+      <button class="ts-priority-card" onclick="openModule('inventario_real')"><small>Alertas de inventario</small><b class="${inv.low?'danger':''}">${inv.low}</b><span>${inv.available} unidades disponibles</span></button>
+      <button class="ts-priority-card" onclick="openModule('preordenes')"><small>Pre-Orders / tránsito</small><b>${preorders.length}</b><span>Seguimiento activo</span></button>
     </div>
-    <div class="ts-dash-summary"><div><small>Venta registrada total</small><br><strong>${money(total)}</strong></div><div class="ts-dash-refresh">Actualización automática cada 30 segundos · Pulsa una tarjeta para explorar sus datos.</div></div>`;
+
+    <div class="ts-admin-two">
+      <section class="ts-admin-panel">
+        <div class="ts-admin-panel-head"><div><h3>Actividad reciente</h3><small>Últimos pedidos registrados</small></div><button class="btn ghost" onclick="openModule('pedidos')">Ver todos</button></div>
+        ${recent.length?recent.map(o=>{const c=orderClient(o),st=orderStatus(o),ok=paidRe.test(st);return `<div class="ts-recent-order"><div><b>${esc(orderCode(o))}</b><small>${esc(c.name||c.email||'Cliente')} · ${esc(fmtShortDate(o.created_at||o.date))}</small></div><div><span class="ts-status-chip ${ok?'ok':/pago/i.test(st)?'pending':''}">${esc(st)}</span></div><b>${money(orderTotal(o))}</b></div>`}).join(''):'<div class="notice">Todavía no hay pedidos registrados.</div>'}
+      </section>
+      <aside class="ts-admin-panel">
+        <div class="ts-admin-panel-head"><div><h3>Accesos rápidos</h3><small>Operaciones frecuentes</small></div></div>
+        <div class="ts-quick-grid">
+          <button class="ts-quick" onclick="openPosSale()">🧾 Nueva venta<small>Caja / venta presencial</small></button>
+          <button class="ts-quick" onclick="openModule('inventario_real')">📦 Inventario<small>Stock, variantes e historial</small></button>
+          <button class="ts-quick" onclick="openModule('marketing')">📣 Marketing<small>Campañas y segmentos</small></button>
+          <button class="ts-quick" onclick="openModule('clientes')">👥 CRM<small>Clientes, etiquetas y notas</small></button>
+          <button class="ts-quick" onclick="openModule('logistica')">🚚 Logística<small>Guías y entregas</small></button>
+          <button class="ts-quick" onclick="openModule('auditoria')">🛡️ Auditoría<small>Movimientos administrativos</small></button>
+        </div>
+      </aside>
+    </div>
+
+    <div class="ts-admin-insight"><div><small>Estado operativo</small><br><strong>${pendingAttention?`${pendingAttention} asunto(s) requieren atención`:'Todo al día'}</strong></div><div><small>${todayOrders.length} pedidos hoy · ${clients.length} clientes · ${inv.variants} variantes de inventario · ${newClients.length} clientes nuevos en 30 días</small></div></div>
+  </div>`;
  },
  async cuenta(){
    const u=user();
@@ -731,7 +789,7 @@ const views={
 },
  inventario(){$('content').innerHTML=`<div class="section-title"><h2>Inventario</h2><button class="btn ghost" onclick="exportInventoryCSV()">Exportar CSV</button></div><div class="toolbar"><input id="inventorySearch" placeholder="Buscar SKU o producto" oninput="renderInventory()"></div><div id="inventoryBox"></div>`;renderInventory()},
  inventario_real(){
-   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario real + precios</b><small>Supabase es la fuente oficial · consulta, filtra, publica y actualiza existencias desde un solo lugar.</small></div><div class="actions"><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice inv-filter-note" style="margin:12px 0"><span><b>Importación protegida:</b> reservado y vendido nunca se modifican desde Excel.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="inventory-stage">Cargando…</div></div>`;
+   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario visual</b><small>Productos agrupados por categoría, capacidad, color, condición, estado estético y disponibilidad · Supabase sigue siendo la fuente oficial.</small></div><div class="actions"><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice inv-filter-note" style="margin:12px 0"><span><b>Importación protegida:</b> reservado y vendido nunca se modifican desde Excel.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="inventory-stage">Cargando…</div></div>`;
    loadRealInventory();
  },
  configuracion(){$('content').innerHTML=realBar()+`<div class="grid"><div class="module"><b>Supabase</b><small>${window.tsPanelSupabase?'Conectado':'No disponible'}</small></div><div class="module"><b>Admin API</b><small>Protegida con sesión Super Admin</small></div><div class="module"><b>Resend</b><small>Correos transaccionales mediante Netlify Functions</small></div><div class="module"><b>Service Center</b><small>Base independiente y aislada</small></div></div>`},
@@ -1021,6 +1079,7 @@ async function loadProductsCatalog(){
     const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo cargar el catálogo');
     tsCatalogInventoryRows=data.variants||[];
+    tsCosmeticGradeReady=data.cosmetic_grade_ready!==false;
     tsCatalogAdmin=data.catalog_products||[];
     tsCatalogImages=data.catalog_images||[];
     tsCatalogCategories=data.catalog_categories||[];
@@ -1060,9 +1119,14 @@ function renderProducts(){
       <div class="products-store-body"><h3>${esc(p.product_name)}</h3><div class="products-store-meta"><span>${esc(cat)}</span><span>${st.variants} variante${st.variants===1?'':'s'}</span></div>
       <div class="products-stock-row"><b>${st.available}</b> disponible${st.available===1?'':'s'} · ${st.reserved} reservado${st.reserved===1?'':'s'}${price.mixed?' · precios por variante':''}</div>
       <div class="products-store-price"><label>Precio USD<input id="${esc(id)}" type="number" min="0" step="0.01" value="${Number(price.value||0).toFixed(2)}"></label><button class="btn" onclick="saveProductPrice(decodeURIComponent('${encodeURIComponent(p.product_name)}'),'${esc(id)}')">Guardar</button></div>
-      <div class="products-store-actions"><button class="btn ghost" onclick="openCatalogPublisher(decodeURIComponent('${encodeURIComponent(p.product_name)}'))">Editar ficha</button>${st.variants?`<button class="btn ghost" onclick="location.hash='inventario_real';setTimeout(()=>openCatalogPublisher(decodeURIComponent('${encodeURIComponent(p.product_name)}')),350)">Variantes</button>`:''}</div></div>
+      <div class="products-store-actions"><button class="btn ghost" onclick="openProductEditorWindow(decodeURIComponent('${encodeURIComponent(p.product_name)}'))">Editar ficha</button>${st.variants?`<button class="btn ghost" onclick="location.hash='inventario_real';setTimeout(()=>openCatalogPublisher(decodeURIComponent('${encodeURIComponent(p.product_name)}')),350)">Variantes</button>`:''}</div></div>
     </article>`
   }).join('')||'<div class="result">No hay productos en esta categoría.</div>';
+}
+function openProductEditorWindow(productName){
+  const url='producto-editor.html?product='+encodeURIComponent(productName||'');
+  const w=window.open(url,'_blank','noopener');
+  if(!w)alert('El navegador bloqueó la nueva ventana. Permite ventanas emergentes para ThinkStore.');
 }
 async function saveProductPrice(name,inputId){
   const price=Number($(inputId)?.value);
@@ -1122,7 +1186,7 @@ function openNewProduct(){
     <label>Precio USD<input id="npPrice" type="number" min="0" step="0.01" value="0"></label>
     <label>Stock inicial<input id="npStock" type="number" min="0" step="1" value="0"></label>
     <label>SKU <small>(opcional)</small><input id="npSku" placeholder="Se genera automáticamente si lo dejas vacío"></label>
-    <label>Condición<select id="npCondition"><option>Nuevo</option><option>Renovado</option><option>Usado</option></select></label>
+    <label>Condición<select id="npCondition"><option>Nuevo</option><option>Pre-Owned</option><option>Pre-Order</option></select></label>
     <label style="grid-column:1/-1">Descripción<textarea id="npDescription" placeholder="Descripción que verá el cliente"></textarea></label>
     <label style="grid-column:1/-1">Imagen principal <small>(opcional)</small><input id="npImage" type="file" accept="image/jpeg,image/png,image/webp" onchange="previewNewProductImage(this.files?.[0])"></label>
   </div><div id="npImagePreview"></div><div class="actions"><button class="btn" onclick="createNewCatalogProduct()">Crear producto</button></div><div id="npResult"></div></section>`;
@@ -1169,7 +1233,7 @@ function setPanelMenu(open){const layout=$('panelLayout'),toggle=$('menuToggle')
 function togglePanelMenu(){setPanelMenu(!panelMenuOpen())}
 function closePanelMenu(){setPanelMenu(false)}
 function openPanelMenu(){setPanelMenu(true)}
-async function openModule(id,opts={}){if(!can(id))return;window.currentModule=id;document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));const mod=MODULES.find(m=>m.id===id);if(mod){$('heroTitle').textContent=mod.title;$('heroText').textContent=mod.desc}const fn=views[id]||(()=>views.generic(id));await Promise.resolve(fn());refreshKpis();if(opts.fromMenu)closePanelMenu()}
+async function openModule(id,opts={}){if(!can(id))return;window.currentModule=id;document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));const mod=MODULES.find(m=>m.id===id);if(mod){$('heroTitle').textContent=mod.title;$('heroText').textContent=mod.desc}const hero=document.querySelector('.main-card>.hero');if(hero)hero.classList.toggle('admin-dashboard-hero-hidden',id==='dashboard'&&isAdminRole());const fn=views[id]||(()=>views.generic(id));await Promise.resolve(fn());refreshKpis();if(opts.fromMenu)closePanelMenu()}
 let realRefreshTimer=null;
 let tsInventoryImportRows=[];
 let tsCatalogAdmin=[];
@@ -1177,7 +1241,7 @@ let tsCatalogImages=[];
 let tsCatalogCategories=[];
 let tsProductCategory='Todos';
 let cpGalleryDraft=[];
-let tsCatalogInventoryRows=[];
+let tsCatalogInventoryRows=[];let tsCosmeticGradeReady=true;
 async function loadRealInventory(){
   const box=$('inventoryRealBox');if(!box)return;
   try{
@@ -1193,28 +1257,81 @@ async function loadRealInventory(){
 function invCatalogFor(v){return tsCatalogAdmin.find(c=>String(c.product_name||'').toLowerCase()===String(v.product_name||'').toLowerCase())||null}
 function invCategoryFor(v){const cp=invCatalogFor(v);if(cp?.category)return cp.category;const n=String(v.product_name||'');return /repuesto|pantalla|bateria|batería|camara|cámara|flex|tapa trasera|display|modulo|módulo/i.test(n)?'Repuestos':/iphone/i.test(n)?'iPhone':/ipad/i.test(n)?'iPad':/airpod/i.test(n)?'Audio':/watch/i.test(n)?'Apple Watch':/mac/i.test(n)?'Mac':'Accesorios'}
 function invStatusFor(v){const a=Number(v.available||0),min=Number(v.stock_min||0);if(a<=0)return'out';if(a<=min)return'low';return'in'}
+
+let tsInvView='cards',tsInvCategory='',tsInvCondition='',tsInvGrade='',tsInventorySelection={};
+function invNorm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+function invConditionKey(v){const n=invNorm(v);if(/pre.?owned|renovado|reacondicionado|refurbished|renewed/.test(n))return'preowned';if(/pre.?order|preorden/.test(n))return'preorder';if(/nuevo|new/.test(n))return'nuevo';return n}
+function invConditionLabel(v){const k=invConditionKey(v);return k==='preowned'?'Pre-Owned':k==='preorder'?'Pre-Order':k==='nuevo'?'Nuevo':String(v||'—')}
+function shortInventoryCode(v){const raw=String(v?.id||v?.sku||v?.product_name||'').replace(/[^a-zA-Z0-9]/g,'').toUpperCase();if(raw.length>=8)return'TS-'+raw.slice(-8);let h=0;for(const c of String(v?.sku||v?.product_name||''))h=((h<<5)-h+c.charCodeAt(0))|0;return'TS-'+Math.abs(h).toString(36).toUpperCase().padStart(8,'0').slice(-8)}
+function invProductImage(v){const cp=invCatalogFor(v);return cp?.image_url||'assets/logo-thinkstore.png'}
+function setInvCategory(cat){tsInvCategory=decodeURIComponent(cat||'');document.querySelectorAll('.inv-category-tab').forEach(b=>b.classList.toggle('active',(!tsInvCategory&&b.textContent.trim()==='Todos')||b.textContent.trim()===tsInvCategory));filterRealInventory()}
+function setInvCondition(cond){tsInvCondition=tsInvCondition===cond?'':cond;document.querySelectorAll('.inv-filter-pill:not(.grade)').forEach(b=>b.classList.toggle('active',tsInvCondition===invConditionKey(b.textContent)));filterRealInventory()}
+function setInvGrade(grade){tsInvGrade=tsInvGrade===grade?'':grade;document.querySelectorAll('.inv-filter-pill.grade').forEach(b=>b.classList.toggle('active',tsInvGrade===b.textContent.trim()));filterRealInventory()}
+function setInvView(view){tsInvView=view==='table'?'table':'cards';document.querySelectorAll('.inv-view-toggle button').forEach(b=>b.classList.toggle('active',(tsInvView==='cards'&&b.textContent.includes('Visual'))||(tsInvView==='table'&&b.textContent.includes('Compacta'))));filterRealInventory()}
+function invSelectedVariant(group){const id=tsInventorySelection[group[0]?.product_name];return group.find(v=>String(v.id)===String(id))||group[0]}
+function selectInventoryFacet(productEnc,facet,valueEnc){
+  const product=decodeURIComponent(productEnc),value=decodeURIComponent(valueEnc);
+  const group=(tsCatalogInventoryRows||[]).filter(v=>String(v.product_name)===product);
+  if(!group.length)return;
+  const current=invSelectedVariant(group)||group[0];
+  const desired={capacity:current.capacity||'',color:current.color||'',condition:invConditionKey(current.condition),grade:current.cosmetic_grade||''};
+  desired[facet]=facet==='condition'?invConditionKey(value):value;
+  let candidates=group.filter(v=>(facet==='capacity'?String(v.capacity||'')===value:facet==='color'?String(v.color||'')===value:facet==='condition'?invConditionKey(v.condition)===desired.condition:String(v.cosmetic_grade||'')===value));
+  const score=v=>(String(v.capacity||'')===String(desired.capacity))*8+(String(v.color||'')===String(desired.color))*4+(invConditionKey(v.condition)===desired.condition)*2+(String(v.cosmetic_grade||'')===String(desired.grade))*1;
+  candidates=(candidates.length?candidates:group).sort((a,b)=>score(b)-score(a));
+  tsInventorySelection[product]=candidates[0].id;filterRealInventory();
+}
 function renderRealInventoryDashboard(){
   const box=$('inventoryRealBox');if(!box)return;
   const all=tsCatalogInventoryRows||[];
-  const physical=all.reduce((n,v)=>n+Number(v.stock_on_hand||0),0), available=all.reduce((n,v)=>n+Number(v.available||0),0), reserved=all.reduce((n,v)=>n+Number(v.stock_reserved||0),0), sold=all.reduce((n,v)=>n+Number(v.stock_sold||0),0), withStock=all.filter(v=>Number(v.available||0)>0).length;
+  const physical=all.reduce((n,v)=>n+Number(v.stock_on_hand||0),0),available=all.reduce((n,v)=>n+Number(v.available||0),0),reserved=all.reduce((n,v)=>n+Number(v.stock_reserved||0),0),sold=all.reduce((n,v)=>n+Number(v.stock_sold||0),0),withStock=all.filter(v=>Number(v.available||0)>0).length;
   const cats=[...new Set(all.map(invCategoryFor).filter(Boolean))].sort();
-  box.innerHTML=`<div class="inv-summary"><div class="inv-kpi"><small>Stock físico</small><b>${physical}</b></div><div class="inv-kpi good"><small>Disponible ahora</small><b>${available}</b></div><div class="inv-kpi info"><small>Reservado</small><b>${reserved}</b></div><div class="inv-kpi"><small>Vendido</small><b>${sold}</b></div><div class="inv-kpi good"><small>Variantes disponibles</small><b>${withStock}</b></div></div><div class="inv-toolbar"><input id="realInvSearch" placeholder="🔎 Buscar producto, SKU, modelo, color o capacidad" oninput="filterRealInventory()"><select id="realInvStock" onchange="filterRealInventory()"><option value="">Todo el inventario</option><option value="in">En stock</option><option value="low">Stock bajo</option><option value="out">Sin stock</option></select><select id="realInvCategory" onchange="filterRealInventory()"><option value="">Todas las categorías</option>${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</select><select id="realInvPublish" onchange="filterRealInventory()"><option value="">Toda publicación</option><option value="published">Publicado</option><option value="draft">No publicado</option></select></div><div id="realInvCount" class="inv-count"></div><div id="catalogPublishEditor"></div><div id="realInvTable"></div>`;
+  const capacities=[...new Set(all.map(v=>String(v.capacity||'').trim()).filter(Boolean))].sort();
+  const colors=[...new Set(all.map(v=>String(v.color||'').trim()).filter(Boolean))].sort();
+  const low=all.filter(v=>invStatusFor(v)==='low').length,noPrice=all.filter(v=>Number(v.price_usd||0)<=0).length,noImage=all.filter(v=>!invCatalogFor(v)?.image_url).length;
+  box.innerHTML=`<div class="inv-summary"><div class="inv-kpi"><small>Stock físico</small><b>${physical}</b></div><div class="inv-kpi good"><small>Disponible ahora</small><b>${available}</b></div><div class="inv-kpi info"><small>Reservado</small><b>${reserved}</b></div><div class="inv-kpi"><small>Vendido</small><b>${sold}</b></div><div class="inv-kpi good"><small>Variantes disponibles</small><b>${withStock}</b></div></div>
+  <div class="inv-alerts"><button class="inv-alert-card" onclick="$('realInvStock').value='low';filterRealInventory()"><b>${low}</b><small>Variantes con stock bajo</small></button><button class="inv-alert-card" onclick="$('realInvIssue').value='no_price';filterRealInventory()"><b>${noPrice}</b><small>Sin precio definido</small></button><button class="inv-alert-card" onclick="$('realInvIssue').value='no_image';filterRealInventory()"><b>${noImage}</b><small>Sin imagen principal</small></button></div>
+  ${tsCosmeticGradeReady?'':`<div class="notice warn"><b>Estado estético pendiente:</b> ejecuta <code>supabase_v13_57_inventario_visual.sql</code> para guardar Excelente / Bueno / Bien en equipos Pre-Owned. El inventario sigue funcionando mientras tanto.</div>`}
+  <div class="inv-visual-head"><div><div class="inv-facet-label">Categorías</div><div class="inv-category-tabs"><button class="inv-category-tab ${!tsInvCategory?'active':''}" onclick="setInvCategory('')">Todos</button>${cats.map(c=>`<button class="inv-category-tab ${tsInvCategory===c?'active':''}" onclick="setInvCategory('${encodeURIComponent(c)}')">${esc(c)}</button>`).join('')}</div></div><div class="inv-view-toggle"><button class="${tsInvView==='cards'?'active':''}" onclick="setInvView('cards')">▦ Visual</button><button class="${tsInvView==='table'?'active':''}" onclick="setInvView('table')">☷ Compacta</button></div></div>
+  <div class="inv-toolbar"><input id="realInvSearch" placeholder="🔎 Buscar producto, código TS, SKU, modelo, color o capacidad" oninput="filterRealInventory()"><select id="realInvStock" onchange="filterRealInventory()"><option value="">Todo el stock</option><option value="in">En stock</option><option value="low">Stock bajo</option><option value="out">Sin stock</option></select><select id="realInvCapacity" onchange="filterRealInventory()"><option value="">Todas las capacidades</option>${capacities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select><select id="realInvColor" onchange="filterRealInventory()"><option value="">Todos los colores</option>${colors.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select><select id="realInvPublish" onchange="filterRealInventory()"><option value="">Toda publicación</option><option value="published">Publicado</option><option value="draft">No publicado</option></select><select id="realInvIssue" onchange="filterRealInventory()"><option value="">Sin alertas filtradas</option><option value="no_price">Sin precio</option><option value="no_image">Sin imagen</option></select></div>
+  <div style="margin-top:12px"><div class="inv-facet-label">Condición comercial</div><div class="inv-filter-pills"><button class="inv-filter-pill ${tsInvCondition==='nuevo'?'active':''}" onclick="setInvCondition('nuevo')">Nuevo</button><button class="inv-filter-pill ${tsInvCondition==='preowned'?'active':''}" onclick="setInvCondition('preowned')">Pre-Owned</button><button class="inv-filter-pill ${tsInvCondition==='preorder'?'active':''}" onclick="setInvCondition('preorder')">Pre-Order</button></div></div>
+  <div style="margin-top:10px"><div class="inv-facet-label">Estado estético Pre-Owned</div><div class="inv-filter-pills"><button class="inv-filter-pill grade ${tsInvGrade==='Excelente'?'active':''}" onclick="setInvGrade('Excelente')">Excelente</button><button class="inv-filter-pill grade ${tsInvGrade==='Bueno'?'active':''}" onclick="setInvGrade('Bueno')">Bueno</button><button class="inv-filter-pill grade ${tsInvGrade==='Bien'?'active':''}" onclick="setInvGrade('Bien')">Bien</button></div></div>
+  <div id="realInvCount" class="inv-count" style="margin-top:12px"></div><div id="catalogPublishEditor"></div><div id="realInvTable"></div>`;
   filterRealInventory();
 }
 function filterRealInventory(){
-  const q=String(val('realInvSearch')||'').trim().toLowerCase(), stock=val('realInvStock'), cat=val('realInvCategory'), pub=val('realInvPublish');
+  const q=String(val('realInvSearch')||'').trim().toLowerCase(),stock=val('realInvStock'),capacity=val('realInvCapacity'),color=val('realInvColor'),pub=val('realInvPublish'),issue=val('realInvIssue');
   const rows=(tsCatalogInventoryRows||[]).filter(v=>{
-    const cp=invCatalogFor(v), category=invCategoryFor(v), st=invStatusFor(v), text=[v.sku,v.product_name,v.model,v.color,v.capacity,v.condition,v.chip,v.ram,category].filter(Boolean).join(' ').toLowerCase();
-    if(q&&!text.includes(q))return false;if(stock&&st!==stock)return false;if(cat&&category!==cat)return false;if(pub==='published'&&!cp?.published)return false;if(pub==='draft'&&cp?.published)return false;return true;
+    const cp=invCatalogFor(v),category=invCategoryFor(v),st=invStatusFor(v),text=[shortInventoryCode(v),v.sku,v.product_name,v.model,v.color,v.capacity,invConditionLabel(v.condition),v.cosmetic_grade,v.chip,v.ram,category].filter(Boolean).join(' ').toLowerCase();
+    if(q&&!text.includes(q))return false;if(stock&&st!==stock)return false;if(tsInvCategory&&category!==tsInvCategory)return false;if(capacity&&String(v.capacity||'')!==capacity)return false;if(color&&String(v.color||'')!==color)return false;if(tsInvCondition&&invConditionKey(v.condition)!==tsInvCondition)return false;if(tsInvGrade&&String(v.cosmetic_grade||'')!==tsInvGrade)return false;if(pub==='published'&&!cp?.published)return false;if(pub==='draft'&&cp?.published)return false;if(issue==='no_price'&&Number(v.price_usd||0)>0)return false;if(issue==='no_image'&&cp?.image_url)return false;return true;
   });
-  const c=$('realInvCount');if(c)c.textContent=`Mostrando ${rows.length} de ${(tsCatalogInventoryRows||[]).length} variantes`;
-  renderRealInventoryTable(rows);
+  const c=$('realInvCount');if(c)c.textContent=`Mostrando ${rows.length} de ${(tsCatalogInventoryRows||[]).length} variantes · ${new Set(rows.map(v=>v.product_name)).size} productos`;
+  if(tsInvView==='table')renderRealInventoryTable(rows);else renderRealInventoryCards(rows);
+}
+function renderRealInventoryCards(rows){
+  const host=$('realInvTable');if(!host)return;
+  const groups=[...rows.reduce((m,v)=>{const k=String(v.product_name||'Producto');if(!m.has(k))m.set(k,[]);m.get(k).push(v);return m},new Map()).entries()];
+  host.innerHTML=`<div class="inv-product-grid">${groups.map(([name,group])=>{
+    let selected=invSelectedVariant(group);if(!group.includes(selected))selected=group[0];tsInventorySelection[name]=selected.id;
+    const cp=invCatalogFor(selected),st=invStatusFor(selected),statusLabel=st==='out'?'Sin stock':st==='low'?'Stock bajo':'Disponible';
+    const capacities=[...new Set(group.map(v=>String(v.capacity||'').trim()).filter(Boolean))];
+    const colors=[...new Set(group.map(v=>String(v.color||'').trim()).filter(Boolean))];
+    const conditions=[...new Set(group.map(v=>invConditionKey(v.condition)).filter(Boolean))];
+    const grades=[...new Set(group.map(v=>String(v.cosmetic_grade||'').trim()).filter(Boolean))];
+    return `<article class="inv-product-card"><div class="inv-product-top"><img class="inv-product-image" src="${esc(invProductImage(selected))}" onerror="this.src='assets/logo-thinkstore.png'" alt=""><div class="inv-product-title"><small>${esc(invCategoryFor(selected))} · ${group.length} variante(s)</small><h3>${esc(name)}</h3><span class="inv-stock-state ${st}">${statusLabel} · ${Number(selected.available||0)}</span><div class="inv-code-row"><span class="inv-short-code">${esc(shortInventoryCode(selected))}</span>${selected.model?`<span class="inv-model-code">${esc(selected.model)}</span>`:''}${selected.cosmetic_grade?`<span class="inv-grade">${esc(selected.cosmetic_grade)}</span>`:''}</div></div></div>
+    ${capacities.length?`<div class="inv-facet"><div class="inv-facet-label">Capacidad</div><div class="inv-facet-buttons">${capacities.map(x=>`<button class="inv-facet-btn ${String(selected.capacity||'')===x?'active':''}" onclick="selectInventoryFacet('${encodeURIComponent(name)}','capacity','${encodeURIComponent(x)}')">${esc(x)}</button>`).join('')}</div></div>`:''}
+    ${colors.length?`<div class="inv-facet"><div class="inv-facet-label">Color</div><div class="inv-facet-buttons">${colors.map(x=>`<button class="inv-facet-btn ${String(selected.color||'')===x?'active':''}" onclick="selectInventoryFacet('${encodeURIComponent(name)}','color','${encodeURIComponent(x)}')">${esc(x)}</button>`).join('')}</div></div>`:''}
+    ${conditions.length?`<div class="inv-facet"><div class="inv-facet-label">Condición</div><div class="inv-facet-buttons">${conditions.map(x=>`<button class="inv-facet-btn ${invConditionKey(selected.condition)===x?'active':''}" onclick="selectInventoryFacet('${encodeURIComponent(name)}','condition','${encodeURIComponent(x)}')">${esc(invConditionLabel(x))}</button>`).join('')}</div></div>`:''}
+    ${invConditionKey(selected.condition)==='preowned'?`<div class="inv-facet"><div class="inv-facet-label">Estado estético</div>${grades.length?`<div class="inv-facet-buttons">${grades.map(x=>`<button class="inv-facet-btn ${String(selected.cosmetic_grade||'')===x?'active':''}" onclick="selectInventoryFacet('${encodeURIComponent(name)}','grade','${encodeURIComponent(x)}')">${esc(x)}</button>`).join('')}</div>`:`<small class="muted">Sin clasificar · usa Editar para asignar Excelente, Bueno o Bien.</small>`}</div>`:''}
+    <div class="inv-variant-summary"><div><small>Disponible</small><b>${Number(selected.available||0)}</b></div><div><small>Reservado</small><b>${Number(selected.stock_reserved||0)}</b></div><div><small>Vendido</small><b>${Number(selected.stock_sold||0)}</b></div><div><small>Físico</small><b>${Number(selected.stock_on_hand||0)}</b></div><div><small>Precio</small><b>${Number(selected.price_usd||0)>0?money(selected.price_usd):'Por definir'}</b></div><div><small>Publicación</small><b style="font-size:12px">${cp?.published?'Publicado':'Borrador'}</b></div></div>
+    <details class="inv-hidden-sku" style="margin-top:10px"><summary>Identificador técnico</summary><code>SKU: ${esc(selected.sku||'—')} · ID: ${esc(selected.id||'—')}</code></details>
+    <div class="inv-card-actions"><button class="btn ghost" onclick="openCatalogPublisher(decodeURIComponent('${encodeURIComponent(name)}'))">${cp?'Publicación':'Publicar'}</button><button class="btn ghost" onclick="editRealInventoryV1357('${esc(selected.id)}')">Editar</button><button class="btn ghost" onclick="adjustRealInventory('${esc(selected.id)}','${esc(shortInventoryCode(selected))}')">± Stock</button><button class="btn ghost" onclick="openInventoryHistory('${esc(selected.id)}','${esc(shortInventoryCode(selected))}',decodeURIComponent('${encodeURIComponent(name)}'))">Historial</button></div></article>`;
+  }).join('')}</div>${groups.length?'':'<div class="notice">No hay productos que coincidan con los filtros.</div>'}`;
 }
 function renderRealInventoryTable(rows){
   const host=$('realInvTable');if(!host)return;
-  host.innerHTML=`<div class="table-wrap"><table class="table inv-table"><thead><tr><th>Producto</th><th>Variante</th><th>SKU</th><th>Disponible</th><th>Físico</th><th>Reservado</th><th>Vendido</th><th>Precio</th><th>Publicación</th><th>Acciones</th></tr></thead><tbody>${rows.map(v=>{const cp=invCatalogFor(v),a=Number(v.available||0),st=invStatusFor(v),statusLabel=st==='out'?'Sin stock':st==='low'?'Stock bajo':'En stock';return `<tr><td><b>${esc(v.product_name)}</b><br><small class="muted">${esc(invCategoryFor(v))}</small></td><td class="variant-cell">${esc([v.model,v.color,v.capacity,v.condition,v.chip,v.ram].filter(Boolean).join(' · '))}</td><td class="sku-cell">${esc(v.sku)}</td><td><span class="stock-pill ${st}">${statusLabel} · ${a}</span></td><td>${Number(v.stock_on_hand||0)}</td><td class="${Number(v.stock_reserved||0)?'':'inv-zero'}">${Number(v.stock_reserved||0)}</td><td class="${Number(v.stock_sold||0)?'':'inv-zero'}">${Number(v.stock_sold||0)}</td><td><span class="price-pill ${Number(v.price_usd||0)>0?'set':'unset'}">${Number(v.price_usd||0)>0?money(v.price_usd):'Por definir'}</span></td><td>${cp?.published?`<span class="pub-pill on">Publicado · ${esc(cp.category)}</span>`:'<span class="pub-pill off">No publicado</span>'}</td><td><div class="inv-actions"><button class="btn ghost" onclick="openCatalogPublisher(decodeURIComponent('${encodeURIComponent(v.product_name)}'))">${cp?'Publicación':'Publicar'}</button><button class="btn ghost" onclick="editRealInventory('${esc(v.id)}','${esc(v.sku)}',${Number(v.stock_on_hand||0)},${Number(v.stock_min||0)},${v.price_usd==null?'null':Number(v.price_usd)})">Editar</button><button class="btn ghost" onclick="adjustRealInventory('${esc(v.id)}','${esc(v.sku)}')">± Stock</button><button class="btn ghost" onclick="openInventoryHistory('${esc(v.id)}','${esc(v.sku)}',decodeURIComponent('${encodeURIComponent(v.product_name)}'))">Historial</button></div></td></tr>`}).join('')||'<tr><td colspan="10" class="muted">No hay productos que coincidan con los filtros.</td></tr>'}</tbody></table></div>`;
+  host.innerHTML=`<div class="table-wrap"><table class="table inv-table"><thead><tr><th>Producto</th><th>Código</th><th>Variante</th><th>Estado</th><th>Disponible</th><th>Reservado</th><th>Vendido</th><th>Precio</th><th>Acciones</th></tr></thead><tbody>${rows.map(v=>{const a=Number(v.available||0),st=invStatusFor(v),statusLabel=st==='out'?'Sin stock':st==='low'?'Stock bajo':'En stock';return `<tr><td><b>${esc(v.product_name)}</b><br><small>${esc(invCategoryFor(v))}</small></td><td><span class="inv-short-code">${esc(shortInventoryCode(v))}</span><br><small>${esc(v.model||'')}</small></td><td>${esc([v.capacity,v.color,invConditionLabel(v.condition),v.cosmetic_grade].filter(Boolean).join(' · '))}</td><td><span class="stock-pill ${st}">${statusLabel}</span></td><td><b>${a}</b></td><td>${Number(v.stock_reserved||0)}</td><td>${Number(v.stock_sold||0)}</td><td>${Number(v.price_usd||0)>0?money(v.price_usd):'Por definir'}</td><td><div class="inv-actions"><button class="btn ghost" onclick="editRealInventoryV1357('${esc(v.id)}')">Editar</button><button class="btn ghost" onclick="adjustRealInventory('${esc(v.id)}','${esc(shortInventoryCode(v))}')">± Stock</button><button class="btn ghost" onclick="openInventoryHistory('${esc(v.id)}','${esc(shortInventoryCode(v))}',decodeURIComponent('${encodeURIComponent(v.product_name)}'))">Historial</button></div><details class="inv-hidden-sku"><summary>SKU</summary><code>${esc(v.sku||'—')}</code></details></td></tr>`}).join('')||'<tr><td colspan="9">Sin resultados.</td></tr>'}</tbody></table></div>`;
 }
-
 function catalogSlug(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto'}
 function galleryRowsFor(key){return (tsCatalogImages||[]).filter(x=>String(x.product_key||'')===String(key||'')).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0))}
 function cpProductColors(){
@@ -1309,6 +1426,31 @@ async function adjustRealInventory(id,sku){
     await loadRealInventory();alert('Inventario actualizado.');
   }catch(e){alert('Error: '+e.message)}
 }
+async function editRealInventoryV1357(id){
+  const v=(tsCatalogInventoryRows||[]).find(x=>String(x.id)===String(id));if(!v)return alert('Variante no encontrada.');
+  const pre=invConditionKey(v.condition)==='preowned';
+  showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">INVENTARIO</span><h2>${esc(v.product_name||'Producto')}</h2><p class="muted">${esc(shortInventoryCode(v))} · ${esc([v.model,v.capacity,v.color,invConditionLabel(v.condition)].filter(Boolean).join(' · '))}</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div>
+  <div class="client-modal-grid"><label>Stock físico<input id="invEditStock" type="number" min="0" step="1" value="${Number(v.stock_on_hand||0)}"></label><label>Stock mínimo<input id="invEditMin" type="number" min="0" step="1" value="${Number(v.stock_min||0)}"></label><label>Precio USD<input id="invEditPrice" type="number" min="0" step="0.01" value="${Number(v.price_usd||0)}"></label><label>Condición<input value="${esc(invConditionLabel(v.condition))}" disabled></label>${pre?`<label>Estado estético<select id="invEditGrade"><option value="">Sin clasificar</option><option ${v.cosmetic_grade==='Excelente'?'selected':''}>Excelente</option><option ${v.cosmetic_grade==='Bueno'?'selected':''}>Bueno</option><option ${v.cosmetic_grade==='Bien'?'selected':''}>Bien</option></select></label>`:''}<label>Código ThinkStore<input value="${esc(shortInventoryCode(v))}" disabled></label><label class="wide">SKU técnico<input value="${esc(v.sku||'')}" disabled></label></div>
+  <div class="notice"><b>Seguro para relaciones:</b> el SKU técnico y el ID interno no se modifican. El código ${esc(shortInventoryCode(v))} es solo una referencia corta para localizar la variante rápidamente.</div>
+  <div class="actions"><button class="btn blue" onclick="saveRealInventoryV1357('${esc(v.id)}')">Guardar cambios</button><button class="btn ghost" onclick="closeClientModal()">Cancelar</button></div>`);
+}
+async function saveRealInventoryV1357(id){
+  const v=(tsCatalogInventoryRows||[]).find(x=>String(x.id)===String(id));if(!v)return;
+  const stock=Number(val('invEditStock')),min=Number(val('invEditMin')),price=Number(val('invEditPrice'));
+  if(!Number.isInteger(stock)||stock<0||!Number.isInteger(min)||min<0||!Number.isFinite(price)||price<0)return alert('Revisa stock, mínimo y precio.');
+  const payload={action:'set',variant_id:id,stock_on_hand:stock,stock_min:min,price_usd:price};
+  if(invConditionKey(v.condition)==='preowned')payload.cosmetic_grade=val('invEditGrade');
+  try{
+    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify(payload)});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok){
+      if(/cosmetic_grade|schema cache|column/i.test(String(data.error||data.details||'')))throw new Error('Ejecuta supabase_v13_57_inventario_visual.sql para guardar el estado estético.');
+      throw new Error(data.error||'No se pudo guardar');
+    }
+    closeClientModal();await loadRealInventory();alert('Inventario actualizado.');
+  }catch(e){alert('Error: '+e.message)}
+}
 async function editRealInventory(id,sku,currentStock,currentMin,currentPrice){
   const stockText=prompt(`Stock físico para ${sku}:`,String(currentStock)); if(stockText===null)return;
   const minText=prompt('Stock mínimo:',String(currentMin)); if(minText===null)return;
@@ -1336,7 +1478,8 @@ function downloadInventoryExcel(){
         'Modelo':v.model||'',
         'Color':v.color||'',
         'Capacidad':v.capacity||'',
-        'Condición':v.condition||'',
+        'Condición':invConditionLabel(v.condition),
+        'Estado estético':v.cosmetic_grade||'',
         'Chip':v.chip||'',
         'RAM':v.ram||'',
         'Stock físico (EDITAR)':Number(v.stock_on_hand||0),
@@ -1351,7 +1494,7 @@ function downloadInventoryExcel(){
     const wb=XLSX.utils.book_new();
     const ws=XLSX.utils.json_to_sheet(exportRows);
     ws['!cols']=[
-      {wch:42},{wch:16},{wch:24},{wch:34},{wch:18},{wch:18},{wch:16},{wch:18},{wch:16},
+      {wch:42},{wch:16},{wch:24},{wch:34},{wch:18},{wch:18},{wch:16},{wch:18},{wch:16},{wch:18},
       {wch:21},{wch:21},{wch:22},{wch:20},{wch:16},{wch:22},{wch:18}
     ];
     XLSX.utils.book_append_sheet(wb,ws,'Inventario');
@@ -1365,7 +1508,7 @@ function downloadInventoryExcel(){
       ['Vendido',rows.reduce((n,v)=>n+Number(v.stock_sold||0),0)],
       [],
       ['INSTRUCCIONES'],
-      ['Puedes editar SKU, Categoría, Producto, Modelo, Color, Capacidad, Condición, Chip, RAM, Stock físico, Stock mínimo y Precio USD.'],
+      ['Puedes editar SKU, Categoría, Producto, Modelo, Color, Capacidad, Condición, Chip, RAM, Stock físico, Stock mínimo y Precio USD. El estado estético Pre-Owned se administra desde el editor visual para mantener trazabilidad.'],
       ['Reservado, Disponible y Vendido son informativos y nunca se modifican al reimportar el archivo.'],
       ['Para agregar un producto nuevo, crea una fila nueva con un SKU único. Usa Categoría = Accesorios o Repuestos cuando corresponda y Condición = Pre-Order si todavía no hay existencia inmediata.'],
       ['Los productos nuevos importados quedan como BORRADOR y no aparecen en la tienda hasta que agregues imagen, descripción y pulses Publicado desde el editor de Publicación.'],

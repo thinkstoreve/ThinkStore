@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ThinkStore · Editor de producto</title>
+<link rel="icon" href="logo-thinkstore.png">
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--line:#e5e5ea;--text:#111;--muted:#6e6e73;--blue:#0071e3;--good:#027a48;--warn:#b54708;--danger:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;color:var(--text)}
+button,input,select,textarea{font:inherit}.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.88);backdrop-filter:blur(22px);border-bottom:1px solid rgba(0,0,0,.06)}
+.topin{max-width:1500px;margin:auto;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:11px}.brand img{width:34px;height:34px;object-fit:contain}.brand b{font-size:17px}.muted{color:var(--muted)}
+.wrap{max-width:1500px;margin:auto;padding:22px}.hero{background:linear-gradient(135deg,#111,#2b2b31);color:#fff;border-radius:28px;padding:25px 28px;margin-bottom:18px;display:flex;justify-content:space-between;gap:20px;align-items:center}.hero h1{margin:4px 0;font-size:34px;letter-spacing:-1px}.hero p{margin:0;color:#cfcfd5;max-width:820px}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(440px,.95fr);gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 8px 26px rgba(0,0,0,.04)}.card h2,.card h3{margin:0}.head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label,.cap{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;padding:11px 12px;outline:none}.field textarea{resize:vertical;min-height:92px}.field input:focus,.field select:focus,.field textarea:focus{border-color:#9ac7f3;box-shadow:0 0 0 4px rgba(0,113,227,.08)}
+.btn{border:0;border-radius:999px;padding:10px 14px;background:#111;color:#fff;font-weight:800;cursor:pointer}.btn.secondary{background:#fff;color:#111;border:1px solid var(--line)}.btn.blue{background:var(--blue)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.tabs,.pills{display:flex;gap:7px;flex-wrap:wrap}.pill{border:1px solid var(--line);background:#fafafa;border-radius:999px;padding:8px 11px;font-weight:750;cursor:pointer;font-size:12px}.pill.active{background:#111;color:#fff;border-color:#111}
+.variant-list{display:grid;gap:10px;max-height:650px;overflow:auto;padding-right:4px}.variant{border:1px solid var(--line);border-radius:16px;padding:13px;background:#fff;cursor:pointer}.variant.active{border-color:#111;box-shadow:0 0 0 2px #111 inset}.variant-top{display:flex;justify-content:space-between;gap:10px}.variant small{display:block;color:var(--muted);margin-top:4px}
+.previewbox{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:center}.product-stage{height:220px;border:1px solid var(--line);border-radius:22px;background:
+linear-gradient(45deg,#f2f2f4 25%,transparent 25%),linear-gradient(-45deg,#f2f2f4 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#f2f2f4 75%),linear-gradient(-45deg,transparent 75%,#f2f2f4 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;display:grid;place-items:center;overflow:hidden}.product-stage img{width:100%;height:100%;object-fit:contain;padding:12px}
+.upload{border:1px dashed #c7c7cc;border-radius:18px;padding:14px;background:#fafafa}.upload input{width:100%}.check{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px}.check input{width:auto}
+.color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}.color-card{border:1px solid var(--line);border-radius:15px;padding:10px;background:#fff}.color-card b{font-size:13px}.color-card small{display:block;color:var(--muted);margin-top:3px}.swatch{width:16px;height:16px;border-radius:50%;display:inline-block;vertical-align:-3px;margin-right:5px;border:1px solid rgba(0,0,0,.14)}
+.note{border-radius:14px;padding:11px 13px;background:#f6f7f9;color:#333;font-size:13px}.note.warn{background:#fff7e8;color:#8a4b00}.note.good{background:#ecfdf3;color:#027a48}.status{margin-top:10px}
+.store-preview{border:1px solid var(--line);border-radius:22px;padding:18px;background:#fff}.store-preview-inner{max-width:380px;margin:auto}.store-preview img{width:100%;height:280px;object-fit:contain;border-radius:18px;background:#fafafa}.store-preview h3{font-size:24px;margin:12px 0 4px}.store-preview .price{font-size:21px;font-weight:850}.tiny{font-size:11px;color:var(--muted);line-height:1.45}.grade-detail{font-size:11px;color:#515154;line-height:1.45;background:#f7f7f8;border-radius:12px;padding:9px 10px;margin-top:8px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spacer{height:16px}
+@media(max-width:1050px){.grid{grid-template-columns:1fr}.previewbox{grid-template-columns:180px 1fr}}@media(max-width:650px){.wrap{padding:12px}.hero{padding:20px;align-items:flex-start;flex-direction:column}.fields{grid-template-columns:1fr}.previewbox{grid-template-columns:1fr}.product-stage{height:260px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="topin"><div class="brand"><img src="logo-thinkstore.png"><div><b>ThinkStore</b><div class="muted" style="font-size:12px">Editor de producto</div></div></div><div class="row"><button class="btn secondary" onclick="location.reload()">Actualizar</button><button class="btn" onclick="window.close()">Cerrar</button></div></div></header>
+<main class="wrap">
+<section class="hero"><div><small>CATÁLOGO + INVENTARIO</small><h1 id="title">Cargando producto…</h1><p>Edita la ficha, imágenes por color y las variantes reales sin alterar los SKU técnicos ni las relaciones existentes.</p></div><div id="syncState" class="muted">Conectando…</div></section>
+
+<div class="grid">
+<div>
+<section class="card">
+<div class="head"><div><h2>Ficha del catálogo</h2><div class="muted">Nombre, categoría, descripción y publicación</div></div></div>
+<div class="fields">
+<div class="field"><label>Nombre</label><input id="name" readonly></div>
+<div class="field"><label>Categoría</label><select id="category"></select></div>
+<div class="field"><label>Orden</label><input id="sort" type="number"></div>
+<div class="field"><label>Visibilidad</label><select id="published"><option value="false">Borrador / oculto</option><option value="true">Publicado</option></select></div>
+<div class="field full"><label>Descripción corta</label><textarea id="description"></textarea></div>
+</div>
+<div class="actions"><button class="btn blue" onclick="saveCatalog()">Guardar ficha</button></div><div id="catalogStatus" class="status"></div>
+</section>
+
+<div class="spacer"></div>
+<section class="card">
+<div class="head"><div><h2>Variantes</h2><div class="muted">Selecciona modelo, capacidad, color y condición</div></div><span id="variantCount" class="muted"></span></div>
+<div class="cap">Capacidades</div><div id="capacityPills" class="pills"></div>
+<div class="spacer"></div><div class="cap">Colores</div><div id="colorPills" class="pills"></div>
+<div class="spacer"></div><div class="cap">Condición</div><div id="conditionPills" class="pills"></div>
+<div class="spacer"></div><div id="variantList" class="variant-list"></div>
+</section>
+
+<div class="spacer"></div>
+<section class="card">
+<div class="head"><div><h2>Editar variante seleccionada</h2><div class="muted">Stock, precio y estado Pre-Owned</div></div><span id="variantCode" class="muted"></span></div>
+<div class="fields">
+<div class="field"><label>Modelo</label><input id="vModel" disabled></div>
+<div class="field"><label>Capacidad</label><input id="vCapacity" disabled></div>
+<div class="field"><label>Color</label><input id="vColor" disabled></div>
+<div class="field"><label>Condición</label><input id="vCondition" disabled></div>
+<div class="field"><label>Stock físico</label><input id="vStock" type="number" min="0"></div>
+<div class="field"><label>Stock mínimo</label><input id="vMin" type="number" min="0"></div>
+<div class="field"><label>Precio USD</label><input id="vPrice" type="number" min="0" step=".01"></div>
+<div class="field" id="gradeField"><label>Estado estético</label><select id="vGrade" onchange="syncGradeNote()"><option value="">Sin clasificar</option><option>Excelente</option><option>Bueno</option><option>Bien</option></select></div>
+<div class="field" id="batteryField"><label>Salud de batería %</label><input id="vBattery" type="number" min="0" max="100" placeholder="Ej. 91"></div>
+<div class="field full" id="noteField"><label>Detalle corto automático</label><textarea id="vNote" readonly></textarea></div>
+</div>
+<div class="actions"><button class="btn blue" onclick="saveVariant()">Guardar variante</button><button class="btn secondary" onclick="copyVariantCode()">Copiar código</button></div>
+<div id="variantStatus" class="status"></div>
+</section>
+</div>
+
+<div>
+<section class="card">
+<div class="head"><div><h2>Imágenes del catálogo</h2><div class="muted">Portada general + una imagen por color</div></div></div>
+<div class="previewbox">
+<div class="product-stage"><img id="imagePreview" src="logo-thinkstore.png"></div>
+<div class="upload">
+<b>Subir imagen</b><p class="tiny">Se ajustará automáticamente a un cuadro 1400×1400. La mejora automática centra el producto y optimiza el archivo. El modo transparente elimina fondos claros conectados al borde de la fotografía.</p>
+<input id="imageFile" type="file" accept="image/jpeg,image/png,image/webp">
+<label class="check"><input id="autoEnhance" type="checkbox" checked> Ajuste y mejora automática</label>
+<label class="check"><input id="transparentBg" type="checkbox" checked> Intentar fondo transparente</label>
+<div class="field" style="margin-top:10px"><label>Asignar a color</label><select id="imageColor"></select></div>
+<div class="actions"><button class="btn" onclick="processImage()">Preparar imagen</button><button id="uploadBtn" class="btn blue" onclick="uploadPreparedImage()" disabled>Subir y aplicar</button></div>
+</div>
+</div>
+<div id="imageStatus" class="status"></div>
+<div class="spacer"></div><div class="cap">Colores predefinidos del modelo</div><div id="predefinedColors" class="color-grid"></div>
+<div class="spacer"></div><div class="cap">Galería actual</div><div id="gallery" class="color-grid"></div>
+</section>
+
+<div class="spacer"></div>
+<section class="card">
+<div class="head"><div><h2>Vista previa de publicación</h2><div class="muted">Así se verá la ficha resumida antes de publicar</div></div></div>
+<div class="store-preview"><div class="store-preview-inner"><img id="storeImg" src="logo-thinkstore.png"><div class="muted" id="storeCat">ThinkStore</div><h3 id="storeName">Producto</h3><div class="price" id="storePrice">Por definir</div><div class="pills" id="storeMeta"></div><div id="storeGrade" class="grade-detail" style="display:none"></div><p class="tiny" id="storeDesc"></p></div></div>
+</section>
+</div>
+</div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="data.js"></script>
+<script>
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const productName=new URLSearchParams(location.search).get('product')||'';
+let state={variants:[],catalog:null,images:[],categories:[],selected:null,prepared:null,preparedColor:'',batteryReady:true};
+let client=null;
+
+function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+function conditionKey(v){const n=norm(v);if(/pre.?owned|renovado|reacondicionado|refurbished|renewed/.test(n))return'preowned';if(/pre.?order|preorden/.test(n))return'preorder';if(/nuevo|new/.test(n))return'nuevo';return n}
+function conditionLabel(v){const k=conditionKey(v);return k==='preowned'?'Pre-Owned':k==='preorder'?'Pre-Order':k==='nuevo'?'Nuevo':String(v||'—')}
+function code(v){const raw=String(v?.id||v?.sku||'').replace(/[^a-zA-Z0-9]/g,'').toUpperCase();return'TS-'+(raw.length>=8?raw.slice(-8):raw.padStart(8,'0'))}
+function gradeText(g,b){
+  const battery=Number.isFinite(Number(b))&&String(b)!==''?` Batería ${Number(b)}%.`:'';
+  if(g==='Excelente')return`Excelente estado estético: mínimos o imperceptibles signos de uso, estructura y acabado muy bien conservados.${battery}`;
+  if(g==='Bueno')return`Buen estado estético: signos leves de uso visibles de cerca, sin afectar el funcionamiento ni la experiencia diaria.${battery}`;
+  if(g==='Bien')return`Estado estético funcional y cuidado: puede presentar marcas de uso más visibles, sin comprometer su funcionamiento.${battery}`;
+  return battery?`Equipo Pre-Owned.${battery}`:'';
+}
+function currentDataProduct(){
+  try{const list=(typeof PRODUCTS!=='undefined'&&Array.isArray(PRODUCTS))?PRODUCTS:[];return list.find(p=>norm(p.name)===norm(productName)||norm(p.model)===norm(productName))||null}catch{return null}
+}
+function predefinedColors(){
+  const p=currentDataProduct(), fromData=p?.colors?Object.keys(p.colors):[];
+  const fromInv=state.variants.map(v=>v.color).filter(Boolean);
+  return [...new Set([...fromData,...fromInv])];
+}
+function colorHex(name){
+ const n=norm(name),m=[['negro','#202124'],['blanco','#f5f5f5'],['plata','#c8c9cc'],['natural','#c7b8a4'],['desert','#c79062'],['naranja','#ef7a21'],['azul','#6c8fb3'],['verde','#98ad93'],['rosa','#e7b8c3'],['púrpura','#8f78ad'],['purpura','#8f78ad'],['morado','#8f78ad'],['rojo','#c94b4b'],['amarillo','#e8ce68'],['titanio','#aaa49c']];return (m.find(([k])=>n.includes(k))||[])[1]||'#d6d6d8';
+}
+async function authHeaders(){
+  if(!client)throw new Error('Supabase no disponible.');
+  const {data}=await client.auth.getSession();const token=data?.session?.access_token;
+  if(!token)throw new Error('Tu sesión administrativa expiró. Vuelve a iniciar sesión.');
+  return {'Content-Type':'application/json',Authorization:`Bearer ${token}`};
+}
+async function boot(){
+  $('title').textContent=productName||'Producto';
+  const cfg=window.THINKSTORE_SUPABASE||{};
+  client=(window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY)?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
+  if(!productName)return fail('No se recibió el producto.');
+  await load();
+}
+async function load(){
+  try{
+    $('syncState').textContent='Sincronizando…';
+    const r=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),d=await r.json();
+    if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo cargar inventario.');
+    state.variants=(d.variants||[]).filter(v=>norm(v.product_name)===norm(productName));
+    state.catalog=(d.catalog_products||[]).find(v=>norm(v.product_name)===norm(productName))||{};
+    state.images=(d.catalog_images||[]).filter(v=>String(v.product_key||'')===String(state.catalog.product_key||slug(productName)));
+    state.categories=d.catalog_categories||[];state.batteryReady=d.battery_health_ready!==false;
+    state.selected=state.variants[0]||null;
+    renderAll();$('syncState').textContent='Datos reales · actualizado';
+  }catch(e){fail(e.message)}
+}
+function fail(msg){$('syncState').textContent='Error';alert(msg)}
+function slug(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto'}
+function renderAll(){
+  const c=state.catalog||{};
+  $('name').value=productName;$('description').value=c.description||'';$('sort').value=Number(c.sort_order||1000);$('published').value=String(!!c.published);
+  const cats=(state.categories||[]).filter(x=>x.active!==false).map(x=>x.name);if(c.category&&!cats.includes(c.category))cats.push(c.category);
+  $('category').innerHTML=cats.map(x=>`<option ${x===c.category?'selected':''}>${esc(x)}</option>`).join('');
+  renderFilters();renderVariants();renderSelected();renderColors();renderGallery();renderStorePreview();
+}
+function renderFilters(){
+ const capacities=[...new Set(state.variants.map(v=>v.capacity).filter(Boolean))],colors=predefinedColors(),conditions=[...new Set(state.variants.map(v=>conditionKey(v.condition)).filter(Boolean))];
+ $('capacityPills').innerHTML=capacities.map(x=>`<button class="pill" onclick="filterVariant('capacity','${encodeURIComponent(x)}',this)">${esc(x)}</button>`).join('')||'<span class="tiny">Sin capacidades registradas.</span>';
+ $('colorPills').innerHTML=colors.map(x=>`<button class="pill" onclick="filterVariant('color','${encodeURIComponent(x)}',this)">${esc(x)}</button>`).join('')||'<span class="tiny">Sin colores.</span>';
+ $('conditionPills').innerHTML=conditions.map(x=>`<button class="pill" onclick="filterVariant('condition','${encodeURIComponent(x)}',this)">${esc(conditionLabel(x))}</button>`).join('');
+ $('variantCount').textContent=state.variants.length+' variantes';
+}
+function filterVariant(field,encoded,btn){
+ const value=decodeURIComponent(encoded);document.querySelectorAll(btn.parentElement=== $('capacityPills')?'#capacityPills .pill':btn.parentElement=== $('colorPills')?'#colorPills .pill':'#conditionPills .pill').forEach(x=>x.classList.remove('active'));btn.classList.add('active');
+ const candidates=state.variants.filter(v=>field==='condition'?conditionKey(v.condition)===value:String(v[field]||'')===value);if(candidates.length){state.selected=candidates[0];renderVariants();renderSelected();renderStorePreview()}
+}
+function renderVariants(){
+ $('variantList').innerHTML=state.variants.map(v=>`<div class="variant ${state.selected&&String(state.selected.id)===String(v.id)?'active':''}" onclick="selectVariant('${esc(v.id)}')"><div class="variant-top"><b>${esc([v.capacity,v.color,conditionLabel(v.condition)].filter(Boolean).join(' · '))}</b><span>${esc(code(v))}</span></div><small>${esc(v.model||productName)} · Disponible ${Number(v.available||0)} · ${Number(v.price_usd||0)>0?'$'+Number(v.price_usd).toLocaleString('en-US'):'Precio por definir'}</small></div>`).join('')||'<div class="note warn">Este producto todavía no tiene variantes de inventario.</div>';
+}
+function selectVariant(id){state.selected=state.variants.find(v=>String(v.id)===String(id))||state.selected;renderVariants();renderSelected();renderStorePreview()}
+function renderSelected(){
+ const v=state.selected;if(!v){['vModel','vCapacity','vColor','vCondition','vStock','vMin','vPrice','vBattery','vNote'].forEach(id=>$(id).value='');return}
+ $('variantCode').textContent=code(v);$('vModel').value=v.model||productName;$('vCapacity').value=v.capacity||'';$('vColor').value=v.color||'';$('vCondition').value=conditionLabel(v.condition);$('vStock').value=Number(v.stock_on_hand||0);$('vMin').value=Number(v.stock_min||0);$('vPrice').value=Number(v.price_usd||0);$('vGrade').value=v.cosmetic_grade||'';$('vBattery').value=v.battery_health_pct??'';
+ const pre=conditionKey(v.condition)==='preowned';['gradeField','batteryField','noteField'].forEach(id=>$(id).style.display=pre?'flex':'none');syncGradeNote();
+ if(pre&&!state.batteryReady)$('variantStatus').innerHTML='<div class="note warn">Ejecuta <b>supabase_v13_59_editor_productos.sql</b> para guardar salud de batería y detalle automático.</div>';else $('variantStatus').innerHTML='';
+}
+function syncGradeNote(){const g=$('vGrade').value,b=$('vBattery').value;$('vNote').value=gradeText(g,b);renderStorePreview()}
+async function saveVariant(){
+ const v=state.selected;if(!v)return;
+ const stock=Number($('vStock').value),min=Number($('vMin').value),price=Number($('vPrice').value);
+ if(!Number.isInteger(stock)||stock<0||!Number.isInteger(min)||min<0||!Number.isFinite(price)||price<0)return alert('Revisa stock, mínimo y precio.');
+ const payload={action:'set',variant_id:v.id,stock_on_hand:stock,stock_min:min,price_usd:price};
+ if(conditionKey(v.condition)==='preowned'){payload.cosmetic_grade=$('vGrade').value;payload.battery_health_pct=$('vBattery').value;payload.cosmetic_note=$('vNote').value}
+ try{
+  $('variantStatus').innerHTML='<div class="note">Guardando…</div>';const headers=await authHeaders();const r=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo guardar.');
+  $('variantStatus').innerHTML='<div class="note good">Variante actualizada ✅</div>';await load();
+ }catch(e){$('variantStatus').innerHTML='<div class="note warn">'+esc(e.message)+'</div>'}
+}
+function copyVariantCode(){if(!state.selected)return;navigator.clipboard.writeText(code(state.selected));$('variantStatus').innerHTML='<div class="note good">Código copiado.</div>'}
+async function saveCatalog(){
+ try{
+  const headers=await authHeaders(),key=state.catalog.product_key||slug(productName),payload={action:'save_catalog_product',product_key:key,product_name:productName,category:$('category').value,description:$('description').value,image_url:mainImage(),published:$('published').value==='true',sort_order:Number($('sort').value||1000)};
+  if(payload.published&&!payload.image_url)throw new Error('Sube al menos una imagen antes de publicar.');
+  $('catalogStatus').innerHTML='<div class="note">Guardando…</div>';const r=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify(payload)}),d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo guardar.');
+  $('catalogStatus').innerHTML='<div class="note good">Ficha actualizada ✅</div>';await load();
+ }catch(e){$('catalogStatus').innerHTML='<div class="note warn">'+esc(e.message)+'</div>'}
+}
+function mainImage(){const p=state.images.find(x=>x.is_primary)||state.images[0];return p?.image_url||state.catalog?.image_url||null}
+function renderColors(){
+ const colors=predefinedColors();$('predefinedColors').innerHTML=colors.map(c=>`<div class="color-card"><b><span class="swatch" style="background:${colorHex(c)}"></span>${esc(c)}</b><small>${state.variants.filter(v=>v.color===c).length} variante(s)</small></div>`).join('');
+ $('imageColor').innerHTML='<option value="">Portada general</option>'+colors.map(c=>`<option>${esc(c)}</option>`).join('');
+}
+function imageColorForIndex(i){
+ const colors=predefinedColors(),offset=state.images.length>colors.length?1:0;return i>=offset?colors[i-offset]:'';
+}
+function renderGallery(){
+ $('gallery').innerHTML=state.images.map((x,i)=>{const c=imageColorForIndex(i);return`<div class="color-card"><img src="${esc(x.image_url)}" style="width:100%;height:120px;object-fit:contain;border-radius:10px;background:#fafafa"><b>${x.is_primary?'⭐ Portada':c?esc(c):'Imagen'}</b><small>${c?'Asignada por orden al color':''}</small></div>`}).join('')||'<div class="tiny">Sin imágenes guardadas.</div>';
+ const img=mainImage();if(img)$('imagePreview').src=img;
+}
+let preparedBlob=null,preparedUrl='';
+async function processImage(){
+ const file=$('imageFile').files?.[0];if(!file)return alert('Selecciona una imagen.');
+ try{
+  $('imageStatus').innerHTML='<div class="note">Procesando imagen…</div>';const bitmap=await createImageBitmap(file),size=1400,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.clearRect(0,0,size,size);
+  const pad=110,scale=Math.min((size-pad*2)/bitmap.width,(size-pad*2)/bitmap.height,1.8),w=Math.round(bitmap.width*scale),h=Math.round(bitmap.height*scale),x=Math.round((size-w)/2),y=Math.round((size-h)/2);
+  if(!$('transparentBg').checked){ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size)}
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(bitmap,x,y,w,h);
+  if($('transparentBg').checked)removeLightEdgeBackground(ctx,size,size);
+  if($('autoEnhance').checked){const id=ctx.getImageData(0,0,size,size),d=id.data;for(let i=0;i<d.length;i+=4){if(d[i+3]===0)continue;for(let c=0;c<3;c++){let v=d[i+c]/255;v=(v-.5)*1.045+.5;v=Math.pow(Math.max(0,Math.min(1,v)),.985);d[i+c]=Math.max(0,Math.min(255,Math.round(v*255)))}}ctx.putImageData(id,0,0)}
+  preparedBlob=await new Promise(res=>canvas.toBlob(res,'image/webp',.92));if(!preparedBlob)throw new Error('No se pudo optimizar la imagen.');if(preparedBlob.size>4*1024*1024)throw new Error('La imagen resultante supera 4 MB. Usa una foto de menor resolución.');
+  preparedUrl=URL.createObjectURL(preparedBlob);$('imagePreview').src=preparedUrl;$('uploadBtn').disabled=false;
+  $('imageStatus').innerHTML='<div class="note good">Imagen preparada ✅ '+Math.round(preparedBlob.size/1024)+' KB · 1400×1400 · WEBP'+($('transparentBg').checked?' · transparencia conservada cuando fue detectable':'')+'</div>';
+ }catch(e){$('imageStatus').innerHTML='<div class="note warn">'+esc(e.message)+'</div>'}
+}
+function removeLightEdgeBackground(ctx,w,h){
+ const id=ctx.getImageData(0,0,w,h),d=id.data,seen=new Uint8Array(w*h),q=new Int32Array(w*h),near=i=>{const o=i*4,r=d[o],g=d[o+1],b=d[o+2],max=Math.max(r,g,b),min=Math.min(r,g,b);return d[o+3]>0&&max>225&&min>210&&(max-min)<30},push=i=>{if(i<0||i>=w*h||seen[i]||!near(i))return;seen[i]=1;q[tail++]=i};let head=0,tail=0;
+ for(let x=0;x<w;x++){push(x);push((h-1)*w+x)}for(let y=0;y<h;y++){push(y*w);push(y*w+w-1)}
+ while(head<tail){const i=q[head++],x=i%w,y=(i/w)|0;if(x>0)push(i-1);if(x<w-1)push(i+1);if(y>0)push(i-w);if(y<h-1)push(i+w)}
+ for(let i=0;i<seen.length;i++)if(seen[i])d[i*4+3]=0;ctx.putImageData(id,0,0)
+}
+async function blobBase64(blob){return await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob)})}
+async function uploadPreparedImage(){
+ if(!preparedBlob)return;
+ try{
+  const headers=await authHeaders(),key=state.catalog.product_key||slug(productName),color=$('imageColor').value;$('imageStatus').innerHTML='<div class="note">Subiendo a Cloudflare R2…</div>';
+  const base64=await blobBase64(preparedBlob),mime=preparedBlob.type||'image/png';const r=await fetch('/.netlify/functions/catalog-image',{method:'POST',headers,body:JSON.stringify({product_key:key,product_name:productName,mime,base64})}),d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo subir.');
+  const colors=predefinedColors();let images=state.images.map(x=>({image_url:x.image_url,storage_path:x.storage_path||null,is_primary:!!x.is_primary}));
+  if(color){
+    let idx=colors.indexOf(color)+(images.length>colors.length?1:0);while(images.length<=idx)images.push(null);images[idx]={image_url:d.image_url,storage_path:d.path||null,is_primary:false};images=images.filter(Boolean);
+  }else{
+    images=images.filter(x=>!x.is_primary);images.unshift({image_url:d.image_url,storage_path:d.path||null,is_primary:true});
+  }
+  if(images.length&&!images.some(x=>x.is_primary))images[0].is_primary=true;
+  const gr=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_gallery',product_key:key,images:images.map((x,i)=>({...x,sort_order:i}))})}),gd=await gr.json();if(!gr.ok||!gd.ok)throw new Error(gd.error||'No se pudo guardar galería.');
+  const principal=(images.find(x=>x.is_primary)||images[0])?.image_url||null;await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_product',product_key:key,product_name:productName,category:$('category').value,description:$('description').value,image_url:principal,published:$('published').value==='true',sort_order:Number($('sort').value||1000)})});
+  $('imageStatus').innerHTML='<div class="note good">Imagen aplicada al catálogo ✅'+(color?' · '+esc(color):' · portada general')+'</div>';preparedBlob=null;$('uploadBtn').disabled=true;await load();
+ }catch(e){$('imageStatus').innerHTML='<div class="note warn">'+esc(e.message)+'</div>'}
+}
+function renderStorePreview(){
+ const v=state.selected,c=state.catalog||{},img=mainImage();$('storeImg').src=img||'logo-thinkstore.png';$('storeCat').textContent=c.category||'ThinkStore';$('storeName').textContent=productName;$('storePrice').textContent=v&&Number(v.price_usd||0)>0?'$'+Number(v.price_usd).toLocaleString('en-US'):'Por definir';$('storeDesc').textContent=$('description')?.value||c.description||'';
+ $('storeMeta').innerHTML=v?[v.capacity,v.color,conditionLabel(v.condition)].filter(Boolean).map(x=>`<span class="pill">${esc(x)}</span>`).join(''):'';
+ const pre=v&&conditionKey(v.condition)==='preowned',g=$('vGrade')?.value||v?.cosmetic_grade||'',b=$('vBattery')?.value??v?.battery_health_pct??'',txt=gradeText(g,b);$('storeGrade').style.display=pre&&txt?'block':'none';$('storeGrade').textContent=txt;
+}
+document.addEventListener('input',e=>{if(['description','vBattery'].includes(e.target.id)){if(e.target.id==='vBattery')syncGradeNote();renderStorePreview()}});
+boot();
+</script>
+</body></html>

@@ -18,8 +18,22 @@ exports.handler=async(event)=>{
   if(event.httpMethod==='GET'){
     const q=event.queryStringParameters||{};
     const sku=q.sku?`&sku=eq.${encodeURIComponent(q.sku)}`:'';
-    const rr=await fetch(`${url}/rest/v1/inventory_variants?select=id,sku,product_name,model,color,capacity,condition,chip,ram,stock_on_hand,stock_reserved,stock_sold,stock_min,price_usd,active&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
-    const rows=await rr.json().catch(()=>[]);
+    const baseSelect='id,sku,product_name,model,color,capacity,condition,chip,ram,stock_on_hand,stock_reserved,stock_sold,stock_min,price_usd,active';
+    let rr=await fetch(`${url}/rest/v1/inventory_variants?select=${baseSelect},cosmetic_grade,battery_health_pct,cosmetic_note&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
+    let rows=await rr.json().catch(()=>[]);
+    let cosmeticGradeReady=true,batteryHealthReady=true;
+    if(!rr.ok&&/cosmetic_grade|battery_health_pct|cosmetic_note|schema cache|column/i.test(String(rows?.message||rows?.details||rows?.hint||''))){
+      const detail=String(rows?.message||rows?.details||rows?.hint||'');
+      if(/cosmetic_grade/i.test(detail))cosmeticGradeReady=false;
+      if(/battery_health_pct|cosmetic_note/i.test(detail))batteryHealthReady=false;
+      rr=await fetch(`${url}/rest/v1/inventory_variants?select=${baseSelect},cosmetic_grade&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
+      rows=await rr.json().catch(()=>[]);
+      if(!rr.ok&&/cosmetic_grade|schema cache|column/i.test(String(rows?.message||rows?.details||rows?.hint||''))){
+        cosmeticGradeReady=false;
+        rr=await fetch(`${url}/rest/v1/inventory_variants?select=${baseSelect}&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
+        rows=await rr.json().catch(()=>[]);
+      }
+    }
     if(!rr.ok){const detail=String(rows?.message||rows?.details||rows?.hint||'').slice(0,240);return r(rr.status,{ok:false,error:'No se pudo consultar inventario'+(detail?': '+detail:'')});}
     let catalog=[],catalogImages=[],catalogCategories=DEFAULT_CATEGORIES.map((x,i)=>({id:`default-${i}`,...x,is_default:true}));
     try{
@@ -33,7 +47,7 @@ exports.handler=async(event)=>{
         if(Array.isArray(loaded)&&loaded.length)catalogCategories=loaded;
       }
     }catch(_e){}
-    return r(200,{ok:true,variants:rows.map(v=>({...v,available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
+    return r(200,{ok:true,cosmetic_grade_ready:cosmeticGradeReady,battery_health_ready:batteryHealthReady,variants:rows.map(v=>({...v,cosmetic_grade:v.cosmetic_grade||'',battery_health_pct:v.battery_health_pct??null,cosmetic_note:v.cosmetic_note||'',available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
   }
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const auth=await authorizeAdmin(event,url,service);
@@ -66,15 +80,29 @@ exports.handler=async(event)=>{
     if(body.stock_on_hand!==undefined&&body.stock_on_hand!==null){const n=Number(body.stock_on_hand);if(!Number.isInteger(n)||n<0)return r(400,{ok:false,error:'Stock físico inválido'});if(n<Number(v.stock_reserved||0))return r(409,{ok:false,error:'Stock físico menor que el stock reservado'});patch.stock_on_hand=n;}
     if(body.stock_min!==undefined&&body.stock_min!==null){const n=Number(body.stock_min);if(!Number.isInteger(n)||n<0)return r(400,{ok:false,error:'Stock mínimo inválido'});patch.stock_min=n;}
     if(body.price_usd!==undefined&&body.price_usd!==null){const n=Number(body.price_usd);if(!Number.isFinite(n)||n<0)return r(400,{ok:false,error:'Precio inválido'});patch.price_usd=Math.round(n*100)/100;}
+    if(body.cosmetic_grade!==undefined){
+      const g=String(body.cosmetic_grade||'').trim();
+      if(g&&!['Excelente','Bueno','Bien'].includes(g))return r(400,{ok:false,error:'Estado estético inválido'});
+      patch.cosmetic_grade=g||null;
+    }
+    if(body.battery_health_pct!==undefined){
+      const raw=body.battery_health_pct;
+      if(raw===null||raw==='')patch.battery_health_pct=null;
+      else{const n=Number(raw);if(!Number.isInteger(n)||n<0||n>100)return r(400,{ok:false,error:'La salud de batería debe estar entre 0 y 100'});patch.battery_health_pct=n;}
+    }
+    if(body.cosmetic_note!==undefined){
+      const note=String(body.cosmetic_note||'').trim();
+      patch.cosmetic_note=note?note.slice(0,240):null;
+    }
     if(!Object.keys(patch).length)return r(400,{ok:false,error:'No hay cambios para guardar'});
     const ur=await fetch(`${url}/rest/v1/inventory_variants?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify(patch)});
-    const updated=await ur.json().catch(()=>[]);if(!ur.ok)return r(ur.status,{ok:false,error:'No se pudo actualizar',details:updated});
+    const updated=await ur.json().catch(()=>[]);if(!ur.ok){const msg=String(updated?.message||updated?.details||updated?.hint||JSON.stringify(updated||{}));if(/cosmetic_grade|battery_health_pct|cosmetic_note|schema cache|column/i.test(msg))return r(409,{ok:false,migration_required:true,error:'Ejecuta supabase_v13_59_editor_productos.sql para guardar el estado estético y la batería Pre-Owned.',details:updated});return r(ur.status,{ok:false,error:'No se pudo actualizar',details:updated});}
     const after=updated[0]||{...v,...patch};
     if(patch.stock_on_hand!==undefined&&Number(patch.stock_on_hand)!==Number(v.stock_on_hand||0)){
       const delta=Number(patch.stock_on_hand)-Number(v.stock_on_hand||0);
       try{await fetch(`${url}/rest/v1/inventory_movements`,{method:'POST',headers:sh,body:JSON.stringify({variant_id:id,movement_type:'manual_set',quantity:delta,note:String(body.note||'Edición manual de inventario'),actor_user_id:auth.user_id||null,actor_email:auth.email||null,metadata:{sku:v.sku,product_name:v.product_name,before_stock:Number(v.stock_on_hand||0),after_stock:Number(patch.stock_on_hand)}})})}catch(_){}
     }
-    try{await fetch(`${url}/rest/v1/admin_audit_log`,{method:'POST',headers:sh,body:JSON.stringify({actor_email:auth.email||null,action:'inventory_variant_updated',entity_type:'inventory_variant',entity_id:String(id),before_data:{stock_on_hand:v.stock_on_hand,stock_min:v.stock_min,price_usd:v.price_usd,sku:v.sku,product_name:v.product_name},after_data:{stock_on_hand:after.stock_on_hand,stock_min:after.stock_min,price_usd:after.price_usd,sku:v.sku,product_name:v.product_name}})})}catch(_){}
+    try{await fetch(`${url}/rest/v1/admin_audit_log`,{method:'POST',headers:sh,body:JSON.stringify({actor_email:auth.email||null,action:'inventory_variant_updated',entity_type:'inventory_variant',entity_id:String(id),before_data:{stock_on_hand:v.stock_on_hand,stock_min:v.stock_min,price_usd:v.price_usd,cosmetic_grade:v.cosmetic_grade||null,battery_health_pct:v.battery_health_pct??null,cosmetic_note:v.cosmetic_note||null,sku:v.sku,product_name:v.product_name},after_data:{stock_on_hand:after.stock_on_hand,stock_min:after.stock_min,price_usd:after.price_usd,cosmetic_grade:after.cosmetic_grade||null,battery_health_pct:after.battery_health_pct??null,cosmetic_note:after.cosmetic_note||null,sku:v.sku,product_name:v.product_name}})})}catch(_){}
     return r(200,{ok:true,variant:after});
   }
 
@@ -262,7 +290,7 @@ function r(statusCode,body){return{statusCode,headers:H,body:JSON.stringify(body
 async function authorizeAdmin(event,url,service){
   const legacy=String(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']||'').trim();
   const allowed=[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].filter(Boolean).map(String);
-  if(legacy&&allowed.includes(legacy))return{ok:true,mode:'legacy'};
+  if(legacy&&allowed.includes(legacy))return{ok:true,mode:'legacy',email:'admin'};
   const token=String(event.headers.authorization||event.headers.Authorization||'').replace(/^Bearer\s+/i,'');
   if(!token)return{ok:false};
   const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}});
@@ -270,7 +298,7 @@ async function authorizeAdmin(event,url,service){
   const pr=await fetch(`${url}/rest/v1/profiles?select=id,role,active&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:{apikey:service,Authorization:`Bearer ${service}`}});
   const rows=await pr.json().catch(()=>[]),p=rows[0],role=String(p?.role||'').toLowerCase();
   if(!p||p.active===false||!['admin','super_admin','superadmin','administrator','gerente'].includes(role))return{ok:false};
-  return{ok:true,user_id:u.id,role};
+  return{ok:true,user_id:u.id,role,email:u.email||null};
 }
 
 async function cleanupCatalogMedia(oldRows,clean){

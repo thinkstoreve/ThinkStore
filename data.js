@@ -65,7 +65,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -111,7 +111,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -155,7 +155,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -199,7 +199,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -244,7 +244,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -288,7 +288,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -334,7 +334,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -382,7 +382,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -428,7 +428,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -473,7 +473,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -518,7 +518,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -564,7 +564,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -610,7 +610,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -656,7 +656,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -733,7 +733,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado"
+      "Pre-Owned"
     ],
     "features": [
       "Audio Hi‑Fi",
@@ -775,7 +775,7 @@ const PRODUCTS = [
     ],
     "condition": [
       "Nuevo",
-      "Renovado",
+      "Pre-Owned",
       "Pre-Order"
     ],
     "features": [
@@ -828,14 +828,14 @@ const PRODUCTS = [
     "family": "Mac mini",
     "model": "Mac mini 2020 M1 · 8GB RAM",
     "name": "Mac mini 2020",
-    "badge": "Renovado",
+    "badge": "Pre-Owned",
     "main": "808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg",
     "gallery": ["808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg"],
     "colors": {"Plata": "808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg"},
     "storage": ["500GB"],
-    "condition": ["Renovado"],
-    "features": ["Apple M1","8GB de memoria unificada","500GB de almacenamiento","Equipo renovado"],
-    "details": {"Año":"2020","Chip":"Apple M1","Memoria":"8GB","Almacenamiento":"500GB","Condición":"Renovado"},
+    "condition": ["Pre-Owned"],
+    "features": ["Apple M1","8GB de memoria unificada","500GB de almacenamiento","Equipo Pre-Owned"],
+    "details": {"Año":"2020","Chip":"Apple M1","Memoria":"8GB","Almacenamiento":"500GB","Condición":"Pre-Owned"},
     "desc": "Mac mini 2020 con chip Apple M1, 8GB de memoria unificada y 500GB de almacenamiento. Unidad renovada disponible en ThinkStore."
   }
 
