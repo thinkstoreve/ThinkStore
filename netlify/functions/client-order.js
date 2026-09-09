@@ -67,12 +67,7 @@ exports.handler = async function(event) {
 
   if(body.action==='view_delivery_note'){
     if(!approved)return reply(409,{ok:false,error:'La nota de entrega estará disponible cuando el pedido haya sido aprobado.'});
-    const c=order.clientes||{};
-    const items=order.pedido_items||[];
-    const total=Number(order.total_usd||0);
-    const money=n=>`$${Number(n||0).toFixed(2)}`;
-    const itemRows=items.map((i,idx)=>`<tr><td style="padding:10px;border-bottom:1px solid #eee">${idx+1}</td><td style="padding:10px;border-bottom:1px solid #eee"><b>${esc(i.producto||'Producto')}</b><br><small>${esc([i.color,i.capacidad].filter(Boolean).join(' · '))}</small></td><td style="padding:10px;border-bottom:1px solid #eee;text-align:center">${Number(i.cantidad||1)}</td><td style="padding:10px;border-bottom:1px solid #eee;text-align:right">${money(i.precio_usd)}</td></tr>`).join('');
-    const html=`<div style="max-width:820px;margin:28px auto;padding:28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111"><div style="display:flex;justify-content:space-between;gap:20px;align-items:flex-start"><div><h1 style="margin:0 0 6px">ThinkStore</h1><div style="color:#666">Nota de entrega</div></div><div style="text-align:right"><b>${esc(order.codigo)}</b><br><small>${esc(new Date(order.created_at||Date.now()).toLocaleDateString('es-VE'))}</small></div></div><hr style="border:0;border-top:1px solid #ddd;margin:24px 0"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f7f7f8;border-radius:18px;padding:18px"><div><small>Cliente</small><br><b>${esc(c.nombre||'Cliente')}</b></div><div><small>Correo</small><br><b>${esc(c.correo||authUser.email||'')}</b></div><div><small>Teléfono</small><br><b>${esc(c.telefono||'—')}</b></div><div><small>Entrega</small><br><b>${esc([order.metodo_envio,order.empresa_envio].filter(Boolean).join(' · ')||'Por coordinar')}</b></div></div><table style="width:100%;border-collapse:collapse;margin-top:22px"><thead><tr><th style="text-align:left;padding:10px">#</th><th style="text-align:left;padding:10px">Producto</th><th style="padding:10px">Cant.</th><th style="text-align:right;padding:10px">Precio</th></tr></thead><tbody>${itemRows||'<tr><td colspan="4" style="padding:16px">Sin artículos visibles.</td></tr>'}</tbody></table><div style="text-align:right;font-size:22px;font-weight:800;margin-top:20px">Total: ${total>0?money(total):'Por confirmar'}</div><div style="margin-top:28px;padding:16px;border-radius:16px;background:#eef6ff"><b>Estado:</b> ${esc(status)}<br><small>Documento emitido digitalmente desde tu cuenta ThinkStore.</small></div></div>`;
+    const html=require('./delivery-note-template').render(order);
     return reply(200,{ok:true,html});
   }
 

@@ -18,9 +18,9 @@ exports.handler=async(event)=>{
   if(event.httpMethod==='GET'){
     const q=event.queryStringParameters||{};
     const sku=q.sku?`&sku=eq.${encodeURIComponent(q.sku)}`:'';
-    const rr=await fetch(`${url}/rest/v1/inventory_variants?select=id,sku,product_name,category,model,color,capacity,condition,chip,ram,stock_on_hand,stock_reserved,stock_sold,stock_min,price_usd,active&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
+    const rr=await fetch(`${url}/rest/v1/inventory_variants?select=id,sku,product_name,model,color,capacity,condition,chip,ram,stock_on_hand,stock_reserved,stock_sold,stock_min,price_usd,active&active=eq.true${sku}&order=product_name.asc`,{headers:sh});
     const rows=await rr.json().catch(()=>[]);
-    if(!rr.ok)return r(rr.status,{ok:false,error:'No se pudo consultar inventario',details:rows});
+    if(!rr.ok){const detail=String(rows?.message||rows?.details||rows?.hint||'').slice(0,240);return r(rr.status,{ok:false,error:'No se pudo consultar inventario'+(detail?': '+detail:'')});}
     let catalog=[],catalogImages=[],catalogCategories=DEFAULT_CATEGORIES.map((x,i)=>({id:`default-${i}`,...x,is_default:true}));
     try{
       const cr=await fetch(`${url}/rest/v1/catalog_products?select=id,product_key,product_name,category,description,image_url,published,sort_order,created_at,updated_at&order=sort_order.asc,product_name.asc`,{headers:sh});
@@ -51,7 +51,8 @@ exports.handler=async(event)=>{
     const ur=await fetch(`${url}/rest/v1/inventory_variants?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify({stock_on_hand:next})});
     const updated=await ur.json().catch(()=>[]);
     if(!ur.ok)return r(ur.status,{ok:false,error:'No se pudo ajustar inventario',details:updated});
-    await fetch(`${url}/rest/v1/inventory_movements`,{method:'POST',headers:sh,body:JSON.stringify({variant_id:id,movement_type:'adjustment',quantity:qty,note:String(body.note||'Ajuste administrativo'),actor_user_id:auth.user_id||null})});
+    await fetch(`${url}/rest/v1/inventory_movements`,{method:'POST',headers:sh,body:JSON.stringify({variant_id:id,movement_type:'adjustment',quantity:qty,note:String(body.note||'Ajuste administrativo'),actor_user_id:auth.user_id||null,actor_email:auth.email||null,metadata:{sku:v.sku,product_name:v.product_name,before_stock:Number(v.stock_on_hand||0),after_stock:next}})});
+    try{await fetch(`${url}/rest/v1/admin_audit_log`,{method:'POST',headers:sh,body:JSON.stringify({actor_email:auth.email||null,action:'inventory_adjusted',entity_type:'inventory_variant',entity_id:String(id),before_data:{stock_on_hand:Number(v.stock_on_hand||0)},after_data:{stock_on_hand:next,quantity:qty,sku:v.sku,product_name:v.product_name}})})}catch(_){}
     return r(200,{ok:true,variant:updated[0]||null});
   }
 
@@ -68,7 +69,13 @@ exports.handler=async(event)=>{
     if(!Object.keys(patch).length)return r(400,{ok:false,error:'No hay cambios para guardar'});
     const ur=await fetch(`${url}/rest/v1/inventory_variants?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify(patch)});
     const updated=await ur.json().catch(()=>[]);if(!ur.ok)return r(ur.status,{ok:false,error:'No se pudo actualizar',details:updated});
-    return r(200,{ok:true,variant:updated[0]||null});
+    const after=updated[0]||{...v,...patch};
+    if(patch.stock_on_hand!==undefined&&Number(patch.stock_on_hand)!==Number(v.stock_on_hand||0)){
+      const delta=Number(patch.stock_on_hand)-Number(v.stock_on_hand||0);
+      try{await fetch(`${url}/rest/v1/inventory_movements`,{method:'POST',headers:sh,body:JSON.stringify({variant_id:id,movement_type:'manual_set',quantity:delta,note:String(body.note||'Edición manual de inventario'),actor_user_id:auth.user_id||null,actor_email:auth.email||null,metadata:{sku:v.sku,product_name:v.product_name,before_stock:Number(v.stock_on_hand||0),after_stock:Number(patch.stock_on_hand)}})})}catch(_){}
+    }
+    try{await fetch(`${url}/rest/v1/admin_audit_log`,{method:'POST',headers:sh,body:JSON.stringify({actor_email:auth.email||null,action:'inventory_variant_updated',entity_type:'inventory_variant',entity_id:String(id),before_data:{stock_on_hand:v.stock_on_hand,stock_min:v.stock_min,price_usd:v.price_usd,sku:v.sku,product_name:v.product_name},after_data:{stock_on_hand:after.stock_on_hand,stock_min:after.stock_min,price_usd:after.price_usd,sku:v.sku,product_name:v.product_name}})})}catch(_){}
+    return r(200,{ok:true,variant:after});
   }
 
   if(body.action==='preview_import'){
@@ -125,7 +132,6 @@ exports.handler=async(event)=>{
       out=await cr.json().catch(()=>[]);
       if(cr.ok){
         await fetch(`${url}/rest/v1/catalog_products?category=eq.${encodeURIComponent(original)}`,{method:'PATCH',headers:sh,body:JSON.stringify({category:name,updated_at:new Date().toISOString()})});
-        await fetch(`${url}/rest/v1/inventory_variants?category=eq.${encodeURIComponent(original)}`,{method:'PATCH',headers:sh,body:JSON.stringify({category:name})});
       }
     }else{
       cr=await fetch(`${url}/rest/v1/catalog_categories?on_conflict=name`,{method:'POST',headers:{...sh,Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
@@ -176,7 +182,7 @@ exports.handler=async(event)=>{
     const dup=await fetch(`${url}/rest/v1/inventory_variants?select=id&sku=eq.${encodeURIComponent(sku)}&limit=1`,{headers:sh});
     const dupRows=await dup.json().catch(()=>[]);
     if(dup.ok&&Array.isArray(dupRows)&&dupRows.length)return r(409,{ok:false,error:'Ese SKU ya existe'});
-    const variant={sku,product_name,category,condition,stock_on_hand:stock,stock_reserved:0,stock_sold:0,stock_min:0,price_usd:Math.round(price*100)/100,active:true};
+    const variant={sku,product_name,condition,stock_on_hand:stock,stock_reserved:0,stock_sold:0,stock_min:0,price_usd:Math.round(price*100)/100,active:true};
     const vr=await fetch(`${url}/rest/v1/inventory_variants`,{method:'POST',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify(variant)});
     const vout=await vr.json().catch(()=>[]);
     if(!vr.ok)return r(vr.status,{ok:false,error:'No se pudo crear el producto en inventario',details:vout});

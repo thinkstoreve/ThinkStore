@@ -65,8 +65,11 @@ exports.handler = async function(event) {
   const actionLabel = clean(payload.actionLabel || 'Ver promoción');
   const audience = clean(payload.audience || 'all');
   const testEmail = clean(payload.testEmail || '');
+  const crmTag = clean(payload.crmTag || '');
   const logoUrl = clean(payload.logoUrl || 'https://thinkstore.com.ve/assets/thinkstore-email-logo.jpg');
   const bannerUrl = clean(payload.bannerUrl || '');
+  const bannerFit = ['cover','contain'].includes(clean(payload.bannerFit)) ? clean(payload.bannerFit) : 'cover';
+  const bannerPosition = clean(payload.bannerPosition || '50% 50%').replace(/[^0-9% .-]/g,'').slice(0,32) || '50% 50%';
 
   const api = SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/';
   const baseHeaders = {
@@ -89,41 +92,84 @@ exports.handler = async function(event) {
   }
 
   let recipients = [];
+  const sourceCounts = { registered:0, direct_sales:0, newsletter:0 };
   try {
     if (testEmail) {
-      recipients = [{ email: testEmail, nombre: 'Prueba ThinkStore' }];
+      recipients = [{ email: testEmail, nombre: 'Prueba ThinkStore', source:'test' }];
     } else {
-      // select=* mantiene compatibilidad con bases que usan correo o email.
-      const clientes = await supabaseGet('clientes?select=*');
-      recipients = clientes
-        .map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.name || 'Cliente') }))
-        .filter(c => c.email && c.email.includes('@'));
-
-      if (audience === 'buyers') {
-        const pedidos = await supabaseGet('pedidos?select=cliente_id');
-        const buyerIds = new Set((pedidos || []).map(p => String(p.cliente_id || '')).filter(Boolean));
-        recipients = recipients.filter(c => buyerIds.has(String(c.id || '')));
-      } else {
-        // V13.6: incorporar correos que dieron consentimiento desde el newsletter web.
-        // Si la tabla aún no fue activada, las campañas existentes siguen funcionando con clientes registrados.
-        try {
-          const subscribers = await supabaseGet('newsletter_subscribers?select=email,status&status=eq.subscribed');
-          const newsletterRecipients = (subscribers || [])
-            .map(n => ({ email: clean(n.email), nombre: 'Cliente ThinkStore' }))
-            .filter(n => n.email && n.email.includes('@'));
-          if (audience === 'newsletter') recipients = newsletterRecipients;
-          else recipients = recipients.concat(newsletterRecipients);
-        } catch (newsletterError) {
-          if (audience === 'newsletter') throw newsletterError;
-          console.warn('ThinkStore Newsletter aún no activado:', newsletterError.message || newsletterError);
+      const registered = [];
+      // 1) clientes: perfiles comerciales ya existentes.
+      try {
+        const clientes = await supabaseGet('clientes?select=*');
+        registered.push(...(clientes || []).map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.name || c.full_name || 'Cliente'), source:'registered' })));
+      } catch (e) { console.warn('Campañas: clientes', e.message || e); }
+      // 2) profiles: asegura incluir usuarios registrados aunque aún no tengan fila en clientes.
+      try {
+        const profiles = await supabaseGet('profiles?select=*');
+        registered.push(...(profiles || []).map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.full_name || c.name || 'Cliente'), source:'registered' })));
+      } catch (e) { console.warn('Campañas: profiles', e.message || e); }
+      // 3) Supabase Auth: fuente definitiva de cuentas registradas, incluso si su perfil comercial está incompleto.
+      try {
+        const ar = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000&page=1`, { headers:{apikey:SUPABASE_SERVICE_ROLE_KEY,Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`} });
+        const aj = await ar.json().catch(()=>({}));
+        if(ar.ok){
+          const authUsers = Array.isArray(aj?.users)?aj.users:Array.isArray(aj)?aj:[];
+          registered.push(...authUsers.map(u=>({id:u.id,email:clean(u.email),nombre:clean(u.user_metadata?.full_name||u.user_metadata?.name||'Cliente'),source:'registered'})));
         }
+      } catch (e) { console.warn('Campañas: auth users', e.message || e); }
+      const regValid = registered.filter(c => c.email && c.email.includes('@'));
+      sourceCounts.registered = new Set(regValid.map(c=>c.email.toLowerCase())).size;
+
+      // 3) ventas presenciales / directas: el cliente puede no tener cuenta Auth.
+      let direct = [];
+      try {
+        const pedidos = await supabaseGet('pedidos?select=*');
+        direct = (pedidos || []).map(o => ({
+          id:o.id,
+          email: clean(o.guest_email || o.customer_email || o.email),
+          nombre: clean(o.guest_name || o.customer_name || 'Cliente ThinkStore'),
+          source:'direct_sales',
+          client_id:o.cliente_id
+        })).filter(c => c.email && c.email.includes('@'));
+        sourceCounts.direct_sales = new Set(direct.map(c=>c.email.toLowerCase())).size;
+
+        if (audience === 'buyers') {
+          const buyerIds = new Set((pedidos || []).map(o => String(o.cliente_id || '')).filter(Boolean));
+          const buyerEmails = new Set(direct.map(x=>x.email.toLowerCase()));
+          recipients = regValid.filter(c => buyerIds.has(String(c.id || '')) || buyerEmails.has(c.email.toLowerCase())).concat(direct);
+        }
+      } catch (e) { if(audience==='direct_sales'||audience==='buyers') throw e; console.warn('Campañas: ventas directas', e.message || e); }
+
+      // 4) suscriptores web con consentimiento explícito.
+      let newsletterRecipients = [];
+      try {
+        const subscribers = await supabaseGet('newsletter_subscribers?select=email,status&status=eq.subscribed');
+        newsletterRecipients = (subscribers || []).map(n => ({ email: clean(n.email), nombre: 'Cliente ThinkStore', source:'newsletter' })).filter(n => n.email && n.email.includes('@'));
+        sourceCounts.newsletter = new Set(newsletterRecipients.map(n=>n.email.toLowerCase())).size;
+      } catch (newsletterError) {
+        if (audience === 'newsletter') throw newsletterError;
+        console.warn('ThinkStore Newsletter aún no activado:', newsletterError.message || newsletterError);
       }
+
+      if (audience === 'registered') recipients = regValid;
+      else if (audience === 'direct_sales') recipients = direct;
+      else if (audience === 'newsletter') recipients = newsletterRecipients;
+      else if (audience === 'buyers') { /* ya armado arriba */ }
+      else if (audience === 'crm_tag') {
+        if(!crmTag) throw new Error('Selecciona una etiqueta CRM.');
+        const crmRows = await supabaseGet('ts_customer_crm?select=email,tags');
+        const wanted = crmTag.toLowerCase();
+        const allowed = new Set((crmRows||[]).filter(x=>Array.isArray(x.tags)&&x.tags.some(t=>clean(t).toLowerCase()===wanted)).map(x=>clean(x.email).toLowerCase()).filter(Boolean));
+        recipients = regValid.concat(direct,newsletterRecipients).filter(x=>allowed.has(x.email.toLowerCase()));
+      }
+      else recipients = regValid.concat(direct, newsletterRecipients); // all_contacts
     }
   } catch (error) {
     return { statusCode: 502, headers, body: JSON.stringify({ ok:false, error:`No se pudieron cargar los destinatarios: ${error.message || error}` }) };
   }
 
-  recipients = Array.from(new Map(recipients.map(r => [r.email.toLowerCase(), r])).values()).slice(0, 250);
+  recipients = Array.from(new Map(recipients.map(r => [r.email.toLowerCase(), r])).values());
+  if (recipients.length > 2000) return { statusCode:400, headers, body:JSON.stringify({ok:false,error:'La audiencia supera 2.000 destinatarios. Divide la campaña en segmentos.'}) };
   if (!recipients.length) return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'No hay destinatarios válidos.' }) };
 
   const esc = (v) => String(v || '')
@@ -131,7 +177,7 @@ exports.handler = async function(event) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   function htmlFor(name) {
-    const banner = bannerUrl ? `<img src="${esc(bannerUrl)}" alt="Promoción ThinkStore" style="width:100%;max-height:260px;object-fit:cover;border-radius:24px;border:0;margin:0 0 26px;display:block;">` : '';
+    const banner = bannerUrl ? `<img src="${esc(bannerUrl)}" alt="Promoción ThinkStore" style="width:100%;max-height:260px;object-fit:${esc(bannerFit)};object-position:${esc(bannerPosition)};border-radius:24px;border:0;margin:0 0 26px;display:block;">` : '';
     return `
     <div style="margin:0;padding:0;background:#050505;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:28px 12px;">
@@ -181,32 +227,31 @@ exports.handler = async function(event) {
   const from = process.env.FROM_MARKETING_EMAIL || process.env.FROM_VENTAS_EMAIL || 'ThinkStore Promociones <ventas@thinkstore.com.ve>';
   const replyTo = process.env.REPLY_TO_MARKETING || process.env.REPLY_TO_VENTAS || 'ventas@thinkstore.com.ve';
   let sent = 0, failed = 0, errors = [];
-
-  for (const r of recipients) {
+  async function sendOne(r) {
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from,
-          to: r.email,
-          reply_to: replyTo,
-          subject,
+          from, to: r.email, reply_to: replyTo, subject,
           html: htmlFor(r.nombre),
           text: `${title}\n\n${subtitle}\n\n${message}\n\n${productName}\n${productDetails}\n${offer}\n\n${actionUrl}`
         })
       });
       const result = await response.json().catch(() => ({}));
       if (response.ok) sent++; else { failed++; errors.push(`${r.email}: ${result.message || result.error || `Resend HTTP ${response.status}`}`); }
-    } catch (error) {
-      failed++;
-      errors.push(`${r.email}: ${error.message || 'No fue posible conectar con Resend'}`);
-    }
+    } catch (error) { failed++; errors.push(`${r.email}: ${error.message || 'No fue posible conectar con Resend'}`); }
   }
+  // Concurrencia moderada: más rápido sin disparar cientos de solicitudes simultáneas.
+  for (let i=0;i<recipients.length;i+=5) await Promise.all(recipients.slice(i,i+5).map(sendOne));
 
   await supabaseInsert('marketing_campaigns', [{
-    subject, title, audience, recipients_count: recipients.length, sent_count: sent, failed_count: failed, created_at: new Date().toISOString()
+    subject, title, subtitle, audience,
+    recipients_count: recipients.length, sent_count: sent, failed_count: failed,
+    banner_url: bannerUrl || null,
+    content_json: { message, productName, productDetails, offer, actionUrl, actionLabel, bannerFit, bannerPosition },
+    created_at: new Date().toISOString()
   }]);
 
-  return { statusCode: sent > 0 ? 200 : 502, headers, body: JSON.stringify({ ok: sent > 0, total: recipients.length, sent, failed, errors: errors.slice(0, 8), error: sent > 0 ? null : (errors[0] || 'Resend no aceptó ningún correo') }) };
+  return { statusCode: sent > 0 ? 200 : 502, headers, body: JSON.stringify({ ok: sent > 0, total: recipients.length, sent, failed, sources:sourceCounts, errors: errors.slice(0, 8), error: sent > 0 ? null : (errors[0] || 'Resend no aceptó ningún correo') }) };
 };
