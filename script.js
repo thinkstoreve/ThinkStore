@@ -3038,6 +3038,7 @@ function openProductFromV2(id){
 function featuredImageForProductV2(p){
   const name = String(p.name || p.title || '').toLowerCase();
   const cat = String(productCategoryV2(p) || '').toLowerCase();
+  if(name.includes('iphone 18 pro max')) return 'assets/iphone18/iphone18-pro-burgundy.jpg';
   if(name.includes('iphone 17 pro max')) return 'assets/featured_iphone_card_premium.png';
   if(name.includes('macbook pro')) return 'assets/featured_macbook_card_premium.png';
   if(name.includes('airpods pro')) return 'assets/featured_airpods_card_premium.png';
@@ -3071,7 +3072,7 @@ function renderFeaturedV2(){
   const box = document.getElementById('v2FeaturedProducts');
   if(!box) return;
   const list = productsV2();
-  const preferred = ['iPhone 17 Pro Max','MacBook Pro','AirPods Pro','iPad A16'];
+  const preferred = ['iPhone 18 Pro Max','MacBook Pro','AirPods Pro','iPad A16'];
   let featured = [];
   preferred.forEach(k=>{
     const found = list.find(p=>String(p.name||'').toLowerCase().includes(k.toLowerCase()));
