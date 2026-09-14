@@ -1,5 +1,6 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ThinkStore | Apple, accesorios y soporte técnico</title><link rel="stylesheet" href="styles.css?v=13.62">
   <link rel="stylesheet" href="catalog-premium-v1368.css?v=13.68">
+  <link rel="stylesheet" href="hero-iphone18-v1369.css?v=13.69">
 <style>
 /* ThinkStore admin-only: enterprise modules moved to admin-growth.html */
 #growth-enterprise,#v58-sales-automation,#v59-service-care-ai,#v60-ecosistema-comercial{display:none!important;}
@@ -43,21 +44,42 @@
   </nav>
 </header>
 
-<section class="ts-v2-hero" id="inicio">
-  <div class="ts-v2-hero-bg"></div>
-  <div class="ts-v2-hero-content">
-    <span class="ts-v2-kicker">ThinkStore Premium</span>
-    <h1>iPhone 17 Pro Max</h1>
-    <p>El iPhone más avanzado. Potencia profesional, diseño premium y capacidades hasta 2TB.</p>
+<section class="ts-v2-hero ts-v2-hero18" id="inicio" aria-label="iPhone 18">
+  <div class="ts-v2-hero-bg" aria-hidden="true"></div>
+  <div class="ts18-slides" aria-hidden="true">
+    <div class="ts18-slide active" data-slide="0" style="--ts18-img:url('assets/iphone18/hero-lineup.jpg')"></div>
+    <div class="ts18-slide" data-slide="1" style="--ts18-img:url('assets/iphone18/hero-burgundy.jpg')"></div>
+    <div class="ts18-slide" data-slide="2" style="--ts18-img:url('assets/iphone18/hero-glacier.jpg')"></div>
+  </div>
+  <div class="ts-v2-hero-content ts18-copy">
+    <span class="ts-v2-kicker">NUEVA GENERACIÓN</span>
+    <h1 id="ts18Title">iPhone 18 Pro Max</h1>
+    <p id="ts18Lead">Un salto en cada detalle. Más poder, más inteligencia y una nueva expresión de diseño.</p>
+    <div class="ts18-features" aria-label="Características principales">
+      <span><b>A20 Pro</b><small>Máximo rendimiento</small></span>
+      <span><b>Cámara Pro</b><small>48 MP · nueva generación</small></span>
+      <span><b>Apple Intelligence</b><small>Más posibilidades</small></span>
+      <span><b>Hasta 2 TB</b><small>Capacidad Pro</small></span>
+    </div>
     <div class="ts-v2-hero-actions">
-      <button class="btn ts-v2-primary" onclick="openCategoryModalV2('iPhone')">Comprar ahora</button>
-      <button class="btn ghost ts-v2-secondary" onclick="scrollToCatalogV2()">Ver catálogo</button>
-      <button class="btn ghost ts-v2-secondary" onclick="tsOpenSmartWhatsApp()">WhatsApp</button>
+      <button class="btn ts-v2-primary" onclick="openProduct('iphone-18-pro-max')">Ver iPhone 18 Pro Max</button>
+      <button class="btn ghost ts-v2-secondary" onclick="scrollToCatalogV2()">Explorar toda la línea</button>
+    </div>
+    <div class="ts18-colors" aria-label="Colores iPhone 18 Pro">
+      <span><i class="black"></i>Negro</span>
+      <span><i class="silver"></i>Plata</span>
+      <span><i class="glacier"></i>Azul claro</span>
+      <span><i class="burgundy"></i>Vino tinto</span>
     </div>
   </div>
-  <div class="ts-v2-hero-device">
-    <div class="ts-v2-device-glow"></div>
-    <img loading="lazy" decoding="async" src="assets/iphone17promax_sheet.jpg" alt="iPhone 17 Pro Max" onerror="this.src='assets/iphone_assets_sheet.jpg'; this.onerror=null;">
+  <div class="ts18-controls" aria-label="Carrusel iPhone 18">
+    <button class="ts18-arrow prev" type="button" onclick="ts18Prev()" aria-label="Imagen anterior">‹</button>
+    <div class="ts18-dots">
+      <button class="active" type="button" onclick="ts18Go(0)" aria-label="Vista línea completa"></button>
+      <button type="button" onclick="ts18Go(1)" aria-label="Vista vino tinto"></button>
+      <button type="button" onclick="ts18Go(2)" aria-label="Vista azul claro"></button>
+    </div>
+    <button class="ts18-arrow next" type="button" onclick="ts18Next()" aria-label="Imagen siguiente">›</button>
   </div>
 </section>
 
@@ -741,6 +763,7 @@
 <script src="ts-fx.js?v=13.62"></script>
 <script src="script.js?v=13.62"></script>
 <script src="catalog-premium-v1368.js?v=13.68"></script>
+<script src="hero-iphone18-v1369.js?v=13.69"></script>
 
 <div id="categoryModalV2" class="modal ts-v2-category-modal">
   <div class="ts-v2-category-window">
