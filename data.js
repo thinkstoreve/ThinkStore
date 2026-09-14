@@ -39,21 +39,30 @@ const CATEGORIES = [
 
 const PRODUCTS = [
   {
-    "id":"iphone-18-pro-max","brand":"Apple","category":"iPhone","family":"Serie iPhone 18 Pro","model":"iPhone 18 Pro Max","name":"iPhone 18 Pro Max","badge":"Nuevo · Pre-Order","main":"iphone18/iphone18-pro-burgundy.jpg",
-    "gallery":["iphone18/iphone18-pro-burgundy.jpg","iphone18/iphone18-pro-glacier.jpg","iphone18/iphone18-pro-silver.jpg","iphone18/iphone18-pro-black.jpg"],
-    "colors":{"Borgoña":"iphone18/iphone18-pro-burgundy.jpg","Glaciar (azul claro)":"iphone18/iphone18-pro-glacier.jpg","Plata":"iphone18/iphone18-pro-silver.jpg","Negro":"iphone18/iphone18-pro-black.jpg"},
+    "id":"iphone-ultra","brand":"Apple","category":"iPhone","family":"Serie iPhone 18","model":"iPhone Ultra","name":"iPhone Ultra","badge":"Nuevo · Pre-Order","main":"iphone18/colors/iphone18-pro-max-dark-gray.jpg",
+    "gallery":["iphone18/colors/iphone18-pro-max-dark-gray.jpg","iphone18/colors/iphone18-pro-max-silver.jpg","iphone18/colors/iphone18-pro-max-light-blue.jpg","iphone18/colors/iphone18-pro-max-dark-cherry.jpg"],
+    "colors":{"Dark Gray":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Silver":"iphone18/colors/iphone18-pro-max-silver.jpg","Light Blue":"iphone18/colors/iphone18-pro-max-light-blue.jpg","Dark Cherry":"iphone18/colors/iphone18-pro-max-dark-cherry.jpg"},
+    "storage":["256GB","512GB","1TB","2TB"],"condition":["Nuevo","Pre-Order"],
+    "features":["Diseño Ultra de nueva generación","Apple Intelligence","Hasta 2 TB","Cámara Pro avanzada"],
+    "details":{"Pantalla":"Configuración Ultra","Chip":"Nueva generación","Cámara principal":"Sistema Pro avanzado","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS · Apple Intelligence","Colores":"Light Blue · Dark Cherry · Dark Gray · Silver"},
+    "desc":"iPhone Ultra presentado en el catálogo ThinkStore como opción de la nueva generación, disponible para Pre-Order."
+  },
+  {
+    "id":"iphone-18-pro-max","brand":"Apple","category":"iPhone","family":"Serie iPhone 18 Pro","model":"iPhone 18 Pro Max","name":"iPhone 18 Pro Max","badge":"Nuevo · Pre-Order","main":"iphone18/colors/iphone18-pro-max-dark-cherry.jpg",
+    "gallery":["iphone18/colors/iphone18-pro-max-light-blue.jpg","iphone18/colors/iphone18-pro-max-dark-cherry.jpg","iphone18/colors/iphone18-pro-max-dark-gray.jpg","iphone18/colors/iphone18-pro-max-silver.jpg"],
+    "colors":{"Light Blue":"iphone18/colors/iphone18-pro-max-light-blue.jpg","Dark Cherry":"iphone18/colors/iphone18-pro-max-dark-cherry.jpg","Dark Gray":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Silver":"iphone18/colors/iphone18-pro-max-silver.jpg"},
     "storage":["256GB","512GB","1TB","2TB"],"condition":["Nuevo","Pre-Order"],
     "features":["Pantalla Super Retina XDR OLED de 6.9 pulgadas","Chip A20 Pro","Cámara Fusion principal de 48 MP con apertura variable","ProMotion hasta 120 Hz","Hasta 43 horas de reproducción de video","Apple Intelligence y Siri AI","Ceramic Shield 2","Resistencia IP68"],
-    "details":{"Pantalla":"6.9” Super Retina XDR OLED · 2868 × 1320 · 460 ppi","Chip":"A20 Pro","Cámara principal":"Fusion 48 MP con apertura variable","Diseño":"Unibody de aluminio · Ceramic Shield 2","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS 27 · Apple Intelligence · Siri AI","Colores":"Negro · Plata · Glaciar · Borgoña"},
+    "details":{"Pantalla":"6.9” Super Retina XDR OLED · 2868 × 1320 · 460 ppi","Chip":"A20 Pro","Cámara principal":"Fusion 48 MP con apertura variable","Diseño":"Unibody de aluminio · Ceramic Shield 2","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS 27 · Apple Intelligence · Siri AI","Colores":"Light Blue · Dark Cherry · Dark Gray · Silver"},
     "desc":"iPhone 18 Pro Max con A20 Pro, pantalla de 6.9 pulgadas, cámara Fusion principal de 48 MP con apertura variable y la mayor autonomía en un iPhone Pro hasta ahora."
   },
   {
-    "id":"iphone-18-pro","brand":"Apple","category":"iPhone","family":"Serie iPhone 18 Pro","model":"iPhone 18 Pro","name":"iPhone 18 Pro","badge":"Nuevo · Pre-Order","main":"iphone18/iphone18-pro-glacier.jpg",
-    "gallery":["iphone18/iphone18-pro-glacier.jpg","iphone18/iphone18-pro-burgundy.jpg","iphone18/iphone18-pro-silver.jpg","iphone18/iphone18-pro-black.jpg"],
-    "colors":{"Glaciar (azul claro)":"iphone18/iphone18-pro-glacier.jpg","Borgoña":"iphone18/iphone18-pro-burgundy.jpg","Plata":"iphone18/iphone18-pro-silver.jpg","Negro":"iphone18/iphone18-pro-black.jpg"},
+    "id":"iphone-18-pro","brand":"Apple","category":"iPhone","family":"Serie iPhone 18 Pro","model":"iPhone 18 Pro","name":"iPhone 18 Pro","badge":"Nuevo · Pre-Order","main":"iphone18/colors/iphone18-pro-max-light-blue.jpg",
+    "gallery":["iphone18/colors/iphone18-pro-max-light-blue.jpg","iphone18/colors/iphone18-pro-max-dark-cherry.jpg","iphone18/colors/iphone18-pro-max-dark-gray.jpg","iphone18/colors/iphone18-pro-max-silver.jpg"],
+    "colors":{"Light Blue":"iphone18/colors/iphone18-pro-max-light-blue.jpg","Dark Cherry":"iphone18/colors/iphone18-pro-max-dark-cherry.jpg","Dark Gray":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Silver":"iphone18/colors/iphone18-pro-max-silver.jpg"},
     "storage":["256GB","512GB","1TB","2TB"],"condition":["Nuevo","Pre-Order"],
     "features":["Pantalla Super Retina XDR OLED de 6.3 pulgadas","Chip A20 Pro","Cámara Fusion principal de 48 MP con apertura variable","ProMotion hasta 120 Hz","Apple Intelligence y Siri AI","Ceramic Shield 2","Resistencia IP68"],
-    "details":{"Pantalla":"6.3” Super Retina XDR OLED · 2622 × 1206 · 460 ppi","Chip":"A20 Pro","Cámara principal":"Fusion 48 MP con apertura variable","Diseño":"Unibody de aluminio · Ceramic Shield 2","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS 27 · Apple Intelligence · Siri AI","Colores":"Negro · Plata · Glaciar · Borgoña"},
+    "details":{"Pantalla":"6.3” Super Retina XDR OLED · 2622 × 1206 · 460 ppi","Chip":"A20 Pro","Cámara principal":"Fusion 48 MP con apertura variable","Diseño":"Unibody de aluminio · Ceramic Shield 2","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS 27 · Apple Intelligence · Siri AI","Colores":"Light Blue · Dark Cherry · Dark Gray · Silver"},
     "desc":"iPhone 18 Pro con A20 Pro, pantalla de 6.3 pulgadas y la nueva cámara Fusion principal de 48 MP con apertura variable."
   },
 

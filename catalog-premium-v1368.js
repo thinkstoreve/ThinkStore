@@ -7,7 +7,7 @@
   const money=v=>{const n=Number(v||0);return n>0?'$'+n.toLocaleString('en-US',{maximumFractionDigits:2}):'Consultar'};
   function swatch(name){
     const n=norm(name);
-    if(/borgo|vino|wine|burgu/.test(n))return'#8d2948';
+    if(/borgo|vino|wine|burgu|cherry/.test(n))return'#8d2948';
     if(/glac|azul claro|light blue/.test(n))return'#a9cef4';
     if(/azul|blue/.test(n))return'#6f9fd3';
     if(/plata|silver|blanco|white/.test(n))return'#e6e7ea';
