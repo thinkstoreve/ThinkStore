@@ -9,10 +9,10 @@
     {id:'iphone-18-pro-max',label:'iPhone 18 Pro Max'}
   ];
   const colorOrder=[
-    {name:'Light Blue',img:'assets/iphone18/colors/iphone18-pro-max-light-blue.jpg',hex:'#8fb7e8'},
-    {name:'Dark Cherry',img:'assets/iphone18/colors/iphone18-pro-max-dark-cherry.jpg',hex:'#8a2748'},
-    {name:'Dark Gray',img:'assets/iphone18/colors/iphone18-pro-max-dark-gray.jpg',hex:'#414346'},
-    {name:'Silver',img:'assets/iphone18/colors/iphone18-pro-max-silver.jpg',hex:'#cfd2d6'}
+    {name:'Glaciar',img:'assets/iphone18/colors/iphone18-pro-max-light-blue.jpg',hex:'#8fb7e8'},
+    {name:'Borgoña',img:'assets/iphone18/colors/iphone18-pro-max-dark-cherry.jpg',hex:'#7f2444'},
+    {name:'Negro',img:'assets/iphone18/colors/iphone18-pro-max-dark-gray.jpg',hex:'#242528'},
+    {name:'Plata',img:'assets/iphone18/colors/iphone18-pro-max-silver.jpg',hex:'#cfd2d6'}
   ];
 
   let selectedModel='iphone-18-pro-max';
