@@ -39,15 +39,23 @@ exports.handler=async(event)=>{
     try{
       const cr=await fetch(`${url}/rest/v1/catalog_products?select=id,product_key,product_name,category,description,image_url,published,sort_order,created_at,updated_at&order=sort_order.asc,product_name.asc`,{headers:sh});
       if(cr.ok)catalog=await cr.json().catch(()=>[]);
-      const ir=await fetch(`${url}/rest/v1/catalog_product_images?select=id,product_key,image_url,storage_path,sort_order,is_primary,created_at&order=product_key.asc,sort_order.asc`,{headers:sh});
-      if(ir.ok)catalogImages=await ir.json().catch(()=>[]);
+      let imageColorReady=true;
+      let ir=await fetch(`${url}/rest/v1/catalog_product_images?select=id,product_key,image_url,storage_path,color_name,sort_order,is_primary,created_at&order=product_key.asc,sort_order.asc`,{headers:sh});
+      let imageRows=await ir.json().catch(()=>[]);
+      if(!ir.ok&&/color_name|schema cache|column/i.test(String(imageRows?.message||imageRows?.details||imageRows?.hint||''))){
+        imageColorReady=false;
+        ir=await fetch(`${url}/rest/v1/catalog_product_images?select=id,product_key,image_url,storage_path,sort_order,is_primary,created_at&order=product_key.asc,sort_order.asc`,{headers:sh});
+        imageRows=await ir.json().catch(()=>[]);
+      }
+      if(ir.ok)catalogImages=(Array.isArray(imageRows)?imageRows:[]).map(x=>({...x,color_name:x.color_name||null}));
+      var catalogImageColorReady=imageColorReady;
       const catr=await fetch(`${url}/rest/v1/catalog_categories?select=id,name,description,sort_order,active,created_at,updated_at&order=sort_order.asc,name.asc`,{headers:sh});
       if(catr.ok){
         const loaded=await catr.json().catch(()=>[]);
         if(Array.isArray(loaded)&&loaded.length)catalogCategories=loaded;
       }
     }catch(_e){}
-    return r(200,{ok:true,cosmetic_grade_ready:cosmeticGradeReady,battery_health_ready:batteryHealthReady,variants:rows.map(v=>({...v,cosmetic_grade:v.cosmetic_grade||'',battery_health_pct:v.battery_health_pct??null,cosmetic_note:v.cosmetic_note||'',available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
+    return r(200,{ok:true,cosmetic_grade_ready:cosmeticGradeReady,battery_health_ready:batteryHealthReady,catalog_image_color_ready:catalogImageColorReady!==false,variants:rows.map(v=>({...v,cosmetic_grade:v.cosmetic_grade||'',battery_health_pct:v.battery_health_pct??null,cosmetic_note:v.cosmetic_note||'',available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
   }
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const auth=await authorizeAdmin(event,url,service);
@@ -229,16 +237,25 @@ exports.handler=async(event)=>{
     const items=Array.isArray(body.images)?body.images:[];
     if(!product_key)return r(400,{ok:false,error:'Producto requerido'});
     if(items.length>12)return r(413,{ok:false,error:'Máximo 12 imágenes por producto'});
-    const clean=items.map((x,i)=>({product_key,image_url:String(x.image_url||'').trim(),storage_path:String(x.storage_path||'').trim()||null,sort_order:i,is_primary:!!x.is_primary})).filter(x=>x.image_url);
+    const clean=items.map((x,i)=>({product_key,image_url:String(x.image_url||'').trim(),storage_path:String(x.storage_path||'').trim()||null,color_name:String(x.color_name||'').trim()||null,sort_order:i,is_primary:!!x.is_primary})).filter(x=>x.image_url);
     if(clean.length&&!clean.some(x=>x.is_primary))clean[0].is_primary=true;
     if(clean.filter(x=>x.is_primary).length>1){let seen=false;clean.forEach(x=>{if(x.is_primary&&!seen){seen=true}else if(x.is_primary)x.is_primary=false})}
+    // V13.73: comprobar la migración ANTES de borrar la galería existente.
+    if(clean.some(x=>x.color_name)){
+      const sr=await fetch(`${url}/rest/v1/catalog_product_images?select=color_name&limit=1`,{headers:sh});
+      const sd=await sr.json().catch(()=>[]);
+      if(!sr.ok&&/color_name|schema cache|column/i.test(String(sd?.message||sd?.details||sd?.hint||'')))return r(409,{ok:false,migration_required:true,error:'Ejecuta supabase_v13_73_imagenes_por_color.sql antes de guardar imágenes por color. La galería actual no fue modificada.'});
+      if(!sr.ok)return r(sr.status,{ok:false,error:'No se pudo validar el esquema de imágenes. La galería actual no fue modificada.',details:sd});
+    }
     const oldr=await fetch(`${url}/rest/v1/catalog_product_images?select=storage_path&product_key=eq.${encodeURIComponent(product_key)}`,{headers:sh});
     const oldRows=await oldr.json().catch(()=>[]);
     const dr=await fetch(`${url}/rest/v1/catalog_product_images?product_key=eq.${encodeURIComponent(product_key)}`,{method:'DELETE',headers:sh});
     if(!dr.ok)return r(dr.status,{ok:false,error:'No se pudo actualizar la galería'});
     if(clean.length){
       const ar=await fetch(`${url}/rest/v1/catalog_product_images`,{method:'POST',headers:{...sh,Prefer:'return=representation'},body:JSON.stringify(clean)});
-      const out=await ar.json().catch(()=>[]); if(!ar.ok)return r(ar.status,{ok:false,error:'No se pudo guardar la galería',details:out});
+      const out=await ar.json().catch(()=>[]);
+      if(!ar.ok&&/color_name|schema cache|column/i.test(String(out?.message||out?.details||out?.hint||'')))return r(409,{ok:false,migration_required:true,error:'Ejecuta supabase_v13_73_imagenes_por_color.sql para guardar imágenes por color sin reemplazar la portada.',details:out});
+      if(!ar.ok)return r(ar.status,{ok:false,error:'No se pudo guardar la galería',details:out});
       const primary=clean.find(x=>x.is_primary)||clean[0];
       await fetch(`${url}/rest/v1/catalog_products?product_key=eq.${encodeURIComponent(product_key)}`,{method:'PATCH',headers:sh,body:JSON.stringify({image_url:primary.image_url,updated_at:new Date().toISOString()})});
       await cleanupCatalogMedia(oldRows,clean);

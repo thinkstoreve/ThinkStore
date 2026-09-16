@@ -87,16 +87,17 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
     const urls=rows.map(x=>String(x.image_url||'').trim()).filter(Boolean);
     const main=String(primary?.image_url||c?.image_url||'').trim();
     if(main&&!urls.includes(main))urls.unshift(main);
-    return {main,urls:urls.length?urls:(main?[main]:[])};
+    return {main,urls:urls.length?urls:(main?[main]:[]),rows};
   }
-  function galleryColorMap(colors,urls,main){
-    const list=(urls||[]).filter(Boolean);
-    const map={};
+  function galleryColorMap(colors,urls,main,rows=[]){
+    const list=(urls||[]).filter(Boolean),map={};
     if(!colors.length)return map;
-    // Convención del panel: portada general primero; después una imagen por color.
-    // Si solo hay tantas imágenes como colores, se vinculan desde la primera.
+    // V13.73: color_name es la fuente estable. Nunca depende del orden de la galería.
+    const named=new Map((rows||[]).filter(x=>x&&x.color_name&&x.image_url).map(x=>[tsCatalogNorm(x.color_name),String(x.image_url)]));
+    colors.forEach(color=>{const hit=named.get(tsCatalogNorm(color));if(hit)map[color]=hit;});
+    // Compatibilidad con galerías antiguas sin color_name.
     const offset=list.length>colors.length?1:0;
-    colors.forEach((color,index)=>{map[color]=list[index+offset]||list[index]||main;});
+    colors.forEach((color,index)=>{if(!map[color])map[color]=list[index+offset]||list[index]||main;});
     return map;
   }
   const byProduct=new Map();
@@ -149,7 +150,7 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
     if(existing){
       // Producto ya existente: la galería de Supabase sustituye la visual sin mezclar modelos.
       existing.main=image; existing.gallery=eg.urls;
-      if(colors.length)existing.colors=galleryColorMap(colors,eg.urls,image);
+      if(colors.length)existing.colors=galleryColorMap(colors,eg.urls,image,eg.rows);
       if(capacities.length)existing.storage=capacities;
       if(conditions.length)existing.condition=conditions;
       if(c.description)existing.description=c.description;
@@ -160,7 +161,7 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
     }
     // Producto completamente nuevo: solo se agrega al catálogo público cuando el administrador lo publica.
     if(c.published!==true) return;
-    const colorMap=galleryColorMap(colors.length?colors:['Único'],eg.urls,image);
+    const colorMap=galleryColorMap(colors.length?colors:['Único'],eg.urls,image,eg.rows);
     const p={
       id:'sb-'+String(c.product_key||tsCatalogSlug(c.product_name)),
       name:c.product_name,

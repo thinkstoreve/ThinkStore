@@ -22,6 +22,21 @@
   const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const money=v=>{const n=Number(v||0);return n>0?'$'+n.toLocaleString('en-US',{maximumFractionDigits:2}):'Consultar'};
 
+  const clamp=v=>Math.max(0,Math.min(255,v));
+  function hexToRgb(hex){
+    const h=String(hex||'').replace('#','').trim();
+    if(h.length!==6)return {r:140,g:90,b:160};
+    return {r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)};
+  }
+  function shiftHex(hex,amount){
+    const {r,g,b}=hexToRgb(hex);
+    return '#'+[clamp(r+amount),clamp(g+amount),clamp(b+amount)].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
+  function rgbaFromHex(hex,alpha){
+    const {r,g,b}=hexToRgb(hex);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
   function allProducts(){
     let live=[];
     try{ if(typeof tsCatalogProducts==='function') live=tsCatalogProducts()||[]; }catch(_){}
@@ -75,14 +90,37 @@
     const caps=(typeof getConfigs==='function'?getConfigs(p):(p?.storage||[]))||[];
     const specs=compactFeatures(p);
     const price=productPrice(p);
-    return `<article class="ts71-color-card">
-      <div class="ts71-color-media">
+    const modelName=p?.name||modelOrder.find(x=>x.id===selectedModel)?.label||'iPhone';
+    const dark=shiftHex(color.hex,-34);
+    const light=shiftHex(color.hex,26);
+    const glow=rgbaFromHex(color.hex,.42);
+    return `<article class="ts71-color-card ts73-hover-card">
+      <div class="ts71-color-media ts73-hover-media" style="--ts73-device:${esc(color.hex)};--ts73-device-dark:${esc(dark)};--ts73-device-light:${esc(light)};--ts73-device-glow:${esc(glow)}">
         <span class="ts71-new">Nuevo</span>
         <span class="ts71-fav" aria-hidden="true">♡</span>
-        <img src="${esc(color.img)}" alt="${esc((p?.name||'iPhone')+' '+color.name)}" loading="lazy" decoding="async">
+        <img src="${esc(color.img)}" alt="${esc(modelName+' '+color.name)}" loading="lazy" decoding="async">
+        <div class="ts73-hover-preview" aria-hidden="true">
+          <div class="ts73-hover-label">Vista previa al pasar el mouse</div>
+          <div class="ts73-phone-stage">
+            <div class="ts73-phone-device">
+              <div class="ts73-face ts73-face-back">
+                <span class="ts73-camera ts73-c1"></span>
+                <span class="ts73-camera ts73-c2"></span>
+                <span class="ts73-camera ts73-c3"></span>
+                <span class="ts73-flash"></span>
+                <span class="ts73-lidar"></span>
+                <span class="ts73-logo"></span>
+              </div>
+              <div class="ts73-face ts73-face-front">
+                <span class="ts73-front-dynamic"></span>
+                <span class="ts73-front-screen"></span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="ts71-color-body">
-        <h4>${esc(p?.name||modelOrder.find(x=>x.id===selectedModel)?.label||'iPhone')}</h4>
+        <h4>${esc(modelName)}</h4>
         <div class="ts71-color-name">${esc(color.name)}</div>
         <div class="ts71-capacities">${caps.slice(0,4).map(x=>`<span class="ts71-cap">${esc(x)}</span>`).join('')}</div>
         <div class="ts71-specs">${specs.map(x=>`<div class="ts71-spec"><i>${featureIcon(x)}</i><span>${esc(x)}</span></div>`).join('')}</div>

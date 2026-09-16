@@ -17,9 +17,9 @@ button,input,select,textarea{font:inherit}.top{position:sticky;top:0;z-index:20;
 .tabs,.pills{display:flex;gap:7px;flex-wrap:wrap}.pill{border:1px solid var(--line);background:#fafafa;border-radius:999px;padding:8px 11px;font-weight:750;cursor:pointer;font-size:12px}.pill.active{background:#111;color:#fff;border-color:#111}
 .variant-list{display:grid;gap:10px;max-height:650px;overflow:auto;padding-right:4px}.variant{border:1px solid var(--line);border-radius:16px;padding:13px;background:#fff;cursor:pointer}.variant.active{border-color:#111;box-shadow:0 0 0 2px #111 inset}.variant-top{display:flex;justify-content:space-between;gap:10px}.variant small{display:block;color:var(--muted);margin-top:4px}
 .previewbox{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:center}.product-stage{height:220px;border:1px solid var(--line);border-radius:22px;background:
-linear-gradient(45deg,#f2f2f4 25%,transparent 25%),linear-gradient(-45deg,#f2f2f4 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#f2f2f4 75%),linear-gradient(-45deg,transparent 75%,#f2f2f4 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;display:grid;place-items:center;overflow:hidden}.product-stage img{width:100%;height:100%;object-fit:contain;padding:12px}
+linear-gradient(45deg,#f2f2f4 25%,transparent 25%),linear-gradient(-45deg,#f2f2f4 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#f2f2f4 75%),linear-gradient(-45deg,transparent 75%,#f2f2f4 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;display:grid;place-items:center;overflow:hidden}.product-stage img{width:100%;height:100%;object-fit:contain;padding:4px}.product-stage.preview-large img{padding:0}
 .upload{border:1px dashed #c7c7cc;border-radius:18px;padding:14px;background:#fafafa}.upload input{width:100%}.check{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px}.check input{width:auto}
-.color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}.color-card{border:1px solid var(--line);border-radius:15px;padding:10px;background:#fff}.color-card b{font-size:13px}.color-card small{display:block;color:var(--muted);margin-top:3px}.swatch{width:16px;height:16px;border-radius:50%;display:inline-block;vertical-align:-3px;margin-right:5px;border:1px solid rgba(0,0,0,.14)}
+.color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}.color-card{border:1px solid var(--line);border-radius:15px;padding:10px;background:#fff}.color-card.assigned{border-color:#9ac7f3;box-shadow:0 0 0 2px rgba(0,113,227,.08)}.gallery-label{display:flex;align-items:center;justify-content:space-between;gap:8px}.gallery-label .slot{color:var(--blue);font-weight:850}.image-help{margin-top:8px;padding:9px 10px;border-radius:12px;background:#eef6ff;color:#174a7e;font-size:11px;line-height:1.4}.color-card b{font-size:13px}.color-card small{display:block;color:var(--muted);margin-top:3px}.swatch{width:16px;height:16px;border-radius:50%;display:inline-block;vertical-align:-3px;margin-right:5px;border:1px solid rgba(0,0,0,.14)}
 .note{border-radius:14px;padding:11px 13px;background:#f6f7f9;color:#333;font-size:13px}.note.warn{background:#fff7e8;color:#8a4b00}.note.good{background:#ecfdf3;color:#027a48}.status{margin-top:10px}
 .store-preview{border:1px solid var(--line);border-radius:22px;padding:18px;background:#fff}.store-preview-inner{max-width:380px;margin:auto}.store-preview img{width:100%;height:280px;object-fit:contain;border-radius:18px;background:#fafafa}.store-preview h3{font-size:24px;margin:12px 0 4px}.store-preview .price{font-size:21px;font-weight:850}.tiny{font-size:11px;color:var(--muted);line-height:1.45}.grade-detail{font-size:11px;color:#515154;line-height:1.45;background:#f7f7f8;border-radius:12px;padding:9px 10px;margin-top:8px}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spacer{height:16px}
@@ -80,11 +80,13 @@ linear-gradient(45deg,#f2f2f4 25%,transparent 25%),linear-gradient(-45deg,#f2f2f
 <div class="previewbox">
 <div class="product-stage"><img id="imagePreview" src="logo-thinkstore.png"></div>
 <div class="upload">
-<b>Subir imagen</b><p class="tiny">Se ajustará automáticamente a un cuadro 1400×1400. La mejora automática centra el producto y optimiza el archivo. El modo transparente elimina fondos claros conectados al borde de la fotografía.</p>
+<b>Subir imagen</b><p class="tiny">La imagen se prepara a 1800×1800 en alta calidad y ocupa casi todo el cuadro para evitar que el producto se vea pequeño. Puedes guardar una portada general o una imagen independiente para cada color.</p>
 <input id="imageFile" type="file" accept="image/jpeg,image/png,image/webp">
+<div class="field" style="margin-top:10px"><label>Encuadre</label><select id="imageFit"><option value="large">Producto grande · recomendado</option><option value="contain">Completo con margen</option><option value="fill">Llenar cuadro · puede recortar</option></select></div>
 <label class="check"><input id="autoEnhance" type="checkbox" checked> Ajuste y mejora automática</label>
-<label class="check"><input id="transparentBg" type="checkbox" checked> Intentar fondo transparente</label>
-<div class="field" style="margin-top:10px"><label>Asignar a color</label><select id="imageColor"></select></div>
+<label class="check"><input id="transparentBg" type="checkbox"> Intentar fondo transparente</label>
+<div class="field" style="margin-top:10px"><label>Asignar imagen a</label><select id="imageColor" onchange="previewAssignedSlot()"></select></div>
+<div class="image-help">Al elegir un color, solo se reemplaza la imagen de ese color. La portada general permanece intacta.</div>
 <div class="actions"><button class="btn" onclick="processImage()">Preparar imagen</button><button id="uploadBtn" class="btn blue" onclick="uploadPreparedImage()" disabled>Subir y aplicar</button></div>
 </div>
 </div>
@@ -108,7 +110,7 @@ linear-gradient(45deg,#f2f2f4 25%,transparent 25%),linear-gradient(-45deg,#f2f2f
 <script>
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const productName=new URLSearchParams(location.search).get('product')||'';
-let state={variants:[],catalog:null,images:[],categories:[],selected:null,prepared:null,preparedColor:'',batteryReady:true};
+let state={variants:[],catalog:null,images:[],categories:[],selected:null,prepared:null,preparedColor:'',batteryReady:true,imageColorReady:true};
 let client=null;
 
 function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
@@ -131,7 +133,7 @@ function predefinedColors(){
   return [...new Set([...fromData,...fromInv])];
 }
 function colorHex(name){
- const n=norm(name),m=[['negro','#202124'],['blanco','#f5f5f5'],['plata','#c8c9cc'],['natural','#c7b8a4'],['desert','#c79062'],['naranja','#ef7a21'],['azul','#6c8fb3'],['verde','#98ad93'],['rosa','#e7b8c3'],['púrpura','#8f78ad'],['purpura','#8f78ad'],['morado','#8f78ad'],['rojo','#c94b4b'],['amarillo','#e8ce68'],['titanio','#aaa49c']];return (m.find(([k])=>n.includes(k))||[])[1]||'#d6d6d8';
+ const n=norm(name),m=[['dark cherry','#8a2748'],['cherry','#8a2748'],['dark gray','#414346'],['gray','#62656a'],['grey','#62656a'],['light blue','#8fb7e8'],['blue','#6c8fb3'],['silver','#cfd2d6'],['negro','#202124'],['blanco','#f5f5f5'],['plata','#c8c9cc'],['natural','#c7b8a4'],['desert','#c79062'],['naranja','#ef7a21'],['azul','#6c8fb3'],['verde','#98ad93'],['rosa','#e7b8c3'],['púrpura','#8f78ad'],['purpura','#8f78ad'],['morado','#8f78ad'],['rojo','#c94b4b'],['amarillo','#e8ce68'],['titanio','#aaa49c']];return (m.find(([k])=>n.includes(k))||[])[1]||'#d6d6d8';
 }
 async function authHeaders(){
   if(!client)throw new Error('Supabase no disponible.');
@@ -154,7 +156,7 @@ async function load(){
     state.variants=(d.variants||[]).filter(v=>norm(v.product_name)===norm(productName));
     state.catalog=(d.catalog_products||[]).find(v=>norm(v.product_name)===norm(productName))||{};
     state.images=(d.catalog_images||[]).filter(v=>String(v.product_key||'')===String(state.catalog.product_key||slug(productName)));
-    state.categories=d.catalog_categories||[];state.batteryReady=d.battery_health_ready!==false;
+    state.categories=d.catalog_categories||[];state.batteryReady=d.battery_health_ready!==false;state.imageColorReady=d.catalog_image_color_ready!==false;
     state.selected=state.variants[0]||null;
     renderAll();$('syncState').textContent='Datos reales · actualizado';
   }catch(e){fail(e.message)}
@@ -211,30 +213,52 @@ async function saveCatalog(){
  }catch(e){$('catalogStatus').innerHTML='<div class="note warn">'+esc(e.message)+'</div>'}
 }
 function mainImage(){const p=state.images.find(x=>x.is_primary)||state.images[0];return p?.image_url||state.catalog?.image_url||null}
+function imageForColor(color){return state.images.find(x=>!x.is_primary&&norm(x.color_name)===norm(color))||null}
 function renderColors(){
- const colors=predefinedColors();$('predefinedColors').innerHTML=colors.map(c=>`<div class="color-card"><b><span class="swatch" style="background:${colorHex(c)}"></span>${esc(c)}</b><small>${state.variants.filter(v=>v.color===c).length} variante(s)</small></div>`).join('');
- $('imageColor').innerHTML='<option value="">Portada general</option>'+colors.map(c=>`<option>${esc(c)}</option>`).join('');
-}
-function imageColorForIndex(i){
- const colors=predefinedColors(),offset=state.images.length>colors.length?1:0;return i>=offset?colors[i-offset]:'';
+ const colors=predefinedColors();
+ $('predefinedColors').innerHTML=colors.map(c=>{const assigned=imageForColor(c);return`<div class="color-card ${assigned?'assigned':''}"><b><span class="swatch" style="background:${colorHex(c)}"></span>${esc(c)}</b><small>${state.variants.filter(v=>v.color===c).length} variante(s) · ${assigned?'imagen asignada ✅':'sin imagen propia'}</small></div>`}).join('');
+ $('imageColor').innerHTML='<option value="">⭐ Portada general</option>'+colors.map(c=>`<option value="${esc(c)}">🎨 ${esc(c)}</option>`).join('');
+ if(!state.imageColorReady)$('imageStatus').innerHTML='<div class="note warn">Para guardar imágenes por color sin alterar la portada, ejecuta <b>supabase_v13_73_imagenes_por_color.sql</b> en Supabase.</div>';
 }
 function renderGallery(){
- $('gallery').innerHTML=state.images.map((x,i)=>{const c=imageColorForIndex(i);return`<div class="color-card"><img src="${esc(x.image_url)}" style="width:100%;height:120px;object-fit:contain;border-radius:10px;background:#fafafa"><b>${x.is_primary?'⭐ Portada':c?esc(c):'Imagen'}</b><small>${c?'Asignada por orden al color':''}</small></div>`}).join('')||'<div class="tiny">Sin imágenes guardadas.</div>';
+ const sorted=[...state.images].sort((a,b)=>(b.is_primary?1:0)-(a.is_primary?1:0)||Number(a.sort_order||0)-Number(b.sort_order||0));
+ $('gallery').innerHTML=sorted.map(x=>{const c=x.color_name||'';return`<div class="color-card ${c?'assigned':''}"><img src="${esc(x.image_url)}" style="width:100%;height:150px;object-fit:contain;border-radius:10px;background:#fafafa"><div class="gallery-label"><b>${x.is_primary?'⭐ Portada general':c?'🎨 '+esc(c):'Imagen adicional'}</b>${c?`<span class="slot">${esc(c)}</span>`:''}</div><small>${x.is_primary?'No cambia al subir imágenes por color':c?'Asignación fija por color':'Sin color asignado'}</small></div>`}).join('')||'<div class="tiny">Sin imágenes guardadas.</div>';
  const img=mainImage();if(img)$('imagePreview').src=img;
+}
+function previewAssignedSlot(){
+ const color=$('imageColor').value;
+ const row=color?imageForColor(color):(state.images.find(x=>x.is_primary)||null);
+ if(row?.image_url)$('imagePreview').src=row.image_url;
+ else if(!color&&mainImage())$('imagePreview').src=mainImage();
+ $('imageStatus').innerHTML=color?`<div class="note">Nueva imagen para <b>${esc(color)}</b>. La portada general no se modificará.</div>`:'<div class="note">Estás editando la <b>portada general</b>.</div>';
 }
 let preparedBlob=null,preparedUrl='';
 async function processImage(){
  const file=$('imageFile').files?.[0];if(!file)return alert('Selecciona una imagen.');
  try{
-  $('imageStatus').innerHTML='<div class="note">Procesando imagen…</div>';const bitmap=await createImageBitmap(file),size=1400,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.clearRect(0,0,size,size);
-  const pad=110,scale=Math.min((size-pad*2)/bitmap.width,(size-pad*2)/bitmap.height,1.8),w=Math.round(bitmap.width*scale),h=Math.round(bitmap.height*scale),x=Math.round((size-w)/2),y=Math.round((size-h)/2);
+  $('imageStatus').innerHTML='<div class="note">Procesando imagen en alta calidad…</div>';
+  const bitmap=await createImageBitmap(file),size=1800,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.clearRect(0,0,size,size);
+  const mode=$('imageFit')?.value||'large';
+  let scale,w,h,x,y;
+  if(mode==='fill'){
+    scale=Math.max(size/bitmap.width,size/bitmap.height);w=Math.round(bitmap.width*scale);h=Math.round(bitmap.height*scale);x=Math.round((size-w)/2);y=Math.round((size-h)/2);
+  }else{
+    const pad=mode==='contain'?120:42;
+    scale=Math.min((size-pad*2)/bitmap.width,(size-pad*2)/bitmap.height);
+    w=Math.round(bitmap.width*scale);h=Math.round(bitmap.height*scale);x=Math.round((size-w)/2);y=Math.round((size-h)/2);
+  }
   if(!$('transparentBg').checked){ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size)}
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(bitmap,x,y,w,h);
   if($('transparentBg').checked)removeLightEdgeBackground(ctx,size,size);
-  if($('autoEnhance').checked){const id=ctx.getImageData(0,0,size,size),d=id.data;for(let i=0;i<d.length;i+=4){if(d[i+3]===0)continue;for(let c=0;c<3;c++){let v=d[i+c]/255;v=(v-.5)*1.045+.5;v=Math.pow(Math.max(0,Math.min(1,v)),.985);d[i+c]=Math.max(0,Math.min(255,Math.round(v*255)))}}ctx.putImageData(id,0,0)}
-  preparedBlob=await new Promise(res=>canvas.toBlob(res,'image/webp',.92));if(!preparedBlob)throw new Error('No se pudo optimizar la imagen.');if(preparedBlob.size>4*1024*1024)throw new Error('La imagen resultante supera 4 MB. Usa una foto de menor resolución.');
-  preparedUrl=URL.createObjectURL(preparedBlob);$('imagePreview').src=preparedUrl;$('uploadBtn').disabled=false;
-  $('imageStatus').innerHTML='<div class="note good">Imagen preparada ✅ '+Math.round(preparedBlob.size/1024)+' KB · 1400×1400 · WEBP'+($('transparentBg').checked?' · transparencia conservada cuando fue detectable':'')+'</div>';
+  if($('autoEnhance').checked){const id=ctx.getImageData(0,0,size,size),d=id.data;for(let i=0;i<d.length;i+=4){if(d[i+3]===0)continue;for(let c=0;c<3;c++){let v=d[i+c]/255;v=(v-.5)*1.035+.5;v=Math.pow(Math.max(0,Math.min(1,v)),.99);d[i+c]=Math.max(0,Math.min(255,Math.round(v*255)))}}ctx.putImageData(id,0,0)}
+  preparedBlob=await new Promise(res=>canvas.toBlob(res,'image/webp',.95));if(!preparedBlob)throw new Error('No se pudo optimizar la imagen.');
+  if(preparedBlob.size>4*1024*1024)preparedBlob=await new Promise(res=>canvas.toBlob(res,'image/webp',.88));
+  if(!preparedBlob||preparedBlob.size>4*1024*1024)throw new Error('La imagen resultante supera 4 MB. Usa una foto de menor resolución.');
+  if(preparedUrl)URL.revokeObjectURL(preparedUrl);preparedUrl=URL.createObjectURL(preparedBlob);$('imagePreview').src=preparedUrl;$('uploadBtn').disabled=false;
+  document.querySelector('.product-stage')?.classList.add('preview-large');
+  const color=$('imageColor').value;
+  $('imageStatus').innerHTML='<div class="note good">Imagen preparada ✅ '+Math.round(preparedBlob.size/1024)+' KB · 1800×1800 · WEBP · '+(color?`se guardará solo en ${esc(color)}`:'portada general')+'</div>';
  }catch(e){$('imageStatus').innerHTML='<div class="note warn">'+esc(e.message)+'</div>'}
 }
 function removeLightEdgeBackground(ctx,w,h){
@@ -247,22 +271,37 @@ async function blobBase64(blob){return await new Promise((res,rej)=>{const r=new
 async function uploadPreparedImage(){
  if(!preparedBlob)return;
  try{
-  const headers=await authHeaders(),key=state.catalog.product_key||slug(productName),color=$('imageColor').value;$('imageStatus').innerHTML='<div class="note">Subiendo a Cloudflare R2…</div>';
-  const base64=await blobBase64(preparedBlob),mime=preparedBlob.type||'image/png';const r=await fetch('/.netlify/functions/catalog-image',{method:'POST',headers,body:JSON.stringify({product_key:key,product_name:productName,mime,base64})}),d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo subir.');
-  const colors=predefinedColors();let images=state.images.map(x=>({image_url:x.image_url,storage_path:x.storage_path||null,is_primary:!!x.is_primary}));
+  const headers=await authHeaders(),key=state.catalog.product_key||slug(productName),color=$('imageColor').value;
+  if(color&&!state.imageColorReady)throw new Error('Primero ejecuta supabase_v13_73_imagenes_por_color.sql en Supabase.');
+  $('imageStatus').innerHTML='<div class="note">Subiendo a Cloudflare R2…</div>';
+  const base64=await blobBase64(preparedBlob),mime=preparedBlob.type||'image/webp';
+  const r=await fetch('/.netlify/functions/catalog-image',{method:'POST',headers,body:JSON.stringify({product_key:key,product_name:productName,color_name:color||null,mime,base64})}),d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo subir.');
+
+  let images=state.images.map(x=>({image_url:x.image_url,storage_path:x.storage_path||null,color_name:x.color_name||null,is_primary:!!x.is_primary,sort_order:Number(x.sort_order||0)}));
+  let primary=images.find(x=>x.is_primary)||null;
+  if(!primary&&state.catalog?.image_url)primary={image_url:state.catalog.image_url,storage_path:null,color_name:null,is_primary:true,sort_order:0};
+
   if(color){
-    let idx=colors.indexOf(color)+(images.length>colors.length?1:0);while(images.length<=idx)images.push(null);images[idx]={image_url:d.image_url,storage_path:d.path||null,is_primary:false};images=images.filter(Boolean);
+    images=images.filter(x=>norm(x.color_name)!==norm(color));
+    if(primary&&!images.some(x=>x.is_primary))images.unshift(primary);
+    images.push({image_url:d.image_url,storage_path:d.path||null,color_name:color,is_primary:false,sort_order:images.length});
   }else{
-    images=images.filter(x=>!x.is_primary);images.unshift({image_url:d.image_url,storage_path:d.path||null,is_primary:true});
+    images=images.filter(x=>!x.is_primary);
+    images.unshift({image_url:d.image_url,storage_path:d.path||null,color_name:null,is_primary:true,sort_order:0});
   }
+  images=images.filter((x,i,a)=>x?.image_url&&a.findIndex(y=>y.image_url===x.image_url&&norm(y.color_name)===norm(x.color_name))===i);
+  images.forEach((x,i)=>x.sort_order=i);
   if(images.length&&!images.some(x=>x.is_primary))images[0].is_primary=true;
-  const gr=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_gallery',product_key:key,images:images.map((x,i)=>({...x,sort_order:i}))})}),gd=await gr.json();if(!gr.ok||!gd.ok)throw new Error(gd.error||'No se pudo guardar galería.');
-  const principal=(images.find(x=>x.is_primary)||images[0])?.image_url||null;await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_product',product_key:key,product_name:productName,category:$('category').value,description:$('description').value,image_url:principal,published:$('published').value==='true',sort_order:Number($('sort').value||1000)})});
-  $('imageStatus').innerHTML='<div class="note good">Imagen aplicada al catálogo ✅'+(color?' · '+esc(color):' · portada general')+'</div>';preparedBlob=null;$('uploadBtn').disabled=true;await load();
+
+  const gr=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_gallery',product_key:key,images})}),gd=await gr.json().catch(()=>({}));if(!gr.ok||!gd.ok)throw new Error(gd.error||'No se pudo guardar galería.');
+  const principal=(images.find(x=>x.is_primary)||images[0])?.image_url||state.catalog?.image_url||null;
+  const pr=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_catalog_product',product_key:key,product_name:productName,category:$('category').value,description:$('description').value,image_url:principal,published:$('published').value==='true',sort_order:Number($('sort').value||1000)})}),pd=await pr.json().catch(()=>({}));if(!pr.ok||!pd.ok)throw new Error(pd.error||'No se pudo actualizar la ficha.');
+  $('imageStatus').innerHTML='<div class="note good">Imagen guardada ✅'+(color?' · '+esc(color)+' · portada intacta':' · nueva portada general')+'</div>';
+  preparedBlob=null;if(preparedUrl){URL.revokeObjectURL(preparedUrl);preparedUrl=''}$('uploadBtn').disabled=true;$('imageFile').value='';await load();
  }catch(e){$('imageStatus').innerHTML='<div class="note warn">'+esc(e.message)+'</div>'}
 }
 function renderStorePreview(){
- const v=state.selected,c=state.catalog||{},img=mainImage();$('storeImg').src=img||'logo-thinkstore.png';$('storeCat').textContent=c.category||'ThinkStore';$('storeName').textContent=productName;$('storePrice').textContent=v&&Number(v.price_usd||0)>0?'$'+Number(v.price_usd).toLocaleString('en-US'):'Por definir';$('storeDesc').textContent=$('description')?.value||c.description||'';
+ const v=state.selected,c=state.catalog||{},colorImg=v?.color?imageForColor(v.color):null,img=colorImg?.image_url||mainImage();$('storeImg').src=img||'logo-thinkstore.png';$('storeCat').textContent=c.category||'ThinkStore';$('storeName').textContent=productName;$('storePrice').textContent=v&&Number(v.price_usd||0)>0?'$'+Number(v.price_usd).toLocaleString('en-US'):'Por definir';$('storeDesc').textContent=$('description')?.value||c.description||'';
  $('storeMeta').innerHTML=v?[v.capacity,v.color,conditionLabel(v.condition)].filter(Boolean).map(x=>`<span class="pill">${esc(x)}</span>`).join(''):'';
  const pre=v&&conditionKey(v.condition)==='preowned',g=$('vGrade')?.value||v?.cosmetic_grade||'',b=$('vBattery')?.value??v?.battery_health_pct??'',txt=gradeText(g,b);$('storeGrade').style.display=pre&&txt?'block':'none';$('storeGrade').textContent=txt;
 }
