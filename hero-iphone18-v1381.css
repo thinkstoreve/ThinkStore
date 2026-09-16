@@ -73,6 +73,13 @@ html,body{overflow-x:hidden}
 
 .ts79-color-label{display:flex;align-items:center;gap:10px;margin-top:18px;color:#e7ebf2;font-size:12px;font-weight:800;letter-spacing:.04em}.ts79-color-label i{width:15px;height:15px;border-radius:50%;background:var(--ts79-accent);border:1px solid rgba(255,255,255,.45)}
 
+
+.ts79-slide--artfull .ts79-media{inset:0}
+.ts79-slide--artfull .ts79-media img{object-fit:cover;object-position:center center;transform:scale(1.018);filter:saturate(1.03) contrast(1.04)}
+.ts79-slide--artfull.is-active .ts79-media img{transform:scale(1.05)}
+.ts79-slide--artfull .ts79-media::before{background:linear-gradient(90deg,rgba(3,5,10,.985) 0%,rgba(3,5,10,.975) 13%,rgba(3,5,10,.955) 24%,rgba(3,5,10,.90) 36%,rgba(3,5,10,.72) 48%,rgba(3,5,10,.42) 61%,rgba(3,5,10,.18) 76%,rgba(3,5,10,.06) 100%)}
+.ts79-slide--artfull .ts79-media::after{box-shadow:inset 0 -130px 160px rgba(0,0,0,.22)}
+
 /* Navegación fija dentro del hero: no empuja ni hace saltar la barra superior */
 .ts79-nav{position:absolute;left:22px;right:22px;bottom:26px;z-index:10;display:grid;grid-template-columns:48px 1fr auto 48px;align-items:center;gap:16px;transform:translateZ(0)}
 .ts79-arrow{width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.20);background:rgba(7,10,17,.46);color:#fff;font-size:26px;display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(10px);transition:background .2s ease,transform .2s ease}
@@ -98,7 +105,9 @@ html,body{overflow-x:hidden}
   .ts79-specs{margin-top:26px;overflow:auto;padding-bottom:4px}
   .ts79-spec{min-width:165px}
   .ts79-media,.ts79-slide--video .ts79-media{inset:auto 0 0 0;height:48%}
+  .ts79-slide--artfull .ts79-media{inset:0;height:100%}
   .ts79-media::before,.ts79-slide--video .ts79-media::before{background:linear-gradient(180deg,#050814 0%,rgba(5,8,20,.88) 14%,rgba(5,8,20,.20) 48%,rgba(5,8,20,.04) 100%)}
+  .ts79-slide--artfull .ts79-media::before{background:linear-gradient(180deg,rgba(3,5,10,.96) 0%,rgba(3,5,10,.88) 24%,rgba(3,5,10,.52) 44%,rgba(3,5,10,.14) 65%,rgba(3,5,10,.03) 100%)}
   .ts79-slide--video .ts79-media video{object-position:center center}
   .ts79-slide--pro-red .ts79-media{height:100%;inset:0}
   .ts79-slide--pro-red .ts79-media img{object-position:center top}

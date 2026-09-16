@@ -3739,3 +3739,165 @@ footer {
 .gps-btn{border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.09);color:#fff;padding:9px 12px;font-weight:800;cursor:pointer;white-space:nowrap}
 @media(max-width:1050px){.delivery-upload-grid{grid-template-columns:1fr!important}}
 @media(max-width:640px){.delivery-gps-box{align-items:flex-start;flex-direction:column}.gps-btn{width:100%}.money-alt{text-align:left}}
+
+/* =========================================================
+   ThinkStore V13.83 — Menú principal animado, estable y sin jitter
+   - Mantiene la altura del header constante al hacer scroll.
+   - Recupera entrada premium, underline animado y hover de iconos.
+   - Usa la clase existente ts-header-scrolled sin empujar el hero.
+   ========================================================= */
+@keyframes ts83HeaderEnter{
+  from{opacity:0;transform:translate3d(0,-14px,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+@keyframes ts83NavEnter{
+  from{opacity:0;transform:translate3d(0,-7px,0)}
+  to{opacity:1;transform:translate3d(0,0,0)}
+}
+
+.top.ts-clean-header{
+  position:sticky!important;
+  top:0!important;
+  z-index:1000!important;
+  animation:ts83HeaderEnter .48s cubic-bezier(.22,.78,.22,1) both!important;
+  background:rgba(255,255,255,.965)!important;
+  border-bottom:1px solid rgba(20,20,24,.065)!important;
+  box-shadow:0 1px 0 rgba(20,20,24,.02)!important;
+  backdrop-filter:saturate(180%) blur(18px)!important;
+  -webkit-backdrop-filter:saturate(180%) blur(18px)!important;
+  transition:background-color .28s ease,box-shadow .28s ease,border-color .28s ease!important;
+  transform:none;
+  will-change:auto!important;
+}
+.top.ts-clean-header.ts-header-scrolled{
+  background:rgba(255,255,255,.88)!important;
+  border-bottom-color:rgba(20,20,24,.08)!important;
+  box-shadow:0 12px 36px rgba(0,0,0,.075)!important;
+}
+
+/* Entrada escalonada del contenido del menú */
+.top.ts-clean-header .ts-clean-brand,
+.top.ts-clean-header .ts-home-link,
+.top.ts-clean-header .ts-tradein-link,
+.top.ts-clean-header .ts-clean-nav>a,
+.top.ts-clean-header .ts-nav-icon{
+  animation:ts83NavEnter .42s cubic-bezier(.22,.78,.22,1) both;
+}
+.top.ts-clean-header .ts-clean-brand{animation-delay:.04s}
+.top.ts-clean-header .ts-home-link{animation-delay:.08s}
+.top.ts-clean-header .ts-tradein-link{animation-delay:.12s}
+.top.ts-clean-header .ts-clean-nav>a:nth-child(1){animation-delay:.16s}
+.top.ts-clean-header .ts-clean-nav>a:nth-child(2){animation-delay:.20s}
+.top.ts-clean-header .ts-clean-nav>a:nth-child(3){animation-delay:.24s}
+.top.ts-clean-header .ts-nav-icon:nth-of-type(1){animation-delay:.28s}
+.top.ts-clean-header .ts-nav-icon:nth-of-type(2){animation-delay:.32s}
+.top.ts-clean-header .ts-nav-icon:nth-of-type(3){animation-delay:.36s}
+
+/* Underline suave del menú, sin mover el layout */
+.top.ts-clean-header .ts-home-link,
+.top.ts-clean-header .ts-tradein-link,
+.top.ts-clean-header .ts-clean-nav>a{
+  position:relative!important;
+  transition:color .22s ease,opacity .22s ease!important;
+}
+.top.ts-clean-header .ts-home-link::after,
+.top.ts-clean-header .ts-tradein-link::after,
+.top.ts-clean-header .ts-clean-nav>a::after{
+  content:"";
+  position:absolute;
+  left:50%;bottom:17px;
+  width:20px;height:2px;border-radius:999px;
+  background:linear-gradient(90deg,#0071e3,#6a5cff);
+  opacity:0;
+  transform:translateX(-50%) scaleX(.2);
+  transform-origin:center;
+  transition:opacity .22s ease,transform .28s cubic-bezier(.22,.78,.22,1);
+  pointer-events:none;
+}
+.top.ts-clean-header .ts-home-link:hover::after,
+.top.ts-clean-header .ts-tradein-link:hover::after,
+.top.ts-clean-header .ts-clean-nav>a:hover::after{
+  opacity:1;
+  transform:translateX(-50%) scaleX(1);
+}
+.top.ts-clean-header .ts-home-link:hover,
+.top.ts-clean-header .ts-tradein-link:hover,
+.top.ts-clean-header .ts-clean-nav>a:hover{
+  color:#0071e3!important;
+}
+
+/* Iconos con micro-interacción, sin cambiar tamaño ni ancho */
+.top.ts-clean-header .ts-nav-icon{
+  border-radius:50%!important;
+  transition:background-color .22s ease,color .22s ease,box-shadow .22s ease,transform .22s ease!important;
+}
+.top.ts-clean-header .ts-nav-icon:hover{
+  background:rgba(0,113,227,.075)!important;
+  color:#0071e3!important;
+  box-shadow:0 8px 20px rgba(0,113,227,.10)!important;
+  transform:translate3d(0,-2px,0)!important;
+}
+.top.ts-clean-header .ts-nav-icon:active{transform:translate3d(0,0,0) scale(.96)!important}
+
+/* El efecto de scroll cambia solamente la apariencia, NUNCA la altura. */
+@media (min-width:861px){
+  .top.ts-clean-header,
+  .top.ts-clean-header.ts-header-scrolled{
+    min-height:92px!important;
+    height:92px!important;
+    padding:0 3.1%!important;
+  }
+  .top.ts-clean-header.ts-header-scrolled .ts-clean-brand img{
+    width:44px!important;height:44px!important;border-radius:13px!important;
+  }
+  .top.ts-clean-header.ts-header-scrolled .ts-clean-brand span{
+    transform:none!important;
+  }
+  .top.ts-clean-header.ts-header-scrolled .ts-home-link{
+    font-size:15px!important;
+  }
+  .top.ts-clean-header.ts-header-scrolled .ts-home-link svg{
+    width:23px!important;height:23px!important;
+  }
+  .top.ts-clean-header.ts-header-scrolled .ts-clean-nav>a{
+    padding:36px 0!important;font-size:15px!important;
+  }
+  .top.ts-clean-header.ts-header-scrolled .ts-nav-icon{
+    width:34px!important;height:34px!important;
+    min-width:34px!important;min-height:34px!important;
+  }
+  .top.ts-clean-header.ts-header-scrolled .ts-nav-icon svg{
+    width:25px!important;height:25px!important;
+  }
+  .top.ts-clean-header .ts-home-link::after,
+  .top.ts-clean-header .ts-tradein-link::after,
+  .top.ts-clean-header .ts-clean-nav>a::after{bottom:18px}
+}
+
+@media (max-width:860px){
+  .top.ts-clean-header,
+  .top.ts-clean-header.ts-header-scrolled{
+    position:sticky!important;top:0!important;
+    min-height:76px!important;height:76px!important;
+    padding:0 18px!important;
+  }
+  .top.ts-clean-header .ts-home-link::after,
+  .top.ts-clean-header .ts-tradein-link::after,
+  .top.ts-clean-header .ts-clean-nav>a::after{display:none!important}
+}
+@media (max-width:620px){
+  .top.ts-clean-header,
+  .top.ts-clean-header.ts-header-scrolled{
+    min-height:68px!important;height:68px!important;padding:0 12px!important;
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .top.ts-clean-header,
+  .top.ts-clean-header .ts-clean-brand,
+  .top.ts-clean-header .ts-home-link,
+  .top.ts-clean-header .ts-tradein-link,
+  .top.ts-clean-header .ts-clean-nav>a,
+  .top.ts-clean-header .ts-nav-icon{
+    animation:none!important;transition:none!important;
+  }
+}
