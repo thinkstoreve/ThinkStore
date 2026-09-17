@@ -212,12 +212,12 @@ exports.handler = async function(event) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #eeeeef;padding-top:22px;">
                 <tr><td style="font-size:13px;line-height:1.8;color:#6e6e73;">
                   <strong style="color:#1d1d1f;">Compra con acompañamiento ThinkStore</strong><br>
-                  Asesoría personalizada · Retiro en Altamira · Envíos nacionales por MRW, Zoom y Tealca
+                  Asesoría personalizada · Retiro en Chacao · Envíos nacionales por MRW, Zoom y Tealca
                 </td></tr>
               </table>
             </td></tr>
             <tr><td align="center" style="background:#fafafa;border-top:1px solid #eeeeef;padding:24px 34px;font-size:12px;line-height:1.7;color:#86868b;">
-              <strong style="color:#1d1d1f;">ThinkStore</strong> · Altamira, Caracas<br>
+              <strong style="color:#1d1d1f;">ThinkStore</strong> · Chacao, Caracas<br>
               <a href="https://thinkstore.com.ve" style="color:#1d1d1f;text-decoration:none;">thinkstore.com.ve</a>
             </td></tr>
           </table>
