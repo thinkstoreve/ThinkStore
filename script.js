@@ -151,6 +151,16 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
       // Producto ya existente: la galería de Supabase sustituye la visual sin mezclar modelos.
       existing.main=image; existing.gallery=eg.urls;
       if(colors.length)existing.colors=galleryColorMap(colors,eg.urls,image,eg.rows);
+      const isUltra=tsCatalogNorm(existing.name||existing.model||c.product_name||'')==='iphone ultra';
+      if(isUltra){
+        const colorLabels=colors.length?colors:Object.keys(existing.colors||{});
+        existing.gallery=image?[image]:[];
+        if(colorLabels.length){
+          const mono={};
+          colorLabels.forEach(label=>mono[label]=image);
+          existing.colors=mono;
+        }
+      }
       if(capacities.length)existing.storage=capacities;
       if(conditions.length)existing.condition=conditions;
       if(c.description)existing.description=c.description;

@@ -40,8 +40,8 @@ const CATEGORIES = [
 const PRODUCTS = [
   {
     "id":"iphone-ultra","brand":"Apple","category":"iPhone","family":"Serie iPhone 18","model":"iPhone Ultra","name":"iPhone Ultra","badge":"Nuevo · Pre-Order","main":"iphone18/colors/iphone18-pro-max-dark-gray.jpg",
-    "gallery":["iphone18/colors/iphone18-pro-max-dark-gray.jpg","iphone18/colors/iphone18-pro-max-silver.jpg","iphone18/colors/iphone18-pro-max-light-blue.jpg","iphone18/colors/iphone18-pro-max-dark-cherry.jpg"],
-    "colors":{"Negro":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Plata":"iphone18/colors/iphone18-pro-max-silver.jpg","Glaciar":"iphone18/colors/iphone18-pro-max-light-blue.jpg","Borgoña":"iphone18/colors/iphone18-pro-max-dark-cherry.jpg"},
+    "gallery":["iphone18/colors/iphone18-pro-max-dark-gray.jpg"],
+    "colors":{"Negro":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Plata":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Glaciar":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Borgoña":"iphone18/colors/iphone18-pro-max-dark-gray.jpg"},
     "storage":["256GB","512GB","1TB","2TB"],"condition":["Nuevo","Pre-Order"],
     "features":["Diseño Ultra de nueva generación","Apple Intelligence","Hasta 2 TB","Cámara Pro avanzada"],
     "details":{"Pantalla":"Configuración Ultra","Chip":"Nueva generación","Cámara principal":"Sistema Pro avanzado","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS · Apple Intelligence","Colores":"Borgoña · Glaciar · Plata · Negro"},
