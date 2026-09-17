@@ -54,15 +54,17 @@ exports.handler = async function(event) {
   try { payload = JSON.parse(event.body || '{}'); } catch(e) { return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'JSON inválido' }) }; }
 
   const clean = (v) => String(v || '').trim();
-  const subject = clean(payload.subject || 'Novedades ThinkStore');
-  const title = clean(payload.title || 'Nuevas ofertas disponibles');
-  const subtitle = clean(payload.subtitle || 'Descubre productos Apple, accesorios y preórdenes exclusivas en ThinkStore.');
-  const message = clean(payload.message || 'Tenemos novedades para ti. Revisa nuestro catálogo y consulta disponibilidad.');
-  const productName = clean(payload.productName || 'Producto destacado ThinkStore');
-  const productDetails = clean(payload.productDetails || 'Disponibilidad, garantía y asesoría especializada.');
-  const offer = clean(payload.offer || 'Consulta precio y disponibilidad');
+  const subject = clean(payload.subject || 'Preventa iPhone 18 | ThinkStore');
+  const title = clean(payload.title || 'El nuevo iPhone 18 llega a ThinkStore');
+  const subtitle = clean(payload.subtitle || 'Sé de los primeros en reservarlo. Preventa de lanzamiento con atención personalizada.');
+  const message = clean(payload.message || 'La nueva generación de iPhone ya está en preventa en ThinkStore. Reserva tu iPhone 18 Pro o iPhone 18 Pro Max y asegura tu unidad antes de la disponibilidad general.');
+  const productName = clean(payload.productName || 'iPhone 18 Pro / Pro Max');
+  const productDetails = clean(payload.productDetails || 'Elige tu acabado y capacidad. Te acompañamos durante todo el proceso de reserva.');
+  const offer = clean(payload.offer || 'Preventa abierta · Unidades limitadas');
+  const pricePro = clean(payload.pricePro || '');
+  const priceProMax = clean(payload.priceProMax || '');
   const actionUrl = clean(payload.actionUrl || 'https://thinkstore.com.ve');
-  const actionLabel = clean(payload.actionLabel || 'Ver promoción');
+  const actionLabel = clean(payload.actionLabel || 'Reservar iPhone 18');
   const audience = clean(payload.audience || 'all');
   const testEmail = clean(payload.testEmail || '');
   const crmTag = clean(payload.crmTag || '');
@@ -177,46 +179,46 @@ exports.handler = async function(event) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   function htmlFor(name) {
-    const banner = bannerUrl ? `<img src="${esc(bannerUrl)}" alt="Promoción ThinkStore" style="width:100%;max-height:260px;object-fit:${esc(bannerFit)};object-position:${esc(bannerPosition)};border-radius:24px;border:0;margin:0 0 26px;display:block;">` : '';
+    const banner = bannerUrl ? `<img src="${esc(bannerUrl)}" alt="iPhone 18 · Preventa ThinkStore" style="width:100%;max-height:330px;object-fit:${esc(bannerFit)};object-position:${esc(bannerPosition)};border-radius:22px;border:1px solid #ececef;margin:0 0 28px;display:block;background:#f5f5f7;">` : '';
+    const priceCells = [];
+    if (pricePro) priceCells.push(`<td valign="top" style="width:${priceProMax?'50%':'100%'};padding:${priceProMax?'0 6px 0 0':'0'};"><div style="background:linear-gradient(180deg,#ffffff 0%,#fbfbfd 100%);border:1px solid #e6e6eb;border-radius:22px;padding:18px 18px 16px;box-shadow:0 10px 24px rgba(0,0,0,.04);"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#86868b;font-weight:800;margin-bottom:7px;">iPhone 18 Pro</div><div style="font-size:12px;line-height:1.2;color:#6e6e73;font-weight:700;margin-bottom:4px;">Desde</div><div style="font-size:34px;line-height:1;letter-spacing:-.045em;color:#1d1d1f;font-weight:800;">${esc(pricePro)}</div><div style="font-size:12px;line-height:1.45;color:#86868b;margin-top:8px;">Precio de lanzamiento</div></div></td>`);
+    if (priceProMax) priceCells.push(`<td valign="top" style="width:${pricePro?'50%':'100%'};padding:${pricePro?'0 0 0 6px':'0'};"><div style="background:linear-gradient(180deg,#ffffff 0%,#fbfbfd 100%);border:1px solid #e6e6eb;border-radius:22px;padding:18px 18px 16px;box-shadow:0 10px 24px rgba(0,0,0,.04);"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#86868b;font-weight:800;margin-bottom:7px;">iPhone 18 Pro Max</div><div style="font-size:12px;line-height:1.2;color:#6e6e73;font-weight:700;margin-bottom:4px;">Desde</div><div style="font-size:34px;line-height:1;letter-spacing:-.045em;color:#1d1d1f;font-weight:800;">${esc(priceProMax)}</div><div style="font-size:12px;line-height:1.45;color:#86868b;margin-top:8px;">Precio de lanzamiento</div></div></td>`);
+    const priceHtml = priceCells.length ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#86868b;font-weight:800;margin:22px 0 12px;">Precio de lanzamiento</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${priceCells.join('')}</tr></table>` : '';
     return `
-    <div style="margin:0;padding:0;background:#050505;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:28px 12px;">
+    <div style="margin:0;padding:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f7;padding:28px 12px;">
         <tr><td align="center">
-          <table role="presentation" width="660" cellpadding="0" cellspacing="0" style="max-width:660px;width:100%;background:#111114;border:1px solid rgba(255,255,255,.12);border-radius:30px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45);">
-            <tr><td style="background:linear-gradient(145deg,#050505 0%,#18181d 55%,#2c2c35 100%);padding:34px 34px 32px;">
-              <div style="background:#ffffff;border-radius:22px;padding:16px 20px;display:inline-block;margin-bottom:28px;">
-                <img src="${esc(logoUrl)}" alt="ThinkStore" width="240" style="display:block;width:240px;max-width:100%;height:auto;border:0;">
-              </div>
-              <div style="font-size:12px;text-transform:uppercase;letter-spacing:.18em;color:rgba(255,255,255,.58);margin-bottom:12px;">Promoción exclusiva</div>
-              <h1 style="font-size:38px;line-height:1.08;margin:0 0 12px;color:#ffffff;font-weight:800;">${esc(title)}</h1>
-              <p style="font-size:17px;line-height:1.65;margin:0;color:rgba(255,255,255,.76);">${esc(subtitle)}</p>
+          <table role="presentation" width="660" cellpadding="0" cellspacing="0" style="max-width:660px;width:100%;background:#ffffff;border:1px solid #e7e7ea;border-radius:30px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.08);">
+            <tr><td align="center" style="padding:34px 34px 14px;background:#ffffff;">
+              <img src="${esc(logoUrl)}" alt="ThinkStore" width="188" style="display:block;width:188px;max-width:62%;height:auto;border:0;margin:0 auto 28px;">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:#86868b;font-weight:800;margin-bottom:14px;">Preventa de lanzamiento · iPhone 18</div>
+              <h1 style="font-size:42px;line-height:1.06;letter-spacing:-.035em;margin:0 auto 14px;color:#1d1d1f;font-weight:800;max-width:560px;">${esc(title)}</h1>
+              <p style="font-size:17px;line-height:1.6;margin:0 auto;color:#6e6e73;max-width:540px;">${esc(subtitle)}</p>
             </td></tr>
-            <tr><td style="padding:34px;background:#111114;">
+            <tr><td style="padding:28px 34px 36px;background:#ffffff;">
               ${banner}
-              <p style="font-size:17px;line-height:1.75;margin:0 0 24px;color:#f5f5f7;">Hola ${esc(name)},</p>
-              <div style="background:#1b1b20;border:1px solid rgba(255,255,255,.10);border-radius:24px;padding:24px;margin-bottom:26px;color:#f5f5f7;font-size:17px;line-height:1.75;">
-                ${esc(message).replace(/\n/g, '<br>')}
+              <p style="font-size:16px;line-height:1.7;margin:0 0 14px;color:#1d1d1f;">Hola ${esc(name)},</p>
+              <p style="font-size:16px;line-height:1.72;margin:0 0 26px;color:#3a3a3c;">${esc(message).replace(/\n/g, '<br>')}</p>
+              <div style="background:#f5f5f7;color:#1d1d1f;border:1px solid #ececef;border-radius:24px;padding:26px;margin-bottom:28px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.17em;color:#86868b;font-weight:800;margin-bottom:12px;">Preventa abierta</div>
+                <h2 style="font-size:29px;line-height:1.18;letter-spacing:-.025em;margin:0 0 10px;color:#1d1d1f;">${esc(productName)}</h2>
+                <p style="font-size:15px;line-height:1.65;margin:0 0 18px;color:#515154;">${esc(productDetails)}</p>
+                <div style="display:inline-block;background:#ffffff;color:#1d1d1f;border:1px solid #d9d9de;border-radius:999px;padding:10px 16px;font-size:14px;font-weight:800;">${esc(offer)}</div>
+                ${priceHtml}
               </div>
-              <div style="background:#f5f5f7;color:#111111;border-radius:24px;padding:24px;margin-bottom:28px;">
-                <div style="font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:#6e6e73;margin-bottom:10px;">Producto destacado</div>
-                <h2 style="font-size:28px;line-height:1.2;margin:0 0 10px;color:#111111;">${esc(productName)}</h2>
-                <p style="font-size:16px;line-height:1.65;margin:0 0 16px;color:#333333;">${esc(productDetails)}</p>
-                <div style="display:inline-block;background:#111111;color:#ffffff;border-radius:999px;padding:10px 18px;font-size:15px;font-weight:800;">${esc(offer)}</div>
+              <div style="text-align:center;margin:30px 0 30px;">
+                <a href="${esc(actionUrl)}" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;border-radius:999px;padding:15px 30px;font-size:16px;font-weight:800;">${esc(actionLabel)}</a>
               </div>
-              <div style="text-align:center;margin:34px 0 8px;">
-                <a href="${esc(actionUrl)}" style="display:inline-block;background:#ffffff;color:#000000;text-decoration:none;border-radius:999px;padding:16px 30px;font-size:16px;font-weight:800;">${esc(actionLabel)}</a>
-              </div>
-              <div style="display:grid;gap:10px;margin-top:28px;color:rgba(255,255,255,.70);font-size:14px;line-height:1.6;">
-                <div>✅ Tienda física en Altamira</div>
-                <div>✅ Envíos por MRW, Zoom y Tealca</div>
-                <div>✅ Equipos Apple, accesorios y preórdenes</div>
-                <div>✅ Atención especializada ThinkStore</div>
-              </div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #eeeeef;padding-top:22px;">
+                <tr><td style="font-size:13px;line-height:1.8;color:#6e6e73;">
+                  <strong style="color:#1d1d1f;">Compra con acompañamiento ThinkStore</strong><br>
+                  Asesoría personalizada · Retiro en Altamira · Envíos nacionales por MRW, Zoom y Tealca
+                </td></tr>
+              </table>
             </td></tr>
-            <tr><td style="background:#0b0b0d;border-top:1px solid rgba(255,255,255,.10);padding:24px 34px;font-size:13px;line-height:1.7;color:rgba(255,255,255,.58);">
-              <strong style="color:#ffffff;">ThinkStore</strong><br>
-              Altamira, Caracas · Venezuela<br>
-              <a href="https://thinkstore.com.ve" style="color:#ffffff;text-decoration:underline;">www.thinkstore.com.ve</a>
+            <tr><td align="center" style="background:#fafafa;border-top:1px solid #eeeeef;padding:24px 34px;font-size:12px;line-height:1.7;color:#86868b;">
+              <strong style="color:#1d1d1f;">ThinkStore</strong> · Altamira, Caracas<br>
+              <a href="https://thinkstore.com.ve" style="color:#1d1d1f;text-decoration:none;">thinkstore.com.ve</a>
             </td></tr>
           </table>
         </td></tr>
@@ -235,7 +237,7 @@ exports.handler = async function(event) {
         body: JSON.stringify({
           from, to: r.email, reply_to: replyTo, subject,
           html: htmlFor(r.nombre),
-          text: `${title}\n\n${subtitle}\n\n${message}\n\n${productName}\n${productDetails}\n${offer}\n\n${actionUrl}`
+          text: `${title}\n\n${subtitle}\n\n${message}\n\n${productName}\n${productDetails}\n${offer}${pricePro?`\nPrecio iPhone 18 Pro: ${pricePro}`:''}${priceProMax?`\nPrecio iPhone 18 Pro Max: ${priceProMax}`:''}\n\n${actionUrl}`
         })
       });
       const result = await response.json().catch(() => ({}));
@@ -249,7 +251,7 @@ exports.handler = async function(event) {
     subject, title, subtitle, audience,
     recipients_count: recipients.length, sent_count: sent, failed_count: failed,
     banner_url: bannerUrl || null,
-    content_json: { message, productName, productDetails, offer, actionUrl, actionLabel, bannerFit, bannerPosition },
+    content_json: { message, productName, productDetails, offer, pricePro, priceProMax, actionUrl, actionLabel, bannerFit, bannerPosition },
     created_at: new Date().toISOString()
   }]);
 
