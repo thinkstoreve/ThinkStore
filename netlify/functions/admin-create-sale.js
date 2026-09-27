@@ -17,9 +17,20 @@ exports.handler=async function(event){
     if(!token)return{ok:false};
     const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}}); const u=await ur.json().catch(()=>({}));
     if(!ur.ok||!u.id)return{ok:false};
-    const pr=await fetch(`${url}/rest/v1/profiles?select=id,role,active&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh}); const rows=await pr.json().catch(()=>[]),p=rows[0],role=norm(p?.role);
-    if(!p||p.active===false||!['admin','super_admin','superadmin','administrator','gerente','vendedor'].includes(role))return{ok:false};
-    return{ok:true,user_id:u.id,email:u.email||'',role};
+    let pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh}); const rows=await pr.json().catch(()=>[]),p=rows[0],role=norm(p?.role||p?.rol);
+    if(!p||(p.active??p.activo??true)===false)return{ok:false};
+    const uiRole=role==='super_admin'?'superadmin':(['administrator','gerente'].includes(role)?'admin':role);
+    const defaultPerms={vendedor:['ventas'],admin:['*'],superadmin:['*']};
+    let perms=[...(defaultPerms[uiRole]||[])];
+    if(p.custom_role_key){
+      const rr=await fetch(`${url}/rest/v1/ts_roles?select=permissions&role_key=eq.${encodeURIComponent(p.custom_role_key)}&active=eq.true&limit=1`,{headers:sh});
+      const rd=await rr.json().catch(()=>[]);if(rr.ok&&Array.isArray(rd?.[0]?.permissions))perms=rd[0].permissions.map(String);
+    }
+    const ov=p.permission_overrides&&typeof p.permission_overrides==='object'?p.permission_overrides:{};
+    const allow=Array.isArray(ov.allow)?ov.allow.map(String):[],deny=Array.isArray(ov.deny)?ov.deny.map(String):[];
+    if(!perms.includes('*'))perms=[...new Set([...perms,...allow])].filter(x=>!deny.includes(x));
+    if(!(perms.includes('*')||perms.includes('ventas')))return{ok:false};
+    return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',name:p.full_name||p.nombre||p.name||u.user_metadata?.full_name||u.email||'',role:uiRole};
   }
   const actor=await auth(); if(!actor.ok)return r(401,{ok:false,error:'Acceso no autorizado'});
 
@@ -108,11 +119,14 @@ exports.handler=async function(event){
       total_usd:total,total_bs:fxQuote?.total_ves??null,metodo_envio:clean(b.delivery_method||'Retiro en tienda'),
       empresa_envio:clean(b.shipping_company)||null,order_channel:'presencial',
       guest_name:guest.name,guest_email:guest.email,guest_document:guest.document,guest_phone:guest.phone,
-      guest_address:guest.address,guest_city:guest.city||null,guest_state:guest.state||null,sale_note:clean(b.sale_note)||null
+      guest_address:guest.address,guest_city:guest.city||null,guest_state:guest.state||null,sale_note:clean(b.sale_note)||null,
+      salesperson_user_id:actor.user_id||null,salesperson_email:actor.email||null,salesperson_name:actor.name||actor.email||null,pos_source:clean(b.pos_source||'panel_pos')||'panel_pos'
     };
     let po;
     try{po=await req('pedidos',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(pedidoPayload)})}
     catch(e){
+      if(/salesperson_user_id|salesperson_email|salesperson_name|pos_source/i.test(clean(e.message)))
+        return r(409,{ok:false,migration_required:true,error:'Falta ejecutar supabase_v14_0_staff_pos.sql antes de usar ThinkStore Staff.'});
       if(/subtotal_usd|discount_|schema cache|column/i.test(clean(e.message)))
         return r(409,{ok:false,migration_required:true,error:'Falta ejecutar supabase_v13_65_descuentos_venta_presencial.sql antes de usar descuentos.'});
       if(/order_channel|guest_|sale_note/i.test(clean(e.message)))

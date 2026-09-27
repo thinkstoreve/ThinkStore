@@ -31,15 +31,25 @@ exports.handler = async function(event) {
     const u=await ur.json().catch(()=>({}));
     if(!ur.ok||!u.id)return{ok:false};
     const serviceHeaders={apikey:SERVICE,Authorization:`Bearer ${SERVICE}`};
-    const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,role,active&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:serviceHeaders});
+    const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:serviceHeaders});
     const rows=await pr.json().catch(()=>[]);let p=rows[0]||null;
     if(!p&&u.email){
       const rr=await fetch(`${SUPABASE_URL}/rest/v1/roles_usuarios?select=id,rol,activo&email=ilike.${encodeURIComponent(u.email)}&limit=1`,{headers:serviceHeaders});
       const roleRows=await rr.json().catch(()=>[]);const rp=roleRows[0];if(rp)p={id:rp.id,role:rp.rol,active:rp.activo};
     }
-    const r=norm(p?.role);
-    if(!p||p.active===false||!['admin','super_admin','superadmin','administrator','gerente','vendedor'].includes(r))return{ok:false};
-    return{ok:true,user_id:u.id,email:u.email||'',role:r};
+    if(!p||(p.active??p.activo??true)===false)return{ok:false};
+    const raw=norm(p.role||p.rol),uiRole=raw==='super_admin'?'superadmin':(['administrator','gerente'].includes(raw)?'admin':raw);
+    const defaultPerms={vendedor:['ventas'],admin:['*'],superadmin:['*']};
+    let perms=[...(defaultPerms[uiRole]||[])];
+    if(p.custom_role_key){
+      const rr=await fetch(`${SUPABASE_URL}/rest/v1/ts_roles?select=permissions&role_key=eq.${encodeURIComponent(p.custom_role_key)}&active=eq.true&limit=1`,{headers:serviceHeaders});
+      const rd=await rr.json().catch(()=>[]);if(rr.ok&&Array.isArray(rd?.[0]?.permissions))perms=rd[0].permissions.map(String);
+    }
+    const ov=p.permission_overrides&&typeof p.permission_overrides==='object'?p.permission_overrides:{};
+    const allow=Array.isArray(ov.allow)?ov.allow.map(String):[],deny=Array.isArray(ov.deny)?ov.deny.map(String):[];
+    if(!perms.includes('*'))perms=[...new Set([...perms,...allow])].filter(x=>!deny.includes(x));
+    if(!(perms.includes('*')||perms.includes('ventas')))return{ok:false};
+    return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',role:uiRole};
   }
   const auth=await authorizeAdmin();
   if(!auth.ok)return reply(401,{ok:false,error:'Acceso administrador no autorizado'});

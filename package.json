@@ -1,8 +1,8 @@
 {
   "name": "thinkstore",
-  "version": "13.81.0",
+  "version": "14.0.0",
   "private": true,
-  "description": "ThinkStore storefront and Netlify Functions",
+  "description": "ThinkStore storefront, internal admin panel and ThinkStore Staff POS PWA",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4"
   }
