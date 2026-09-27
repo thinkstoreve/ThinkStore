@@ -36,6 +36,7 @@ exports.handler=async(event)=>{
   if(!url||!service)return out(500,{ok:false,error:'Supabase no está configurado'});
   const auth=await authenticate(event,url,service);
   if(!auth.ok)return out(401,{ok:false,error:'Inicia sesión con una cuenta interna de ThinkStore'});
+  if(auth.profile?.is_internal!==true)return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente. ThinkStore Staff es exclusivo para personal invitado por un administrador.'});
   if(!INTERNAL.includes(auth.role)&&!auth.profile?.custom_role_key)return out(403,{ok:false,error:'Esta app es exclusiva para el equipo interno de ThinkStore'});
   const access=await effectiveAccess(auth.profile,url,service);
   const canSell=access.permissions.includes('*')||access.permissions.includes('ventas');

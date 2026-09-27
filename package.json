@@ -1,6 +1,6 @@
 {
   "name": "thinkstore",
-  "version": "14.0.0",
+  "version": "14.1.0",
   "private": true,
   "description": "ThinkStore storefront, internal admin panel and ThinkStore Staff POS PWA",
   "dependencies": {

@@ -17,15 +17,19 @@ exports.handler=async(event)=>{
   let body={};try{body=JSON.parse(event.body||'{}')}catch(_){return out(400,{ok:false,error:'JSON inválido'})}
   const action=String(body.action||'access').toLowerCase();
   if(action==='access')return out(200,{ok:true,...await effectiveAccess(viewer.profile,url,service)});
-  if(!['admin','superadmin'].includes(viewer.role))return out(403,{ok:false,error:'Acceso administrativo no autorizado'});
+  if(!viewer.internal||!['admin','superadmin'].includes(viewer.role))return out(403,{ok:false,error:'Acceso administrativo no autorizado'});
 
   if(action==='list'){
     const [pr,rr]=await Promise.all([
-      fetch(`${url}/rest/v1/profiles?select=*&order=created_at.desc`,{headers:svc(service)}),
+      fetch(`${url}/rest/v1/profiles?select=*&is_internal=eq.true&order=created_at.desc`,{headers:svc(service)}),
       fetch(`${url}/rest/v1/ts_roles?select=*&order=system.desc,name.asc`,{headers:svc(service)})
     ]);
     const allProfiles=await pr.json().catch(()=>[]),roles=await rr.json().catch(()=>[]);
-    if(!pr.ok)return out(pr.status,{ok:false,error:'No se pudieron cargar los perfiles',details:allProfiles});
+    if(!pr.ok){
+      const msg=String(allProfiles?.message||allProfiles?.error||'');
+      if(/is_internal|column/i.test(msg))return out(409,{ok:false,error:'Ejecuta primero supabase_v14_1_internal_staff_isolation.sql para separar empleados de clientes.'});
+      return out(pr.status,{ok:false,error:'No se pudieron cargar los usuarios internos',details:allProfiles});
+    }
     if(!rr.ok)return out(rr.status,{ok:false,error:'Ejecuta primero SQL V1.6.6 de Roles y Permisos',details:roles});
     const profiles=(Array.isArray(allProfiles)?allProfiles:[]).filter(isInternalProfile);
     return out(200,{ok:true,profiles,roles:Array.isArray(roles)?roles:[],viewer_role:viewer.role,viewer_id:viewer.user_id});
@@ -60,7 +64,7 @@ exports.handler=async(event)=>{
     try{
       const authUpdate=await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,{method:'PUT',headers:svc(service),body:JSON.stringify({user_metadata:{full_name:fullName,thinkstore_internal:true},app_metadata:{thinkstore_role:dbRole,thinkstore_internal:true}})});
       if(!authUpdate.ok)throw detailError('No se pudo preparar la cuenta',await authUpdate.text());
-      const createdProfile=await createInternalProfile(url,service,{id:userId,email,fullName,dbRole,custom});
+      const createdProfile=await createInternalProfile(url,service,{id:userId,email,fullName,dbRole,custom,invitedBy:viewer.user_id});
       await sendInternalInvitation({resend,to:email,fullName,roleLabel:customRole?.name||roleLabel(uiRole),actionLink,site});
       await auditServer(url,service,viewer,'usuario_interno_invitado',`${fullName} · ${email} · ${customRole?.name||roleLabel(uiRole)}`);
       return out(201,{ok:true,profile:createdProfile,invite_sent:true});
@@ -105,7 +109,7 @@ exports.handler=async(event)=>{
     if(viewer.role==='admin'&&['admin','superadmin'].includes(nextUi))return out(403,{ok:false,error:'Un Administrador no puede asignar roles administrativos'});
     if(id===viewer.user_id && (nextUi!=='superadmin'||active===false||custom))return out(409,{ok:false,error:'Por seguridad no puedes degradar, desactivar ni personalizar tu propia cuenta Super Admin'});
     const overrides=cleanOverrides(body.permission_overrides);
-    const patch={role:dbRole,active,custom_role_key:custom||null,permission_overrides:overrides};
+    const patch={role:dbRole,active,is_internal:true,custom_role_key:custom||null,permission_overrides:overrides};
     const rr=await fetch(`${url}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...svc(service),Prefer:'return=representation'},body:JSON.stringify(patch)});
     const rows=await rr.json().catch(()=>[]);if(!rr.ok)return out(rr.status,{ok:false,error:'No se pudo actualizar el perfil',details:rows});
     await auditServer(url,service,viewer,'acceso_usuario_actualizado',`${target.email||target.correo||target.full_name||id} · ${custom||nextUi}`);
@@ -120,14 +124,14 @@ function normalizeDbRole(v){const r=String(v||'').toLowerCase().replace(/[ -]+/g
 function normalizeUiRole(v){let r=String(v||'cliente').toLowerCase().replace(/[ -]+/g,'_');if(r==='super_admin')r='superadmin';if(r==='administrator'||r==='gerente')r='admin';return r}
 function cleanPerms(v){return [...new Set((Array.isArray(v)?v:[]).map(x=>String(x||'').trim()).filter(Boolean))].slice(0,150)}
 function cleanOverrides(v){const o=v&&typeof v==='object'?v:{};return{allow:cleanPerms(o.allow),deny:cleanPerms(o.deny)}}
-function isInternalProfile(p){const r=normalizeUiRole(p?.role||p?.rol||'cliente');return INTERNAL_UI_ROLES.includes(r)||!!p?.custom_role_key}
+function isInternalProfile(p){return p?.is_internal===true}
 function roleLabel(r){return({vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Socio Administrador'})[normalizeUiRole(r)]||String(r||'Usuario interno')}
 async function findProfileByEmail(url,service,email){const paths=[`email=eq.${encodeURIComponent(email)}`,`correo=eq.${encodeURIComponent(email)}`];for(const q of paths){const r=await fetch(`${url}/rest/v1/profiles?select=*&${q}&limit=1`,{headers:svc(service)});if(r.ok){const rows=await r.json().catch(()=>[]);if(rows?.[0])return rows[0];}}return null}
 async function authenticate(event,url,service){
   const token=String(event.headers.authorization||event.headers.Authorization||'').replace(/^Bearer\s+/i,'');if(!token)return{ok:false};
   const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}});const u=await ur.json().catch(()=>({}));if(!ur.ok||!u.id)return{ok:false};
   const pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:svc(service)});const rows=await pr.json().catch(()=>[]),p=rows?.[0];
-  if(!p||(p.active??p.activo??true)===false)return{ok:false};return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',role:normalizeUiRole(p.role||p.rol),profile:p};
+  if(!p||(p.active??p.activo??true)===false)return{ok:false};return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',role:normalizeUiRole(p.role||p.rol),internal:p.is_internal===true,profile:p};
 }
 async function effectiveAccess(profile,url,service){
   const base=normalizeUiRole(profile?.role||profile?.rol),over=cleanOverrides(profile?.permission_overrides);let permissions=[...(DEFAULT_PERMS[base]||DEFAULT_PERMS.cliente)],roleName=base,customKey=profile?.custom_role_key||null;
@@ -141,10 +145,12 @@ async function effectiveAccess(profile,url,service){
 function invitationHtml({fullName,roleLabelText,actionLink,site}){const logo=`${site}/assets/thinkstore-email-logo.jpg`;return `<!doctype html><html lang="es"><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111114"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f7;padding:34px 16px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border:1px solid #e5e5e7;border-radius:28px;overflow:hidden"><tr><td style="padding:42px"><img src="${esc(logo)}" alt="ThinkStore" style="display:block;width:170px;max-width:60%;height:auto"><div style="margin-top:30px;font-size:12px;letter-spacing:2.2px;text-transform:uppercase;color:#7b7b83;font-weight:800">Panel administrativo ThinkStore</div><h1 style="font-size:34px;line-height:1.12;margin:12px 0;color:#111114">Bienvenido, ${esc(fullName)}</h1><p style="font-size:18px;line-height:1.6;color:#606068;margin:0 0 20px">Has sido invitado al equipo interno de ThinkStore con el rol <b style="color:#111114">${esc(roleLabelText)}</b>.</p><div style="background:#f7f7f8;border-radius:18px;padding:20px;margin:22px 0"><div style="font-size:14px;color:#5f5f67;line-height:1.6">Por seguridad no se creó una contraseña temporal. Usa el botón para establecer una contraseña privada que solo tú conocerás.</div></div><a href="${esc(actionLink)}" style="display:inline-block;background:#111114;color:#fff;text-decoration:none;padding:15px 24px;border-radius:14px;font-weight:800">Crear mi contraseña</a><p style="font-size:13px;line-height:1.6;color:#8a8a92;margin-top:30px">Este acceso es personal e intransferible. Si no esperabas esta invitación, puedes ignorar este correo.</p></td></tr></table></td></tr></table></body></html>`}
 async function sendInternalInvitation({resend,to,fullName,roleLabel:roleLabelText,actionLink,site}){const from=process.env.FROM_ACCESS_EMAIL||process.env.FROM_EMAIL||'ThinkStore Accesos <noreply@thinkstore.com.ve>';const replyTo=process.env.REPLY_TO_ACCESS||process.env.REPLY_TO||'soporte@thinkstore.com.ve';const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[to],reply_to:replyTo,subject:`Bienvenido al Panel ThinkStore · ${roleLabelText}`,html:invitationHtml({fullName,roleLabelText,actionLink,site})})});const d=await r.json().catch(()=>({}));if(!r.ok)throw detailError(d?.message||'No se pudo enviar el correo de invitación',JSON.stringify(d));return d}
 
-async function createInternalProfile(url,service,{id,email,fullName,dbRole,custom}){
+async function createInternalProfile(url,service,{id,email,fullName,dbRole,custom,invitedBy}){
+  const invitedAt=new Date().toISOString();
+  const marker={is_internal:true,internal_origin:'panel_invite',internal_invited_at:invitedAt,internal_invited_by:invitedBy||null};
   const candidates=[
-    {id,email,full_name:fullName,role:dbRole,active:true,custom_role_key:custom||null,permission_overrides:{allow:[],deny:[]}},
-    {id,email,nombre:fullName,role:dbRole,active:true,custom_role_key:custom||null,permission_overrides:{allow:[],deny:[]}}
+    {id,email,full_name:fullName,role:dbRole,active:true,custom_role_key:custom||null,permission_overrides:{allow:[],deny:[]},...marker},
+    {id,email,nombre:fullName,role:dbRole,active:true,custom_role_key:custom||null,permission_overrides:{allow:[],deny:[]},...marker}
   ];
   let last='';
   for(const profile of candidates){
