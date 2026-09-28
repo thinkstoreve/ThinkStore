@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Servicio Técnico ThinkStore | Reparación Apple</title>
+<meta name="description" content="Servicio técnico ThinkStore para iPhone, Mac, iPad, Apple Watch y AirPods. Consulta precios y stock de repuestos, agenda diagnóstico, sigue tu reparación y accede a soporte de software profesional.">
+<style>
+:root{--ink:#0b0b0d;--muted:#6e6e73;--line:#e4e5e8;--soft:#f6f6f8;--blue:#0878ff;--blue2:#eaf3ff;--card:#fff;--good:#20b15a;--warn:#ff9f0a;--radius:28px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#fff;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased}a{text-decoration:none;color:inherit}button,input{font:inherit}
+.top{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.91);backdrop-filter:blur(22px);border-bottom:1px solid rgba(0,0,0,.06)}
+.top-inner{max-width:1240px;margin:auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:18px}.brand{display:flex;align-items:center;gap:12px;font-weight:850}.brand img{width:44px;height:44px;border-radius:14px}.brand small{display:block;font-size:11px;color:var(--muted);font-weight:650;margin-top:2px}.nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.nav a{padding:10px 14px;border-radius:999px;font-weight:750;font-size:14px}.nav a:hover{background:var(--soft)}.nav .active{background:transparent;color:var(--blue);box-shadow:inset 0 -2px 0 var(--blue);border-radius:8px 8px 0 0}
+.hero{max-width:1240px;margin:auto;padding:72px 24px 34px;display:grid;grid-template-columns:1.02fr .98fr;gap:34px;align-items:center}.hero-copy{padding:24px 6px}.kicker{font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:900;color:var(--blue)}.hero h1{font-size:clamp(50px,7vw,88px);line-height:.94;letter-spacing:-.06em;margin:16px 0 22px}.hero p{font-size:20px;line-height:1.55;color:var(--muted);max-width:690px;margin:0}.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.btn{border:0;border-radius:999px;padding:14px 20px;font-weight:850;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.18s transform,.18s opacity}.btn:hover{transform:translateY(-1px)}.btn.dark{background:#111;color:#fff}.btn.light{background:var(--soft);color:#111;border:1px solid var(--line)}.btn.blue{background:var(--blue);color:#fff}.trust{display:flex;gap:20px;flex-wrap:wrap;margin-top:30px;color:#45454a;font-size:13px;font-weight:700}.trust span:before{content:"✓";color:var(--good);font-weight:950;margin-right:7px}
+.hero-art{min-height:500px;border-radius:42px;background:radial-gradient(circle at 72% 22%,#d9e9ff 0,transparent 36%),linear-gradient(145deg,#f8f9fc,#edf3fb);position:relative;overflow:hidden;border:1px solid #e7ecf4;display:grid;place-items:center}.hero-device-img{width:min(560px,92%);height:auto;max-height:455px;object-fit:contain;filter:drop-shadow(0 30px 42px rgba(49,32,36,.16));animation:heroFloat 6.5s ease-in-out infinite;z-index:1}@keyframes heroFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-9px) scale(1.012)}}.float-card{position:absolute;background:rgba(255,255,255,.9);backdrop-filter:blur(14px);border:1px solid rgba(0,0,0,.07);box-shadow:0 16px 40px rgba(0,0,0,.08);padding:14px 16px;border-radius:18px;font-weight:850}.fc1{top:32px;right:26px}.fc2{left:24px;bottom:26px}.float-card small{display:block;color:var(--muted);font-weight:650;margin-top:3px}
+.quick{max-width:1192px;margin:26px auto 76px;padding:0 24px}.quick-box{background:#101012;color:white;border-radius:34px;padding:34px;display:grid;grid-template-columns:.7fr 1.3fr;gap:28px;align-items:center}.quick h2{font-size:34px;letter-spacing:-.035em;margin:0 0 10px}.quick p{margin:0;color:#b9b9c0;line-height:1.5}.quick-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}.quick select{width:100%;appearance:none;border:1px solid rgba(255,255,255,.13);background:#1b1b1f;color:white;border-radius:16px;padding:15px 16px;outline:none}.quick .btn{border-radius:16px;white-space:nowrap}.selection-note{grid-column:1/-1;color:#b8cfff;font-size:12px;min-height:18px;padding-left:3px}
+.section{max-width:1192px;margin:auto;padding:62px 24px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}.section-copy{max-width:730px}.section h2{font-size:clamp(36px,5vw,58px);letter-spacing:-.045em;line-height:1.02;margin:8px 0 10px}.section-head p{color:var(--muted);font-size:17px;line-height:1.55;margin:0}.section-tag{color:var(--blue);font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.device-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.device{border:1px solid var(--line);border-radius:25px;padding:24px 18px;background:white;cursor:pointer;text-align:left;transition:.2s}.device:hover{border-color:#c5d9f7;box-shadow:0 14px 34px rgba(0,84,190,.07);transform:translateY(-2px)}.device.active{background:#f2f7ff;border-color:#94bdff}.device .ico{font-size:34px;margin-bottom:20px}.device h3{font-size:19px;margin:0 0 5px}.device p{font-size:13px;line-height:1.45;color:var(--muted);margin:0}
+.symptom-wrap{background:var(--soft);padding:16px 0 72px}.symptom-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.symptom{border:1px solid #e3e4e7;border-radius:23px;background:white;padding:22px;cursor:pointer;transition:.2s;min-height:135px}.symptom:hover,.symptom.active{border-color:#9fc4ff;box-shadow:0 12px 32px rgba(0,82,180,.07);transform:translateY(-2px)}.symptom .ico{font-size:27px;margin-bottom:16px}.symptom b{display:block;font-size:17px;margin-bottom:5px}.symptom span{font-size:13px;color:var(--muted);line-height:1.4}.symptom-cta{margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:20px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:20px 22px}.symptom-cta strong{font-size:18px}.symptom-cta small{display:block;color:var(--muted);margin-top:4px}
+.benefits{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.benefit{border:1px solid var(--line);border-radius:24px;padding:24px}.benefit .num{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:#111;color:white;font-size:13px;font-weight:900;margin-bottom:20px}.benefit h3{font-size:19px;margin:0 0 7px}.benefit p{font-size:14px;color:var(--muted);line-height:1.5;margin:0}
+.feature{display:grid;grid-template-columns:1fr 1fr;gap:20px}.feature-card{border-radius:34px;padding:36px;min-height:330px;display:flex;flex-direction:column;justify-content:space-between}.feature-card.dark{background:#101012;color:#fff}.feature-card.blue{background:#edf5ff}.feature-card h3{font-size:36px;letter-spacing:-.04em;margin:0 0 12px}.feature-card p{line-height:1.55;color:#bdbdc4;max-width:480px}.feature-card.blue p{color:#52606f}.feature-links{display:flex;gap:10px;flex-wrap:wrap}.feature-card .btn{align-self:flex-start}.status-pill{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.09);width:max-content;font-weight:750;font-size:13px}.status-pill i{width:9px;height:9px;border-radius:50%;background:#32d74b;box-shadow:0 0 0 5px rgba(50,215,75,.12)}
+.prepare{margin-top:12px;border:1px solid var(--line);border-radius:32px;overflow:hidden}.prepare-row{display:grid;grid-template-columns:80px 1fr;padding:22px 26px;border-bottom:1px solid var(--line);align-items:center}.prepare-row:last-child{border-bottom:0}.prepare-row .n{font-size:13px;font-weight:900;color:var(--blue)}.prepare-row h4{margin:0 0 5px;font-size:17px}.prepare-row p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.faq details{border-top:1px solid var(--line);padding:20px 0}.faq summary{font-weight:850;font-size:18px;cursor:pointer}.faq p{color:var(--muted);line-height:1.55;max-width:820px}.cta{max-width:1192px;margin:36px auto 80px;padding:0 24px}.cta-card{background:linear-gradient(135deg,#0b0b0d,#222229);color:#fff;border-radius:38px;padding:46px;display:flex;justify-content:space-between;align-items:center;gap:25px}.cta h3{font-size:38px;letter-spacing:-.04em;margin:0 0 10px}.cta p{color:#bebec5;margin:0;line-height:1.5}.footer{background:#0b0b0d;color:#fff}.footer-inner{max-width:1192px;margin:auto;padding:40px 24px;display:flex;justify-content:space-between;gap:20px}.footer p{color:#9d9da4;margin:6px 0 0}.footer a{font-weight:800}
+
+.quick-solutions{background:#0f1013;color:#fff;border-radius:34px;padding:34px;margin-top:6px}.quick-solutions-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:22px}.quick-solutions-head h3{font-size:34px;letter-spacing:-.035em;margin:4px 0 8px}.quick-solutions-head p{margin:0;color:#b8bac2;line-height:1.55;max-width:760px}.solution-tabs{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:18px}.solution-tab{border:1px solid rgba(255,255,255,.13);background:#1a1b20;color:#fff;border-radius:999px;padding:10px 14px;font-weight:800;cursor:pointer}.solution-tab.active{background:#fff;color:#111}.solution-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.solution-card{background:#191a1f;border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:22px}.solution-card .ico{font-size:28px;margin-bottom:15px}.solution-card h4{font-size:19px;margin:0 0 8px}.solution-card p{font-size:14px;line-height:1.5;color:#b9bbc4;margin:0}.solution-card ol{margin:12px 0 0;padding-left:20px;color:#e7e8ec;font-size:13px;line-height:1.55}.solution-card li+li{margin-top:5px}.solution-note{margin-top:18px;padding:15px 17px;border-radius:18px;background:#20222a;color:#c9d6f7;font-size:13px;line-height:1.5}.solution-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.imac-card{background:linear-gradient(140deg,#eef6ff,#fff);border:1px solid #d8e7fb;border-radius:28px;padding:28px;color:#111;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}.imac-card h4{font-size:26px;letter-spacing:-.035em;margin:0 0 8px}.imac-card p{margin:0;color:#58616f;line-height:1.5}.imac-list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:16px}.imac-list span{background:#fff;border:1px solid #e2e8f1;border-radius:14px;padding:10px 12px;font-size:13px;font-weight:750}.solution-hidden{display:none}
+
+
+.software-zone{background:linear-gradient(180deg,#fff,#f7f8fb);border-top:1px solid #f0f1f3;border-bottom:1px solid #f0f1f3}.software-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.software-card{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:30px;background:#fff;padding:30px;min-height:360px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 18px 46px rgba(0,0,0,.045)}.software-card:after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;right:-70px;top:-90px;background:radial-gradient(circle,rgba(8,120,255,.10),transparent 66%);pointer-events:none}.software-brand{display:flex;align-items:center;gap:14px;margin-bottom:24px}.software-brand h3{margin:0;font-size:27px;letter-spacing:-.035em}.software-brand small{display:block;color:var(--muted);font-weight:700;margin-top:3px}.ms-symbol{width:52px;height:52px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:3px;flex:0 0 auto}.ms-symbol i{display:block}.ms-symbol i:nth-child(1){background:#f25022}.ms-symbol i:nth-child(2){background:#7fba00}.ms-symbol i:nth-child(3){background:#00a4ef}.ms-symbol i:nth-child(4){background:#ffb900}.cc-symbol{width:56px;height:56px;border-radius:17px;background:linear-gradient(135deg,#ff2257,#8a36ff 52%,#2b6cff);display:grid;place-items:center;color:#fff;font-size:32px;font-weight:850;line-height:1;flex:0 0 auto}.software-card p{color:var(--muted);line-height:1.55;margin:0 0 18px}.software-list{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:18px 0 24px}.software-list span{border:1px solid #eceef1;background:#fafbfc;border-radius:14px;padding:10px 12px;font-size:13px;font-weight:760}.software-meta{display:flex;gap:9px;flex-wrap:wrap;margin:2px 0 20px}.soft-pill{display:inline-flex;align-items:center;gap:7px;padding:9px 12px;border-radius:999px;background:#f3f6fb;border:1px solid #e5eaf2;font-size:12px;font-weight:850}.soft-pill.good{background:#ecfbf2;border-color:#c9efd8;color:#12653a}.soft-pill.purple{background:#f5efff;border-color:#e6d8ff;color:#6840a7}.software-actions{display:flex;gap:10px;flex-wrap:wrap}.software-actions .btn{border-radius:16px}.software-note{margin-top:18px;border:1px solid #e3e8f0;background:#fbfcfe;border-radius:18px;padding:15px 17px;color:#5d6570;font-size:12px;line-height:1.5}.software-note b{color:#222}.license-note{max-width:1192px;margin:18px auto 0;padding:0 24px;color:#72727a;font-size:12px;line-height:1.55}.license-note b{color:#333}
+
+/* V14.10 · Precios y stock de repuestos */
+.prices-zone{background:linear-gradient(180deg,#f7f9fc 0,#ffffff 62%,#fff 100%);border-top:1px solid #eef1f5;border-bottom:1px solid #edf0f4;position:relative;overflow:hidden}.prices-zone:before{display:none}.prices-inner{max-width:1240px;margin:auto;padding:74px 24px;position:relative}.prices-head{text-align:center;max-width:900px;margin:0 auto 30px}.prices-head h2{font-size:clamp(42px,5.4vw,70px);line-height:.98;letter-spacing:-.055em;margin:0 0 16px}.prices-head p{font-size:19px;line-height:1.5;color:var(--muted);margin:0}.parts-search{max-width:860px;margin:28px auto 34px;position:relative}.parts-search input{width:100%;padding:19px 24px 19px 56px;border:1px solid rgba(0,0,0,.08);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(45,82,126,.1);outline:none;font-size:17px;color:#202124}.parts-search:before{content:"⌕";position:absolute;left:23px;top:50%;transform:translateY(-50%);font-size:28px;color:#7b8088}.service-category-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:0 auto 44px}.service-cat{border:1px solid rgba(0,0,0,.08);background:rgba(255,255,255,.8);border-radius:26px;padding:18px 14px 17px;min-height:184px;text-align:center;cursor:pointer;box-shadow:0 12px 28px rgba(49,77,111,.06);transition:.2s}.service-cat:hover,.service-cat.active{transform:translateY(-3px);border-color:#91bbff;background:#fff;box-shadow:0 18px 40px rgba(54,107,182,.12)}.service-cat-media{height:88px;display:grid;place-items:center;margin-bottom:8px}.service-cat-media img{max-width:102px;max-height:82px;object-fit:contain}.service-cat-media .device-symbol{font-size:58px;line-height:1}.service-cat b{display:block;font-size:16px}.service-cat small{display:block;color:#9297a1;font-size:12px;line-height:1.35;margin-top:5px}.service-cat span{display:inline-block;color:var(--blue);font-size:12px;font-weight:800;margin-top:10px}.parts-browser{display:grid;grid-template-columns:230px 1fr;gap:28px;align-items:start}.parts-sidebar{position:sticky;top:82px;background:rgba(255,255,255,.82);border:1px solid rgba(0,0,0,.07);border-radius:24px;padding:20px;backdrop-filter:blur(16px)}.parts-sidebar h4{font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 12px;color:#3b3d42}.parts-cat-list{display:grid;gap:7px}.parts-cat-btn{border:0;background:transparent;text-align:left;border-radius:11px;padding:10px 12px;font-weight:700;color:#34363a;cursor:pointer}.parts-cat-btn.active{background:var(--blue);color:#fff}.series-box{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}.series-box h5{font-size:12px;text-transform:uppercase;letter-spacing:.07em;margin:0 0 10px}.series-list{display:grid;gap:7px;max-height:245px;overflow:auto}.series-list label{font-size:13px;color:#5f6268;display:flex;gap:9px;align-items:center}.series-list input{accent-color:var(--blue)}.parts-main{min-width:0}.parts-toolbar{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:16px}.parts-toolbar h3{font-size:38px;letter-spacing:-.04em;margin:0}.parts-toolbar p{margin:4px 0 0;color:var(--muted)}.stock-legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.stock-chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 11px;font-size:12px;font-weight:800}.parts-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.part-card{background:#fff;border:1px solid #e6e8ec;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;min-height:360px;box-shadow:0 10px 25px rgba(48,60,82,.04)}.part-media{height:190px;background:#f7f8fa;display:grid;place-items:center;padding:16px;position:relative}.part-media img{max-width:100%;max-height:100%;object-fit:contain}.part-media .fallback{font-size:54px;opacity:.7}.part-body{padding:18px;display:flex;flex-direction:column;flex:1}.part-body h4{font-size:19px;margin:0 0 6px;line-height:1.15}.part-body p{font-size:13px;color:var(--muted);line-height:1.45;margin:0 0 14px}.part-bottom{margin-top:auto;display:flex;align-items:end;justify-content:space-between;gap:10px}.part-price{font-size:24px;font-weight:900;letter-spacing:-.03em}.part-price small{font-size:11px;color:var(--muted);font-weight:700}.stock-state{font-size:11px;font-weight:850;border-radius:999px;padding:7px 9px;white-space:nowrap}.stock-state.good{background:#e9fbef;color:#198b45}.stock-state.warn{background:#fff5df;color:#a86a00}.stock-state.order{background:#eaf3ff;color:#1269c8}.part-action{margin-top:12px;display:flex;gap:8px}.part-action a{flex:1;border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:center;font-size:12px;font-weight:800}.part-action a.primary{background:#111;color:#fff;border-color:#111}.parts-empty{grid-column:1/-1;border:1px dashed #cfd4db;background:rgba(255,255,255,.7);border-radius:22px;padding:34px;text-align:center;color:var(--muted)}.parts-loading{grid-column:1/-1;padding:40px;text-align:center;color:var(--muted)}
+@media(max-width:1050px){.service-category-row{grid-template-columns:repeat(3,1fr)}.parts-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:780px){.parts-browser{grid-template-columns:1fr}.parts-sidebar{position:static}.parts-toolbar{align-items:flex-start;flex-direction:column}.stock-legend{justify-content:flex-start}.parts-grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.prices-inner{padding:54px 16px}.prices-head h2{font-size:42px}.service-category-row{grid-template-columns:repeat(2,1fr)}.parts-grid{grid-template-columns:1fr}.service-cat{min-height:164px}.part-media{height:170px}}
+.prices-teaser{padding:18px 24px 12px}.prices-teaser-inner{max-width:1192px;margin:auto;border:1px solid #e8edf4;border-radius:34px;background:linear-gradient(180deg,#f8fbff 0,#fff 100%);padding:34px;display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:28px;align-items:center}.prices-teaser-copy h2{font-size:clamp(34px,4.5vw,54px);line-height:1.02;letter-spacing:-.045em;margin:10px 0 12px}.prices-teaser-copy p{margin:0;color:var(--muted);font-size:17px;line-height:1.55;max-width:620px}.prices-teaser-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.prices-teaser-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.teaser-device{background:#fff;border:1px solid #e6ebf1;border-radius:26px;padding:18px 12px;text-align:center;box-shadow:0 10px 24px rgba(49,77,111,.05);transition:.2s}.teaser-device:hover{transform:translateY(-3px);border-color:#8db9ff;box-shadow:0 16px 34px rgba(54,107,182,.12)}.teaser-device img{width:70px;height:70px;object-fit:contain;display:block;margin:0 auto 14px}.teaser-device b{display:block;font-size:16px;letter-spacing:-.02em}.teaser-device span{display:inline-block;margin-top:8px;font-size:12px;font-weight:800;color:var(--blue)}@media(max-width:980px){.prices-teaser-inner{grid-template-columns:1fr}.prices-teaser-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:560px){.prices-teaser{padding:10px 16px 6px}.prices-teaser-inner{padding:24px;border-radius:28px}.prices-teaser-grid{grid-template-columns:repeat(2,1fr)}.teaser-device img{width:58px;height:58px}.prices-teaser-copy h2{font-size:34px}.prices-teaser-copy p{font-size:15px}}
+
+
+@media(max-width:980px){.hero{grid-template-columns:1fr}.hero-art{min-height:430px}.quick-box{grid-template-columns:1fr}.device-grid{grid-template-columns:repeat(3,1fr)}.symptom-grid,.benefits{grid-template-columns:repeat(2,1fr)}.feature{grid-template-columns:1fr}.quick-controls{grid-template-columns:1fr 1fr}.quick-controls .btn{grid-column:1/-1}.section-head{align-items:flex-start;flex-direction:column}.cta-card{flex-direction:column;align-items:flex-start}}
+@media(max-width:620px){.top-inner{padding:10px 14px}.brand span{display:none}.nav a{font-size:12px;padding:8px 9px}.hero{padding:42px 18px 24px}.hero h1{font-size:50px}.hero p{font-size:17px}.hero-art{min-height:350px;border-radius:28px}.device-stack{transform:scale(.82)}.quick{padding:0 18px}.quick-box{padding:26px 20px;border-radius:26px}.quick-controls{grid-template-columns:1fr}.section{padding:46px 18px}.device-grid,.symptom-grid,.benefits{grid-template-columns:1fr 1fr}.device,.symptom{padding:18px}.symptom-cta{align-items:flex-start;flex-direction:column}.feature-card{padding:28px;min-height:280px}.prepare-row{grid-template-columns:48px 1fr;padding:18px}.cta{padding:0 18px}.cta-card{padding:30px;border-radius:28px}.footer-inner{flex-direction:column}}
+@media(max-width:420px){.device-grid,.symptom-grid,.benefits{grid-template-columns:1fr}.hero-art{min-height:320px}}
+
+@media(max-width:980px){.solution-grid{grid-template-columns:1fr 1fr}.imac-card{grid-template-columns:1fr}.imac-list{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.quick-solutions{padding:24px 18px;border-radius:26px}.quick-solutions-head{align-items:flex-start;flex-direction:column}.solution-grid{grid-template-columns:1fr}.imac-list{grid-template-columns:1fr}.solution-actions .btn{width:100%}}
+
+@media(max-width:880px){.software-grid{grid-template-columns:1fr}}
+@media(max-width:620px){.software-card{padding:24px;border-radius:24px;min-height:0}.software-list{grid-template-columns:1fr}.software-actions .btn{width:100%}.software-brand h3{font-size:23px}}
+
+/* V14.9 · Intro animada de servicio técnico */
+.process-intro{position:relative;overflow:hidden;background:linear-gradient(180deg,#f7f9fc 0,#eef4fb 100%);border-bottom:1px solid #e8edf4}
+.process-intro:before{display:none}
+.process-shell{position:relative;max-width:1140px;margin:auto;padding:50px 24px 56px}
+.process-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:28px}
+.process-head h1{margin:0;max-width:720px;font-size:clamp(38px,5vw,62px);line-height:1.01;letter-spacing:-.05em;font-weight:820}
+.process-head .btn{margin-top:8px;box-shadow:0 12px 24px rgba(8,120,255,.20)}
+.process-grid{display:grid;grid-template-columns:minmax(0,.95fr) minmax(340px,1.05fr);gap:42px;align-items:stretch}
+.process-list{position:relative;padding-left:40px;display:grid;gap:4px}
+.process-rail{position:absolute;left:10px;top:16px;bottom:16px;width:2px;background:#dce4ef;border-radius:999px;overflow:visible}
+.process-rail-fill{position:absolute;left:0;top:0;width:100%;height:0;background:linear-gradient(#0878ff,#65a8ff);border-radius:999px;transition:height .62s cubic-bezier(.22,.75,.2,1)}
+.process-step{position:relative;border:0;background:transparent;border-radius:0;padding:16px 8px 16px 20px;min-height:96px;opacity:.54;transform:scale(.995);transition:opacity .42s ease,transform .42s ease,color .42s ease;cursor:pointer;text-align:left;box-shadow:none}
+.process-step:before{content:"";position:absolute;left:-42px;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:#eef3fa;border:2px solid #dce4ef;box-shadow:0 0 0 7px rgba(255,255,255,.34);transition:.35s ease}
+.process-step.active{opacity:1;transform:scale(1);background:transparent;border-color:transparent;box-shadow:none}
+.process-step.active:before{background:#1688ff;border-color:#1688ff;box-shadow:0 0 0 7px rgba(22,136,255,.13)}
+.process-step.done{opacity:.68}
+.process-step .step-label{font-size:11px;font-weight:900;letter-spacing:.18em;color:#3a8cff;text-transform:uppercase}
+.process-step h3{margin:8px 0 5px;font-size:clamp(21px,2.15vw,28px);letter-spacing:-.04em;font-weight:820}
+.process-step p{margin:0;color:#6e6e73;font-size:13.5px;line-height:1.48;max-width:430px;font-weight:500}
+.process-stage{position:relative;min-height:470px;border:0;background:transparent;box-shadow:none;overflow:hidden;display:grid;place-items:center}
+.process-visual{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transform:translateY(20px) scale(.97);transition:opacity .5s ease,transform .6s cubic-bezier(.22,.78,.2,1);pointer-events:none}
+.process-visual.active{opacity:1;transform:translateY(0) scale(1)}
+.quote-card{width:min(360px,72%);border-radius:26px;background:#fff;border:1px solid #d9e8fb;box-shadow:0 18px 38px rgba(73,119,170,.10);overflow:hidden}
+.quote-card .quote-top{padding:18px 22px;background:#148bff;color:white;font-weight:850;font-size:17px;display:flex;justify-content:space-between}
+.quote-body{padding:24px}.quote-device{display:flex;align-items:center;gap:14px;margin-bottom:20px}.quote-phone{width:48px;height:80px;border-radius:12px;background:#111;box-shadow:inset 0 0 0 4px #2b2b2f}.quote-lines{flex:1}.quote-lines i{display:block;height:9px;border-radius:10px;background:#e8eef5;margin:7px 0}.quote-lines i:nth-child(2){width:68%}.quote-total{border-top:1px solid #edf0f4;padding-top:18px;display:flex;justify-content:space-between;font-size:16px;font-weight:850}.quote-check{margin-top:18px;background:#eef7ff;color:#0878ff;border-radius:13px;padding:11px 12px;font-weight:800;text-align:center;font-size:14px}
+.calendar-card{width:min(360px,72%);border:2px solid #b5d8ff;border-radius:30px;padding:0 22px 24px;background:#fff;box-shadow:0 18px 38px rgba(73,119,170,.08)}
+.calendar-head{margin:0 -22px 22px;padding:17px;border-radius:28px 28px 22px 22px;background:#118fff;color:#fff;text-align:center;font-size:21px;font-weight:850;letter-spacing:.08em}.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;text-align:center;font-size:14px;color:#333}.calendar-grid span{height:31px;display:grid;place-items:center;border-radius:50%}.calendar-grid .selected{background:#118fff;color:#fff;font-weight:900}.calendar-time{margin-top:18px;display:flex;justify-content:center;gap:8px}.calendar-time b{background:#eef7ff;color:#0878ff;border-radius:12px;padding:8px 11px;font-size:12px}
+.repair-scene{width:min(420px,78%);height:320px;position:relative}.repair-laptop{position:absolute;left:50%;top:50%;width:280px;height:170px;transform:translate(-50%,-55%);border-radius:17px;background:#202125;padding:8px;box-shadow:0 24px 46px rgba(0,0,0,.15)}.repair-laptop:before{content:"";display:block;height:100%;border-radius:11px;background:linear-gradient(145deg,#eaf4ff,#9ecaff)}.repair-laptop:after{content:"";position:absolute;left:-28px;right:-28px;height:10px;bottom:-12px;border-radius:2px 2px 18px 18px;background:linear-gradient(#aaa,#e9e9e9)}.repair-tool{position:absolute;border-radius:50%;background:#118fff;color:white;width:72px;height:72px;display:grid;place-items:center;font-size:31px;font-weight:900;box-shadow:0 14px 30px rgba(17,143,255,.22);animation:toolFloat 2s ease-in-out infinite}.repair-tool.t1{right:4%;top:10%}.repair-tool.t2{left:2%;bottom:5%;animation-delay:.5s}.repair-badge{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);padding:10px 14px;border-radius:999px;background:white;border:1px solid #dce7f5;box-shadow:0 10px 24px rgba(67,105,151,.1);font-weight:800;font-size:13px}
+.delivery-scene{width:min(420px,78%);text-align:center}.delivery-box{width:228px;height:170px;margin:auto;position:relative;background:linear-gradient(145deg,#dba96d,#c78c4f);border-radius:18px;box-shadow:0 24px 44px rgba(97,66,30,.16)}.delivery-box:before{content:"";position:absolute;left:50%;top:0;bottom:0;width:34px;transform:translateX(-50%);background:#edd3ac}.delivery-box:after{content:"ThinkStore";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#111;color:white;padding:10px 16px;border-radius:12px;font-weight:900;font-size:14px}.delivery-check{width:64px;height:64px;margin:-20px auto 0;position:relative;z-index:2;border-radius:50%;background:#24c465;color:#fff;display:grid;place-items:center;font-size:30px;font-weight:900;box-shadow:0 10px 24px rgba(36,196,101,.24)}.delivery-scene h4{font-size:24px;margin:18px 0 8px;letter-spacing:-.03em;font-weight:820}.delivery-scene p{margin:0;color:#6e7682;font-size:14px}
+.process-pager{position:absolute;right:22px;bottom:18px;display:flex;gap:7px}.process-pager button{width:8px;height:8px;border:0;padding:0;border-radius:50%;background:#c7d2df;cursor:pointer}.process-pager button.active{width:24px;border-radius:999px;background:#118fff}
+@keyframes toolFloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-10px) rotate(5deg)}}
+@media(max-width:920px){.process-grid{grid-template-columns:1fr;gap:24px}.process-stage{min-height:390px}.process-head{flex-direction:column}.process-head h1{font-size:clamp(34px,8vw,54px)}}
+@media(max-width:620px){.process-shell{padding:36px 18px 42px}.process-head{margin-bottom:20px}.process-list{padding-left:32px}.process-rail{left:5px}.process-step{padding:15px 4px 15px 16px;min-height:92px;border-radius:0}.process-step:before{left:-34px;width:15px;height:15px;margin-top:-7px}.process-step h3{font-size:22px}.process-step p{font-size:13px}.process-stage{min-height:320px}.calendar-card,.quote-card{width:84%}}
+@media(prefers-reduced-motion:reduce){.process-step,.process-visual,.process-rail-fill,.repair-tool{transition:none!important;animation:none!important}}
+
+
+.page-preload main{opacity:0;transform:translateY(18px) scale(.994)}
+.page-ready main{opacity:1;transform:none;transition:opacity .78s cubic-bezier(.22,.78,.2,1),transform .92s cubic-bezier(.22,.78,.2,1)}
+.reveal-block{opacity:0;transform:translateY(28px);transition:opacity .78s cubic-bezier(.22,.78,.2,1),transform .86s cubic-bezier(.22,.78,.2,1)}
+.reveal-block.in-view{opacity:1;transform:none}
+.reveal-block[data-delay="1"]{transition-delay:.08s}.reveal-block[data-delay="2"]{transition-delay:.16s}.reveal-block[data-delay="3"]{transition-delay:.24s}
+.service-enterprise-card{position:relative;overflow:hidden;border-radius:38px;border:1px solid #e7ecf4;background:linear-gradient(180deg,#f7fbff 0,#fff 100%);padding:38px 40px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:28px;box-shadow:0 22px 44px rgba(61,96,146,.08)}
+.service-enterprise-card:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(82,133,194,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(82,133,194,.07) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,#000,transparent 90%);pointer-events:none}
+.service-enterprise-card > *{position:relative;z-index:1}.service-enterprise-card h3{font-size:clamp(34px,4.6vw,58px);line-height:1.04;letter-spacing:-.05em;margin:12px 0 14px}.service-enterprise-card p{margin:0;max-width:830px;font-size:18px;line-height:1.55;color:var(--muted)}
+.service-chip{display:inline-flex;align-items:center;gap:10px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:900;color:#525863}.service-chip:before{content:"";width:10px;height:10px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 6px rgba(8,120,255,.11)}
+.service-enterprise-card .btn{padding:16px 24px;box-shadow:0 14px 28px rgba(8,120,255,.18)}
+.premium-note{display:flex;align-items:center;gap:10px;margin-top:14px;color:#5f6a77;font-size:13px;font-weight:700}.premium-note i{font-style:normal;width:22px;height:22px;border-radius:8px;background:#eaf3ff;color:var(--blue);display:grid;place-items:center;font-size:12px}
+.clinic-shell{display:grid;gap:14px}
+.clinic-grid-premium{display:grid;grid-template-columns:1.14fr .86fr .86fr;gap:14px;align-items:stretch}
+.media-slot{position:relative;overflow:hidden;border-radius:32px;min-height:230px;border:1px solid #e5eaf1;background:linear-gradient(160deg,#f6f9fd,#eef3f9);box-shadow:0 12px 28px rgba(61,96,146,.06);transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.media-slot:hover{transform:translateY(-4px);box-shadow:0 20px 38px rgba(61,96,146,.12);border-color:#cadeff}
+.media-slot.large{grid-row:span 2;min-height:488px}
+.media-slot.has-image .slot-surface{background-size:cover;background-position:center}
+.slot-surface{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:22px;background:radial-gradient(circle at 18% 18%,rgba(8,120,255,.14),transparent 24%),linear-gradient(150deg,#f9fbff,#edf3fb)}
+.slot-surface:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.0) 25%,rgba(10,13,18,.18) 100%);pointer-events:none}
+.slot-surface:after{content:"";position:absolute;inset:-20% -50% auto auto;width:60%;height:180%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.38),transparent);transform:rotate(18deg);animation:slotSheen 8s ease-in-out infinite;opacity:.55;pointer-events:none}
+@keyframes slotSheen{0%,100%{transform:translateX(30%) rotate(18deg)}50%{transform:translateX(-110%) rotate(18deg)}}
+.slot-frame{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;flex:1;border-radius:24px;border:1px dashed rgba(95,131,183,.34);background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(248,251,255,.34))}
+.slot-icon{width:74px;height:74px;border-radius:22px;background:rgba(255,255,255,.82);border:1px solid rgba(8,120,255,.12);display:grid;place-items:center;box-shadow:0 12px 24px rgba(63,100,148,.09);font-size:30px;color:var(--blue)}
+.slot-footer{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:end;gap:14px;margin-top:18px;color:#fff}.slot-copy b{display:block;font-size:26px;letter-spacing:-.04em;margin-bottom:6px}.slot-copy span{display:block;font-size:14px;line-height:1.45;color:rgba(255,255,255,.86)}
+.slot-badge{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:140px}.slot-badge span{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.9);color:#1d2630;font-size:12px;font-weight:850;backdrop-filter:blur(8px)}.slot-badge code{padding:8px 10px;border-radius:14px;background:rgba(10,13,18,.4);color:#fff;font-size:11px;border:1px solid rgba(255,255,255,.14)}
+.slot-empty-copy{position:absolute;left:18px;right:18px;bottom:18px;z-index:1;display:flex;justify-content:space-between;align-items:end;gap:14px}
+.slot-empty-copy .mini{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.82);backdrop-filter:blur(8px);color:#44505e;font-size:12px;font-weight:800}
+.upload-hint{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}.upload-hint .hint{border:1px solid #e4e9f0;border-radius:20px;padding:18px;background:#fff}.upload-hint .hint b{display:block;font-size:15px;margin-bottom:5px}.upload-hint .hint p{margin:0;font-size:13px;line-height:1.45;color:var(--muted)}
+.evidence-shell{display:grid;gap:18px}.evidence-tabs{display:flex;gap:24px;align-items:center;border-bottom:1px solid #e6ebf2;padding-bottom:14px}.evidence-tab{border:0;background:transparent;padding:0 0 12px;font-size:17px;font-weight:850;color:#7a808b;cursor:pointer;box-shadow:inset 0 -3px 0 transparent}.evidence-tab.active{color:#111;box-shadow:inset 0 -3px 0 var(--blue)}
+.evidence-pane{display:none}.evidence-pane.active{display:block}
+.evidence-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.evidence-card{border:1px solid #e5eaf1;border-radius:30px;overflow:hidden;background:#fff;box-shadow:0 10px 24px rgba(61,96,146,.06);transition:transform .22s ease, box-shadow .22s ease}.evidence-card:hover{transform:translateY(-4px);box-shadow:0 18px 34px rgba(61,96,146,.11)}
+.evidence-card .media-slot{min-height:274px;border:0;border-bottom:1px solid #e7ebf1;border-radius:0;box-shadow:none}.evidence-card .media-slot:hover{transform:none;box-shadow:none}.evidence-card .slot-surface{padding:20px}.evidence-card .slot-copy b{font-size:22px}.evidence-content{padding:22px 22px 24px}.evidence-kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:900}.evidence-content h3{font-size:22px;letter-spacing:-.04em;margin:10px 0 10px}.evidence-content p{margin:0;color:var(--muted);font-size:15px;line-height:1.5}
+.proof-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.proof-card{border:1px solid #e5eaf1;border-radius:28px;padding:24px;background:linear-gradient(180deg,#fff 0,#f9fbff 100%);box-shadow:0 10px 24px rgba(61,96,146,.05)}.proof-card h4{margin:10px 0 8px;font-size:22px;letter-spacing:-.035em}.proof-card p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}.proof-card .stat{font-size:13px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--blue)}
+.regions-zone{position:relative;overflow:hidden;background:linear-gradient(180deg,#f7fbff 0,#eef4fb 100%);border-top:1px solid #e8edf4;border-bottom:1px solid #e8edf4}.regions-zone:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(82,133,194,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(82,133,194,.07) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,#000,transparent 96%);pointer-events:none}
+.regions-shell{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,.96fr) minmax(330px,1.04fr);gap:36px;align-items:center}.ship-lead .btn{margin-top:26px;box-shadow:0 14px 28px rgba(8,120,255,.16)}.ship-lead h2{max-width:580px}.ship-lead p{max-width:640px}.ship-steps{display:grid;gap:18px;margin-top:28px}.ship-step{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:16px;background:rgba(255,255,255,.92);border:1px solid #e2e8f0;border-radius:22px;padding:18px 20px;box-shadow:0 10px 22px rgba(61,96,146,.05)}.ship-step .n{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#eef3fa;color:#46505f;font-weight:900}.ship-step b{font-size:16px}.ship-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.ship-meta span{padding:12px 18px;border-radius:999px;background:#fff;border:1px solid #e2e8f0;font-weight:800;color:#414854}
+.map-panel{border:1px solid #e1e8f1;border-radius:36px;background:rgba(255,255,255,.78);backdrop-filter:blur(12px);padding:24px;box-shadow:0 16px 34px rgba(61,96,146,.07)}.map-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px}.map-head h3{margin:8px 0 0;font-size:34px;letter-spacing:-.04em}.map-nav{display:flex;gap:8px}.map-nav button{width:48px;height:48px;border-radius:50%;border:1px solid #d5dee9;background:#fff;color:#4b5360;font-size:22px;cursor:pointer}.coverage-map{position:relative;min-height:560px;border-radius:28px;background:linear-gradient(180deg,#f8fbff 0,#eef4fb 100%);overflow:hidden}.coverage-map:after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(82,133,194,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(82,133,194,.08) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
+.venezuela-map-svg{position:absolute;right:5%;top:5%;width:66%;height:90%;z-index:1;filter:drop-shadow(0 18px 28px rgba(69,119,191,.16))}.venezuela-map-svg .state{fill:url(#venFill);stroke:#fff;stroke-width:3;vector-effect:non-scaling-stroke;transition:fill .25s ease,opacity .25s ease}.venezuela-map-svg .state:hover{fill:#75aefc}.venezuela-map-svg .state-label{font:700 15px -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif;fill:#526071;opacity:.9;pointer-events:none}.venezuela-map-svg .coast{fill:none;stroke:#6fa8f7;stroke-width:4;vector-effect:non-scaling-stroke;opacity:.9}.venezuela-map-svg .island{fill:#8ebcfb;stroke:#fff;stroke-width:3}.venezuela-map-svg .caracas-anchor{fill:#0878ff;stroke:#fff;stroke-width:4}.venezuela-map-svg .caracas-ring{fill:none;stroke:#0878ff;stroke-width:4;opacity:.32;transform-origin:575px 210px;animation:caracasMapPulse 2.2s ease-out infinite}.venezuela-map-svg .caracas-ring.r2{animation-delay:.7s}.venezuela-map-svg .caracas-text{font:900 18px -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif;fill:#0878ff}.venezuela-map-svg .caracas-sub{font:600 12px -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif;fill:#647386}@keyframes caracasMapPulse{0%{opacity:.42;transform:scale(.55)}70%{opacity:0;transform:scale(2.25)}100%{opacity:0;transform:scale(2.25)}}
+.map-city{position:absolute;display:flex;align-items:center;gap:10px;font-size:14px;color:#4f5968;z-index:2}.map-city .dot{position:relative;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #5ea6ff;box-shadow:0 0 0 6px rgba(94,166,255,.12)}.map-city strong{display:block;font-size:19px;color:#101216;letter-spacing:-.03em}.map-city small{display:block;font-size:12px;color:#7a818d}.city-maracaibo{right:20%;top:17%}.city-valencia{right:26%;top:38%}.city-caracas{right:14%;top:30%}.city-barquisimeto{right:35%;top:33%}.city-puerto{right:18%;top:62%}
+.city-caracas .dot{width:18px;height:18px;border:4px solid #fff;background:var(--blue);box-shadow:0 0 0 8px rgba(8,120,255,.14),0 0 26px rgba(8,120,255,.48);animation:caracasPulse 1.8s ease-out infinite}.city-caracas .dot:before,.city-caracas .dot:after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;border:2px solid rgba(8,120,255,.55);transform:translate(-50%,-50%);animation:caracasRing 1.8s ease-out infinite}.city-caracas .dot:after{animation-delay:.6s}.city-caracas strong{color:var(--blue)}
+@keyframes caracasPulse{0%,100%{transform:scale(1)}45%{transform:scale(1.12)}70%{transform:scale(.98)}}@keyframes caracasRing{0%{opacity:.75;transform:translate(-50%,-50%) scale(.7)}75%,100%{opacity:0;transform:translate(-50%,-50%) scale(2.35)}}
+.coverage-note{position:absolute;left:7%;bottom:8%;max-width:300px;padding:18px 18px 16px;border-radius:24px;background:#fff;border:1px solid #dfe8f2;box-shadow:0 14px 28px rgba(61,96,146,.07)}.coverage-note b{display:block;font-size:18px;margin-bottom:7px}.coverage-note p{margin:0;color:var(--muted);font-size:14px;line-height:1.5}
+.placeholder-system{margin-top:18px;padding:18px 20px;border-radius:24px;background:#fff;border:1px solid #e5eaf1;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;box-shadow:0 8px 22px rgba(61,96,146,.04)}.placeholder-system h4{margin:0 0 7px;font-size:18px}.placeholder-system p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:760px}.placeholder-system code{display:inline-block;margin-top:10px;padding:8px 10px;border-radius:12px;background:#f4f7fb;border:1px solid #e2e8f1;color:#3e4a58;font-size:12px;font-weight:800}
+@media(max-width:1080px){.clinic-grid-premium{grid-template-columns:1fr 1fr}.media-slot.large{grid-column:1/-1;grid-row:auto;min-height:360px}.evidence-grid,.proof-grid{grid-template-columns:1fr}.service-enterprise-card,.regions-shell{grid-template-columns:1fr}.coverage-map{min-height:420px}.map-head{flex-direction:column;align-items:flex-start}}
+@media(max-width:760px){.service-enterprise-card{padding:28px}.service-enterprise-card h3{font-size:38px}.clinic-grid-premium{grid-template-columns:1fr}.media-slot.large{min-height:320px}.upload-hint{grid-template-columns:1fr}.evidence-tabs{gap:14px;flex-wrap:wrap}.ship-step{grid-template-columns:48px 1fr;padding:16px}.map-city strong{font-size:16px}.venezuela-map-svg{right:1%;width:78%;height:86%}.city-maracaibo{top:18%;right:11%}.city-valencia{top:39%;right:17%}.city-caracas{top:31%;right:5%}.city-barquisimeto{top:34%;right:28%}.city-puerto{top:63%;right:6%}.coverage-note{position:static;margin:18px}.placeholder-system{flex-direction:column}}
+@media(max-width:620px){.service-enterprise-card{border-radius:28px}.slot-copy b{font-size:22px}.slot-badge{align-items:flex-start}.slot-empty-copy{flex-direction:column;align-items:flex-start}.evidence-card .media-slot{min-height:220px}.coverage-map{min-height:360px}.map-nav button{width:42px;height:42px}.ship-meta span{padding:10px 14px}}
+@media(prefers-reduced-motion:reduce){.page-ready main,.reveal-block,.media-slot,.evidence-card{transition:none!important}.slot-surface:after{animation:none!important}}
+
+
+/* V14.22 · Mapa real de Venezuela refinado */
+.venezuela-map-svg{display:none!important}
+.ven-map-real{position:absolute;inset:9% 9% 11% 10%;z-index:1;display:grid;place-items:center;pointer-events:none}
+.ven-map-real img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 18px 28px rgba(69,119,191,.14));opacity:.96}
+.ven-map-real .fallback-map{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:-1;opacity:.94}
+.coverage-routes{position:absolute;inset:0;z-index:2;pointer-events:none}
+.coverage-routes .route-line{fill:none;stroke:rgba(8,120,255,.22);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:7 10}
+.coverage-routes .route-dot{fill:#0878ff;filter:drop-shadow(0 0 8px rgba(8,120,255,.45))}
+.coverage-routes .route-dot.soft{fill:#7cb7ff;opacity:.8}
+.map-city{position:absolute;display:flex;align-items:flex-start;gap:10px;z-index:3;max-width:220px}
+.map-city .dot{position:relative;flex:none;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #5ea6ff;box-shadow:0 0 0 6px rgba(94,166,255,.12);margin-top:6px}
+.map-city strong{display:block;font-size:17px;color:#101216;letter-spacing:-.03em;line-height:1.05}
+.map-city small{display:block;font-size:12px;color:#6c7784;line-height:1.25;margin-top:3px}
+.city-maracaibo{left:11%;top:11.5%;right:auto}
+.city-barquisimeto{left:28.2%;top:23.8%;right:auto}
+.city-valencia{left:47.6%;top:27.4%;right:auto}
+.city-puerto{left:67%;top:57.5%;right:auto}
+.city-caracas-real{position:absolute;left:52.4%;top:16.8%;z-index:5;display:flex;align-items:flex-start;gap:10px;transform:translate(-4px,-4px);max-width:240px}
+.city-caracas-real .pulse-dot{position:relative;flex:none;width:18px;height:18px;border-radius:50%;background:#0878ff;border:4px solid #fff;box-shadow:0 0 0 7px rgba(8,120,255,.14);margin-top:6px}
+.city-caracas-real .pulse-dot:before,.city-caracas-real .pulse-dot:after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid rgba(8,120,255,.42);transform:translate(-50%,-50%);animation:caracasRealPulse 2.1s ease-out infinite}
+.city-caracas-real .pulse-dot:after{animation-delay:.72s}
+.city-caracas-real strong{display:block;font-size:20px;color:#0878ff;letter-spacing:-.03em;line-height:1}.city-caracas-real small{display:block;font-size:12px;color:#5f6f83;line-height:1.25}
+@keyframes caracasRealPulse{0%{opacity:.7;transform:translate(-50%,-50%) scale(.7)}80%,100%{opacity:0;transform:translate(-50%,-50%) scale(2.6)}}
+@media(max-width:760px){.ven-map-real{inset:10% 4% 16% 4%}.city-maracaibo{left:8%;top:11%}.city-barquisimeto{left:22%;top:24%}.city-valencia{left:44%;top:29%}.city-puerto{left:61%;top:59%}.city-caracas-real{left:49%;top:16%}.map-city strong,.city-caracas-real strong{font-size:15px}}
+
+@media(prefers-reduced-motion:reduce){.process-step,.process-visual,.process-rail-fill,.repair-tool{transition:none!important;animation:none!important}}
+
+
+.page-preload main{opacity:0;transform:translateY(18px) scale(.994)}
+.page-ready main{opacity:1;transform:none;transition:opacity .78s cubic-bezier(.22,.78,.2,1),transform .92s cubic-bezier(.22,.78,.2,1)}
+.reveal-block{opacity:0;transform:translateY(28px);transition:opacity .78s cubic-bezier(.22,.78,.2,1),transform .86s cubic-bezier(.22,.78,.2,1)}
+.reveal-block.in-view{opacity:1;transform:none}
+.reveal-block[data-delay="1"]{transition-delay:.08s}.reveal-block[data-delay="2"]{transition-delay:.16s}.reveal-block[data-delay="3"]{transition-delay:.24s}
+.service-enterprise-card{position:relative;overflow:hidden;border-radius:38px;border:1px solid #e7ecf4;background:linear-gradient(180deg,#f7fbff 0,#fff 100%);padding:38px 40px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:28px;box-shadow:0 22px 44px rgba(61,96,146,.08)}
+.service-enterprise-card:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(82,133,194,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(82,133,194,.07) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,#000,transparent 90%);pointer-events:none}
+.service-enterprise-card > *{position:relative;z-index:1}.service-enterprise-card h3{font-size:clamp(34px,4.6vw,58px);line-height:1.04;letter-spacing:-.05em;margin:12px 0 14px}.service-enterprise-card p{margin:0;max-width:830px;font-size:18px;line-height:1.55;color:var(--muted)}
+.service-chip{display:inline-flex;align-items:center;gap:10px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:900;color:#525863}.service-chip:before{content:"";width:10px;height:10px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 6px rgba(8,120,255,.11)}
+.service-enterprise-card .btn{padding:16px 24px;box-shadow:0 14px 28px rgba(8,120,255,.18)}
+.premium-note{display:flex;align-items:center;gap:10px;margin-top:14px;color:#5f6a77;font-size:13px;font-weight:700}.premium-note i{font-style:normal;width:22px;height:22px;border-radius:8px;background:#eaf3ff;color:var(--blue);display:grid;place-items:center;font-size:12px}
+.clinic-shell{display:grid;gap:14px}
+.clinic-grid-premium{display:grid;grid-template-columns:1.14fr .86fr .86fr;gap:14px;align-items:stretch}
+.media-slot{position:relative;overflow:hidden;border-radius:32px;min-height:230px;border:1px solid #e5eaf1;background:linear-gradient(160deg,#f6f9fd,#eef3f9);box-shadow:0 12px 28px rgba(61,96,146,.06);transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.media-slot:hover{transform:translateY(-4px);box-shadow:0 20px 38px rgba(61,96,146,.12);border-color:#cadeff}
+.media-slot.large{grid-row:span 2;min-height:488px}
+.media-slot.has-image .slot-surface{background-size:cover;background-position:center}
+.slot-surface{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:22px;background:radial-gradient(circle at 18% 18%,rgba(8,120,255,.14),transparent 24%),linear-gradient(150deg,#f9fbff,#edf3fb)}
+.slot-surface:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.0) 25%,rgba(10,13,18,.18) 100%);pointer-events:none}
+.slot-surface:after{content:"";position:absolute;inset:-20% -50% auto auto;width:60%;height:180%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.38),transparent);transform:rotate(18deg);animation:slotSheen 8s ease-in-out infinite;opacity:.55;pointer-events:none}
+@keyframes slotSheen{0%,100%{transform:translateX(30%) rotate(18deg)}50%{transform:translateX(-110%) rotate(18deg)}}
+.slot-frame{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;flex:1;border-radius:24px;border:1px dashed rgba(95,131,183,.34);background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(248,251,255,.34))}
+.slot-icon{width:74px;height:74px;border-radius:22px;background:rgba(255,255,255,.82);border:1px solid rgba(8,120,255,.12);display:grid;place-items:center;box-shadow:0 12px 24px rgba(63,100,148,.09);font-size:30px;color:var(--blue)}
+.slot-footer{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:end;gap:14px;margin-top:18px;color:#fff}.slot-copy b{display:block;font-size:26px;letter-spacing:-.04em;margin-bottom:6px}.slot-copy span{display:block;font-size:14px;line-height:1.45;color:rgba(255,255,255,.86)}
+.slot-badge{display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:140px}.slot-badge span{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.9);color:#1d2630;font-size:12px;font-weight:850;backdrop-filter:blur(8px)}.slot-badge code{padding:8px 10px;border-radius:14px;background:rgba(10,13,18,.4);color:#fff;font-size:11px;border:1px solid rgba(255,255,255,.14)}
+.slot-empty-copy{position:absolute;left:18px;right:18px;bottom:18px;z-index:1;display:flex;justify-content:space-between;align-items:end;gap:14px}
+.slot-empty-copy .mini{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.82);backdrop-filter:blur(8px);color:#44505e;font-size:12px;font-weight:800}
+.upload-hint{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}.upload-hint .hint{border:1px solid #e4e9f0;border-radius:20px;padding:18px;background:#fff}.upload-hint .hint b{display:block;font-size:15px;margin-bottom:5px}.upload-hint .hint p{margin:0;font-size:13px;line-height:1.45;color:var(--muted)}
+.evidence-shell{display:grid;gap:18px}.evidence-tabs{display:flex;gap:24px;align-items:center;border-bottom:1px solid #e6ebf2;padding-bottom:14px}.evidence-tab{border:0;background:transparent;padding:0 0 12px;font-size:17px;font-weight:850;color:#7a808b;cursor:pointer;box-shadow:inset 0 -3px 0 transparent}.evidence-tab.active{color:#111;box-shadow:inset 0 -3px 0 var(--blue)}
+.evidence-pane{display:none}.evidence-pane.active{display:block}
+.evidence-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.evidence-card{border:1px solid #e5eaf1;border-radius:30px;overflow:hidden;background:#fff;box-shadow:0 10px 24px rgba(61,96,146,.06);transition:transform .22s ease, box-shadow .22s ease}.evidence-card:hover{transform:translateY(-4px);box-shadow:0 18px 34px rgba(61,96,146,.11)}
+.evidence-card .media-slot{min-height:274px;border:0;border-bottom:1px solid #e7ebf1;border-radius:0;box-shadow:none}.evidence-card .media-slot:hover{transform:none;box-shadow:none}.evidence-card .slot-surface{padding:20px}.evidence-card .slot-copy b{font-size:22px}.evidence-content{padding:22px 22px 24px}.evidence-kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:900}.evidence-content h3{font-size:22px;letter-spacing:-.04em;margin:10px 0 10px}.evidence-content p{margin:0;color:var(--muted);font-size:15px;line-height:1.5}
+.proof-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.proof-card{border:1px solid #e5eaf1;border-radius:28px;padding:24px;background:linear-gradient(180deg,#fff 0,#f9fbff 100%);box-shadow:0 10px 24px rgba(61,96,146,.05)}.proof-card h4{margin:10px 0 8px;font-size:22px;letter-spacing:-.035em}.proof-card p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}.proof-card .stat{font-size:13px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--blue)}
+.regions-zone{position:relative;overflow:hidden;background:linear-gradient(180deg,#f7fbff 0,#eef4fb 100%);border-top:1px solid #e8edf4;border-bottom:1px solid #e8edf4}.regions-zone:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(82,133,194,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(82,133,194,.07) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,#000,transparent 96%);pointer-events:none}
+.regions-shell{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,.96fr) minmax(330px,1.04fr);gap:36px;align-items:center}.ship-lead .btn{margin-top:26px;box-shadow:0 14px 28px rgba(8,120,255,.16)}.ship-lead h2{max-width:580px}.ship-lead p{max-width:640px}.ship-steps{display:grid;gap:18px;margin-top:28px}.ship-step{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:16px;background:rgba(255,255,255,.92);border:1px solid #e2e8f0;border-radius:22px;padding:18px 20px;box-shadow:0 10px 22px rgba(61,96,146,.05)}.ship-step .n{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#eef3fa;color:#46505f;font-weight:900}.ship-step b{font-size:16px}.ship-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.ship-meta span{padding:12px 18px;border-radius:999px;background:#fff;border:1px solid #e2e8f0;font-weight:800;color:#414854}
+.map-panel{border:1px solid #e1e8f1;border-radius:36px;background:rgba(255,255,255,.78);backdrop-filter:blur(12px);padding:24px;box-shadow:0 16px 34px rgba(61,96,146,.07)}.map-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px}.map-head h3{margin:8px 0 0;font-size:34px;letter-spacing:-.04em}.map-nav{display:flex;gap:8px}.map-nav button{width:48px;height:48px;border-radius:50%;border:1px solid #d5dee9;background:#fff;color:#4b5360;font-size:22px;cursor:pointer}.coverage-map{position:relative;min-height:560px;border-radius:28px;background:linear-gradient(180deg,#f8fbff 0,#eef4fb 100%);overflow:hidden}.coverage-map:after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(82,133,194,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(82,133,194,.08) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
+.venezuela-map-svg{position:absolute;right:5%;top:5%;width:66%;height:90%;z-index:1;filter:drop-shadow(0 18px 28px rgba(69,119,191,.16))}.venezuela-map-svg .state{fill:url(#venFill);stroke:#fff;stroke-width:3;vector-effect:non-scaling-stroke;transition:fill .25s ease,opacity .25s ease}.venezuela-map-svg .state:hover{fill:#75aefc}.venezuela-map-svg .state-label{font:700 15px -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif;fill:#526071;opacity:.9;pointer-events:none}.venezuela-map-svg .coast{fill:none;stroke:#6fa8f7;stroke-width:4;vector-effect:non-scaling-stroke;opacity:.9}.venezuela-map-svg .island{fill:#8ebcfb;stroke:#fff;stroke-width:3}.venezuela-map-svg .caracas-anchor{fill:#0878ff;stroke:#fff;stroke-width:4}.venezuela-map-svg .caracas-ring{fill:none;stroke:#0878ff;stroke-width:4;opacity:.32;transform-origin:575px 210px;animation:caracasMapPulse 2.2s ease-out infinite}.venezuela-map-svg .caracas-ring.r2{animation-delay:.7s}.venezuela-map-svg .caracas-text{font:900 18px -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif;fill:#0878ff}.venezuela-map-svg .caracas-sub{font:600 12px -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Arial,sans-serif;fill:#647386}@keyframes caracasMapPulse{0%{opacity:.42;transform:scale(.55)}70%{opacity:0;transform:scale(2.25)}100%{opacity:0;transform:scale(2.25)}}
+.map-city{position:absolute;display:flex;align-items:center;gap:10px;font-size:14px;color:#4f5968;z-index:2}.map-city .dot{position:relative;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #5ea6ff;box-shadow:0 0 0 6px rgba(94,166,255,.12)}.map-city strong{display:block;font-size:19px;color:#101216;letter-spacing:-.03em}.map-city small{display:block;font-size:12px;color:#7a818d}.city-maracaibo{right:20%;top:17%}.city-valencia{right:26%;top:38%}.city-caracas{right:14%;top:30%}.city-barquisimeto{right:35%;top:33%}.city-puerto{right:18%;top:62%}
+.city-caracas .dot{width:18px;height:18px;border:4px solid #fff;background:var(--blue);box-shadow:0 0 0 8px rgba(8,120,255,.14),0 0 26px rgba(8,120,255,.48);animation:caracasPulse 1.8s ease-out infinite}.city-caracas .dot:before,.city-caracas .dot:after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;border:2px solid rgba(8,120,255,.55);transform:translate(-50%,-50%);animation:caracasRing 1.8s ease-out infinite}.city-caracas .dot:after{animation-delay:.6s}.city-caracas strong{color:var(--blue)}
+@keyframes caracasPulse{0%,100%{transform:scale(1)}45%{transform:scale(1.12)}70%{transform:scale(.98)}}@keyframes caracasRing{0%{opacity:.75;transform:translate(-50%,-50%) scale(.7)}75%,100%{opacity:0;transform:translate(-50%,-50%) scale(2.35)}}
+.coverage-note{position:absolute;left:7%;bottom:8%;max-width:300px;padding:18px 18px 16px;border-radius:24px;background:#fff;border:1px solid #dfe8f2;box-shadow:0 14px 28px rgba(61,96,146,.07)}.coverage-note b{display:block;font-size:18px;margin-bottom:7px}.coverage-note p{margin:0;color:var(--muted);font-size:14px;line-height:1.5}
+.placeholder-system{margin-top:18px;padding:18px 20px;border-radius:24px;background:#fff;border:1px solid #e5eaf1;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;box-shadow:0 8px 22px rgba(61,96,146,.04)}.placeholder-system h4{margin:0 0 7px;font-size:18px}.placeholder-system p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:760px}.placeholder-system code{display:inline-block;margin-top:10px;padding:8px 10px;border-radius:12px;background:#f4f7fb;border:1px solid #e2e8f1;color:#3e4a58;font-size:12px;font-weight:800}
+@media(max-width:1080px){.clinic-grid-premium{grid-template-columns:1fr 1fr}.media-slot.large{grid-column:1/-1;grid-row:auto;min-height:360px}.evidence-grid,.proof-grid{grid-template-columns:1fr}.service-enterprise-card,.regions-shell{grid-template-columns:1fr}.coverage-map{min-height:420px}.map-head{flex-direction:column;align-items:flex-start}}
+@media(max-width:760px){.service-enterprise-card{padding:28px}.service-enterprise-card h3{font-size:38px}.clinic-grid-premium{grid-template-columns:1fr}.media-slot.large{min-height:320px}.upload-hint{grid-template-columns:1fr}.evidence-tabs{gap:14px;flex-wrap:wrap}.ship-step{grid-template-columns:48px 1fr;padding:16px}.map-city strong{font-size:16px}.venezuela-map-svg{right:1%;width:78%;height:86%}.city-maracaibo{top:18%;right:11%}.city-valencia{top:39%;right:17%}.city-caracas{top:31%;right:5%}.city-barquisimeto{top:34%;right:28%}.city-puerto{top:63%;right:6%}.coverage-note{position:static;margin:18px}.placeholder-system{flex-direction:column}}
+@media(max-width:620px){.service-enterprise-card{border-radius:28px}.slot-copy b{font-size:22px}.slot-badge{align-items:flex-start}.slot-empty-copy{flex-direction:column;align-items:flex-start}.evidence-card .media-slot{min-height:220px}.coverage-map{min-height:360px}.map-nav button{width:42px;height:42px}.ship-meta span{padding:10px 14px}}
+@media(prefers-reduced-motion:reduce){.page-ready main,.reveal-block,.media-slot,.evidence-card{transition:none!important}.slot-surface:after{animation:none!important}}
+
+
+/* V14.21 · Mapa real de Venezuela */
+.venezuela-map-svg{display:none!important}
+.ven-map-real{position:absolute;inset:7% 7% 16% 7%;z-index:1;display:grid;place-items:center}
+.ven-map-real img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 18px 28px rgba(69,119,191,.14));opacity:.96}
+.ven-map-real .fallback-map{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:-1;opacity:.94}
+.map-city{z-index:3}
+.city-maracaibo{left:18.3%;top:18.3%;right:auto}
+.city-barquisimeto{left:32.4%;top:22.3%;right:auto}
+.city-valencia{left:40.8%;top:21.7%;right:auto}
+.city-puerto{left:73.6%;top:34.4%;right:auto}
+.city-caracas-real{position:absolute;left:47.7%;top:19.5%;z-index:5;display:flex;align-items:center;gap:10px;transform:translate(-4px,-4px)}
+.city-caracas-real .pulse-dot{position:relative;width:18px;height:18px;border-radius:50%;background:#0878ff;border:4px solid #fff;box-shadow:0 0 0 7px rgba(8,120,255,.14)}
+.city-caracas-real .pulse-dot:before,.city-caracas-real .pulse-dot:after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid rgba(8,120,255,.42);transform:translate(-50%,-50%);animation:caracasRealPulse 2.1s ease-out infinite}
+.city-caracas-real .pulse-dot:after{animation-delay:.72s}
+.city-caracas-real strong{display:block;font-size:18px;color:#0878ff;letter-spacing:-.03em}.city-caracas-real small{display:block;font-size:11px;color:#5f6f83;white-space:nowrap}
+@keyframes caracasRealPulse{0%{opacity:.7;transform:translate(-50%,-50%) scale(.7)}80%,100%{opacity:0;transform:translate(-50%,-50%) scale(2.6)}}
+@media(max-width:760px){.ven-map-real{inset:9% 4% 20% 4%}.city-maracaibo{left:15%;top:22%}.city-barquisimeto{left:29%;top:26%}.city-valencia{left:42%;top:25%}.city-puerto{left:70%;top:39%}.city-caracas-real{left:49%;top:23%}.city-caracas-real strong{font-size:16px}.city-caracas-real small{font-size:10px}}
+
+
+/* V14.28 · Mapa ajustado con nombres mejor ubicados */
+.map-city,.city-caracas-real{display:block;overflow:visible}
+.map-city{width:14px;height:14px}
+.map-city .dot{position:absolute;left:0;top:0;margin:0}
+.map-city>div:last-child,.city-caracas-real>div:last-child{position:absolute;min-width:max-content;padding:0;background:none!important;border:none!important;box-shadow:none!important;backdrop-filter:none!important}
+.map-city strong,.city-caracas-real strong{font-size:15px;line-height:1.02;text-shadow:0 1px 1px rgba(255,255,255,.86),0 0 8px rgba(255,255,255,.72)}
+.map-city small,.city-caracas-real small{font-size:10px;line-height:1.18;text-shadow:0 1px 1px rgba(255,255,255,.86),0 0 8px rgba(255,255,255,.72)}
+.city-maracaibo{left:17.5%;top:24.2%}
+.city-maracaibo>div:last-child{left:22px;top:-12px}
+.city-barquisimeto{left:33.8%;top:32.2%}
+.city-barquisimeto>div:last-child{left:-6px;top:20px}
+.city-valencia{left:46.2%;top:29.1%}
+.city-valencia>div:last-child{left:22px;top:10px}
+.city-puerto{left:73.8%;top:47.8%}
+.city-puerto>div:last-child{left:22px;top:-8px}
+.city-caracas-real{left:53.2%;top:22.0%;width:18px;height:18px;transform:none;z-index:5}
+.city-caracas-real .pulse-dot{position:absolute;left:0;top:0;margin:0}
+.city-caracas-real>div:last-child{left:26px;top:-14px}
+@media(max-width:760px){
+  .map-city strong,.city-caracas-real strong{font-size:13px}
+  .map-city small,.city-caracas-real small{font-size:9px}
+  .city-maracaibo{left:14.8%;top:23.4%}.city-maracaibo>div:last-child{left:18px;top:-12px}
+  .city-barquisimeto{left:30.6%;top:31.8%}.city-barquisimeto>div:last-child{left:-4px;top:18px}
+  .city-valencia{left:43.7%;top:28.7%}.city-valencia>div:last-child{left:18px;top:10px}
+  .city-puerto{left:71.8%;top:47.2%}.city-puerto>div:last-child{left:18px;top:-8px}
+  .city-caracas-real{left:51.6%;top:21.3%}.city-caracas-real>div:last-child{left:20px;top:-12px}
+}
+
+
+/* V14.29 · Soluciones rápidas refinadas */
+.quick-solutions{
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(180deg,#121318 0%,#0d0e12 100%);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:32px;
+  padding:30px;
+  box-shadow:0 24px 60px rgba(0,0,0,.16);
+}
+.quick-solutions:before{
+  content:"";
+  position:absolute;
+  width:360px;height:360px;border-radius:50%;
+  right:-170px;top:-210px;
+  background:radial-gradient(circle,rgba(8,120,255,.20),rgba(8,120,255,0) 68%);
+  pointer-events:none;
+}
+.quick-solutions-head{position:relative;z-index:1;margin-bottom:20px}
+.quick-solutions-head h3{font-size:30px;margin:4px 0 8px}
+.quick-solutions-head p{max-width:820px;color:#b7bac5;font-size:14px}
+.solution-tabs{position:relative;z-index:1;margin:4px 0 20px;padding:4px;background:#181a20;border:1px solid rgba(255,255,255,.08);border-radius:999px;width:max-content}
+.solution-tab{border:0;background:transparent;color:#aeb2bd;border-radius:999px;padding:10px 16px;transition:.2s ease}
+.solution-tab:hover{color:#fff}
+.solution-tab.active{background:#fff;color:#111;box-shadow:0 6px 18px rgba(0,0,0,.16)}
+.solution-grid{position:relative;z-index:1;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.solution-card{
+  min-height:100%;
+  background:linear-gradient(180deg,#191b21 0%,#15171c 100%);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:22px;
+  padding:20px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+  transition:transform .2s ease,border-color .2s ease,background .2s ease;
+}
+.solution-card:hover{transform:translateY(-2px);border-color:rgba(90,164,255,.28);background:#1a1d24}
+.solution-card .ico{
+  width:42px;height:42px;border-radius:13px;
+  display:grid;place-items:center;
+  margin-bottom:14px;
+  background:linear-gradient(145deg,#242733,#1a1c23);
+  border:1px solid rgba(255,255,255,.08);
+  font-size:22px;
+}
+.solution-card h4{font-size:17px;line-height:1.2;margin-bottom:7px}
+.solution-card p{font-size:13px;line-height:1.48;color:#adb1bc}
+.solution-card ol{margin-top:10px;padding-left:18px;font-size:12.5px;line-height:1.5;color:#e5e7ed}
+.solution-card li::marker{color:#5aa4ff;font-weight:800}
+.solution-note{
+  position:relative;
+  z-index:1;
+  margin-top:18px;
+  padding:18px 20px 18px 58px;
+  border-radius:20px;
+  background:linear-gradient(135deg,rgba(255,59,48,.18),rgba(255,149,0,.11)),#181a20;
+  border:1px solid rgba(255,95,86,.38);
+  color:#fff2ef;
+  font-size:13px;
+  line-height:1.55;
+  box-shadow:0 16px 36px rgba(255,59,48,.08),inset 0 1px 0 rgba(255,255,255,.04);
+}
+.solution-note:before{
+  content:"!";
+  position:absolute;
+  left:18px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;border-radius:50%;
+  display:grid;place-items:center;
+  background:#ff453a;color:#fff;
+  font-size:16px;font-weight:950;
+  box-shadow:0 0 0 7px rgba(255,69,58,.10);
+}
+.solution-note b{color:#fff;font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+.solution-actions{position:relative;z-index:1;margin-top:20px}
+.solution-actions .btn{border-radius:14px}
+.imac-card{margin-top:16px!important}
+@media(max-width:980px){.solution-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){
+  .quick-solutions{padding:22px 16px;border-radius:24px}
+  .quick-solutions-head h3{font-size:25px}
+  .solution-tabs{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .solution-tab{text-align:center}
+  .solution-grid{grid-template-columns:1fr;gap:10px}
+  .solution-card{padding:17px;border-radius:18px}
+  .solution-note{padding:54px 16px 16px}
+  .solution-note:before{left:16px;top:16px;transform:none}
+}
+
+</style>
+</head>
+<body class="page-preload">
+<header class="top"><div class="top-inner"><a class="brand" href="index.html"><img src="assets/logo-thinkstore.png" alt="ThinkStore"><span>ThinkStore<small>Servicio Técnico</small></span></a><nav class="nav"><a href="index.html">Inicio</a><a href="trade-in.html">Trade-IN</a><a class="active" href="servicio-tecnico.html">Servicio Técnico</a><a href="contacto.html">Contacto</a></nav></div></header>
+<main>
+
+<section class="process-intro" aria-labelledby="processTitle">
+  <div class="process-shell">
+    <div class="process-head">
+      <h1 id="processTitle">Repara en 4 pasos.<br>Sin sorpresas, sin esperas.</h1>
+      <a class="btn blue" href="servicio-precios.html">Consultar precios&nbsp; →</a>
+    </div>
+    <div class="process-grid">
+      <div class="process-list" id="processList">
+        <div class="process-rail"><div class="process-rail-fill" id="processRailFill"></div></div>
+        <button class="process-step active" type="button" data-process-step="0"><span class="step-label">Paso 01</span><h3>Cotiza</h3><p>Selecciona tu equipo y la falla. Te orientamos antes de recibirlo.</p></button>
+        <button class="process-step" type="button" data-process-step="1"><span class="step-label">Paso 02</span><h3>Agenda</h3><p>Elige el momento que mejor te convenga y agiliza la recepción.</p></button>
+        <button class="process-step" type="button" data-process-step="2"><span class="step-label">Paso 03</span><h3>Reparamos</h3><p>Diagnosticamos, te explicamos las opciones y avanzamos con tu autorización.</p></button>
+        <button class="process-step" type="button" data-process-step="3"><span class="step-label">Paso 04</span><h3>Entrega</h3><p>Recibe tu equipo listo y consulta el historial de la orden en línea.</p></button>
+      </div>
+      <div class="process-stage" aria-live="polite">
+        <div class="process-visual active" data-process-visual="0">
+          <div class="quote-card"><div class="quote-top"><span>Diagnóstico inicial</span><span>01</span></div><div class="quote-body"><div class="quote-device"><div class="quote-phone"></div><div class="quote-lines"><i></i><i></i><i></i></div></div><div class="quote-total"><span>Evaluación</span><span>ThinkStore</span></div><div class="quote-check">Selecciona equipo + falla →</div></div></div>
+        </div>
+        <div class="process-visual" data-process-visual="1">
+          <div class="calendar-card"><div class="calendar-head">AGENDA ONLINE</div><div class="calendar-grid"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span class="selected">12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span></div><div class="calendar-time"><b>10:00 AM</b><b>2:30 PM</b></div></div>
+        </div>
+        <div class="process-visual" data-process-visual="2">
+          <div class="repair-scene"><div class="repair-laptop"></div><div class="repair-tool t1">⌁</div><div class="repair-tool t2">✓</div><div class="repair-badge">Diagnóstico + reparación autorizada</div></div>
+        </div>
+        <div class="process-visual" data-process-visual="3">
+          <div class="delivery-scene"><div class="delivery-box"></div><div class="delivery-check">✓</div><h4>Equipo listo.</h4><p>Retiro en tienda o entrega coordinada.</p></div>
+        </div>
+        <div class="process-pager" id="processPager"><button class="active" type="button" aria-label="Paso 1"></button><button type="button" aria-label="Paso 2"></button><button type="button" aria-label="Paso 3"></button><button type="button" aria-label="Paso 4"></button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero">
+  <div class="hero-copy">
+    <div class="kicker">ThinkStore Service Lab</div>
+    <h1>Tu Apple vuelve a funcionar.</h1>
+    <p>Selecciona tu equipo, identifica la falla y agenda una revisión. Primero diagnosticamos, después te explicamos las opciones y solo avanzamos con tu autorización.</p>
+    <div class="hero-actions"><a class="btn blue" href="servicio-precios.html">Consultar precios →</a><a class="btn light" href="agenda-soporte.html">Agendar revisión</a></div>
+    <div class="trust"><span>Diagnóstico técnico</span><span>Cotización antes de intervenir</span><span>Seguimiento online</span></div>
+  </div>
+  <div class="hero-art" aria-label="iPhone en vista técnica de componentes">
+    <img class="hero-device-img" src="assets/service-iphone-exploded.png" alt="Vista técnica de un iPhone con sus componentes internos">
+    <div class="float-card fc1">Diagnóstico primero<small>Sin reparaciones sorpresa</small></div>
+    <div class="float-card fc2">Seguimiento digital<small>Consulta tu orden en línea</small></div>
+  </div>
+
+</section>
+
+<section class="prices-teaser" id="precios-link" aria-labelledby="pricesTeaserTitle">
+  <div class="prices-teaser-inner">
+    <div class="prices-teaser-copy">
+      <div class="section-tag">Precios y repuestos</div>
+      <h2 id="pricesTeaserTitle">Consulta precios en una página dedicada.</h2>
+      <p>Ahora el cotizador de reparaciones, repuestos y stock se muestra en una página independiente para mantener esta sección de servicio técnico más limpia y enfocada.</p>
+      <div class="prices-teaser-actions"><a class="btn blue" href="servicio-precios.html">Consultar precios de reparación →</a><a class="btn light" href="agenda-soporte.html">Agendar revisión</a></div>
+    </div>
+    <div class="prices-teaser-grid">
+      <a class="teaser-device" href="servicio-precios.html?cat=iPhone"><img src="assets/service-cat-iphone.png" alt="iPhone"><b>iPhone</b><span>Ver precios</span></a>
+      <a class="teaser-device" href="servicio-precios.html?cat=MacBook"><img src="assets/service-cat-mac.png" alt="Mac"><b>Mac</b><span>Ver precios</span></a>
+      <a class="teaser-device" href="servicio-precios.html?cat=iPad"><img src="assets/service-cat-ipad.png" alt="iPad"><b>iPad</b><span>Ver precios</span></a>
+      <a class="teaser-device" href="servicio-precios.html?cat=Apple%20Watch"><img src="assets/service-cat-watch.png" alt="Apple Watch"><b>Apple Watch</b><span>Ver precios</span></a>
+      <a class="teaser-device" href="servicio-precios.html?cat=AirPods"><img src="assets/service-cat-airpods.png" alt="AirPods"><b>AirPods</b><span>Ver precios</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="quick" id="diagnostico"><div class="quick-box">
+  <div><h2>¿Qué equipo necesitas reparar?</h2><p>Cuéntanos el dispositivo y el síntoma. Prepararemos la solicitud para recepción técnica.</p></div>
+  <div class="quick-controls">
+    <select id="quickDevice" aria-label="Dispositivo"><option value="">Selecciona tu dispositivo</option><option>iPhone</option><option>Mac / MacBook</option><option>iPad</option><option>Apple Watch</option><option>AirPods</option></select>
+    <select id="quickIssue" aria-label="Falla"><option value="">¿Qué le ocurre?</option><option>Pantalla rota o sin imagen</option><option>Batería dura poco</option><option>No carga</option><option>No enciende</option><option>Se mojó / humedad</option><option>Cámara o Face ID</option><option>Audio / micrófono</option><option>Teclado / trackpad</option><option>Equipo lento / sistema</option><option>Otro diagnóstico</option></select>
+    <button class="btn blue" onclick="goSchedule()">Continuar →</button>
+    <div class="selection-note" id="selectionNote"></div>
+  </div>
+</div></section>
+
+<section class="section"><div class="section-head"><div class="section-copy"><div class="section-tag">Dispositivos</div><h2>Especialistas en el ecosistema Apple.</h2><p>El modelo exacto importa. Selecciona la familia del equipo para empezar con un diagnóstico más preciso.</p></div></div>
+<div class="device-grid" id="deviceGrid">
+  <button class="device" data-device="iPhone"><div class="ico">📱</div><h3>iPhone</h3><p>Pantalla, batería, carga, cámaras, Face ID y placa.</p></button>
+  <button class="device" data-device="Mac / MacBook"><div class="ico">💻</div><h3>Mac</h3><p>MacBook Air, Pro, iMac, Mac mini y diagnóstico de hardware.</p></button>
+  <button class="device" data-device="iPad"><div class="ico">▣</div><h3>iPad</h3><p>Pantalla, carga, batería, sistema y conectividad.</p></button>
+  <button class="device" data-device="Apple Watch"><div class="ico">⌚</div><h3>Apple Watch</h3><p>Pantalla, batería, carga, sensores y diagnóstico.</p></button>
+  <button class="device" data-device="AirPods"><div class="ico">🎧</div><h3>AirPods</h3><p>Audio, batería, estuche, carga y emparejamiento.</p></button>
+</div></section>
+
+<div class="symptom-wrap"><section class="section"><div class="section-head"><div class="section-copy"><div class="section-tag">Diagnóstico rápido</div><h2>¿Qué le pasa a tu equipo?</h2><p>Selecciona el síntoma principal. En recepción confirmaremos el diagnóstico real antes de cualquier intervención.</p></div></div>
+<div class="symptom-grid" id="symptomGrid">
+  <button class="symptom" data-issue="Pantalla rota o sin imagen"><div class="ico">🖥️</div><b>Pantalla o imagen</b><span>Vidrio roto, táctil, líneas, brillo o pantalla negra.</span></button>
+  <button class="symptom" data-issue="Batería dura poco"><div class="ico">🔋</div><b>Batería</b><span>Poca autonomía, apagados, calentamiento o batería degradada.</span></button>
+  <button class="symptom" data-issue="No carga"><div class="ico">⚡</div><b>No carga</b><span>Puerto, cargador, carga intermitente o equipo sin energía.</span></button>
+  <button class="symptom" data-issue="Se mojó / humedad"><div class="ico">💧</div><b>Líquido o humedad</b><span>Contacto con agua, corrosión o fallas posteriores a humedad.</span></button>
+  <button class="symptom" data-issue="No enciende"><div class="ico">◉</div><b>No enciende</b><span>Equipo sin respuesta, reinicios o bloqueo durante el arranque.</span></button>
+  <button class="symptom" data-issue="Cámara o Face ID"><div class="ico">📷</div><b>Cámara / Face ID</b><span>Enfoque, sensores, cámara frontal o reconocimiento facial.</span></button>
+  <button class="symptom" data-issue="Audio / micrófono"><div class="ico">🔊</div><b>Audio</b><span>Micrófono, auricular, altavoces o sonido distorsionado.</span></button>
+  <button class="symptom" data-issue="Equipo lento / sistema"><div class="ico">⚙️</div><b>Sistema / rendimiento</b><span>Equipo lento, errores de software, actualización o recuperación.</span></button>
+</div>
+<div class="symptom-cta"><div><strong id="diagnosticSummary">Selecciona tu equipo y el síntoma principal.</strong><small>La selección se enviará a la agenda técnica para agilizar la recepción.</small></div><button class="btn dark" onclick="goSchedule()">Agendar diagnóstico →</button></div>
+</section></div>
+
+
+<section class="section" id="soluciones-rapidas"><div class="section-head"><div class="section-copy"><div class="section-tag">Soluciones rápidas</div><h2>¿Tu equipo se quedó trabado?</h2><p>Antes de llevarlo a servicio, puedes intentar algunos pasos seguros. Si no responde o el problema vuelve, te ayudamos con diagnóstico de iOS, iPadOS y macOS.</p></div></div>
+<div class="quick-solutions">
+  <div class="quick-solutions-head"><div><div class="section-tag">Asistencia guiada</div><h3>Reinicio forzado y recuperación básica.</h3><p>Un reinicio forzado no borra tus datos. Úsalo solo cuando el equipo no responde normalmente. Si puedes apagarlo de forma convencional, hazlo primero.</p></div></div>
+  <div class="solution-tabs">
+    <button class="solution-tab active" data-soltab="ios">iPhone / iPad</button>
+    <button class="solution-tab" data-soltab="mac">Mac / iMac</button>
+  </div>
+  <div id="solution-ios" class="solution-pane">
+    <div class="solution-grid">
+      <article class="solution-card"><div class="ico">📱</div><h4>iPhone 8 o posterior</h4><p>Si la pantalla está congelada o no responde:</p><ol><li>Pulsa y suelta rápido Volumen +.</li><li>Pulsa y suelta rápido Volumen −.</li><li>Mantén presionado el botón lateral hasta ver el logo de Apple.</li></ol></article>
+      <article class="solution-card"><div class="ico">📲</div><h4>iPhone 7 / 7 Plus</h4><p>Para forzar el reinicio:</p><ol><li>Mantén presionados simultáneamente botón lateral y Volumen −.</li><li>Suéltalos cuando aparezca el logo de Apple.</li></ol></article>
+      <article class="solution-card"><div class="ico">◉</div><h4>iPhone 6s / SE 1ª gen.</h4><p>Para equipos con botón de inicio físico:</p><ol><li>Mantén presionados botón Inicio + botón lateral/superior.</li><li>Suéltalos cuando aparezca el logo de Apple.</li></ol></article>
+      <article class="solution-card"><div class="ico">▣</div><h4>iPad sin botón Inicio</h4><p>Si el iPad está congelado:</p><ol><li>Pulsa y suelta el botón de volumen más cercano al botón superior.</li><li>Pulsa y suelta el otro botón de volumen.</li><li>Mantén el botón superior hasta ver el logo de Apple.</li></ol></article>
+      <article class="solution-card"><div class="ico">▣</div><h4>iPad con botón Inicio</h4><p>Para reinicio forzado:</p><ol><li>Mantén presionados Inicio + botón superior.</li><li>Suéltalos al aparecer el logo de Apple.</li></ol></article>
+      <article class="solution-card"><div class="ico">⚙️</div><h4>Problemas de iOS / iPadOS</h4><p>Te ayudamos con actualizaciones fallidas, falta de espacio, apps que se cierran, reinicios, recuperación del sistema y diagnóstico de rendimiento.</p></article>
+    </div>
+    <div class="solution-note"><b>Importante:</b> si el equipo se mojó, está muy caliente, tiene la batería inflada o sufrió un golpe fuerte, evita seguir encendiéndolo y agenda una revisión técnica.</div>
+  </div>
+  <div id="solution-mac" class="solution-pane solution-hidden">
+    <div class="solution-grid">
+      <article class="solution-card"><div class="ico">💻</div><h4>Mac completamente trabado</h4><p>Si no responde a teclado, trackpad ni al menú Apple:</p><ol><li>Mantén presionado el botón de encendido/Touch ID unos 10 segundos hasta que se apague.</li><li>Espera unos segundos.</li><li>Enciéndelo nuevamente.</li></ol><p style="margin-top:10px">Puede perderse trabajo no guardado; úsalo solo si el apagado normal no funciona.</p></article>
+      <article class="solution-card"><div class="ico">🧰</div><h4>Soluciones macOS</h4><p>Revisamos arranque lento, apps que se congelan, falta de espacio, errores de actualización, discos con fallas, problemas de usuario y rendimiento general.</p></article>
+      <article class="solution-card"><div class="ico">🛡️</div><h4>Diagnóstico antes de formatear</h4><p>Antes de reinstalar macOS evaluamos almacenamiento, procesos de inicio, memoria disponible, salud del disco y errores del sistema para evitar borrar datos innecesariamente.</p></article>
+    </div>
+    <div class="imac-card" style="margin-top:14px"><div><div class="section-tag">Optimización iMac</div><h4>Ayudamos a recuperar el rendimiento de tu iMac.</h4><p>Hacemos una revisión completa y te indicamos qué realmente vale la pena mejorar según el modelo.</p><div class="imac-list"><span>✓ Apps y procesos al inicio</span><span>✓ Espacio y archivos pesados</span><span>✓ Utilidad de Discos / estado del almacenamiento</span><span>✓ Actualización y estabilidad de macOS</span><span>✓ Diagnóstico de memoria y temperatura</span><span>✓ Evaluación de SSD/RAM cuando el modelo lo permita</span></div></div><a class="btn blue" href="agenda-soporte.html?dispositivo=iMac&falla=Optimización%20macOS&origen=servicio-tecnico">Optimizar mi iMac →</a></div>
+  </div>
+  <div class="solution-actions"><a class="btn blue" href="agenda-soporte.html?falla=Soporte%20de%20software&origen=servicio-tecnico">Necesito ayuda técnica →</a><a class="btn light" href="https://soporte.thinkstore.com.ve" target="_blank" rel="noopener">Consultar reparación</a></div>
+</div></section>
+
+
+<section class="software-zone">
+  <section class="section">
+    <div class="section-head">
+      <div class="section-copy"><div class="section-tag">Software profesional</div><h2>Instalación y configuración para tu Mac.</h2><p>Dejamos tus herramientas de trabajo listas, actualizadas y configuradas correctamente. Trabajamos con licencias oficiales del cliente o te orientamos para adquirirlas por los canales del fabricante.</p></div>
+    </div>
+    <div class="software-grid">
+      <article class="software-card">
+        <div>
+          <div class="software-brand"><div class="ms-symbol" aria-label="Microsoft 365"><i></i><i></i><i></i><i></i></div><div><h3>Microsoft 365 / Office</h3><small>Word · Excel · PowerPoint · Outlook</small></div></div>
+          <p>Instalación limpia del paquete Microsoft 365 en macOS, inicio de sesión, activación con licencia válida y ajuste de las aplicaciones principales.</p>
+          <div class="software-list"><span>✓ Word</span><span>✓ Excel</span><span>✓ PowerPoint</span><span>✓ Outlook</span><span>✓ OneDrive</span><span>✓ Actualizaciones</span></div>
+          <div class="software-meta"><span class="soft-pill good">✓ Instalación oficial</span><span class="soft-pill">macOS</span><span class="soft-pill">Cuenta Microsoft</span></div>
+        </div>
+        <div class="software-actions"><a class="btn blue" href="agenda-soporte.html?dispositivo=Mac&falla=Instalación%20Microsoft%20365&origen=servicio-tecnico">Solicitar instalación →</a><a class="btn light" href="contacto.html">Consultar</a></div>
+      </article>
+      <article class="software-card">
+        <div>
+          <div class="software-brand"><div class="cc-symbol" aria-label="Adobe Creative Cloud">∞</div><div><h3>Adobe Creative Cloud</h3><small>Suite creativa profesional</small></div></div>
+          <p>Instalación y configuración de Creative Cloud con la cuenta y suscripción del cliente. Dejamos listas las apps que realmente necesitas para diseño, fotografía, video o documentos.</p>
+          <div class="software-list"><span>✓ Photoshop</span><span>✓ Illustrator</span><span>✓ Premiere Pro</span><span>✓ Acrobat</span><span>✓ Lightroom</span><span>✓ Creative Cloud</span></div>
+          <div class="software-meta"><span class="soft-pill purple">★ Garantía ThinkStore 3 meses</span><span class="soft-pill">macOS</span><span class="soft-pill">Cuenta Adobe</span></div>
+        </div>
+        <div>
+          <div class="software-actions"><a class="btn blue" href="agenda-soporte.html?dispositivo=Mac&falla=Instalación%20Adobe%20Creative%20Cloud&origen=servicio-tecnico">Instalar Suite Adobe →</a><a class="btn light" href="contacto.html">Consultar</a></div>
+          <div class="software-note"><b>Garantía de 3 meses:</b> cubre soporte sobre la instalación y configuración realizada por ThinkStore. No incluye el costo de la licencia/suscripción, cambios de contraseña, suspensión de cuentas ni modificaciones realizadas por Adobe.</div>
+        </div>
+      </article>
+    </div>
+    <div class="license-note"><b>Licenciamiento:</b> ThinkStore no distribuye software sin licencia. La instalación se realiza con una suscripción o licencia legítima del cliente; si aún no la tienes, podemos orientarte para adquirirla directamente con Microsoft o Adobe.</div>
+  </section>
+</section>
+<section class="section"><div class="section-head"><div class="section-copy"><div class="section-tag">Por qué ThinkStore</div><h2>Servicio claro, antes y después de reparar.</h2><p>Queremos que sepas qué ocurre con tu equipo en cada etapa.</p></div></div>
+<div class="benefits">
+  <div class="benefit"><div class="num">01</div><h3>Identificamos el modelo</h3><p>Confirmamos modelo, número de serie y falla antes de cotizar repuestos.</p></div>
+  <div class="benefit"><div class="num">02</div><h3>Diagnóstico técnico</h3><p>Revisamos el síntoma y buscamos la causa antes de reemplazar componentes.</p></div>
+  <div class="benefit"><div class="num">03</div><h3>Autorización del cliente</h3><p>Te explicamos las opciones y no avanzamos con costos sin tu aprobación.</p></div>
+  <div class="benefit"><div class="num">04</div><h3>Seguimiento digital</h3><p>Consulta estado, diagnóstico y avances desde el portal de soporte ThinkStore.</p></div>
+</div></section>
+
+<section class="section"><div class="feature">
+  <article class="feature-card dark"><div><div class="status-pill"><i></i> Orden de servicio online</div><h3>¿Tu equipo ya está con nosotros?</h3><p>Consulta el estado de la reparación, diagnóstico y actualizaciones registradas por el técnico.</p></div><div class="feature-links"><a class="btn light" href="https://soporte.thinkstore.com.ve" target="_blank" rel="noopener">Consultar mi reparación →</a></div></article>
+  <article class="feature-card blue"><div><div class="section-tag">Atención técnica</div><h3>Agenda antes de venir.</h3><p>Selecciona una fecha para que recepción tenga preparado el flujo de ingreso de tu equipo.</p></div><div class="feature-links"><a class="btn dark" href="agenda-soporte.html">Agendar revisión →</a><a class="btn light" href="contacto.html">Ver ubicación</a></div></article>
+</div></section>
+
+
+<section class="section reveal-block" data-delay="1">
+  <div class="service-enterprise-card">
+    <div>
+      <div class="service-chip">Empresas</div>
+      <h3>¿Tienes empresa y necesitas soporte para equipos Apple?</h3>
+      <p>Planes B2B, atención prioritaria, recepción coordinada, diagnósticos por lote y logística técnica para equipos de trabajo, todo con una presentación más limpia y premium al estilo ThinkStore.</p>
+      <div class="premium-note"><i>✦</i><span>Nuevo bloque visual premium listo para conectar luego con Enterprise o con una página dedicada.</span></div>
+    </div>
+    <a class="btn blue" href="contacto.html">Ver solución empresarial →</a>
+  </div>
+</section>
+
+<section class="section reveal-block" data-delay="2" id="taller-thinkstore">
+  <div class="section-head">
+    <div class="section-copy"><div class="section-tag">Visítanos</div><h2>La clínica ThinkStore.</h2><p>Dejamos módulos premium listos para reemplazar fácilmente por fotos reales del taller, la recepción, el área de diagnóstico y la sala de espera.</p></div>
+  </div>
+  <div class="clinic-shell">
+    <div class="clinic-grid-premium">
+      <article class="media-slot large" data-media-key="clinicLab" data-slot-title="Taller principal">
+        <div class="slot-surface">
+          <div class="slot-frame"><div class="slot-icon">⌘</div></div>
+          <div class="slot-footer"><div class="slot-copy"><b>Laboratorio técnico</b><span>Espacio preparado para la foto principal del taller o zona de trabajo técnico.</span></div><div class="slot-badge"><span>Imagen principal</span><code>clinicLab</code></div></div>
+        </div>
+      </article>
+      <article class="media-slot" data-media-key="clinicReception" data-slot-title="Recepción">
+        <div class="slot-surface">
+          <div class="slot-frame"><div class="slot-icon">⌂</div></div>
+          <div class="slot-empty-copy"><div class="slot-copy"><b>Recepción</b><span>Sube aquí la imagen real del mostrador o ingreso de equipos.</span></div><div class="mini">Espacio listo</div></div>
+        </div>
+      </article>
+      <article class="media-slot" data-media-key="clinicWaiting" data-slot-title="Sala de espera">
+        <div class="slot-surface">
+          <div class="slot-frame"><div class="slot-icon">◌</div></div>
+          <div class="slot-empty-copy"><div class="slot-copy"><b>Sala de espera</b><span>Módulo pensado para reemplazar fácilmente por una foto real del área de atención.</span></div><div class="mini">Espacio listo</div></div>
+        </div>
+      </article>
+      <article class="media-slot" data-media-key="clinicDiagnostic" data-slot-title="Área de diagnóstico">
+        <div class="slot-surface">
+          <div class="slot-frame"><div class="slot-icon">✦</div></div>
+          <div class="slot-empty-copy"><div class="slot-copy"><b>Área de diagnóstico</b><span>Perfecto para mostrar la estación donde se evalúan los equipos.</span></div><div class="mini">Espacio listo</div></div>
+        </div>
+      </article>
+      <article class="media-slot" data-media-key="clinicBench" data-slot-title="Mesón de reparación">
+        <div class="slot-surface">
+          <div class="slot-frame"><div class="slot-icon">▣</div></div>
+          <div class="slot-empty-copy"><div class="slot-copy"><b>Mesón de reparación</b><span>Usa este bloque para la foto real del banco técnico o microsoldadura.</span></div><div class="mini">Espacio listo</div></div>
+        </div>
+      </article>
+    </div>
+    <div class="upload-hint">
+      <div class="hint"><b>Reemplazo rápido</b><p>Cada bloque tiene una clave única. Solo debes colocar la URL o ruta en el objeto <code>serviceMediaSlots</code>.</p></div>
+      <div class="hint"><b>Sin romper diseño</b><p>Si aún no tienes fotos, el placeholder premium se mantiene con estilo y sin espacios vacíos.</p></div>
+      <div class="hint"><b>Listo para crecer</b><p>Puedes añadir luego fotos reales del taller, recepción, diagnóstico y entrega sin rediseñar la página.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section reveal-block" data-delay="2" id="casos-reales">
+  <div class="evidence-shell">
+    <div class="evidence-tabs" role="tablist" aria-label="contenido destacado de servicio">
+      <button class="evidence-tab active" type="button" data-evidence-tab="repairs" aria-selected="true">Reparaciones reales</button>
+      <button class="evidence-tab" type="button" data-evidence-tab="trust" aria-selected="false">Resultados ThinkStore</button>
+    </div>
+    <div class="evidence-pane active" id="pane-repairs">
+      <div class="evidence-grid">
+        <article class="evidence-card">
+          <div class="media-slot" data-media-key="repairMicrosolder" data-slot-title="Microsoldadura especializada"><div class="slot-surface"><div class="slot-frame"><div class="slot-icon">⌁</div></div><div class="slot-empty-copy"><div class="slot-copy"><b>Microsoldadura</b><span>Módulo para un caso real con foto del equipo o placa.</span></div><div class="mini">Caso real</div></div></div></div>
+          <div class="evidence-content"><div class="evidence-kicker">Reparación real</div><h3>Microsoldadura especializada</h3><p>Deja este bloque listo para mostrar procesos finos de board-level con una foto real de alta calidad.</p></div>
+        </article>
+        <article class="evidence-card">
+          <div class="media-slot" data-media-key="repairDiagnostic" data-slot-title="Diagnóstico avanzado"><div class="slot-surface"><div class="slot-frame"><div class="slot-icon">◎</div></div><div class="slot-empty-copy"><div class="slot-copy"><b>Diagnóstico avanzado</b><span>Ideal para subir un equipo evaluado o una recepción técnica real.</span></div><div class="mini">Caso real</div></div></div></div>
+          <div class="evidence-content"><div class="evidence-kicker">Reparación real</div><h3>Diagnóstico avanzado</h3><p>Preparado para mostrar un antes y después, revisión por síntomas o procesos de comprobación técnica.</p></div>
+        </article>
+        <article class="evidence-card">
+          <div class="media-slot" data-media-key="repairIphone" data-slot-title="Reparación de iPhone"><div class="slot-surface"><div class="slot-frame"><div class="slot-icon">◳</div></div><div class="slot-empty-copy"><div class="slot-copy"><b>Reparación de iPhone</b><span>Espacio para foto real de pantalla, batería, carga o reparación interna.</span></div><div class="mini">Caso real</div></div></div></div>
+          <div class="evidence-content"><div class="evidence-kicker">Reparación real</div><h3>Reparación de iPhone</h3><p>Otro módulo premium listo para documentar trabajos terminados y hacer la página más confiable.</p></div>
+        </article>
+      </div>
+    </div>
+    <div class="evidence-pane" id="pane-trust">
+      <div class="proof-grid">
+        <article class="proof-card"><div class="stat">Transparencia</div><h4>Cotización clara antes de reparar</h4><p>Mostramos el flujo, explicamos la falla y evitamos sorpresas para que el cliente autorice con confianza.</p></article>
+        <article class="proof-card"><div class="stat">Seguimiento</div><h4>Estado y comunicación en el proceso</h4><p>La experiencia queda lista para conectarse con seguimiento, historial técnico y aprobación del cliente.</p></article>
+        <article class="proof-card"><div class="stat">Presentación</div><h4>Bloques listos para fotos reales</h4><p>Desde esta versión cada módulo puede pasar de placeholder premium a galería real del taller sin rehacer el diseño.</p></article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section regions-zone reveal-block" data-delay="3" id="envios-regiones">
+  <div class="regions-shell">
+    <div class="ship-lead">
+      <div class="section-tag">Regiones de Venezuela</div>
+      <h2>¿Estás fuera de Caracas y quieres reparar con nosotros?</h2>
+      <p>Envíanos tu equipo de forma segura y te guiamos durante todo el proceso, desde la recepción hasta el despacho de vuelta.</p>
+      <div class="ship-steps">
+        <div class="ship-step"><div class="n">1</div><b>Solicita instrucciones de envío.</b></div>
+        <div class="ship-step"><div class="n">2</div><b>Envía tu equipo por courier.</b></div>
+        <div class="ship-step"><div class="n">3</div><b>Diagnosticamos y enviamos presupuesto.</b></div>
+        <div class="ship-step"><div class="n">4</div><b>Apruebas la reparación.</b></div>
+        <div class="ship-step"><div class="n">5</div><b>Reparamos y despachamos de vuelta.</b></div>
+      </div>
+      <div class="ship-meta"><span>MRW</span><span>Zoom</span><span>Tealca</span></div>
+      <a class="btn blue" href="envio-regiones.html">Enviar mi equipo →</a>
+    </div>
+    <div class="map-panel">
+      <div class="map-head"><div><div class="section-tag">Cobertura</div><h3>Recepción nacional</h3></div><div class="map-nav"><button type="button" aria-label="Anterior">←</button><button type="button" aria-label="Siguiente">→</button></div></div>
+      <div class="coverage-map">
+        <div class="ven-map-real" aria-label="Mapa real de Venezuela con división por estados">
+          <img class="fallback-map" src="assets/venezuela-outline-states-fallback.svg" alt="">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Venezuela_con_estados.svg" alt="Mapa real de Venezuela con sus estados" onerror="this.style.display='none'">
+        </div>
+        <svg class="coverage-routes" viewBox="0 0 1000 640" preserveAspectRatio="none" aria-hidden="true">
+          <path class="route-line" d="M 543 113 Q 360 112 172 143"></path>
+          <path class="route-line" d="M 543 113 Q 448 126 341 186"></path>
+          <path class="route-line" d="M 543 113 Q 520 132 468 164"></path>
+          <path class="route-line" d="M 543 113 Q 660 180 742 278"></path>
+          <circle class="route-dot" r="4.5"><animateMotion dur="3.4s" repeatCount="indefinite" path="M 543 113 Q 360 112 172 143"/></circle>
+          <circle class="route-dot soft" r="3.5"><animateMotion begin=".7s" dur="3.4s" repeatCount="indefinite" path="M 543 113 Q 360 112 172 143"/></circle>
+          <circle class="route-dot" r="4.5"><animateMotion dur="2.8s" repeatCount="indefinite" path="M 543 113 Q 448 126 341 186"/></circle>
+          <circle class="route-dot soft" r="3.5"><animateMotion begin=".45s" dur="2.8s" repeatCount="indefinite" path="M 543 113 Q 448 126 341 186"/></circle>
+          <circle class="route-dot" r="4.5"><animateMotion dur="2.2s" repeatCount="indefinite" path="M 543 113 Q 520 132 468 164"/></circle>
+          <circle class="route-dot soft" r="3.5"><animateMotion begin=".6s" dur="2.2s" repeatCount="indefinite" path="M 543 113 Q 520 132 468 164"/></circle>
+          <circle class="route-dot" r="4.5"><animateMotion dur="4.1s" repeatCount="indefinite" path="M 543 113 Q 660 180 742 278"/></circle>
+          <circle class="route-dot soft" r="3.5"><animateMotion begin="1.1s" dur="4.1s" repeatCount="indefinite" path="M 543 113 Q 660 180 742 278"/></circle>
+        </svg>
+        <div class="city-caracas-real"><span class="pulse-dot"></span><div><strong>Caracas</strong><small>Distrito Capital · Sede ThinkStore</small></div></div>
+        <div class="map-city city-maracaibo"><div class="dot"></div><div><strong>Maracaibo</strong><small>Zulia · Recepción guiada</small></div></div>
+        <div class="map-city city-valencia"><div class="dot"></div><div><strong>Valencia</strong><small>Carabobo · Ruta centro</small></div></div>
+        <div class="map-city city-caracas" style="display:none"><div class="dot"></div><div><strong>Caracas</strong><small>Distrito Capital · Sede ThinkStore</small></div></div>
+        <div class="map-city city-barquisimeto"><div class="dot"></div><div><strong>Barquisimeto</strong><small>Lara · Despacho coordinado</small></div></div>
+        <div class="map-city city-puerto"><div class="dot"></div><div><strong>Puerto Ordaz</strong><small>Bolívar · Soporte desde región</small></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="placeholder-system">
+    <div>
+      <h4>Sistema listo para reemplazar imágenes reales</h4>
+      <p>Cuando quieras subir fotos reales del taller, la recepción o los casos de reparación, solo edita el objeto JavaScript <b>serviceMediaSlots</b> al final de esta página y coloca la ruta de cada imagen sin tocar el diseño.</p>
+      <code>clinicLab · clinicReception · clinicWaiting · clinicDiagnostic · clinicBench · repairMicrosolder · repairDiagnostic · repairIphone</code>
+    </div>
+  </div>
+</section>
+
+<section class="section"><div class="section-head"><div class="section-copy"><div class="section-tag">Antes de entregar</div><h2>Prepara tu equipo.</h2><p>Estos pasos ayudan a proteger tus datos y agilizar el diagnóstico.</p></div></div>
+<div class="prepare">
+  <div class="prepare-row"><div class="n">01</div><div><h4>Haz un respaldo reciente</h4><p>Conserva una copia de la información importante antes de cualquier servicio técnico.</p></div></div>
+  <div class="prepare-row"><div class="n">02</div><div><h4>Describe cuándo ocurre la falla</h4><p>Indica desde cuándo sucede, si es intermitente y qué pasos ya intentaste.</p></div></div>
+  <div class="prepare-row"><div class="n">03</div><div><h4>Trae accesorios relacionados</h4><p>Si la falla es de carga o conexión, trae el cable o adaptador que usas normalmente.</p></div></div>
+  <div class="prepare-row"><div class="n">04</div><div><h4>“Buscar” puede requerir desactivación</h4><p>Si el procedimiento lo necesita, recepción te indicará cuándo desactivar Buscar mi dispositivo.</p></div></div>
+</div></section>
+
+<section class="section faq"><div class="section-head"><div class="section-copy"><div class="section-tag">Preguntas frecuentes</div><h2>Antes de agendar.</h2></div></div>
+<details><summary>¿Puedo llevar un equipo comprado fuera de ThinkStore?</summary><p>Sí. Podemos realizar una evaluación técnica independientemente del lugar de compra. Las condiciones de garantía, si aplican, se revisan por separado.</p></details>
+<details><summary>¿Me informan el costo antes de reparar?</summary><p>Sí. Cuando el servicio tiene costo, primero te comunicamos el diagnóstico y las opciones disponibles para que autorices la intervención.</p></details>
+<details><summary>¿Cuánto tarda una reparación?</summary><p>Depende del modelo, tipo de falla y disponibilidad del repuesto. Después de la revisión inicial te indicaremos el plazo estimado.</p></details>
+<details><summary>¿Dónde veo el avance de mi equipo?</summary><p>Desde soporte.thinkstore.com.ve puedes consultar el estado y las actualizaciones registradas en la orden.</p></details>
+</section>
+
+<section class="cta"><div class="cta-card"><div><h3>¿Listo para revisar tu equipo?</h3><p>Agenda tu diagnóstico y deja que el equipo técnico de ThinkStore se encargue del resto.</p></div><a class="btn blue" href="agenda-soporte.html">Agendar ahora →</a></div></section>
+</main>
+<footer class="footer"><div class="footer-inner"><div><b>ThinkStore Servicio Técnico</b><p>Diagnóstico, reparación y seguimiento para tu ecosistema Apple.</p></div><div><a href="agenda-soporte.html">Agendar</a> · <a href="https://soporte.thinkstore.com.ve" target="_blank" rel="noopener">Seguimiento</a> · <a href="contacto.html">Contacto</a></div></div></footer>
+<script>
+const $=id=>document.getElementById(id);
+let selectedDevice='', selectedIssue='';
+function updateSelection(){
+  $('quickDevice').value=selectedDevice||'';
+  $('quickIssue').value=selectedIssue||'';
+  document.querySelectorAll('[data-device]').forEach(x=>x.classList.toggle('active',x.dataset.device===selectedDevice));
+  document.querySelectorAll('[data-issue]').forEach(x=>x.classList.toggle('active',x.dataset.issue===selectedIssue));
+  const parts=[selectedDevice,selectedIssue].filter(Boolean);
+  $('diagnosticSummary').textContent=parts.length?parts.join(' · '):'Selecciona tu equipo y el síntoma principal.';
+  $('selectionNote').textContent=parts.length===2?'Perfecto. Ya puedes continuar para agendar la revisión.':'';
+}
+document.querySelectorAll('[data-device]').forEach(x=>x.addEventListener('click',()=>{selectedDevice=x.dataset.device;updateSelection();document.querySelector('.symptom-wrap').scrollIntoView({behavior:'smooth',block:'start'})}));
+document.querySelectorAll('[data-issue]').forEach(x=>x.addEventListener('click',()=>{selectedIssue=x.dataset.issue;updateSelection()}));
+$('quickDevice').addEventListener('change',e=>{selectedDevice=e.target.value;updateSelection()});
+$('quickIssue').addEventListener('change',e=>{selectedIssue=e.target.value;updateSelection()});
+
+document.querySelectorAll('[data-soltab]').forEach(btn=>btn.addEventListener('click',()=>{
+  const tab=btn.dataset.soltab;
+  document.querySelectorAll('[data-soltab]').forEach(x=>x.classList.toggle('active',x===btn));
+  document.querySelectorAll('.solution-pane').forEach(x=>x.classList.add('solution-hidden'));
+  const pane=document.getElementById('solution-'+tab); if(pane) pane.classList.remove('solution-hidden');
+}));
+
+
+
+
+// Configuración lista para reemplazar fácilmente los placeholders por imágenes reales.
+// Solo agrega la ruta o URL de cada imagen en el valor correspondiente.
+const serviceMediaSlots={
+  clinicLab:'',
+  clinicReception:'',
+  clinicWaiting:'',
+  clinicDiagnostic:'',
+  clinicBench:'',
+  repairMicrosolder:'',
+  repairDiagnostic:'',
+  repairIphone:''
+};
+
+function applyServiceMediaSlots(){
+  document.querySelectorAll('[data-media-key]').forEach(slot=>{
+    const key=slot.dataset.mediaKey;
+    const url=(serviceMediaSlots[key]||'').trim();
+    if(!url) return;
+    const surface=slot.querySelector('.slot-surface');
+    if(surface){
+      surface.style.backgroundImage=`linear-gradient(180deg, rgba(255,255,255,.02), rgba(10,13,18,.18)), url("${url.replace(/"/g,'\\"')}")`;
+      surface.style.backgroundSize='cover';
+      surface.style.backgroundPosition='center';
+      slot.classList.add('has-image');
+    }
+  });
+}
+
+function initServiceEntryEffects(){
+  requestAnimationFrame(()=>{document.body.classList.remove('page-preload');document.body.classList.add('page-ready')});
+  const blocks=[...document.querySelectorAll('.reveal-block')];
+  const reduce=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce){blocks.forEach(el=>el.classList.add('in-view'));return}
+  if('IntersectionObserver' in window){
+    const io=new IntersectionObserver(entries=>{
+      entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('in-view');io.unobserve(entry.target)}})
+    },{threshold:.12,rootMargin:'0px 0px -8% 0px'});
+    blocks.forEach(el=>io.observe(el));
+    blocks.slice(0,2).forEach((el,i)=>setTimeout(()=>el.classList.add('in-view'),140+(i*90)));
+  }else{
+    blocks.forEach((el,i)=>setTimeout(()=>el.classList.add('in-view'),140+(i*90)));
+  }
+}
+
+function initEvidenceTabs(){
+  const tabs=[...document.querySelectorAll('[data-evidence-tab]')];
+  const panes={repairs:document.getElementById('pane-repairs'),trust:document.getElementById('pane-trust')};
+  if(!tabs.length) return;
+  tabs.forEach(tab=>tab.addEventListener('click',()=>{
+    const key=tab.dataset.evidenceTab;
+    tabs.forEach(t=>{const active=t===tab;t.classList.toggle('active',active);t.setAttribute('aria-selected',active?'true':'false')});
+    Object.entries(panes).forEach(([paneKey,pane])=>{if(pane) pane.classList.toggle('active',paneKey===key)});
+  }));
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  applyServiceMediaSlots();
+  initServiceEntryEffects();
+  initEvidenceTabs();
+});
+
+// V14.9 · Animación inicial del flujo de reparación
+(() => {
+  const steps=[...document.querySelectorAll('[data-process-step]')];
+  const visuals=[...document.querySelectorAll('[data-process-visual]')];
+  const dots=[...document.querySelectorAll('#processPager button')];
+  const rail=document.getElementById('processRailFill');
+  if(!steps.length || !visuals.length) return;
+  let current=0, timer=null;
+  const reduce=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const show=(idx,user=false)=>{
+    current=(idx+steps.length)%steps.length;
+    steps.forEach((el,i)=>{el.classList.toggle('active',i===current);el.classList.toggle('done',i<current)});
+    visuals.forEach((el,i)=>el.classList.toggle('active',i===current));
+    dots.forEach((el,i)=>el.classList.toggle('active',i===current));
+    if(rail) rail.style.height=((current/(steps.length-1))*100)+'%';
+    if(user && !reduce) restart();
+  };
+  const restart=()=>{clearInterval(timer);timer=setInterval(()=>show(current+1),3200)};
+  steps.forEach((el,i)=>el.addEventListener('click',()=>show(i,true)));
+  dots.forEach((el,i)=>el.addEventListener('click',()=>show(i,true)));
+  const intro=document.querySelector('.process-intro');
+  if(intro && 'IntersectionObserver' in window && !reduce){
+    const io=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting) restart();else clearInterval(timer)})},{threshold:.18});
+    io.observe(intro);
+  }else if(!reduce){restart()}
+  show(0);
+})();
+
+function goSchedule(){
+  selectedDevice=$('quickDevice').value||selectedDevice;
+  selectedIssue=$('quickIssue').value||selectedIssue;
+  updateSelection();
+  if(!selectedDevice){$('selectionNote').textContent='Selecciona primero el dispositivo.';$('quickDevice').focus();return}
+  if(!selectedIssue){$('selectionNote').textContent='Selecciona el síntoma principal.';$('quickIssue').focus();return}
+  const q=new URLSearchParams({dispositivo:selectedDevice,falla:selectedIssue,origen:'servicio-tecnico'});
+  location.href='agenda-soporte.html?'+q.toString();
+}
+</script>
+</body></html>

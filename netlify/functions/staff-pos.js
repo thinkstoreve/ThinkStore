@@ -42,6 +42,7 @@ exports.handler=async(event)=>{
   const canSell=access.permissions.includes('*')||access.permissions.includes('ventas');
   const action=clean(event.queryStringParameters?.action||'bootstrap').toLowerCase();
   if(action==='me')return out(200,{ok:true,user:userPayload(auth,access),can_sell:canSell});
+  if(action==='scan'){if(!canSell)return out(403,{ok:false,error:'Tu rol no tiene permiso de ventas'});const code=clean(event.queryStringParameters?.code||'',160);if(!code)return out(400,{ok:false,error:'Código requerido'});try{const found=await lookupBarcode(code,url,service);return found?out(200,{ok:true,code,...found}):out(404,{ok:false,error:`No encontré el código ${code}`})}catch(error){console.error('staff-pos scan',error);return out(500,{ok:false,error:error?.message||'No se pudo consultar el código'})}}
   if(action!=='bootstrap')return out(400,{ok:false,error:'Acción no soportada'});
 
   try{
@@ -107,6 +108,43 @@ function userPayload(auth,access){
     permissions:access.permissions,
     avatar_url:p.avatar_url||p.photo_url||p.foto_url||''
   };
+}
+
+async function restRows(url,service,table,params={}){
+  const u=new URL(`${url}/rest/v1/${table}`);for(const [k,v] of Object.entries(params))if(v!==undefined&&v!==null)u.searchParams.set(k,String(v));
+  const rr=await fetch(u,{headers:svc(service)});const data=await rr.json().catch(()=>[]);if(!rr.ok)return[];return Array.isArray(data)?data:[];
+}
+async function jsonExact(url,service,table,field,code){return (await restRows(url,service,table,{select:'id,data',workspace_key:'eq.main',[`data->>${field}`]:`ilike.${code}`,limit:1}))[0]||null}
+async function linkedVariant(url,service,productId,productData={}){
+  const hinted=clean(productData?.sync_variant_id||'');
+  if(hinted){const row=(await restRows(url,service,'inventory_variants',{select:'*',id:`eq.${hinted}`,active:'eq.true',limit:1}))[0];if(row)return{...row,available:Math.max(0,Number(row.stock_on_hand||0)-Number(row.stock_reserved||0))}}
+  const link=(await restRows(url,service,'thinkstore_inventory_bridge',{select:'variant_id,sku',workspace_key:'eq.main',inventory_product_id:`eq.${productId}`,limit:1}))[0];
+  if(link?.variant_id){const row=(await restRows(url,service,'inventory_variants',{select:'*',id:`eq.${link.variant_id}`,active:'eq.true',limit:1}))[0];if(row)return{...row,available:Math.max(0,Number(row.stock_on_hand||0)-Number(row.stock_reserved||0))}}
+  const sku=clean(productData?.sku||link?.sku||'');if(sku){const row=(await restRows(url,service,'inventory_variants',{select:'*',sku:`ilike.${sku}`,active:'eq.true',limit:1}))[0];if(row)return{...row,available:Math.max(0,Number(row.stock_on_hand||0)-Number(row.stock_reserved||0))}}
+  return null;
+}
+async function lookupBarcode(code,url,service){
+  const normalized=clean(code,160);
+  // 1) Etiqueta/unidad de Inventory Central: TSU, serial o IMEI.
+  let unit=null;
+  for(const field of ['barcode_value','serial_number','imei','imei_2']){unit=await jsonExact(url,service,'thinkstore_inventory_units',field,normalized);if(unit)break}
+  if(unit){
+    const d=unit.data||{},productId=clean(d.product_id||'');let product=null,variant=null;
+    if(productId){product=(await restRows(url,service,'thinkstore_inventory_products',{select:'id,data',workspace_key:'eq.main',id:`eq.${productId}`,limit:1}))[0]||null;variant=await linkedVariant(url,service,productId,product?.data||{})}
+    return{kind:'unit',unit:{id:unit.id,barcode_value:d.barcode_value||'',serial_number:d.serial_number||'',imei:d.imei||'',imei_2:d.imei_2||'',status:d.status||'',location:d.location||'',general_condition:d.general_condition||'',battery_health_pct:d.battery_health_pct??null},product:product?.data||null,variant};
+  }
+  // 2) Unidad de inventario comercial por serial / IMEI.
+  for(const [field,val] of [['serial_number',normalized],['imei',normalized]]){
+    const rows=await restRows(url,service,'inventory_units',{select:'*',[field]:`ilike.${val}`,limit:1});if(rows[0]){const u=rows[0],vr=(await restRows(url,service,'inventory_variants',{select:'*',id:`eq.${u.variant_id}`,active:'eq.true',limit:1}))[0]||null;return{kind:'unit',unit:{id:u.id,barcode_value:'',serial_number:u.serial_number||'',imei:u.imei||'',status:u.status||'',general_condition:u.general_condition||'',battery_health_pct:u.battery_health_pct??null},product:null,variant:vr?{...vr,available:Math.max(0,Number(vr.stock_on_hand||0)-Number(vr.stock_reserved||0))}:null}}
+  }
+  // 3) Etiqueta de producto de Inventory Central: TSP, código original o SKU.
+  let product=null;
+  for(const field of ['product_barcode','source_barcode','sku']){product=await jsonExact(url,service,'thinkstore_inventory_products',field,normalized);if(product)break}
+  if(product){const d=product.data||{};return{kind:'product',product:d,variant:await linkedVariant(url,service,product.id,d)}}
+  // 4) SKU comercial directo.
+  const vr=(await restRows(url,service,'inventory_variants',{select:'*',sku:`ilike.${normalized}`,active:'eq.true',limit:1}))[0]||null;
+  if(vr)return{kind:'product',product:null,variant:{...vr,available:Math.max(0,Number(vr.stock_on_hand||0)-Number(vr.stock_reserved||0))}};
+  return null;
 }
 
 async function loadCatalog(url,service){

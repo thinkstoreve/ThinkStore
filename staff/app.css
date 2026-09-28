@@ -14,3 +14,8 @@
 @media(max-width:390px){.product-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:1fr}.metric-card:last-child{grid-column:auto}}
 
 .fx-box{margin-top:12px;padding:12px 14px;border-radius:11px;background:#eef6ff;color:#064d91;font-size:13px;font-weight:700}
+
+/* V14.3 · Barcode quick add */
+.barcode-sale-box{display:grid;grid-template-columns:42px minmax(180px,1fr) minmax(260px,.9fr);align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px 14px;margin:-2px 0 15px;box-shadow:0 8px 22px rgba(0,0,0,.035)}
+.barcode-sale-icon{width:42px;height:42px;border-radius:11px;background:#f1f2f3;display:grid;place-items:center;font-size:22px}.barcode-sale-copy{display:grid;gap:3px}.barcode-sale-copy b{font-size:13px}.barcode-sale-copy small{font-size:11px;color:var(--muted);line-height:1.35}.barcode-scan-form{display:flex;gap:8px}.barcode-scan-form input{min-width:0;flex:1;border:1px solid #c9cccf;border-radius:10px;padding:11px 12px;outline:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.barcode-scan-form input:focus{border-color:#202223;box-shadow:0 0 0 2px rgba(32,34,35,.08)}.barcode-scan-form button{padding:10px 14px}.scan-cart-unit{display:inline-flex;margin-top:4px;padding:3px 6px;border-radius:999px;background:#eef6ff;color:#075985;font-size:9px;font-weight:850}
+@media(max-width:760px){.barcode-sale-box{grid-template-columns:42px 1fr}.barcode-scan-form{grid-column:1/-1}.barcode-sale-copy small{font-size:10px}}

@@ -174,7 +174,7 @@ body{background:#fff}
 </style>
 
 <style id="ts-v1358-admin-home">
-.admin-dashboard-hero-hidden{display:none!important}
+.admin-dashboard-hero-hidden{display:none!important}.panel-section-hero-hidden{display:none!important}.ts-admin-home-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:6px 2px 16px}.ts-admin-home-toolbar>div:first-child{display:grid;gap:3px}.ts-admin-home-toolbar small{color:var(--muted);font-weight:750}.ts-admin-home-toolbar b{font-size:18px}.ts-admin-home-toolbar .ts-admin-home-actions{margin:0}
 .ts-admin-home{padding-top:4px}
 .ts-admin-home-head{position:relative;overflow:hidden;background:linear-gradient(135deg,#0c0c0d 0%,#232329 58%,#34343d 100%);color:#fff;border-radius:28px;padding:28px;margin:10px 0 18px;box-shadow:0 18px 50px rgba(0,0,0,.12)}
 .ts-admin-home-head:after{content:"";position:absolute;width:240px;height:240px;border-radius:50%;right:-70px;top:-105px;background:radial-gradient(circle,rgba(255,255,255,.17),rgba(255,255,255,0) 70%)}
@@ -225,8 +225,7 @@ const PERMS={cliente:['cuenta','mis_pedidos','mis_preordenes','favoritos','direc
 const MODULES=[
 {id:'dashboard',icon:'📊',title:'Dashboard',desc:'Resumen real del negocio conectado a Supabase.'},
 {id:'productos',icon:'📱',title:'Productos',desc:'Catálogo administrativo heredado del panel principal.'},
-{id:'inventario',icon:'🧮',title:'Inventario catálogo',desc:'Inventario operativo heredado del catálogo por modelo, color y capacidad.'},
-{id:'inventario_real',icon:'📦',title:'Inventario real',desc:'Existencias reales en Supabase: disponible, reservado, vendido y alertas de stock bajo.'},
+{id:'inventario',icon:'📦',title:'Inventario',desc:'Inventario unificado ThinkStore + Inventory Central, con stock, variantes, seriales y disponibilidad real.'},
 {id:'pedidos',icon:'📦',title:'Pedidos',desc:'Pedidos reales, estados y seguimiento.'},
 {id:'pagos',icon:'💳',title:'Pagos',desc:'Pagos y comprobantes reales de la tienda.'},
 {id:'clientes',icon:'👥',title:'Clientes / CRM',desc:'Clientes registrados reales en Supabase.'},
@@ -698,17 +697,15 @@ const views={
   }catch(_){}
   const pendingAttention=pending.length+inv.low;
   $('content').innerHTML=realBar()+`<div class="ts-admin-home">
-    <section class="ts-admin-home-head">
-      <small>${esc(ROLE_LABELS[role()]||role())} · Centro de operaciones ThinkStore</small>
-      <h2 class="welcome-name">Bienvenido, ${esc(panelFirstName())}</h2>
-      <p class="welcome-copy">${esc(panelHomeCopy(role()))}</p>
-      <div class="ts-admin-home-actions"><button onclick="openPosSale()">＋ Nueva venta</button><button onclick="openModule('pedidos')">Ver pedidos</button><button onclick="openModule('inventario_real')">Inventario visual</button><button onclick="openModule('clientes')">Clientes / CRM</button></div>
+    <section class="ts-admin-home-toolbar">
+      <div><small>${esc(ROLE_LABELS[role()]||role())} · Centro de operaciones ThinkStore</small><b>Accesos rápidos</b></div>
+      <div class="ts-admin-home-actions"><button onclick="openPosSale()">＋ Nueva venta</button><button onclick="openModule('pedidos')">Ver pedidos</button><button onclick="openModule('inventario')">Inventario</button><button onclick="openModule('clientes')">Clientes / CRM</button></div>
     </section>
 
     <div class="ts-priority-grid">
       <button class="ts-priority-card" onclick="openModule('ventas')"><small>Ventas confirmadas hoy</small><b class="good">${money(todaySales)}</b><span>${todayPaid.length} operación(es)</span></button>
       <button class="ts-priority-card" onclick="openModule('pagos')"><small>Pagos que requieren revisión</small><b class="${pending.length?'warn':''}">${pending.length}</b><span>${pending.length?'Revisar comprobantes':'Sin pendientes'}</span></button>
-      <button class="ts-priority-card" onclick="openModule('inventario_real')"><small>Alertas de inventario</small><b class="${inv.low?'danger':''}">${inv.low}</b><span>${inv.available} unidades disponibles</span></button>
+      <button class="ts-priority-card" onclick="openModule('inventario')"><small>Alertas de inventario</small><b class="${inv.low?'danger':''}">${inv.low}</b><span>${inv.available} unidades disponibles</span></button>
       <button class="ts-priority-card" onclick="openModule('preordenes')"><small>Pre-Orders / tránsito</small><b>${preorders.length}</b><span>Seguimiento activo</span></button>
     </div>
 
@@ -721,7 +718,7 @@ const views={
         <div class="ts-admin-panel-head"><div><h3>Accesos rápidos</h3><small>Operaciones frecuentes</small></div></div>
         <div class="ts-quick-grid">
           <button class="ts-quick" onclick="openPosSale()">🧾 Nueva venta<small>Caja / venta presencial</small></button>
-          <button class="ts-quick" onclick="openModule('inventario_real')">📦 Inventario<small>Stock, variantes e historial</small></button>
+          <button class="ts-quick" onclick="openModule('inventario')">📦 Inventario<small>Stock, variantes e historial</small></button>
           <button class="ts-quick" onclick="openModule('marketing')">📣 Marketing<small>Campañas y segmentos</small></button>
           <button class="ts-quick" onclick="openModule('clientes')">👥 CRM<small>Clientes, etiquetas y notas</small></button>
           <button class="ts-quick" onclick="openModule('logistica')">🚚 Logística<small>Guías y entregas</small></button>
@@ -839,7 +836,7 @@ const views={
   </div>`;
   loadProductsCatalog();
 },
- inventario(){$('content').innerHTML=`<div class="section-title"><h2>Inventario</h2><button class="btn ghost" onclick="exportInventoryCSV()">Exportar CSV</button></div><div class="toolbar"><input id="inventorySearch" placeholder="Buscar SKU o producto" oninput="renderInventory()"></div><div id="inventoryBox"></div>`;renderInventory()},
+ inventario(){return views.inventario_real()},
  inventario_real(){
    $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario unificado</b><small>ThinkStore, Staff POS e Inventory Central comparten la misma disponibilidad. Cualquier ajuste por SKU se sincroniza automáticamente en Supabase.</small></div><div class="actions"><a class="btn ghost" href="https://inventory.thinkstore.com.ve" target="_blank" rel="noopener">↗ Inventory Central</a><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn ghost" onclick="openPhysicalUnits()">🔢 Unidades físicas</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice inv-filter-note" style="margin:12px 0"><span><b>✓ Sincronización bidireccional:</b> stock, reservas, precios y unidades enlazadas por SKU.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="inventory-stage">Cargando…</div></div>`;
    loadRealInventory();
@@ -1455,7 +1452,7 @@ function setPanelMenu(open){const layout=$('panelLayout'),toggle=$('menuToggle')
 function togglePanelMenu(){setPanelMenu(!panelMenuOpen())}
 function closePanelMenu(){setPanelMenu(false)}
 function openPanelMenu(){setPanelMenu(true)}
-async function openModule(id,opts={}){if(!can(id))return;window.currentModule=id;updatePanelIdentity();document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));const mod=MODULES.find(m=>m.id===id);if(mod){const isHome=id===(ROLE_HOME[role()]||'');$('heroTitle').textContent=isHome?`Bienvenido, ${panelFirstName()}`:mod.title;$('heroText').textContent=isHome?panelHomeCopy(role()):mod.desc}const hero=document.querySelector('.main-card>.hero');if(hero)hero.classList.toggle('admin-dashboard-hero-hidden',id==='dashboard'&&isAdminRole());const fn=views[id]||(()=>views.generic(id));await Promise.resolve(fn());refreshKpis();if(opts.fromMenu)closePanelMenu()}
+async function openModule(id,opts={}){if(!can(id))return;window.currentModule=id;updatePanelIdentity();document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));const mod=MODULES.find(m=>m.id===id);const isHome=id===(ROLE_HOME[role()]||'');if($('heroTitle'))$('heroTitle').textContent=isHome?`Bienvenido, ${panelDisplayName()}`:(mod?.title||'ThinkStore');if($('heroText'))$('heroText').textContent=isHome?panelHomeCopy(role()):(mod?.desc||'');const hero=document.querySelector('.main-card>.hero');if(hero){hero.classList.toggle('panel-section-hero-hidden',!isHome);hero.classList.remove('admin-dashboard-hero-hidden');const kpis=hero.querySelector('.kpis');if(kpis)kpis.style.display=(isHome&&role()==='cliente')?'grid':'none'}const fn=views[id]||(()=>views.generic(id));await Promise.resolve(fn());if(isHome&&role()==='cliente')refreshKpis();if(opts.fromMenu)closePanelMenu()}
 let realRefreshTimer=null;
 let tsInventoryImportRows=[];
 let tsCatalogAdmin=[];

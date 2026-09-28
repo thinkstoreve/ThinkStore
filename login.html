@@ -38,6 +38,8 @@
     .back{position:fixed;top:20px;right:24px;width:38px;height:38px;border:1px solid #ececf0;border-radius:50%;background:#fff;display:grid;place-items:center;text-decoration:none;color:#222;font-size:21px;box-shadow:0 4px 18px rgba(0,0,0,.04)}
     .register-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.register-grid .wide{grid-column:1/-1}
     .register-grid input{width:100%;height:52px;border:1.5px solid var(--line);border-radius:13px;padding:0 14px;font-size:15px;outline:none}.register-grid input:focus{border-color:#7c7cff;box-shadow:0 0 0 4px rgba(88,79,255,.09)}
+    .verify-wrap{text-align:center;padding-top:4px}.verify-icon{width:74px;height:74px;border-radius:22px;background:#111;color:#fff;display:grid;place-items:center;margin:0 auto 22px;font-size:31px;font-weight:800;box-shadow:0 14px 34px rgba(0,0,0,.10)}
+    .verify-eyebrow{font-size:12px;font-weight:800;letter-spacing:.9px;color:#85858b;margin-bottom:10px}.verify-wrap h1{margin-bottom:12px}.verify-copy{font-size:15px;line-height:1.6;color:var(--muted);margin:0 auto 18px;max-width:430px}.verify-email{font-weight:760;color:#111;background:#f6f6f8;border:1px solid #ececf0;border-radius:14px;padding:13px 16px;margin:0 0 18px;overflow-wrap:anywhere}.verify-note{font-size:12px;line-height:1.5;color:#77777d;margin:16px 0 0}.verify-actions{display:grid;gap:10px}.verify-actions .secondary{margin-top:0}
     @media(max-width:640px){.ts-login-top{height:66px;padding:0 18px}.ts-login-top span{display:none}.auth-brand{margin-bottom:42px}.auth-brand img{width:72px;height:72px}.register-grid{grid-template-columns:1fr}.register-grid .wide{grid-column:auto}main{padding-top:34px}.back{top:14px;right:14px}}
     .privacy-btn{border:0;background:none;padding:0;color:inherit;text-decoration:underline;text-underline-offset:3px;font:inherit;cursor:pointer}
     .privacy-modal{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:28px;background:rgba(16,20,24,.38);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
@@ -105,6 +107,24 @@ body img:first-of-type{animation:tsLoginLogoIn .42s ease-out .06s both}
         <div id="registerStatus" class="status"></div>
         <div class="divider">o</div>
         <button class="secondary" type="button" data-view="login">Ya tengo una cuenta</button>
+      </div>
+
+      <div id="verifyPanel" class="panel">
+        <div class="verify-wrap">
+          <div class="verify-icon">✉</div>
+          <div class="verify-eyebrow">CUENTA CREADA</div>
+          <h1>Revisa tu correo</h1>
+          <p class="verify-copy">Te enviamos un enlace para verificar tu cuenta ThinkStore. Ábrelo y confirma tu correo antes de continuar.</p>
+          <div id="verifyEmail" class="verify-email">Tu correo electrónico</div>
+          <div class="verify-actions">
+            <button id="verifyCheckBtn" class="primary" type="button">Ya verifiqué mi correo</button>
+            <button id="verifyResendBtn" class="secondary" type="button">Reenviar correo de verificación</button>
+          </div>
+          <div id="verifyStatus" class="status"></div>
+          <p class="verify-note">Si no encuentras el mensaje, revisa Spam o Promociones. Al verificarlo, ThinkStore iniciará tu sesión automáticamente.</p>
+          <div class="divider">o</div>
+          <button class="link" type="button" data-view="login">Volver a iniciar sesión</button>
+        </div>
       </div>
 
       <div id="forgotPanel" class="panel">
@@ -230,7 +250,10 @@ body img:first-of-type{animation:tsLoginLogoIn .42s ease-out .06s both}
     const params=new URLSearchParams(location.search);
     const next=params.get('next')||'/';
     function safeNext(){ return next.startsWith('/')&&!next.startsWith('//')?next:'/'; }
-    function show(view){['login','register','forgot','recovery'].forEach(v=>$(v+'Panel')?.classList.toggle('active',v===view)); history.replaceState(null,'',view==='login'?'login.html':`login.html?view=${view}${next&&next!=='/'?'&next='+encodeURIComponent(next):''}`); }
+    let pendingSignup=null;
+    function pendingEmail(){return pendingSignup?.email || sessionStorage.getItem('ts_pending_verify_email') || ''; }
+    function showVerify(email=''){const e=(email||pendingEmail()).trim().toLowerCase();if(e){sessionStorage.setItem('ts_pending_verify_email',e);if($('verifyEmail'))$('verifyEmail').textContent=e;}show('verify');status('verifyStatus','Te enviamos el enlace. Después de confirmarlo, vuelve aquí y pulsa “Ya verifiqué mi correo”.','ok');}
+    function show(view){['login','register','verify','forgot','recovery'].forEach(v=>$(v+'Panel')?.classList.toggle('active',v===view)); history.replaceState(null,'',view==='login'?'login.html':`login.html?view=${view}${next&&next!=='/'?'&next='+encodeURIComponent(next):''}`); }
     function status(id,msg,type='err'){const el=$(id);if(!el)return;el.textContent=msg;el.className='status show '+type;}
     document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.view)));
     const initial=params.get('view'); if(initial) show(initial);
@@ -245,17 +268,21 @@ body img:first-of-type{animation:tsLoginLogoIn .42s ease-out .06s both}
 
     $('loginForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('loginBtn');btn.disabled=true;status('loginStatus','Iniciando sesión…','ok');try{const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim().toLowerCase(),password:$('password').value});if(error)throw error;await cacheUser(data.user);status('loginStatus','Sesión iniciada. Redirigiendo…','ok');setTimeout(()=>location.href=safeNext(),350);}catch(err){status('loginStatus',err.message||'No se pudo iniciar sesión.','err');btn.disabled=false;}});
 
-    $('registerForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('registerBtn');btn.disabled=true;try{const email=$('regEmail').value.trim().toLowerCase();const meta={name:$('regName').value.trim(),phone:$('regPhone').value.trim()};const site=(cfg.SITE_URL||location.origin).replace(/\/$/,'');const {data,error}=await sb.auth.signUp({email,password:$('regPass').value,options:{emailRedirectTo:site+'/login.html?verified=1',data:meta}});if(error)throw error;const u=data.user;if(u?.id){try{await sb.from('clientes').upsert({id:u.id,nombre:meta.name,correo:email,telefono:meta.phone,cedula_rif:$('regId').value.trim(),estado:$('regState').value.trim(),ciudad:$('regCity').value.trim(),direccion:$('regAddress').value.trim()},{onConflict:'id'});}catch(e){}}
-      if(data.session){await cacheUser(data.user);location.href=safeNext();}else{status('registerStatus','Cuenta creada. Revisa tu correo y confirma tu dirección para activar ThinkStore.','ok');btn.disabled=false;}
+    $('registerForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('registerBtn');btn.disabled=true;try{const email=$('regEmail').value.trim().toLowerCase();const password=$('regPass').value;const meta={name:$('regName').value.trim(),phone:$('regPhone').value.trim()};const site=(cfg.SITE_URL||location.origin).replace(/\/$/,'');const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:site+'/login.html?verified=1',data:meta}});if(error)throw error;const u=data.user;if(u?.id){try{await sb.from('clientes').upsert({id:u.id,nombre:meta.name,correo:email,telefono:meta.phone,cedula_rif:$('regId').value.trim(),estado:$('regState').value.trim(),ciudad:$('regCity').value.trim(),direccion:$('regAddress').value.trim()},{onConflict:'id'});}catch(e){}}
+      if(data.session){await cacheUser(data.user);sessionStorage.removeItem('ts_pending_verify_email');location.href=safeNext();}else{pendingSignup={email,password,name:meta.name};showVerify(email);btn.disabled=false;}
     }catch(err){status('registerStatus',err.message||'No se pudo crear la cuenta.','err');btn.disabled=false;}});
+
+    $('verifyCheckBtn').addEventListener('click',async()=>{const btn=$('verifyCheckBtn');const email=pendingEmail();const password=pendingSignup?.password || $('regPass')?.value || '';if(!email){show('login');status('loginStatus','Escribe tu correo y contraseña para continuar.','ok');return;}btn.disabled=true;status('verifyStatus','Comprobando la verificación de tu correo…','ok');try{const current=await sb.auth.getSession();if(current.data?.session?.user){await cacheUser(current.data.session.user);sessionStorage.removeItem('ts_pending_verify_email');location.href=safeNext();return;}if(!password){$('email').value=email;show('login');status('loginStatus','Tu correo puede estar verificado. Escribe tu contraseña para iniciar sesión.','ok');return;}const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await cacheUser(data.user);sessionStorage.removeItem('ts_pending_verify_email');pendingSignup=null;status('verifyStatus','Correo verificado. Entrando a ThinkStore…','ok');setTimeout(()=>location.href=safeNext(),250);}catch(err){const msg=String(err?.message||err||'');if(/email.*not.*confirm|not confirmed|confirm/i.test(msg)){status('verifyStatus','Aún no aparece como verificado. Abre el enlace que enviamos a tu correo y vuelve a pulsar este botón.','err');}else{status('verifyStatus',msg||'No pudimos comprobar la cuenta todavía. Intenta de nuevo.','err');}btn.disabled=false;}});
+
+    $('verifyResendBtn').addEventListener('click',async()=>{const btn=$('verifyResendBtn');const email=pendingEmail();if(!email){show('register');return;}btn.disabled=true;try{const site=(cfg.SITE_URL||location.origin).replace(/\/$/,'');const {error}=await sb.auth.resend({type:'signup',email,options:{emailRedirectTo:site+'/login.html?verified=1'}});if(error)throw error;status('verifyStatus','Correo reenviado. Revisa tu bandeja de entrada.','ok');}catch(err){status('verifyStatus',err.message||'No se pudo reenviar el correo.','err');}finally{btn.disabled=false;}});
 
     $('forgotForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('forgotBtn');btn.disabled=true;try{const site=(cfg.SITE_URL||location.origin).replace(/\/$/,'');const {error}=await sb.auth.resetPasswordForEmail($('forgotEmail').value.trim().toLowerCase(),{redirectTo:site+'/login.html?view=recovery'});if(error)throw error;status('forgotStatus','Listo. Revisa tu correo para continuar.','ok');}catch(err){status('forgotStatus',err.message||'No se pudo enviar el enlace.','err');}finally{btn.disabled=false;}});
 
     $('recoveryForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('recoveryBtn');btn.disabled=true;try{const {error}=await sb.auth.updateUser({password:$('newPassword').value});if(error)throw error;status('recoveryStatus','Contraseña actualizada. Ya puedes iniciar sesión.','ok');setTimeout(()=>show('login'),900);}catch(err){status('recoveryStatus',err.message||'No se pudo actualizar la contraseña.','err');btn.disabled=false;}});
 
     sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY') show('recovery');});
-    if(params.get('verified')==='1') status('loginStatus','Correo verificado correctamente. Ya puedes iniciar sesión.','ok');
-    sb.auth.getSession().then(({data})=>{if(data?.session?.user&&!params.get('view')){cacheUser(data.session.user).then(()=>location.href=safeNext());}});
+    if(params.get('verified')==='1'){const pe=sessionStorage.getItem('ts_pending_verify_email')||'';if(pe)$('email').value=pe;status('loginStatus','Correo verificado correctamente. Estamos preparando tu cuenta…','ok');}
+    sb.auth.getSession().then(({data})=>{if(data?.session?.user&&!params.get('view')){cacheUser(data.session.user).then(()=>{sessionStorage.removeItem('ts_pending_verify_email');location.href=safeNext();});}else if(params.get('verified')==='1'){show('login');status('loginStatus','Correo verificado correctamente. Ingresa tu contraseña para continuar.','ok');}});
   })();
   </script>
   <script src="chatbot.js"></script>

@@ -31,7 +31,7 @@
   <script>
     const sb=window.supabase.createClient('https://tnezvnziqnjxhcwjtcuy.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZXp2bnppcW5qeGhjd2p0Y3V5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwODk5ODUsImV4cCI6MjA5NzY2NTk4NX0.OsFkefVeW4FN_uVML1ncE0i6FR_Dmg8eLPY9TEnezpM');
     let liveTimer=null; let lastCode='';
-    const steps=['Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado'];
+    const steps=['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado'];
     const canonical=s=>String(s||'Recibido');
     function renderTimeline(current){
       let idx=steps.indexOf(current);if(idx<0){if(current==='No aprobado'||current==='Cancelado')idx=1;else idx=0}

@@ -3901,3 +3901,8 @@ footer {
     animation:none!important;transition:none!important;
   }
 }
+
+/* V14.9 · Servicio Técnico usa el mismo lenguaje visual de Trade-IN */
+.ts-service-link{color:#3a3a3c!important;text-decoration:none!important;font-size:clamp(13px,1vw,15px)!important;font-weight:600!important;white-space:nowrap!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;transform:none!important;transition:color .2s ease!important}
+.ts-service-link:hover,.ts-service-link:focus-visible{color:#06c!important;background:transparent!important;border:0!important;box-shadow:none!important;transform:none!important}
+@media(max-width:900px){.ts-service-link{font-size:12px!important}}

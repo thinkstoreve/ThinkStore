@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="app.css?v=14.1.0">
+<link rel="stylesheet" href="app.css?v=14.3.0">
 </head>
 <body>
 <div id="boot" class="boot"><div class="boot-logo"><img src="../logo-thinkstore.png" alt="ThinkStore"></div><span>Cargando ThinkStore Staff…</span></div>
@@ -82,6 +82,11 @@
       <div id="sellDenied" class="permission-card hidden"><div class="soft-icon">⌁</div><h2>Tu rol no tiene permiso de ventas</h2><p>Pide a un Administrador o Socio Administrador que agregue el permiso <b>Ventas</b> a tu cuenta.</p></div>
       <div id="storeArea">
         <div class="store-toolbar"><div class="search-box"><span>⌕</span><input id="productSearch" type="search" placeholder="Buscar productos, color, capacidad…"></div><button id="refreshStore" class="icon-button" type="button" title="Actualizar">↻</button></div>
+        <div class="barcode-sale-box" id="barcodeSaleBox">
+          <div class="barcode-sale-icon">▥</div>
+          <div class="barcode-sale-copy"><b>Escanear para añadir</b><small>Lee una etiqueta TSP, TSU, SKU, serial o IMEI. Un lector USB/Bluetooth puede escribir aquí y enviar Enter.</small></div>
+          <form id="barcodeScanForm" class="barcode-scan-form"><input id="barcodeScanInput" autocomplete="off" inputmode="none" placeholder="Escanea el código…"><button class="primary" type="submit">Añadir</button></form>
+        </div>
         <div id="categoryChips" class="category-chips"></div>
         <div id="productGrid" class="product-grid"></div>
       </div>
@@ -122,6 +127,6 @@
 <script src="../supabase-config.js"></script>
 <script src="../data.js"></script>
 <script src="../ts-fx.js?v=13.64"></script>
-<script src="app.js?v=14.1.0"></script>
+<script src="app.js?v=14.3.0"></script>
 </body>
 </html>
