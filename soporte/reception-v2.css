@@ -1,0 +1,54 @@
+/* Reception-only palette: other panels retain their original theme. */
+#orderModal{background:#F5F5F7!important;color:#1d1d1f;--muted:#62626b;--line:#dedee3;color-scheme:light}
+#orderModal [hidden]{display:none!important}
+#orderModal .order-sheet{background:#F5F5F7;color:#1d1d1f;--rx-border:#dedee3;--rx-card:#fff;--rx-card-2:#fff}
+#orderModal .order-sheet-head{background:rgba(245,245,247,.97);border-color:#dedee3}
+#orderModal .order-box{background:#fff;border:1px solid #dedee3;padding:22px;box-shadow:0 2px 5px #00000003}
+#orderModal .order-box h3{color:#1d1d1f;text-transform:none;letter-spacing:-.01em;font-size:1rem}
+#orderModal label{color:#45454c;font-size:.85rem}
+#orderModal p,#orderModal small{color:#62626b}
+#orderModal input,#orderModal select,#orderModal textarea{color:#1d1d1f;background:#fff;border:1px solid #d2d2d7;min-height:44px;font-size:14px;max-width:100%}
+#orderModal input[type=checkbox]{min-height:18px}
+#orderModal textarea{min-height:92px;resize:vertical}
+#orderModal input:focus-visible,#orderModal textarea:focus-visible,#orderModal select:focus-visible,#orderModal button:focus-visible{outline:3px solid #0066cc;outline-offset:2px}
+#orderModal button{cursor:pointer}
+#orderModal button.secondary,#orderModal .order-close,#orderModal .mark-tool,#orderModal .device-view-tabs button,#orderModal .signature-grid button{background:#f5f5f7;color:#34343b;border:1px solid #d2d2d7}
+#orderModal .device-view-tabs button.active,#orderModal .mark-tool.active{color:#fff;background:#0066cc}
+#orderModal .order-layout{grid-template-columns:minmax(260px,1fr) minmax(330px,1.35fr) minmax(290px,1fr);gap:20px}
+#orderModal .order-left,#orderModal .order-center,#orderModal .order-right{gap:20px;position:static}
+#orderModal .reception-flow-step{background:#fff;border-color:#dedee3;color:#45454c}
+#orderModal .reception-flow-step b{color:#45454c}
+#orderModal .reception-flow-step>span{background:#e8f2ff;color:#0066cc}
+#orderModal .device-diagram{background-color:#f5f5f7;border-color:#dedee3}
+#orderModal .checklist-grid label{color:#45454c;border-color:#eee;min-height:44px}
+#orderModal .order-actions{background:#F5F5F7;flex-wrap:wrap;gap:12px;padding:20px 0}
+#orderModal #orderSaveBtn{background:#0066cc;color:#fff;box-shadow:none}
+#orderModal .rx-categories{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0 12px}
+#orderModal .rx-categories button{display:grid;text-align:left;gap:6px;background:#fff;color:#1d1d1f;border:1px solid #dedee3;padding:20px;border-radius:16px;min-height:88px}
+#orderModal .rx-categories button[aria-pressed=true]{border:2px solid #0066cc;background:#eef5ff;padding:19px}
+#orderModal .rx-categories b{font-size:1rem}
+#orderModal .rx-draft-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:12px 0 22px;font-size:13px;color:#62626b}
+#orderModal .rx-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+#orderModal .rx-chips button{background:#f5f5f7;border:1px solid #dedee3;border-radius:20px;color:#45454c;padding:8px 11px;font-size:12px}
+#orderModal .rx-summary{margin-top:20px}
+#orderModal dl,#rxReview dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0}
+#orderModal dt,#rxReview dt{font-size:12px;color:#62626b;margin-bottom:4px}
+#orderModal dd,#rxReview dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:#1d1d1f}
+#orderModal .rx-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+#orderModal .rx-photos img{width:100%;height:100px;object-fit:cover;border-radius:9px}
+#orderModal .rx-photos small{display:block;overflow-wrap:anywhere}
+#rxReview{background:#fff;color:#1d1d1f;border:1px solid #dedee3;border-radius:20px;padding:28px;width:min(640px,94vw);max-height:85vh;overflow:auto}
+#rxReview::backdrop{background:#0007}
+#rxReview .rx-review-actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+#rxReview button{background:#0066cc;color:#fff;min-height:44px}
+@media(max-width:1200px){#orderModal .order-layout{grid-template-columns:1fr 1fr}#orderModal .order-center{order:0;grid-column:auto}#orderModal .order-right{grid-column:1/-1;grid-template-columns:1fr 1fr}}
+@media(max-width:760px){#orderModal .order-layout,#orderModal .order-right{grid-template-columns:1fr}#orderModal .rx-categories{grid-template-columns:1fr}#orderModal .rx-categories button{min-height:68px;padding:14px}#orderModal .rx-categories button[aria-pressed=true]{padding:13px}#orderModal .rx-draft-bar{align-items:flex-start;flex-direction:column}#orderModal .order-box{padding:16px}#orderModal dl,#rxReview dl{grid-template-columns:1fr}#orderModal .order-sheet-head{position:static}}
+#orderModal[data-category=other] .order-center,#orderModal[data-category=gaming] .order-center{display:none}
+#orderModal[data-category=other] .order-layout,#orderModal[data-category=gaming] .order-layout{grid-template-columns:1fr 1fr}
+.reception-v2-panel{background:#f5f5f7;color:#1d1d1f;padding:20px;border-radius:18px;color-scheme:light}
+.reception-v2-panel .tablewrap{background:#fff;border:1px solid #dedee3;box-shadow:none}
+.reception-v2-panel h3,.reception-v2-panel td,.reception-v2-panel th{color:#1d1d1f;border-color:#dedee3}
+.reception-v2-panel p,.reception-v2-panel small{color:#62626b}
+.reception-v2-panel select{background:#fff;color:#1d1d1f;border:1px solid #d2d2d7}
+@media(max-width:1200px){#orderModal[data-category=other] .order-right,#orderModal[data-category=gaming] .order-right{grid-column:auto;grid-template-columns:1fr}}
+@media(max-width:760px){#orderModal[data-category=other] .order-layout,#orderModal[data-category=gaming] .order-layout{grid-template-columns:1fr}}

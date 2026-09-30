@@ -1,3 +1,6 @@
+const enterpriseTemplate = require('../../enterprise-template');
+const enterpriseUnsubscribe = require('./lib/enterprise-unsubscribe');
+
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -54,9 +57,10 @@ exports.handler = async function(event) {
   try { payload = JSON.parse(event.body || '{}'); } catch(e) { return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'JSON inválido' }) }; }
 
   const clean = (v) => String(v || '').trim();
-  const subject = clean(payload.subject || 'Preventa iPhone 18 | ThinkStore');
-  const title = clean(payload.title || 'El nuevo iPhone 18 llega a ThinkStore');
-  const subtitle = clean(payload.subtitle || 'Sé de los primeros en reservarlo. Preventa de lanzamiento con atención personalizada.');
+  const isEnterprise = payload.templateId === enterpriseTemplate.id;
+  const subject = clean(payload.subject || (isEnterprise ? enterpriseTemplate.subject : 'Preventa iPhone 18 | ThinkStore'));
+  const title = clean(payload.title || (isEnterprise ? 'Soporte técnico Apple para empresas' : 'El nuevo iPhone 18 llega a ThinkStore'));
+  const subtitle = clean(payload.subtitle || (isEnterprise ? enterpriseTemplate.preheader : 'Sé de los primeros en reservarlo. Preventa de lanzamiento con atención personalizada.'));
   const message = clean(payload.message || 'La nueva generación de iPhone ya está en preventa en ThinkStore. Reserva tu iPhone 18 Pro o iPhone 18 Pro Max y asegura tu unidad antes de la disponibilidad general.');
   const productName = clean(payload.productName || 'iPhone 18 Pro / Pro Max');
   const productDetails = clean(payload.productDetails || 'Elige tu acabado y capacidad. Te acompañamos durante todo el proceso de reserva.');
@@ -74,7 +78,7 @@ exports.handler = async function(event) {
   const bannerPosition = clean(payload.bannerPosition || '50% 50%').replace(/[^0-9% .-]/g,'').slice(0,32) || '50% 50%';
   const kicker = clean(payload.kicker || 'CAMPAÑA THINKSTORE');
   const badge = clean(payload.badge || '');
-  const preheader = clean(payload.preheader || '');
+  const preheader = clean(payload.preheader || (isEnterprise ? enterpriseTemplate.preheader : ''));
   const secondaryActionUrl = clean(payload.secondaryActionUrl || '');
   const secondaryActionLabel = clean(payload.secondaryActionLabel || '');
   const manualEmails = Array.isArray(payload.manualEmails) ? payload.manualEmails.map(clean).filter(v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)).slice(0,500) : [];
@@ -109,12 +113,12 @@ exports.handler = async function(event) {
       // 1) clientes: perfiles comerciales ya existentes.
       try {
         const clientes = await supabaseGet('clientes?select=*');
-        registered.push(...(clientes || []).map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.name || c.full_name || 'Cliente'), source:'registered' })));
+        registered.push(...(clientes || []).map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.name || c.full_name || 'Cliente'), source:'registered', nombre_contacto:clean(c.nombre_contacto || c.nombre || c.full_name || c.name), nombre_empresa:clean(c.nombre_empresa || c.empresa || c.company_name || c.company) })));
       } catch (e) { console.warn('Campañas: clientes', e.message || e); }
       // 2) profiles: asegura incluir usuarios registrados aunque aún no tengan fila en clientes.
       try {
         const profiles = await supabaseGet('profiles?select=*');
-        registered.push(...(profiles || []).map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.full_name || c.name || 'Cliente'), source:'registered' })));
+        registered.push(...(profiles || []).map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.full_name || c.name || 'Cliente'), source:'registered', nombre_contacto:clean(c.nombre_contacto || c.nombre || c.full_name || c.name), nombre_empresa:clean(c.nombre_empresa || c.empresa || c.company_name || c.company) })));
       } catch (e) { console.warn('Campañas: profiles', e.message || e); }
       // 3) Supabase Auth: fuente definitiva de cuentas registradas, incluso si su perfil comercial está incompleto.
       try {
@@ -122,7 +126,7 @@ exports.handler = async function(event) {
         const aj = await ar.json().catch(()=>({}));
         if(ar.ok){
           const authUsers = Array.isArray(aj?.users)?aj.users:Array.isArray(aj)?aj:[];
-          registered.push(...authUsers.map(u=>({id:u.id,email:clean(u.email),nombre:clean(u.user_metadata?.full_name||u.user_metadata?.name||'Cliente'),source:'registered'})));
+          registered.push(...authUsers.map(u=>({id:u.id,email:clean(u.email),nombre:clean(u.user_metadata?.full_name||u.user_metadata?.name||'Cliente'),source:'registered',nombre_contacto:clean(u.user_metadata?.nombre_contacto||u.user_metadata?.full_name||u.user_metadata?.name),nombre_empresa:clean(u.user_metadata?.nombre_empresa||u.user_metadata?.company_name||u.user_metadata?.company)})));
         }
       } catch (e) { console.warn('Campañas: auth users', e.message || e); }
       const regValid = registered.filter(c => c.email && c.email.includes('@'));
@@ -137,6 +141,8 @@ exports.handler = async function(event) {
           email: clean(o.guest_email || o.customer_email || o.email),
           nombre: clean(o.guest_name || o.customer_name || 'Cliente ThinkStore'),
           source:'direct_sales',
+          nombre_contacto:clean(o.nombre_contacto || o.guest_name || o.customer_name),
+          nombre_empresa:clean(o.nombre_empresa || o.empresa || o.company_name || o.company),
           client_id:o.cliente_id
         })).filter(c => c.email && c.email.includes('@'));
         sourceCounts.direct_sales = new Set(direct.map(c=>c.email.toLowerCase())).size;
@@ -183,7 +189,32 @@ exports.handler = async function(event) {
     return { statusCode: 502, headers, body: JSON.stringify({ ok:false, error:`No se pudieron cargar los destinatarios: ${error.message || error}` }) };
   }
 
-  recipients = Array.from(new Map(recipients.map(r => [r.email.toLowerCase(), r])).values());
+  if (isEnterprise) {
+    const unique = new Map();
+    for (const recipient of recipients) {
+      const email = recipient.email.toLowerCase();
+      const previous = unique.get(email);
+      unique.set(email, previous ? {...recipient, ...previous,
+        nombre_contacto:previous.nombre_contacto || recipient.nombre_contacto,
+        nombre_empresa:previous.nombre_empresa || recipient.nombre_empresa} : recipient);
+    }
+    recipients = Array.from(unique.values());
+    try {
+      // Page through all suppressions; Supabase commonly limits responses to 1,000 rows.
+      const excluded = new Set();
+      for (let offset = 0; ; offset += 500) {
+        const rows = await supabaseGet(`marketing_enterprise_unsubscribes?select=email&order=email.asc&limit=500&offset=${offset}`);
+        if (!Array.isArray(rows)) throw new Error('Respuesta de bajas inválida');
+        rows.forEach(row => excluded.add(clean(row.email).toLowerCase()));
+        if (rows.length < 500) break;
+      }
+      recipients = recipients.filter(r => !excluded.has(r.email.toLowerCase()));
+    } catch (_) {
+      return {statusCode:503, headers, body:JSON.stringify({ok:false,error:'No se pudieron comprobar las bajas empresariales. Ejecuta supabase_v14_36_marketing_empresas.sql y revisa la conexión antes de enviar.'})};
+    }
+  } else {
+    recipients = Array.from(new Map(recipients.map(r => [r.email.toLowerCase(), r])).values());
+  }
   if (recipients.length > 2000) return { statusCode:400, headers, body:JSON.stringify({ok:false,error:'La audiencia supera 2.000 destinatarios. Divide la campaña en segmentos.'}) };
   if (!recipients.length) return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'No hay destinatarios válidos.' }) };
 
@@ -241,18 +272,19 @@ exports.handler = async function(event) {
     </div>`;
   }
 
-  const from = process.env.FROM_MARKETING_EMAIL || process.env.FROM_VENTAS_EMAIL || 'ThinkStore Promociones <ventas@thinkstore.com.ve>';
-  const replyTo = process.env.REPLY_TO_MARKETING || process.env.REPLY_TO_VENTAS || 'ventas@thinkstore.com.ve';
+  const from = isEnterprise ? 'ThinkStore <ventas@thinkstore.com.ve>' : process.env.FROM_MARKETING_EMAIL || process.env.FROM_VENTAS_EMAIL || 'ThinkStore Promociones <ventas@thinkstore.com.ve>';
+  const replyTo = isEnterprise ? 'info@thinkstore.com.ve' : process.env.REPLY_TO_MARKETING || process.env.REPLY_TO_VENTAS || 'ventas@thinkstore.com.ve';
   let sent = 0, failed = 0, errors = [];
   async function sendOne(r) {
     try {
+      const enterpriseValues = isEnterprise ? {nombre_contacto:r.nombre_contacto || clean(payload.nombre_contacto) || r.nombre, nombre_empresa:r.nombre_empresa || clean(payload.nombre_empresa), unsubscribe_url:enterpriseUnsubscribe.url(r.email), preheader} : null;
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from, to: r.email, reply_to: replyTo, subject,
-          html: htmlFor(r.nombre),
-          text: `${title}\n\n${subtitle}\n\n${message}\n\n${productName}\n${productDetails}\n${offer}${pricePro?`\nPrecio iPhone 18 Pro: ${pricePro}`:''}${priceProMax?`\nPrecio iPhone 18 Pro Max: ${priceProMax}`:''}\n\n${actionUrl}${secondaryActionLabel&&secondaryActionUrl?`\n${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
+          html: isEnterprise ? enterpriseTemplate.render(enterpriseValues) : htmlFor(r.nombre),
+          text: isEnterprise ? enterpriseTemplate.text(enterpriseValues) : `${title}\n\n${subtitle}\n\n${message}\n\n${productName}\n${productDetails}\n${offer}${pricePro?`\nPrecio iPhone 18 Pro: ${pricePro}`:''}${priceProMax?`\nPrecio iPhone 18 Pro Max: ${priceProMax}`:''}\n\n${actionUrl}${secondaryActionLabel&&secondaryActionUrl?`\n${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
         })
       });
       const result = await response.json().catch(() => ({}));
@@ -266,7 +298,7 @@ exports.handler = async function(event) {
     subject, title, subtitle, audience,
     recipients_count: recipients.length, sent_count: sent, failed_count: failed,
     banner_url: bannerUrl || null,
-    content_json: { message, productName, productDetails, offer, pricePro, priceProMax, actionUrl, actionLabel, secondaryActionUrl, secondaryActionLabel, kicker, badge, preheader, bannerFit, bannerPosition, manualCount: manualEmails.length },
+    content_json: { ...(isEnterprise ? {templateId:enterpriseTemplate.id, nombre_contacto:clean(payload.nombre_contacto), nombre_empresa:clean(payload.nombre_empresa)} : {}), message, productName, productDetails, offer, pricePro, priceProMax, actionUrl, actionLabel, secondaryActionUrl, secondaryActionLabel, kicker, badge, preheader, bannerFit, bannerPosition, manualCount: manualEmails.length },
     created_at: new Date().toISOString()
   }]);
 
