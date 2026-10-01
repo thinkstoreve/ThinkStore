@@ -834,15 +834,18 @@ const TSService=(()=>{
     document.addEventListener('pointerdown',e=>{if(!rx('rxModelPicker')?.contains(e.target))closeReceptionModels();});
     rx('rxModelPicker').addEventListener('focusout',e=>{if(!rx('rxModelPicker').contains(e.relatedTarget))closeReceptionModels();});
   }
+  let receptionPrintWindow=null;
   async function saveOrder(e){
     e.preventDefault();
     if(receptionSaving)return;
     if(!can('reception')&&!can('orders'))return toast('No tienes permiso para registrar recepción.','error');
     if(!rx('orderModal').querySelector('form').reportValidity())return;
     if(!receptionConfirmed){rx('rxReviewSummary').innerHTML=receptionSummaryHTML();rx('rxReview').showModal();return;}
-    receptionConfirmed=false;receptionSaving=true;rx('orderSaveBtn').disabled=true;rx('orderModal').querySelector('form').inert=true;
+    receptionConfirmed=false;receptionSaving=true;
+    if(rx('rxPrintAfterSave')?.checked){receptionPrintWindow=window.open('','_blank','width=450,height=720');if(receptionPrintWindow){receptionPrintWindow.document.write('<!doctype html><html lang="es"><title>Etiqueta ThinkStore</title><body><p>Guardando la orden. La etiqueta aparecerá al finalizar.</p></body></html>');receptionPrintWindow.document.close();}else toast('Permite ventanas emergentes o usa Etiqueta QR después de guardar.','error');}
+    rx('orderSaveBtn').disabled=true;rx('orderModal').querySelector('form').inert=true;
     try{await persistReceptionOrder(e);}catch(err){toast('No se pudo completar el ingreso: '+err.message+'. Tus datos permanecen en el formulario.','error');}
-    finally{receptionSaving=false;rx('orderSaveBtn').disabled=false;rx('orderModal').querySelector('form').inert=false;}
+    finally{if(receptionPrintWindow&&!receptionPrintWindow.closed)receptionPrintWindow.close();receptionPrintWindow=null;receptionSaving=false;rx('orderSaveBtn').disabled=false;rx('orderModal').querySelector('form').inert=false;}
   }
   function confirmReception(){rx('rxReview').close();receptionConfirmed=true;rx('orderModal').querySelector('form').requestSubmit();}
   // Same private bucket and metadata table as the existing order manager.
@@ -973,7 +976,7 @@ const TSService=(()=>{
       if(!await finishReceptionFiles(activeReceptionOrderId))return;
       if(pendingAppointmentId){const {error:appointmentError}=await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);if(appointmentError){toast('Orden guardada; no se pudo actualizar la cita: '+appointmentError.message,'error');return;}pendingAppointmentId=null;}
       try{await receptionDraftStore('delete');}catch(err){console.warn('No se pudo limpiar el borrador:',err.message);}
-      activeReceptionOrderId=null;await loadSupportData();receptionSaving=false;closeModals();await renderPanel('orders');toast('Recepción guardada en la orden '+(data?.code||previous?.code||''));return;
+      activeReceptionOrderId=null;await loadSupportData();receptionSaving=false;closeModals();await renderPanel('orders');toast('Recepción guardada en la orden '+(data?.code||previous?.code||''));if(receptionPrintWindow&&!receptionPrintWindow.closed){printDeviceLabelByOrder(mapOrder(data),receptionPrintWindow);receptionPrintWindow=null;}return;
     }
     const row={...base,code:code(),quote_status:'Pendiente',created_by_email:session?.email||null};
     const {data,error}=await supabaseClient.from('service_orders').insert(row).select('*').single();
@@ -988,7 +991,7 @@ const TSService=(()=>{
     }
     try{await receptionDraftStore('delete');}catch(err){console.warn('No se pudo limpiar el borrador:',err.message);}
     const createdOrder=mapOrder(data); pendingAppointmentId=null;activeReceptionOrderId=null;
-    await loadSupportData();receptionSaving=false;closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso finalizado. Orden creada: '+row.code);
+    await loadSupportData();receptionSaving=false;closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);if(receptionPrintWindow&&!receptionPrintWindow.closed){printDeviceLabelByOrder(createdOrder,receptionPrintWindow);receptionPrintWindow=null;}toast('Ingreso finalizado. Orden creada: '+row.code);
   }
   async function updateStatus(i,status){
     const order=orders[i];if(!order)return;
@@ -1024,11 +1027,11 @@ const TSService=(()=>{
   function checklistSummary(o){
     return Object.entries(o.checklist||{}).filter(([,v])=>v?.checked).map(([k,v])=>`${esc(k)}: ${esc(v.value||'Revisado')}`).join(' · ')||'Sin checklist marcado';
   }
-  function openPrintWindow(title,html){
-    const w=window.open('','_blank','width=900,height=1000'); if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+  function openPrintWindow(title,html,extraCss='',preparedWindow=null){
+    const w=preparedWindow||window.open('','_blank','width=900,height=1000'); if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
+    w.document.open();w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
       *{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#111;margin:0;padding:28px;background:#fff}.sheet{max-width:820px;margin:auto}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #111;padding-bottom:16px}.brand{display:flex;gap:12px;align-items:center}.logo{width:48px;height:48px;border-radius:12px;background:#111;color:#fff;display:grid;place-items:center;font-weight:800;font-size:22px}.print-logo{display:block;width:220px;height:auto;max-height:70px;object-fit:contain;object-position:left}.print-subtitle{font-size:12px;color:#555;margin-top:8px}.code{text-align:right}.code b{font-size:24px}.box{break-inside:avoid}.signatures{break-inside:avoid}@page{size:A4;margin:12mm}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}.box{border:1px solid #ccc;border-radius:12px;padding:14px}.box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em}.full{grid-column:1/-1}.qr{display:flex;align-items:center;gap:18px}.qr img{width:145px;height:145px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:48px}.sign{border-top:1px solid #111;padding-top:8px;text-align:center;font-size:12px}.policy p{margin:0;font-size:11px;line-height:1.45;color:#333}.foot{text-align:center;margin-top:30px;font-size:12px;color:#555}@media print{body{padding:0}.no-print{display:none!important}}
-    </style></head><body>${html}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);w.document.close();
+    ${extraCss}</style></head><body>${html}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);w.document.close();
   }
   function printReceptionSheetByOrder(o){
     if(!o)return; const url=trackingUrl(o); const qr=qrUrl(url,300);
@@ -1036,9 +1039,11 @@ const TSService=(()=>{
     <div class="grid"><div class="box"><h3>Datos del cliente</h3><b>${esc(o.client)}</b><br>${esc(o.phone)}<br>${esc(o.email||'')}<br>Cédula: ${esc(receptionMeta(o).client_document||'No indicada')}<br>Dirección: ${esc(receptionMeta(o).client_address||'No indicada')}</div><div class="box"><h3>Datos del equipo</h3><b>${esc(o.device)}</b><br>${esc([receptionMeta(o).brand,receptionMeta(o).platform].filter(Boolean).join(' · '))}<br>Color: ${esc(o.color||'No indicado')}<br>Serial / IMEI: ${esc(o.serial||'No indicado')}</div><div class="box full"><h3>Falla reportada</h3>${esc(o.issue)}</div><div class="box"><h3>Accesorios recibidos</h3>${esc(o.accessories||'Ninguno indicado')}</div><div class="box"><h3>Condición / checklist</h3>${checklistSummary(o)}<p>${esc(o.visual||'')}</p><p>${esc(receptionMeta(o).condition||'')}</p>${Object.entries(receptionMeta(o).inspection||{}).filter(([,v])=>v).map(([k,v])=>esc(k)+': '+esc(v)).join(' · ')}</div><div class="box full"><h3>Observaciones</h3>${esc(cleanReceptionObservation(o))}</div><div class="box full qr"><img src="${qr}" alt="QR"><div><h3>Seguimiento en vivo</h3><b>${esc(o.code)}</b><p>Escanea este código para consultar el estado actualizado del equipo.</p><small>${esc(url)}</small></div></div><div class="box full policy"><h3>Términos y condiciones de recepción</h3><p>El cliente declara ser propietario del equipo o estar autorizado para entregarlo a revisión. ThinkStore registrará el estado visible, accesorios y pruebas realizadas al momento de la recepción. Se recomienda mantener una copia de seguridad de la información antes de cualquier diagnóstico o reparación. Cuando el diagnóstico requiera apertura o pruebas internas del equipo, se realizará únicamente como parte del proceso técnico. Cualquier reparación, repuesto o cargo adicional deberá ser informado y aprobado antes de ejecutarse. La presente hoja y el número de orden sirven como comprobante de recepción y referencia para el seguimiento del servicio.</p><p style="margin-top:8px"><b>Clave del dispositivo y pruebas técnicas.</b> Si el cliente facilita voluntariamente el PIN, contraseña o patrón de desbloqueo del dispositivo, autoriza al personal técnico de ThinkStore a utilizarlo exclusivamente para el diagnóstico, la reparación y las pruebas de funcionamiento necesarias, incluidas las verificaciones una vez reparado el equipo y antes de su entrega. Esta autorización no comprende usos ajenos al servicio ni la revisión de información personal que no sea necesaria para las pruebas acordadas. La clave se registra para uso interno del personal autorizado y no se incluye en esta hoja, en la etiqueta ni en el seguimiento público. Si el cliente no facilita la clave, algunas pruebas podrían quedar pendientes; ThinkStore informará de esa limitación al entregar el equipo.</p></div></div>
     <div class="signatures"><div class="sign">Firma del cliente<br>${esc(o.signatures?.client||o.client||'')}</div><div class="sign">Firma de recepción<br>${esc(o.signatures?.reception||session?.name||'')}</div></div><div class="foot">ThinkStore · Tecnología. Todo en un solo lugar.</div></div>`);
   }
-  function printDeviceLabelByOrder(o){
-    if(!o)return; const url=trackingUrl(o); const qr=qrUrl(url,220);
-    openPrintWindow(`Etiqueta ${o.code}`,`<div style="width:76mm;height:50mm;border:1px solid #111;border-radius:4mm;padding:4mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:grid;grid-template-columns:1fr 28mm;gap:3mm;align-items:center"><div><b style="font-size:13pt">ThinkStore</b><div style="font-size:7pt;margin-bottom:3mm">Servicio Técnico</div><b style="font-size:11pt">${esc(o.code)}</b><div style="font-size:9pt;margin-top:2mm">${esc(o.device)}</div><div style="font-size:8pt">${esc(o.color||'')}</div><div style="font-size:6.5pt;margin-top:2mm">Escanea para ver el estado</div></div><img src="${qr}" style="width:28mm;height:28mm" alt="QR"></div>`);
+  function printDeviceLabelByOrder(o,preparedWindow=null){
+    if(!o)return;
+    const qr=qrUrl(trackingUrl(o),360).replace('margin=8','margin=32');
+    const css=`@page{size:40mm 60mm;margin:0}html,body{margin:0;padding:0;width:40mm;background:#fff}.device-label{width:40mm;height:60mm;padding:2mm;overflow:hidden;text-align:center;break-inside:avoid;page-break-inside:avoid;color:#000;font-family:Arial,sans-serif}.label-brand{font-size:11pt;font-weight:800;line-height:5mm}.label-subtitle{font-size:6pt;line-height:3mm}.label-code{font-size:8pt;line-height:4mm;font-weight:700;white-space:nowrap;margin:1mm 0}.label-device{font-size:7pt;line-height:3.2mm;height:6.4mm;overflow:hidden;overflow-wrap:anywhere}.label-color{font-size:6pt;line-height:3mm;height:3mm;overflow:hidden}.label-qr{display:block;width:28mm;height:28mm;margin:0 auto}.label-hint{font-size:5.5pt;line-height:3mm}.label-actions{width:40mm;padding:3mm;font-size:9pt}@media print{html,body{width:40mm;height:60mm}.label-actions{display:none!important}}`;
+    openPrintWindow(`Etiqueta ${o.code} · 40 × 60 mm`,`<div class="device-label"><div class="label-brand">ThinkStore</div><div class="label-subtitle">Servicio técnico</div><div class="label-code">${esc(o.code)}</div><div class="label-device">${esc(o.device)}</div><div class="label-color">${esc(o.color||'')}</div><img class="label-qr" src="${qr}" alt="QR de seguimiento"><div class="label-hint">Escanea para consultar el estado</div></div><div class="label-actions no-print"><button onclick="window.print()">Imprimir etiqueta</button><p>Papel: 40 × 60 mm · Vertical · Escala 100% · Sin márgenes ni encabezados.</p></div>`,css,preparedWindow);
   }
   function showReceptionComplete(o){
     const m=document.getElementById('receptionCompleteModal'); if(!m)return; m.dataset.orderId=o.id;

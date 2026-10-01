@@ -256,7 +256,7 @@
     </form>
   </div>
 
-  <dialog id="rxReview" aria-labelledby="rxReviewTitle"><h2 id="rxReviewTitle">Revisar recepción</h2><div id="rxReviewSummary"></div><div class="rx-review-actions"><button type="button" onclick="document.getElementById('rxReview').close()">Volver a editar</button><button type="button" onclick="TSService.confirmReception()">Confirmar y guardar</button></div></dialog>
+  <dialog id="rxReview" aria-labelledby="rxReviewTitle"><h2 id="rxReviewTitle">Revisar recepción</h2><div id="rxReviewSummary"></div><label style="display:flex;gap:10px;align-items:center;margin:18px 0"><input id="rxPrintAfterSave" type="checkbox" checked style="width:auto"> Abrir impresión de etiqueta QR 40 × 60 mm al guardar</label><div class="rx-review-actions"><button type="button" onclick="document.getElementById('rxReview').close()">Volver a editar</button><button type="button" onclick="TSService.confirmReception()">Confirmar y guardar</button></div></dialog>
   <div id="bitacoraModal" class="modal">
     <form class="card wide bitacora-form" onsubmit="TSService.saveBitacora(event)">
       <h2>Nueva entrada de bitácora</h2>
@@ -348,6 +348,6 @@
     </div>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="workshop/finance.js?v=14.43"></script><script src="workshop/workshop.js?v=14.43"></script><script src="app.js?v=14.43"></script>
+  <script src="workshop/finance.js?v=14.43"></script><script src="workshop/workshop.js?v=14.43"></script><script src="app.js?v=14.46"></script>
 </body>
 </html>

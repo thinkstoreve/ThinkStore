@@ -21,10 +21,8 @@ exports.manage=async({body,profile,user,req,url,key,reply})=>{
  if(body.action==='invite_user'){
    const redirect=clean(process.env.SUPPORT_INVITE_REDIRECT_URL)||'https://soporte.thinkstore.com.ve/index.html';
    try{
-   const r=await fetch(`${url}/auth/v1/invite?redirect_to=${encodeURIComponent(redirect)}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({email,data:{name}})});
-   const result=await r.json().catch(()=>({}));sent=r.ok;
-   if(!sent)warning='Usuario guardado, pero el correo no se envió: '+(result.msg||result.message||result.error_description||'Error de Supabase Auth')+'. Si ya tiene cuenta, puede iniciar sesión con su contraseña.';
-   }catch(error){warning='Usuario guardado, pero no se pudo confirmar el envío del correo. Revisa el usuario en Supabase Auth antes de reintentar.';}
+   await require('./support-invitation').send({url,key,email,name,role,redirect});sent=true;
+   }catch(error){warning='Usuario guardado, pero el correo no se envió o no se pudo confirmar. '+error.message;}
  }
  try{await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action:body.action,entity_type:'service_user',entity_id:email,before_data:existing||null,after_data:{...row,invite_sent:sent}})});}catch(error){warning+=(warning?' ':'')+'Los cambios se guardaron, pero no se pudo registrar la auditoría.';}
  return reply(200,{ok:true,invite_sent:sent,warning,profile:row});

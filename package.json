@@ -1,8 +1,8 @@
 {
   "name": "thinkstore",
-  "version": "14.43.0",
+  "version": "14.46.0",
   "private": true,
-  "description": "ThinkStore V14.43 - Compatibilidad de órdenes numéricas en taller",
+  "description": "ThinkStore V14.46 - Etiqueta QR al guardar recepción",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4"
   }
