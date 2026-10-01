@@ -18,8 +18,6 @@
 .ts-clean-nav .ts-nav-icon{margin-left:0!important;margin-right:0!important;}
 @media (max-width:900px){.ts-clean-nav{column-gap:14px!important;}}
 </style>
-<link rel="stylesheet" href="reception-v2.css?v=14.43" />
-<link rel="stylesheet" href="workshop/workshop.css?v=14.43">
 </head>
 <body class="support-panel-page">
   <div id="supportPanelLoader" class="support-panel-loader" aria-live="polite">
@@ -99,12 +97,6 @@
       </header>
 
       <datalist id="appleDeviceModels"></datalist>
-      <nav class="rx-categories" aria-label="Categoría del equipo">
-        <button type="button" data-category="apple" onclick="TSService.setReceptionCategory('apple')"><b>Apple</b><small>iPhone, iPad, Mac y accesorios</small></button>
-        <button type="button" data-category="other" onclick="TSService.setReceptionCategory('other')"><b>Otros equipos</b><small>Teléfonos, laptops y más</small></button>
-        <button type="button" data-category="gaming" onclick="TSService.setReceptionCategory('gaming')"><b>Consolas y controles</b><small>PlayStation, Xbox, Nintendo y PC</small></button>
-      </nav>
-      <div class="rx-draft-bar"><span id="rxDraftStatus" role="status">Los borradores se guardan en este navegador y usuario.</span><button type="button" class="secondary" onclick="TSService.restoreReceptionDraft()">Recuperar borrador</button></div>
 
       <div class="reception-flow" aria-label="Etapas de recepción">
         <div class="reception-flow-step active"><span>1</span><div><b>Cliente y equipo</b><small>Datos de ingreso</small></div></div>
@@ -119,7 +111,6 @@
             <h3>Datos del cliente</h3>
             <div class="grid2 compact">
               <label>Cliente<input id="oClient" required placeholder="Nombre del cliente" /></label>
-              <label>Cédula / documento<input id="oDocument" placeholder="V-12345678" autocomplete="off" /></label><label>Dirección<textarea id="oAddress" autocomplete="street-address" placeholder="Dirección del cliente"></textarea></label>
               <label>Teléfono<input id="oPhone" required placeholder="0414-0000000" /></label>
               <label>Correo<input id="oEmail" type="email" placeholder="cliente@email.com" /></label>
               <label>Prioridad<select id="oPriority"><option>Normal</option><option>Alta</option><option>Urgente</option></select></label>
@@ -129,36 +120,34 @@
           <div class="order-box">
             <h3>Datos del equipo</h3>
             <div class="grid2 compact">
-              <label>Marca<input id="oBrand" value="Apple" readonly list="rxBrands" /><datalist id="rxBrands"><option>Samsung</option><option>Xiaomi</option><option>Lenovo</option><option>HP</option><option>Dell</option><option>ASUS</option><option>Acer</option><option>Huawei</option></datalist></label>
+              <label>Marca<select id="oBrand"><option>Apple</option></select></label>
               <label>Categoría<select id="oCategory" onchange="TSService.filterDeviceCategory(this.value)">
                 <option value="">Todas</option><option>iPhone</option><option>iPad</option><option>AirPods</option><option>Apple Watch</option><option>MacBook Air</option><option>MacBook Pro</option><option>iMac</option><option>Mac mini</option><option>Mac Studio</option><option>Mac Pro</option>
               </select></label>
             </div>
-            <div id="rxOtherFields" hidden><label>Tipo de equipo<select id="rxType" onchange="TSService.renderReceptionInspection()"></select></label><label id="rxPlatformLabel" hidden>Plataforma<select id="rxPlatform"><option>PlayStation</option><option>Xbox</option><option>Nintendo</option><option>PC/Gaming</option><option>Otra</option></select></label></div>
             <label>Modelo<input id="oDevice" required list="appleDeviceModels" placeholder="Buscar modelo Apple..." oninput="TSService.previewSelectedDevice(this.value)" /></label>
             <div class="grid2 compact">
               <label>Serial / IMEI<input id="oSerial" placeholder="Serial / IMEI" /></label>
               <label>Contraseña<select id="oPasswordFlag"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
             </div>
-            <label>Clave de desbloqueo del dispositivo (para pruebas)<input id="oAccessCode" type="password" autocomplete="new-password" placeholder="PIN, contraseña o descripción del patrón" /></label><button type="button" class="secondary" onclick="TSService.toggleDeviceAccess(this)">Mostrar clave</button><small id="rxAccessHelp">PIN, contraseña o patrón del dispositivo para diagnóstico y pruebas de funcionamiento después de la reparación. Entrega voluntaria y uso técnico interno. No se imprime ni se guarda en borradores.</small>
             <label>Color<input id="oColor" placeholder="Ej: Space Black, Natural Titanium..." /></label>
             <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, cable, caja, funda..."></textarea></label>
           </div>
 
           <div class="order-box">
-            <h3>Falla reportada</h3><div id="rxQuickIssues" class="rx-chips" aria-label="Fallas rápidas"></div>
+            <h3>Condición reportada por el cliente</h3>
             <label><textarea id="oIssue" required placeholder="Describe detalladamente la falla reportada..."></textarea></label>
           </div>
         </aside>
 
         <main class="order-center">
           <div class="order-box model-selector-box">
-            <div class="rx-model-heading"><h3>Seleccione el modelo del equipo</h3><a class="rx-coverage-link" href="https://checkcoverage.apple.com/?locale=es_VE" target="_blank" rel="noopener noreferrer" title="Consultar la cobertura de Apple en una pestaña nueva">Garantía</a></div>
-            <div class="model-search-wrap" id="rxModelPicker">
-              <input id="deviceModelSearch" role="combobox" aria-label="Buscar modelo Apple" aria-controls="rxModelList" aria-expanded="false" aria-autocomplete="list" autocomplete="off" placeholder="Buscar modelo de iPhone, iPad, Mac, AirPods, Apple Watch..." oninput="TSService.searchReceptionModels(this.value)" onkeydown="TSService.modelPickerKey(event)" />
-              <button id="rxModelToggle" type="button" aria-label="Desplegar modelos" aria-controls="rxModelList" aria-expanded="false" onclick="TSService.toggleReceptionModels()">⌄</button><div id="rxModelList" role="listbox" aria-label="Modelos Apple" inert></div>
+            <h3>Seleccione el modelo del equipo</h3>
+            <div class="model-search-wrap">
+              <input id="deviceModelSearch" list="appleDeviceModels" placeholder="Buscar modelo de iPhone, iPad, Mac, AirPods, Apple Watch..." oninput="TSService.selectDeviceFromSearch(this.value)" />
+              <span>⌄</span>
             </div>
-            <small>Busca un modelo o abre la lista. Desplázate con la rueda del mouse o la barra lateral.</small>
+            <small>La lista se despliega hacia abajo desde el buscador, sin ocupar espacio fijo.</small>
 
             <div class="selected-device-summary">
               <div id="selectedDeviceArt" class="device-art device-generic"><img id="selectedDeviceImg" class="selected-device-img" alt="" /></div>
@@ -206,8 +195,6 @@
         </main>
 
         <aside class="order-right">
-          <section class="order-box"><h3>Estado físico</h3><label>Condición general<select id="rxCondition"><option value="">Sin evaluar</option><option>Excelente</option><option>Bueno</option><option>Detalles</option><option>Golpeado</option><option>Mojado</option></select></label><div id="rxInspection"></div></section>
-          <section class="order-box"><h3>Fotos de recepción</h3><p>Hasta 8 MB por foto. Se guardan de forma privada con la orden.</p><label>Subir fotos<input id="rxPhotos" type="file" accept="image/*" multiple onchange="TSService.addReceptionPhotos(this)" /></label><label>Tomar foto<input id="rxCamera" type="file" accept="image/*" capture="environment" onchange="TSService.addReceptionPhotos(this)" /></label><div id="rxPhotoPreview" class="rx-photos"></div></section>
           <div class="order-box checklist-box">
             <h3>Checklist de recepción</h3>
             <div id="receptionChecklist" class="checklist-grid">
@@ -232,7 +219,7 @@
           </div>
 
           <div class="order-box">
-            <h3>Observaciones y diagnóstico</h3><label>Diagnóstico inicial<textarea id="rxDiagnosis" placeholder="Evaluación preliminar del técnico"></textarea></label>
+            <h3>Observaciones técnicas</h3>
             <label><textarea id="oTechNotes" placeholder="Observaciones adicionales, condiciones de recepción, acuerdos con el cliente..."></textarea></label>
           </div>
         </aside>
@@ -248,15 +235,13 @@
         </div>
       </section>
 
-      <section class="order-box rx-summary"><h3>Resumen de recepción</h3><div id="rxSummary" aria-live="polite"></div></section><footer class="order-actions">
-        <button type="button" class="secondary" onclick="TSService.saveReceptionDraft()">Guardar borrador</button>
+      <footer class="order-actions">
         <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
-        <button id="orderSaveBtn">Crear orden de servicio</button>
+        <button id="orderSaveBtn">Finalizar ingreso y crear orden</button>
       </footer>
     </form>
   </div>
 
-  <dialog id="rxReview" aria-labelledby="rxReviewTitle"><h2 id="rxReviewTitle">Revisar recepción</h2><div id="rxReviewSummary"></div><label style="display:flex;gap:10px;align-items:center;margin:18px 0"><input id="rxPrintAfterSave" type="checkbox" checked style="width:auto"> Abrir impresión de etiqueta QR 40 × 60 mm al guardar</label><div class="rx-review-actions"><button type="button" onclick="document.getElementById('rxReview').close()">Volver a editar</button><button type="button" onclick="TSService.confirmReception()">Confirmar y guardar</button></div></dialog>
   <div id="bitacoraModal" class="modal">
     <form class="card wide bitacora-form" onsubmit="TSService.saveBitacora(event)">
       <h2>Nueva entrada de bitácora</h2>
@@ -341,13 +326,15 @@
       </div>
       <div class="reception-print-actions">
         <button type="button" onclick="TSService.printCompletedReception()">🧾 Imprimir hoja de recepción</button>
-        <button type="button" class="secondary" onclick="TSService.printCompletedLabel()">🏷️ Imprimir etiqueta QR</button>
+        <button type="button" class="secondary" onclick="TSService.printCompletedLabel()">🏷️ Etiqueta QR / HereLabel</button>
         <button type="button" class="secondary" onclick="TSService.openCompletedTracking()">↗ Ver seguimiento</button>
       </div>
       <p class="reception-privacy-note">El QR contiene únicamente el enlace público de seguimiento y el número de orden; no incluye datos personales del cliente.</p>
     </div>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="workshop/finance.js?v=14.43"></script><script src="workshop/workshop.js?v=14.43"></script><script src="app.js?v=14.46"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -4,11 +4,11 @@ const TSService=(()=>{
   const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
   const roles={
-    superadmin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports','finance'],
-    admin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports','finance'],
-    reception:['dashboard','appointments','orders','reception','bitacora','parts','clients','finance'],
-    technician:['dashboard','orders','technical','bitacora','parts','clients'],
-    sales:['dashboard','orders','sales','parts','clients','finance'],
+    superadmin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports'],
+    admin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','reports'],
+    reception:['dashboard','appointments','orders','reception','bitacora','parts','clients'],
+    technician:['dashboard','orders','technical','bitacora','parts'],
+    sales:['dashboard','orders','sales','parts','clients'],
     logistics:['dashboard','orders','logistics'],
     client:['client_status']
   };
@@ -42,7 +42,7 @@ const TSService=(()=>{
   const dateText=v=>v?new Date(v).toLocaleString('es-VE'):'Sin fecha';
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function toast(message,type='ok'){let el=document.getElementById('serviceToast');if(!el){el=document.createElement('div');el.id='serviceToast';document.body.appendChild(el)}el.className=`service-toast ${type}`;el.textContent=message;requestAnimationFrame(()=>el.classList.add('show'));clearTimeout(window.__serviceToast);window.__serviceToast=setTimeout(()=>el.classList.remove('show'),4200)}
-  function mapOrder(row){return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',device:row.device_model,deviceType:row.device_type||'',deviceCategory:row.device_category||row.reception_checklist?.__reception_v2?.device_category||'apple',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist:row.reception_checklist||{},signatures:row.signatures||{},passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
+  function mapOrder(row){return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist:row.reception_checklist||{},signatures:row.signatures||{},passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
   function mapNote(row,byId){const order=byId.get(row.order_id);return{id:row.id,orderId:row.order_id,orderCode:order?.code||'Sin orden',type:row.note_type||'Seguimiento',author:row.author_name||'Soporte ThinkStore',status:row.status_after||order?.status||'',detail:row.note||'',files:row.attachments||'',created:dateText(row.created_at)};}
   async function loadSupportData(){
     const [orderRes,noteRes,photoRes,partsRes,movementsRes,appointmentsRes]=await Promise.all([
@@ -64,16 +64,16 @@ const TSService=(()=>{
     if(appointmentsRes.error)console.warn('No se pudieron cargar citas web:',appointmentsRes.error.message);
   }
   async function audit(action,entityId,beforeData,afterData){try{await supabaseClient.from('service_audit_log').insert({actor_email:session?.email||null,actor_role:session?.role||null,action,entity_type:'service_order',entity_id:String(entityId||''),before_data:beforeData||null,after_data:afterData||null})}catch(_){}}
-  function can(view){return Boolean(session&&roles[session.role]?.includes(view)&&(['superadmin','admin'].includes(session.role)||!Array.isArray(session.permissions)||session.permissions.includes(view)))}
+  function can(view){return session&&roles[session.role]?.includes(view)}
   function openLogin(){document.getElementById('loginModal').classList.add('open')}
   function openClientLookup(){document.getElementById('clientLookupModal').classList.add('open')}
   function openPasswordSetup(){document.getElementById('passwordSetupModal').classList.add('open')}
-  function closeModals(){if(receptionSaving)return;document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'))}
+  function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'))}
 
   async function getServiceProfile(email){
     const {data,error}=await supabaseClient
       .from('service_users')
-      .select('*')
+      .select('email,nombre,rol,activo')
       .eq('email',email.toLowerCase())
       .maybeSingle();
 
@@ -94,7 +94,7 @@ const TSService=(()=>{
 
     try{
       const profile=await getServiceProfile(email);
-      session={name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email,permissions:profile.permissions??null};
+      session={name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email};
       localStorage.setItem('ts_service_session',JSON.stringify(session));
       closeModals();
       goToPanel();
@@ -122,7 +122,7 @@ const TSService=(()=>{
     if(user?.email){
       try{
         const profile=await getServiceProfile(user.email);
-        session={name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email,permissions:profile.permissions??null};
+        session={name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email};
         localStorage.setItem('ts_service_session',JSON.stringify(session));
         history.replaceState(null,'',location.pathname);
         closeModals();
@@ -149,8 +149,7 @@ const TSService=(()=>{
     {id:'reception',label:'Recepción',icon:'⇥',group:'Operación'},
     {id:'technical',label:'Área técnica',icon:'⌁',group:'Operación'},
     {id:'bitacora',label:'Bitácora',icon:'≡',group:'Operación'},
-    {id:'finance',label:'Cobros y liquidación semanal',icon:'$',group:'Gestión'},
-    {id:'parts',label:'Repuestos de servicio técnico',icon:'◇',group:'Gestión'},
+    {id:'parts',label:'Inventario de repuestos',icon:'◇',group:'Gestión'},
     {id:'sales',label:'Ventas / cotizaciones',icon:'$',group:'Gestión'},
     {id:'logistics',label:'Logística',icon:'↗',group:'Gestión'},
     {id:'clients',label:'Clientes',icon:'○',group:'Gestión'},
@@ -189,39 +188,10 @@ const TSService=(()=>{
     });
   }
 
-  async function mountWorkshop(host,mode){await window.TSWorkshop.mount(host,{mode,endpoint:'/.netlify/functions/workshop',orders,headers:async()=>{const {data:{session:s}}=await supabaseClient.auth.getSession();return {Authorization:'Bearer '+(s?.access_token||'')};}});}
   function stats(){return{total:orders.length,received:orders.filter(o=>o.status==='Recibido').length,diagnosis:orders.filter(o=>o.status==='En diagnóstico').length,ready:orders.filter(o=>o.status==='Listo para entregar').length}}
 
-  const permissionLabels={dashboard:'Resumen',appointments:'Citas',orders:'Órdenes y gestión',reception:'Recepción',technical:'Área técnica',bitacora:'Bitácora',parts:'Repuestos',clients:'Clientes',finance:'Cobros y liquidación'};
-  function userPermissionChoices(role,selected){
-    const defaults=roles[role]||[];const values=Array.isArray(selected)?selected:defaults;
-    return defaults.filter(p=>permissionLabels[p]).map(p=>`<label class="staff-permission"><input type="checkbox" value="${p}" ${values.includes(p)?'checked':''} ${p==='dashboard'?'checked disabled':''}>${permissionLabels[p]}</label>`).join('');
-  }
-  function staffForm(){return `<section class="staff-editor"><h3 id="staffEditorTitle">Añadir e invitar al equipo</h3><p>Elige un rol y los módulos que podrá utilizar. El correo incluirá un enlace para crear su contraseña.</p><form onsubmit="TSService.saveSupportUser(event)"><div class="grid2"><label>Nombre<input id="staffName" required maxlength="120" autocomplete="name"></label><label>Correo<input id="staffEmail" required type="email" autocomplete="email"></label><label>Rol<select id="staffRole" onchange="TSService.changeStaffRole()"><option value="reception">Recepcionista</option><option value="technician">Técnico</option></select></label><label>Estado<select id="staffActive"><option value="true">Activo</option><option value="false">Desactivado</option></select></label></div><fieldset><legend>Permisos de acceso</legend><div id="staffPermissions" class="staff-permissions">${userPermissionChoices('reception')}</div></fieldset><div class="actions"><button id="staffSubmit" type="submit" name="action" value="invite_user">Añadir e invitar por correo</button><button type="submit" name="action" value="save_user" id="staffSave" hidden>Guardar cambios</button><button type="button" class="secondary" onclick="TSService.renderPanel('users')">Limpiar formulario</button></div><p id="staffMessage" role="status"></p></form></section>`;}
-  function changeStaffRole(){document.getElementById('staffPermissions').innerHTML=userPermissionChoices(document.getElementById('staffRole').value);}
-  function editSupportUser(index){
-    if(!['admin','superadmin'].includes(session?.role))return;
-    const u=serviceUsers[index];if(!u||!['reception','technician'].includes(u.rol))return;
-    document.getElementById('staffName').value=u.nombre||'';document.getElementById('staffEmail').value=u.email;document.getElementById('staffEmail').readOnly=true;
-    document.getElementById('staffRole').value=u.rol;document.getElementById('staffActive').value=String(u.activo!==false);
-    document.getElementById('staffPermissions').innerHTML=userPermissionChoices(u.rol,u.permissions);
-    document.getElementById('staffEditorTitle').textContent='Editar usuario y permisos';document.getElementById('staffSubmit').textContent='Enviar invitación por correo';document.getElementById('staffSave').hidden=false;document.getElementById('staffName').focus();
-  }
-  async function saveSupportUser(e){
-    e.preventDefault();if(!['admin','superadmin'].includes(session?.role))return;
-    const form=e.target;if(form.dataset.saving)return;form.dataset.saving='true';
-    const buttons=[...form.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);const message=document.getElementById('staffMessage');message.textContent='Guardando…';
-    try{
-      const {data:{session:sb}}=await supabaseClient.auth.getSession();if(!sb)throw new Error('Tu sesión venció. Inicia sesión de nuevo.');
-      const payload={action:e.submitter?.value||'invite_user',nombre:document.getElementById('staffName').value.trim(),email:document.getElementById('staffEmail').value.trim(),rol:document.getElementById('staffRole').value,activo:document.getElementById('staffActive').value==='true',permissions:[...document.querySelectorAll('#staffPermissions input:checked')].map(x=>x.value)};
-      const res=await fetch('/.netlify/functions/support-actions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${sb.access_token}`},body:JSON.stringify(payload)});
-      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar. Revisa la configuración de Soporte.');
-      await renderPanel('users');document.getElementById('staffMessage').textContent=data.warning||(data.invite_sent?'Usuario guardado e invitación enviada.':'Usuario y permisos actualizados.');
-    }catch(err){message.textContent=err.message;}finally{delete form.dataset.saving;buttons.forEach(b=>b.disabled=false);}
-  }
-
   async function loadServiceUsers(){
-    const {data,error}=await supabaseClient.from('service_users').select('*').order('created_at',{ascending:false});
+    const {data,error}=await supabaseClient.from('service_users').select('email,nombre,rol,activo,created_at').order('created_at',{ascending:false});
     if(error){return []}
     serviceUsers=data||[];
     return serviceUsers;
@@ -236,9 +206,8 @@ const TSService=(()=>{
     });
     const title=document.getElementById('panelTitle');
     const box=document.getElementById('panelContent');
-    box.classList.toggle('reception-v2-panel',view==='reception');
     const s=stats();
-    const titles={dashboard:'Dashboard',appointments:'Citas web',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',finance:'Cobros y liquidación semanal',parts:'Repuestos de servicio técnico',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
+    const titles={dashboard:'Dashboard',appointments:'Citas web',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',parts:'Inventario de repuestos',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
     title.textContent=titles[view]||'Panel';
 
     if(view==='dashboard'){
@@ -276,8 +245,7 @@ const TSService=(()=>{
           <div class="tablewrap dash-panel"><div class="dash-panel-head"><div><h3>Actividad reciente</h3><p>Movimientos de la bitácora técnica.</p></div><button class="secondary" onclick="TSService.renderPanel('bitacora')">Abrir bitácora</button></div>
             <div class="dash-list">${recentNotes.length?recentNotes.map(n=>`<div class="dash-list-row static"><span><b>${esc(n.orderCode)}</b><small>${esc(n.detail||n.type)} · ${esc(n.author)}</small></span><small>${esc(n.created)}</small></div>`).join(''):'<div class="dash-empty">Aún no hay actividad en la bitácora.</div>'}</div>
           </div>
-        </div><div id="workshopDashboard"></div>`;
-      if(['admin','superadmin'].includes(session.role))await mountWorkshop(document.getElementById('workshopDashboard'),'summary');
+        </div>`;
       return;
     }
 
@@ -290,11 +258,16 @@ const TSService=(()=>{
       box.innerHTML=bitacoraPanel();
       return;
     }
-    if(view==='parts'||view==='finance'){await mountWorkshop(box,view==='parts'?'parts':'finance');return}
+    if(view==='parts'){box.innerHTML=partsPanel();return}
 
-    if(view==='users'||view==='permissions'){
+    if(view==='users'){
       const rows=await loadServiceUsers();
-      box.innerHTML=`<div class="staff-panel">${staffForm()}<div class="tablewrap"><h3>Usuarios de soporte</h3><div class="staff-table-scroll"><table><tr><th>Nombre / correo</th><th>Rol</th><th>Estado</th><th>Permisos</th><th>Acciones</th></tr>${rows.map((u,i)=>`<tr><td><b>${esc(u.nombre)}</b><br>${esc(u.email)}</td><td>${esc(roleLabels[u.rol]||u.rol)}</td><td>${u.activo!==false?'Activo':'Desactivado'}</td><td>${(Array.isArray(u.permissions)?u.permissions:roles[u.rol]||[]).map(p=>esc(permissionLabels[p]||p)).join(' · ')}</td><td>${['reception','technician'].includes(u.rol)?`<button onclick="TSService.editSupportUser(${i})">Editar permisos</button>`:'Cuenta administrativa / otro rol'}</td></tr>`).join('')}</table></div></div></div>`;
+      box.innerHTML=`<div class="tablewrap"><h3>Usuarios internos de soporte</h3><table><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th></tr>${rows.map(u=>`<tr><td>${u.nombre}</td><td>${u.email}</td><td><span class="badge">${u.rol}</span></td><td>${u.activo?'Sí':'No'}</td></tr>`).join('')}</table><p>Los usuarios y contraseñas se gestionan con Supabase Auth del proyecto ThinkStore-Soporte.</p></div>`;
+      return;
+    }
+
+    if(view==='permissions'){
+      box.innerHTML=`<div class="tablewrap"><h3>Matriz de permisos</h3><table><tr><th>Rol</th><th>Accesos</th></tr>${Object.entries(roles).map(([r,p])=>`<tr><td><b>${r}</b></td><td><div class="pill-row">${p.map(x=>`<span class="badge">${x}</span>`).join('')}</div></td></tr>`).join('')}</table></div>`;
       return;
     }
 
@@ -338,7 +311,7 @@ const TSService=(()=>{
       activeReceptionOrderId=null;
       document.getElementById('orderModalTitle').textContent='Recepción desde cita web';
       document.getElementById('orderModalSubtitle').textContent='Completa todos los datos del ingreso. La orden de servicio se generará únicamente al finalizar y guardar la recepción.';
-      document.getElementById('orderSaveBtn').textContent='Crear orden de servicio';
+      document.getElementById('orderSaveBtn').textContent='Finalizar ingreso y crear orden';
       oClient.value=a.client_name||''; oPhone.value=a.client_phone||''; oEmail.value=a.client_email||'';
       oDevice.value=a.device_model||''; deviceModelSearch.value=a.device_model||''; oIssue.value=a.reported_issue||a.service_type||'';
       const d=findAppleDevice(a.device_model||''); if(d){oCategory.value=d.category||'';previewSelectedDevice(a.device_model);selectDeviceFromSearch(a.device_model)}
@@ -443,8 +416,10 @@ const TSService=(()=>{
   async function uploadOrderFile(){
     const input=document.getElementById('mOrderFile'),file=input?.files?.[0],o=orders.find(x=>String(x.id)===String(activeOrderId));if(!file||!o)return toast('Selecciona una fotografía o archivo.','error');
     if(file.size>8*1024*1024)return toast('El archivo supera el límite de 8 MB.','error');
-    try{await storeOrderFile(o.id,file);}catch(err){return toast('No se pudo guardar el archivo: '+err.message,'error');}
-    await loadSupportData();await renderOrderFiles(o.id);input.value='';toast('Archivo guardado de forma privada.');
+    const ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'');const path=`${o.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,{upsert:false});if(upError)return toast('No se pudo subir: '+upError.message,'error');
+    const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:'private',storage_path:path,label:file.name,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
+    await audit('upload_order_file',o.id,null,{label:file.name,storage_path:path});await loadSupportData();await renderOrderFiles(o.id);input.value='';toast('Archivo guardado de forma privada.');
   }
   async function notifyOrderClient(){
     const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o?.email)return toast('La orden no tiene correo del cliente.','error');
@@ -534,7 +509,7 @@ const TSService=(()=>{
     diagram.style.backgroundSize=selected?((asset.displayScale&&asset.displayScale[view])||'contain'):'';
     diagram.style.backgroundPosition=selected?'center':'';
     diagram.style.backgroundRepeat=selected?'no-repeat':'';
-    diagram.style.backgroundColor=selected?'#ffffff':'';
+    diagram.style.backgroundColor=selected?'#070a10':'';
   }
   function applyDeviceVisualAssets(d){
     const asset=visualAssetFor(d?.name||'');
@@ -562,7 +537,6 @@ const TSService=(()=>{
   }
 
   function previewSelectedDevice(value){
-    if(receptionCategory!=='apple')return;
     const d=findAppleDevice(value);
     const name=document.getElementById('selectedDeviceName');
     const meta=document.getElementById('selectedDeviceMeta');
@@ -706,202 +680,12 @@ const TSService=(()=>{
   }
 
   function filterDeviceCategory(category){
-    closeReceptionModels();
     const list=document.getElementById('appleDeviceModels');
     if(!list)return;
     const filtered=category?appleDevices.filter(d=>d.category===category||d.category.includes(category)):appleDevices;
     list.innerHTML=filtered.map(d=>`<option value="${d.name}">${d.category}</option>`).join('');
   }
 
-
-  let receptionModelResults=[],receptionModelIndex=-1,receptionAccessLoaded=false;
-  function toggleDeviceAccess(button){const input=rx('oAccessCode');input.type=input.type==='password'?'text':'password';button.textContent=input.type==='password'?'Mostrar clave':'Ocultar clave';}
-  async function loadReceptionAccess(orderId){
-    receptionAccessLoaded=false;rx('oAccessCode').value='';rx('oAccessCode').disabled=true;
-    if(!['superadmin','admin','reception','technician'].includes(session?.role))return;
-    try{const {data,error}=await supabaseClient.from('service_order_access').select('access_code').eq('order_id',orderId).maybeSingle();if(error)throw error;
-      if(String(activeReceptionOrderId)!==String(orderId))return;
-      rx('oAccessCode').value=data?.access_code||'';receptionAccessLoaded=true;rx('rxAccessHelp').textContent='Clave del dispositivo para diagnóstico y pruebas después de la reparación. Uso técnico interno; no se incluye en impresiones ni borradores.';
-    }catch(err){if(String(activeReceptionOrderId)===String(orderId))rx('rxAccessHelp').textContent='No se pudo consultar la clave. Revisa la migración V14.39 y tus permisos; el resto de la recepción puede guardarse.';}
-    finally{if(String(activeReceptionOrderId)===String(orderId))rx('oAccessCode').disabled=!receptionAccessLoaded;}
-  }
-  async function saveReceptionAccess(orderId){
-    if(rx('oAccessCode').disabled)return;
-    const value=rx('oAccessCode').value;
-    if(!value&&!receptionAccessLoaded)return;
-    const {error}=await supabaseClient.from('service_order_access').upsert({order_id:orderId,access_code:value||null,updated_at:new Date().toISOString()},{onConflict:'order_id'});
-    if(error)throw new Error('Comprueba el SQL V14.39 y los permisos de acceso interno');
-    receptionAccessLoaded=true;
-  }
-  function closeReceptionModels(){
-    const list=rx('rxModelList');if(!list)return;list.classList.remove('is-open');list.inert=true;deviceModelSearch.setAttribute('aria-expanded','false');deviceModelSearch.removeAttribute('aria-activedescendant');rx('rxModelToggle').setAttribute('aria-expanded','false');
-  }
-  function renderReceptionModels(query=''){
-    const normalize=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    receptionModelResults=appleDevices.filter(d=>(!oCategory.value||d.category===oCategory.value||d.category.includes(oCategory.value))&&normalize(d.name).includes(normalize(query.trim())));
-    receptionModelIndex=-1;const list=rx('rxModelList');
-    list.innerHTML=receptionModelResults.length?receptionModelResults.map((d,i)=>`<div id="rxModelOption${i}" role="option" aria-selected="false" data-index="${i}" onpointerdown="event.preventDefault()" onclick="TSService.chooseReceptionModel(${i})"><b>${esc(d.name)}</b><small>${esc(d.category)}</small></div>`).join(''):'<p role="status">No hay modelos coincidentes. Puedes escribir el modelo manualmente en Datos del equipo.</p>';
-    list.scrollTop=0;list.inert=false;list.classList.add('is-open');deviceModelSearch.setAttribute('aria-expanded','true');rx('rxModelToggle').setAttribute('aria-expanded','true');
-  }
-  function toggleReceptionModels(){if(rx('rxModelList').classList.contains('is-open'))closeReceptionModels();else{renderReceptionModels('');deviceModelSearch.focus();}}
-  function searchReceptionModels(value){renderReceptionModels(value);}
-  function chooseReceptionModel(index){const d=receptionModelResults[index];if(!d)return;
-    deviceModelSearch.value=d.name;if(oDevice.value!==d.name)selectDeviceFromSearch(d.name);renderReceptionInspection();updateReceptionSummary();closeReceptionModels();deviceModelSearch.focus();
-  }
-  function modelPickerKey(e){
-    if(e.key==='Escape'){e.preventDefault();closeReceptionModels();return;}
-    if(e.key==='Tab'){closeReceptionModels();return;}
-    if(e.key==='Enter'&&rx('rxModelList').classList.contains('is-open')){e.preventDefault();const index=receptionModelIndex>=0?receptionModelIndex:receptionModelResults.findIndex(d=>d.name.toLowerCase()===deviceModelSearch.value.trim().toLowerCase());if(index>=0)chooseReceptionModel(index);else if(receptionModelResults.length===1)chooseReceptionModel(0);return;}
-    if(!['ArrowDown','ArrowUp'].includes(e.key))return;e.preventDefault();
-    if(!rx('rxModelList').classList.contains('is-open'))renderReceptionModels('');
-    if(!receptionModelResults.length)return;
-    receptionModelIndex=Math.max(0,Math.min(receptionModelResults.length-1,receptionModelIndex+(e.key==='ArrowDown'?1:-1)));
-    rx('rxModelList').querySelectorAll('[role=option]').forEach((el,i)=>el.setAttribute('aria-selected',String(i===receptionModelIndex)));
-    const item=rx('rxModelOption'+receptionModelIndex);deviceModelSearch.setAttribute('aria-activedescendant',item.id);item.scrollIntoView({block:'nearest'});
-  }
-
-  // V14.37: additive metadata inside the existing JSON checklist. No schema migration.
-  let receptionCategory='apple', receptionInspection={}, receptionPhotos=[], receptionPhotoUrls=[];
-  let receptionSaving=false, receptionConfirmed=false, receptionExtraChecklist={}, receptionOriginalType='';
-  const rx=id=>document.getElementById(id);
-  function receptionMeta(o){return o?.checklist?.__reception_v2||{device_category:'apple'};}
-  function receptionDetails(){return {client_document:rx('oDocument').value.trim(),client_address:rx('oAddress').value.trim(),device_category:receptionCategory,brand:oBrand.value.trim(),type:receptionCategory==='apple'?(findAppleDevice(oDevice.value)?.category||oCategory.value||receptionOriginalType):rx('rxType').value,platform:receptionCategory==='gaming'?rx('rxPlatform').value:'',condition:rx('rxCondition').value,inspection:receptionInspection,diagnosis:rx('rxDiagnosis').value.trim(),damage_marks:damageMarks};}
-  function setReceptionCategory(category,keep=false){
-    if(!['apple','other','gaming'].includes(category))category='apple';
-    if(!keep&&category===receptionCategory)return;
-    if(!keep&&category!==receptionCategory){
-      if((oDevice.value||oVisual.value||Object.values(receptionInspection).some(Boolean))&&!confirm('Cambiar la categoría reinicia el modelo y la inspección del equipo. Se conservarán cliente, falla, accesorios, notas y fotos. ¿Continuar?'))return;
-      oDevice.value='';deviceModelSearch.value='';oVisual.value='';damageMarks=[];receptionInspection={};receptionOriginalType='';
-    }
-    closeReceptionModels();
-    receptionCategory=category;
-    rx('orderModal').dataset.category=category;
-    document.querySelectorAll('[data-category]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.category===category)));
-    oBrand.readOnly=category==='apple';if(!keep)oBrand.value=category==='apple'?'Apple':'';
-    oCategory.closest('label').hidden=category!=='apple';
-    rx('rxOtherFields').hidden=category==='apple';rx('rxPlatformLabel').hidden=category!=='gaming';
-    const types=category==='gaming'?['Consola','Control / mando','Accesorio']:['Teléfono','Tablet','Laptop','PC','Monitor','Smartwatch','Otro'];
-    rx('rxType').innerHTML=types.map(t=>`<option>${t}</option>`).join('');
-    document.querySelectorAll('#orderModal .model-selector-box,#orderModal .diagram-box').forEach(el=>el.hidden=category!=='apple');
-    if(category==='apple')oDevice.setAttribute('list','appleDeviceModels');else oDevice.removeAttribute('list');
-    oDevice.placeholder=category==='apple'?'Buscar modelo Apple...':'Escribe el modelo del equipo';
-    renderReceptionInspection();updateReceptionSummary();
-  }
-  function inspectionAreas(){
-    const type=(receptionCategory==='apple'?(findAppleDevice(oDevice.value)?.category||oCategory.value||receptionOriginalType):rx('rxType').value).toLowerCase();
-    if(/macbook|laptop/.test(type))return ['Pantalla','Teclado','Tapa','Base','Puertos'];
-    if(/control/.test(type))return ['Frontal','Trasera','Joysticks','Gatillos','Botones'];
-    if(/consola/.test(type))return ['Frontal','Posterior','Superior','Inferior','Puertos'];
-    if(/iphone|ipad|teléfono|tablet/.test(type))return ['Frontal','Trasera','Superior','Inferior','Laterales'];
-    return ['Exterior','Puertos','Botones'];
-  }
-  function renderReceptionInspection(){
-    if(!rx('rxInspection'))return;
-    rx('rxInspection').innerHTML=inspectionAreas().map(a=>`<label>${esc(a)}<input data-inspection="${esc(a)}" value="${esc(receptionInspection[a]||'')}" placeholder="Sin revisar / detalles visibles" /></label>`).join('');
-    rx('rxInspection').querySelectorAll('input').forEach(input=>input.addEventListener('input',()=>{receptionInspection[input.dataset.inspection]=input.value;updateReceptionSummary();}));
-  }
-  function receptionSummaryHTML(){
-    const m=receptionDetails();
-    return `<dl>${Object.entries({Cliente:oClient.value,Cédula:rx('oDocument').value,Dirección:rx('oAddress').value,Teléfono:oPhone.value,Equipo:[m.brand,m.platform,oDevice.value].filter(Boolean).join(' · '),'Serial / IMEI':oSerial.value,Accesorios:oAccessories.value,Falla:oIssue.value,Estado:[m.condition,oVisual.value,...inspectionAreas().filter(a=>m.inspection[a]).map(a=>a+': '+m.inspection[a])].filter(Boolean).join(' · '),Observaciones:oTechNotes.value,'Fotos pendientes':receptionPhotos.length}).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(String(v||'No indicado'))}</dd></div>`).join('')}</dl>`;
-  }
-  function updateReceptionSummary(){if(rx('rxSummary'))rx('rxSummary').innerHTML=receptionSummaryHTML();}
-  function resetReceptionV2(){
-    closeReceptionModels();receptionAccessLoaded=false;rx('oAccessCode').type='password';rx('oAccessCode').disabled=!['superadmin','admin','reception','technician'].includes(session?.role);
-    receptionInspection={};receptionPhotos=[];receptionExtraChecklist={};receptionConfirmed=false;receptionOriginalType='';
-    setReceptionCategory('apple',true);oBrand.value='Apple';renderReceptionPhotos();updateReceptionSummary();
-  }
-  function restoreReceptionV2(o){
-    const m=receptionMeta(o);rx('oDocument').value=m.client_document||'';rx('oAddress').value=m.client_address||'';receptionOriginalType=m.type||o.deviceType||'';setReceptionCategory(m.device_category||'apple',true);
-    oBrand.value=m.brand||(receptionCategory==='apple'?'Apple':'');
-    if(m.type&&receptionCategory!=='apple')rx('rxType').value=m.type;
-    rx('rxPlatform').value=m.platform||'PlayStation';rx('rxCondition').value=m.condition||'';rx('rxDiagnosis').value=m.diagnosis||'';
-    receptionExtraChecklist={...(o.checklist||{})};receptionInspection={...(m.inspection||{})};
-    // Old orders store the marks in visual_condition; preserve both forms.
-    damageMarks=Array.isArray(m.damage_marks)?m.damage_marks.map(x=>({...x})):Array.from((o.visual||'').matchAll(/\d+\. (\S+) \[([^\]]+)\] en X:([\d.]+) Y:([\d.]+)/g),x=>({type:x[1],view:x[2],x:Number(x[3]),y:Number(x[4])}));
-    const original=o.visual||'';renderDamageMarks();oVisual.value=original;
-    renderReceptionInspection();renderReceptionPhotos();updateReceptionSummary();
-  }
-  function initReceptionV2(){
-    if(!rx('orderModal'))return;
-    const issues=['No enciende','No carga','Pantalla','Batería','Audio','Sobrecalentamiento','Software','Conectividad','Golpe/líquido','Otro'];
-    rx('rxQuickIssues').innerHTML=issues.map(t=>`<button type="button">${t}</button>`).join('');
-    rx('rxQuickIssues').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{const text=b.textContent;if(!oIssue.value.split(' · ').includes(text))oIssue.value=[oIssue.value,text].filter(Boolean).join(' · ');updateReceptionSummary();oIssue.focus();}));
-    rx('orderModal').addEventListener('input',updateReceptionSummary);
-    rx('orderModal').addEventListener('change',updateReceptionSummary);
-    oDevice.addEventListener('input',renderReceptionInspection);oCategory.addEventListener('change',renderReceptionInspection);
-    deviceModelSearch.addEventListener('input',renderReceptionInspection);
-    setReceptionCategory('apple',true);
-    document.addEventListener('pointerdown',e=>{if(!rx('rxModelPicker')?.contains(e.target))closeReceptionModels();});
-    rx('rxModelPicker').addEventListener('focusout',e=>{if(!rx('rxModelPicker').contains(e.relatedTarget))closeReceptionModels();});
-  }
-  let receptionPrintWindow=null;
-  async function saveOrder(e){
-    e.preventDefault();
-    if(receptionSaving)return;
-    if(!can('reception')&&!can('orders'))return toast('No tienes permiso para registrar recepción.','error');
-    if(!rx('orderModal').querySelector('form').reportValidity())return;
-    if(!receptionConfirmed){rx('rxReviewSummary').innerHTML=receptionSummaryHTML();rx('rxReview').showModal();return;}
-    receptionConfirmed=false;receptionSaving=true;
-    if(rx('rxPrintAfterSave')?.checked){receptionPrintWindow=window.open('','_blank','width=450,height=720');if(receptionPrintWindow){receptionPrintWindow.document.write('<!doctype html><html lang="es"><title>Etiqueta ThinkStore</title><body><p>Guardando la orden. La etiqueta aparecerá al finalizar.</p></body></html>');receptionPrintWindow.document.close();}else toast('Permite ventanas emergentes o usa Etiqueta QR después de guardar.','error');}
-    rx('orderSaveBtn').disabled=true;rx('orderModal').querySelector('form').inert=true;
-    try{await persistReceptionOrder(e);}catch(err){toast('No se pudo completar el ingreso: '+err.message+'. Tus datos permanecen en el formulario.','error');}
-    finally{if(receptionPrintWindow&&!receptionPrintWindow.closed)receptionPrintWindow.close();receptionPrintWindow=null;receptionSaving=false;rx('orderSaveBtn').disabled=false;rx('orderModal').querySelector('form').inert=false;}
-  }
-  function confirmReception(){rx('rxReview').close();receptionConfirmed=true;rx('orderModal').querySelector('form').requestSubmit();}
-  // Same private bucket and metadata table as the existing order manager.
-  async function storeOrderFile(orderId,file){
-    if(file.size>8*1024*1024)throw new Error('El archivo supera el límite de 8 MB');
-    const ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'');
-    const path=`${orderId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,{upsert:false});if(upError)throw upError;
-    const {error}=await supabaseClient.from('service_order_photos').insert({order_id:orderId,file_url:'private',storage_path:path,label:file.name,created_by_email:session?.email||null});
-    if(error){await supabaseClient.storage.from('service-order-files').remove([path]);throw error;}
-    await audit('upload_order_file',orderId,null,{label:file.name,storage_path:path});
-  }
-  function addReceptionPhotos(input){
-    for(const file of input.files||[]){if(!file.type.startsWith('image/')||file.size>8*1024*1024){toast('Selecciona imágenes de hasta 8 MB.','error');continue;}receptionPhotos.push(file);}
-    input.value='';renderReceptionPhotos();updateReceptionSummary();
-  }
-  async function renderReceptionPhotos(){
-    receptionPhotoUrls.forEach(url=>URL.revokeObjectURL(url));receptionPhotoUrls=[];
-    const box=rx('rxPhotoPreview');if(!box)return;box.replaceChildren();
-    const add=(url,label,index)=>{const card=document.createElement('div'),img=document.createElement('img'),caption=document.createElement('small');img.src=url;img.alt=label;caption.textContent=label;card.append(img,caption);if(index!==undefined){const b=document.createElement('button');b.type='button';b.textContent='Quitar';b.onclick=()=>{receptionPhotos.splice(index,1);renderReceptionPhotos();updateReceptionSummary();};card.append(b);}box.append(card);};
-    receptionPhotos.forEach((file,i)=>{const url=URL.createObjectURL(file);receptionPhotoUrls.push(url);add(url,file.name,i);});
-    const orderId=activeReceptionOrderId;
-    for(const photo of servicePhotos.filter(p=>String(p.order_id)===String(orderId))){
-      try{const {data,error}=await supabaseClient.storage.from('service-order-files').createSignedUrl(photo.storage_path,3600);if(orderId!==activeReceptionOrderId)return;if(!error&&data?.signedUrl)add(data.signedUrl,photo.label||'Foto guardada');}catch(err){console.warn('Foto de recepción:',err.message);}
-    }
-  }
-  async function finishReceptionFiles(orderId){
-    activeReceptionOrderId=orderId; // Subsequent attempts update this order, never insert it twice.
-    try{await saveReceptionAccess(orderId);}catch(err){toast('La orden está guardada, pero no se guardó la clave: '+err.message+'. Vuelve a guardar para reintentar.','error');return false;}
-    while(receptionPhotos.length){try{await storeOrderFile(orderId,receptionPhotos[0]);receptionPhotos.shift();}catch(err){await saveReceptionDraft(true);await loadSupportData();renderReceptionPhotos();updateReceptionSummary();rx('orderSaveBtn').textContent='Guardar recepción y reintentar fotos';toast('La orden está guardada. Quedan fotos pendientes: '+err.message+'. Vuelve a guardar para reintentarlas.','error');return false;}}
-    return true;
-  }
-  function receptionDraftStore(action,value){
-    if(!session?.email)return Promise.reject(new Error('Inicia sesión para usar borradores'));
-    return new Promise((resolve,reject)=>{const req=indexedDB.open('thinkstore-reception-v2',1);req.onupgradeneeded=()=>req.result.createObjectStore('drafts');req.onerror=()=>reject(req.error);req.onsuccess=()=>{const db=req.result,tx=db.transaction('drafts',action==='get'?'readonly':'readwrite'),store=tx.objectStore('drafts'),key=session.email;const op=action==='get'?store.get(key):action==='delete'?store.delete(key):store.put(value,key);tx.oncomplete=()=>{db.close();resolve(op.result);};tx.onerror=()=>{db.close();reject(tx.error);};};});
-  }
-  async function saveReceptionDraft(force=false){
-    if(receptionSaving&&!force)return;
-    if(!can('reception')&&!can('orders'))return;
-    const fields={};rx('orderModal').querySelectorAll('input[id]:not([type=file]),textarea[id],select[id]').forEach(el=>{if(el.id!=='oAccessCode')fields[el.id]=el.value;});
-    const checklist={};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();checklist[name]={checked:label.querySelector('input')?.checked||false,value:label.querySelector('select')?.value||''};});
-    try{await receptionDraftStore('put',{fields,checklist,meta:receptionDetails(),extra:receptionExtraChecklist,photos:receptionPhotos,orderId:activeReceptionOrderId,appointmentId:pendingAppointmentId});rx('rxDraftStatus').textContent='Borrador guardado en este navegador · '+new Date().toLocaleTimeString('es-VE');if(!force)toast(activeReceptionOrderId?'Borrador guardado para continuar esta recepción.':'Borrador guardado. No se ha creado una orden nueva.');}catch(err){toast('No se pudo guardar el borrador: '+err.message,'error');}
-  }
-  async function restoreReceptionDraft(){
-    if(receptionSaving||(!can('reception')&&!can('orders')))return;
-    try{const draft=await receptionDraftStore('get');if(!draft)return toast('No hay un borrador para este usuario.');
-      if(!confirm('Recuperar el borrador reemplazará los datos actuales del formulario. ¿Continuar?'))return;
-      if(draft.orderId&&!orders.some(o=>String(o.id)===String(draft.orderId)))return toast('La orden del borrador no está disponible. Actualiza el panel antes de recuperarlo.','error');
-      resetReceptionForm();activeReceptionOrderId=draft.orderId;pendingAppointmentId=draft.appointmentId;
-      setReceptionCategory(draft.meta.device_category,true);Object.entries(draft.fields).forEach(([id,v])=>{if(rx(id))rx(id).value=v;});
-      if(receptionCategory==='apple')previewSelectedDevice(oDevice.value);
-      applyReceptionChecklist(draft.checklist);restoreReceptionV2({visual:draft.fields.oVisual,checklist:{...draft.extra,__reception_v2:draft.meta}});
-      if(activeReceptionOrderId)loadReceptionAccess(activeReceptionOrderId);
-      receptionPhotos=draft.photos||[];renderReceptionPhotos();updateReceptionSummary();rx('orderSaveBtn').textContent=activeReceptionOrderId?'Guardar recepción':'Crear orden de servicio';toast('Borrador recuperado.');
-    }catch(err){toast('No se pudo recuperar el borrador: '+err.message,'error');}
-  }
 
   function resetReceptionForm(){
     activeReceptionOrderId=null; pendingAppointmentId=null;
@@ -912,14 +696,13 @@ const TSService=(()=>{
     document.getElementById('oPasswordFlag').value='No';
     document.getElementById('orderModalTitle').textContent='Nueva recepción';
     document.getElementById('orderModalSubtitle').textContent='Complete todos los datos del ingreso. La orden de servicio se genera únicamente al finalizar la recepción.';
-    document.getElementById('orderSaveBtn').textContent='Crear orden de servicio';
+    document.getElementById('orderSaveBtn').textContent='Finalizar ingreso y crear orden';
     document.getElementById('deviceModelSearch').value='';
     document.getElementById('selectedDeviceName').textContent='Seleccione un modelo Apple';
     document.getElementById('selectedDeviceMeta').textContent='Se cargará un esquema referencial según la categoría seleccionada.';
     currentDeviceView='all';
     document.querySelectorAll('.device-view-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view==='all'));
     clearDamageMarks();
-    resetReceptionV2();
   }
   function openServiceOrder(){
     if(!can('reception')&&!can('orders')){alert('No tienes permiso para crear órdenes');return}
@@ -950,48 +733,35 @@ const TSService=(()=>{
     oClient.value=o.client||'';oPhone.value=o.phone||'';oEmail.value=o.email||'';oPriority.value=o.priority||'Normal';
     oDevice.value=o.device||'';deviceModelSearch.value=o.device||'';oColor.value=o.color||'';oSerial.value=o.serial||'';oIssue.value=o.issue||'';oAccessories.value=o.accessories||'';oVisual.value=o.visual||'';oTechNotes.value=o.technicalNotes||'';
     oPasswordFlag.value=o.passwordReceived?'Sí':'No';
-    setReceptionCategory(receptionMeta(o).device_category||'apple',true);
-    const d=receptionCategory==='apple'?findAppleDevice(o.device||''):null; if(d){oCategory.value=d.category||'';previewSelectedDevice(o.device);selectDeviceFromSearch(o.device)}
+    const d=findAppleDevice(o.device||''); if(d){oCategory.value=d.category||'';previewSelectedDevice(o.device);selectDeviceFromSearch(o.device)}
     applyReceptionChecklist(o.checklist||{});
-    restoreReceptionV2(o);
-    loadReceptionAccess(o.id);
     const sig=o.signatures||{};sigReceptionName.value=sig.reception||session?.name||'';sigClientName.value=sig.client||o.client||'';sigTechName.value=sig.technician||'';sigSupervisorName.value=sig.supervisor||'';
     document.body.classList.add('order-tab');document.getElementById('orderModal').classList.add('open');setTimeout(()=>oSerial?.focus(),120);
   }
   function code(){const year=new Date().getFullYear(),nums=orders.filter(o=>String(o.code).includes(`TS-SVC-${year}-`)).map(o=>Number(String(o.code).split('-').pop())||0);return `TS-SVC-${year}-${String(Math.max(0,...nums)+1).padStart(4,'0')}`}
-  async function persistReceptionOrder(e){
+  async function saveOrder(e){
     e.preventDefault();
-    const device=receptionCategory==='apple'?findAppleDevice(oDevice.value):null;
-    const checklist={...receptionExtraChecklist};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
-    checklist.__reception_v2=receptionDetails();
+    const device=findAppleDevice(oDevice.value);
+    const checklist={};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
     const signatures={reception:sigReceptionName.value.trim()||session?.name||'',client:sigClientName.value.trim(),technician:sigTechName.value.trim(),supervisor:sigSupervisorName.value.trim()};
-    const base={client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:device?.category||receptionDetails().type||null,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:Boolean(rx('oAccessCode').value)||oPasswordFlag.value==='Sí',priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:oTechNotes.value.trim()||null,reception_checklist:checklist,signatures,status:'Recibido'};
+    const base={client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:device?.category||null,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:oPasswordFlag.value==='Sí',priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:oTechNotes.value.trim()||null,reception_checklist:checklist,signatures,status:'Recibido'};
     if(activeReceptionOrderId){
       const previous=orders.find(x=>String(x.id)===String(activeReceptionOrderId));
-      delete base.status;
       const {data,error}=await supabaseClient.from('service_orders').update(base).eq('id',activeReceptionOrderId).select('*').single();
       if(error){alert('No se pudo guardar la recepción: '+error.message);return}
-      await supabaseClient.from('service_order_notes').insert({order_id:activeReceptionOrderId,note:'Recepción física registrada/actualizada. Checklist, accesorios, serial/IMEI y condición del equipo guardados.',visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:data?.status||previous?.status||'Recibido'});
+      await supabaseClient.from('service_order_notes').insert({order_id:activeReceptionOrderId,note:'Recepción física registrada/actualizada. Checklist, accesorios, serial/IMEI y condición del equipo guardados.',visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});
       await audit('update_reception',activeReceptionOrderId,previous||null,base);
-      if(!await finishReceptionFiles(activeReceptionOrderId))return;
-      if(pendingAppointmentId){const {error:appointmentError}=await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);if(appointmentError){toast('Orden guardada; no se pudo actualizar la cita: '+appointmentError.message,'error');return;}pendingAppointmentId=null;}
-      try{await receptionDraftStore('delete');}catch(err){console.warn('No se pudo limpiar el borrador:',err.message);}
-      activeReceptionOrderId=null;await loadSupportData();receptionSaving=false;closeModals();await renderPanel('orders');toast('Recepción guardada en la orden '+(data?.code||previous?.code||''));if(receptionPrintWindow&&!receptionPrintWindow.closed){printDeviceLabelByOrder(mapOrder(data),receptionPrintWindow);receptionPrintWindow=null;}return;
+      activeReceptionOrderId=null;await loadSupportData();closeModals();await renderPanel('orders');toast('Recepción guardada en la orden '+(data?.code||previous?.code||''));return;
     }
     const row={...base,code:code(),quote_status:'Pendiente',created_by_email:session?.email||null};
     const {data,error}=await supabaseClient.from('service_orders').insert(row).select('*').single();
     if(error){alert('No se pudo crear la orden: '+error.message);return}
-    activeReceptionOrderId=data.id;
-    try{const draft=await receptionDraftStore('get');if(draft)await receptionDraftStore('put',{...draft,orderId:data.id});}catch(err){console.warn('No se pudo actualizar el borrador:',err.message);}
     await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:'Equipo recibido y checklist registrado.',visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,row);
-    if(!await finishReceptionFiles(data.id))return;
     if(pendingAppointmentId){
-      const {error:appointmentError}=await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);
-      if(appointmentError){toast('Orden guardada; no se pudo actualizar la cita: '+appointmentError.message,'error');return;}
+      await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);
     }
-    try{await receptionDraftStore('delete');}catch(err){console.warn('No se pudo limpiar el borrador:',err.message);}
-    const createdOrder=mapOrder(data); pendingAppointmentId=null;activeReceptionOrderId=null;
-    await loadSupportData();receptionSaving=false;closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);if(receptionPrintWindow&&!receptionPrintWindow.closed){printDeviceLabelByOrder(createdOrder,receptionPrintWindow);receptionPrintWindow=null;}toast('Ingreso finalizado. Orden creada: '+row.code);
+    const createdOrder=mapOrder(data); pendingAppointmentId=null;
+    await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso finalizado. Orden creada: '+row.code);
   }
   async function updateStatus(i,status){
     const order=orders[i];if(!order)return;
@@ -1027,23 +797,132 @@ const TSService=(()=>{
   function checklistSummary(o){
     return Object.entries(o.checklist||{}).filter(([,v])=>v?.checked).map(([k,v])=>`${esc(k)}: ${esc(v.value||'Revisado')}`).join(' · ')||'Sin checklist marcado';
   }
-  function openPrintWindow(title,html,extraCss='',preparedWindow=null){
-    const w=preparedWindow||window.open('','_blank','width=900,height=1000'); if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
-    w.document.open();w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
-      *{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#111;margin:0;padding:28px;background:#fff}.sheet{max-width:820px;margin:auto}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #111;padding-bottom:16px}.brand{display:flex;gap:12px;align-items:center}.logo{width:48px;height:48px;border-radius:12px;background:#111;color:#fff;display:grid;place-items:center;font-weight:800;font-size:22px}.print-logo{display:block;width:220px;height:auto;max-height:70px;object-fit:contain;object-position:left}.print-subtitle{font-size:12px;color:#555;margin-top:8px}.code{text-align:right}.code b{font-size:24px}.box{break-inside:avoid}.signatures{break-inside:avoid}@page{size:A4;margin:12mm}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}.box{border:1px solid #ccc;border-radius:12px;padding:14px}.box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em}.full{grid-column:1/-1}.qr{display:flex;align-items:center;gap:18px}.qr img{width:145px;height:145px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:48px}.sign{border-top:1px solid #111;padding-top:8px;text-align:center;font-size:12px}.policy p{margin:0;font-size:11px;line-height:1.45;color:#333}.foot{text-align:center;margin-top:30px;font-size:12px;color:#555}@media print{body{padding:0}.no-print{display:none!important}}
-    ${extraCss}</style></head><body>${html}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);w.document.close();
+  function openPrintWindow(title,html){
+    const w=window.open('','_blank','width=900,height=1000'); if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+      *{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#111;margin:0;padding:28px;background:#fff}.sheet{max-width:820px;margin:auto}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #111;padding-bottom:16px}.brand{display:flex;gap:12px;align-items:center}.logo{width:48px;height:48px;border-radius:12px;background:#111;color:#fff;display:grid;place-items:center;font-weight:800;font-size:22px}.code{text-align:right}.code b{font-size:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}.box{border:1px solid #ccc;border-radius:12px;padding:14px}.box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em}.full{grid-column:1/-1}.qr{display:flex;align-items:center;gap:18px}.qr img{width:145px;height:145px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:48px}.sign{border-top:1px solid #111;padding-top:8px;text-align:center;font-size:12px}.policy p{margin:0;font-size:11px;line-height:1.45;color:#333}.foot{text-align:center;margin-top:30px;font-size:12px;color:#555}@media print{body{padding:0}.no-print{display:none!important}}
+    </style></head><body>${html}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);w.document.close();
   }
   function printReceptionSheetByOrder(o){
     if(!o)return; const url=trackingUrl(o); const qr=qrUrl(url,300);
-    openPrintWindow(`Hoja de recepción ${o.code}`,`<div class="sheet"><div class="head"><div class="brand"><div><img class="print-logo" src="${new URL('assets/thinkstore-logo-print.png',location.href).href}" alt="ThinkStore"><div class="print-subtitle">Servicio técnico · Recepción de equipos</div></div></div><div class="code"><small>ORDEN DE SERVICIO</small><br><b>${esc(o.code)}</b><br><span>${new Date().toLocaleString('es-VE')}</span></div></div>
-    <div class="grid"><div class="box"><h3>Datos del cliente</h3><b>${esc(o.client)}</b><br>${esc(o.phone)}<br>${esc(o.email||'')}<br>Cédula: ${esc(receptionMeta(o).client_document||'No indicada')}<br>Dirección: ${esc(receptionMeta(o).client_address||'No indicada')}</div><div class="box"><h3>Datos del equipo</h3><b>${esc(o.device)}</b><br>${esc([receptionMeta(o).brand,receptionMeta(o).platform].filter(Boolean).join(' · '))}<br>Color: ${esc(o.color||'No indicado')}<br>Serial / IMEI: ${esc(o.serial||'No indicado')}</div><div class="box full"><h3>Falla reportada</h3>${esc(o.issue)}</div><div class="box"><h3>Accesorios recibidos</h3>${esc(o.accessories||'Ninguno indicado')}</div><div class="box"><h3>Condición / checklist</h3>${checklistSummary(o)}<p>${esc(o.visual||'')}</p><p>${esc(receptionMeta(o).condition||'')}</p>${Object.entries(receptionMeta(o).inspection||{}).filter(([,v])=>v).map(([k,v])=>esc(k)+': '+esc(v)).join(' · ')}</div><div class="box full"><h3>Observaciones</h3>${esc(cleanReceptionObservation(o))}</div><div class="box full qr"><img src="${qr}" alt="QR"><div><h3>Seguimiento en vivo</h3><b>${esc(o.code)}</b><p>Escanea este código para consultar el estado actualizado del equipo.</p><small>${esc(url)}</small></div></div><div class="box full policy"><h3>Términos y condiciones de recepción</h3><p>El cliente declara ser propietario del equipo o estar autorizado para entregarlo a revisión. ThinkStore registrará el estado visible, accesorios y pruebas realizadas al momento de la recepción. Se recomienda mantener una copia de seguridad de la información antes de cualquier diagnóstico o reparación. Cuando el diagnóstico requiera apertura o pruebas internas del equipo, se realizará únicamente como parte del proceso técnico. Cualquier reparación, repuesto o cargo adicional deberá ser informado y aprobado antes de ejecutarse. La presente hoja y el número de orden sirven como comprobante de recepción y referencia para el seguimiento del servicio.</p><p style="margin-top:8px"><b>Clave del dispositivo y pruebas técnicas.</b> Si el cliente facilita voluntariamente el PIN, contraseña o patrón de desbloqueo del dispositivo, autoriza al personal técnico de ThinkStore a utilizarlo exclusivamente para el diagnóstico, la reparación y las pruebas de funcionamiento necesarias, incluidas las verificaciones una vez reparado el equipo y antes de su entrega. Esta autorización no comprende usos ajenos al servicio ni la revisión de información personal que no sea necesaria para las pruebas acordadas. La clave se registra para uso interno del personal autorizado y no se incluye en esta hoja, en la etiqueta ni en el seguimiento público. Si el cliente no facilita la clave, algunas pruebas podrían quedar pendientes; ThinkStore informará de esa limitación al entregar el equipo.</p></div></div>
+    openPrintWindow(`Hoja de recepción ${o.code}`,`<div class="sheet"><div class="head"><div class="brand"><div class="logo">TS</div><div><h1 style="margin:0">ThinkStore</h1><div>Servicio Técnico Apple</div></div></div><div class="code"><small>ORDEN DE SERVICIO</small><br><b>${esc(o.code)}</b><br><span>${new Date().toLocaleString('es-VE')}</span></div></div>
+    <div class="grid"><div class="box"><h3>Datos del cliente</h3><b>${esc(o.client)}</b><br>${esc(o.phone)}<br>${esc(o.email||'')}</div><div class="box"><h3>Datos del equipo</h3><b>${esc(o.device)}</b><br>Color: ${esc(o.color||'No indicado')}<br>Serial / IMEI: ${esc(o.serial||'No indicado')}</div><div class="box full"><h3>Falla reportada</h3>${esc(o.issue)}</div><div class="box"><h3>Accesorios recibidos</h3>${esc(o.accessories||'Ninguno indicado')}</div><div class="box"><h3>Condición / checklist</h3>${checklistSummary(o)}</div><div class="box full"><h3>Observaciones</h3>${esc(cleanReceptionObservation(o))}</div><div class="box full qr"><img src="${qr}" alt="QR"><div><h3>Seguimiento en vivo</h3><b>${esc(o.code)}</b><p>Escanea este código para consultar el estado actualizado del equipo.</p><small>${esc(url)}</small></div></div><div class="box full policy"><h3>Política de recepción</h3><p>El cliente declara ser propietario del equipo o estar autorizado para entregarlo a revisión. ThinkStore registrará el estado visible, accesorios y pruebas realizadas al momento de la recepción. Se recomienda mantener una copia de seguridad de la información antes de cualquier diagnóstico o reparación. Cuando el diagnóstico requiera apertura o pruebas internas del equipo, se realizará únicamente como parte del proceso técnico. Cualquier reparación, repuesto o cargo adicional deberá ser informado y aprobado antes de ejecutarse. La presente hoja y el número de orden sirven como comprobante de recepción y referencia para el seguimiento del servicio.</p></div></div>
     <div class="signatures"><div class="sign">Firma del cliente<br>${esc(o.signatures?.client||o.client||'')}</div><div class="sign">Firma de recepción<br>${esc(o.signatures?.reception||session?.name||'')}</div></div><div class="foot">ThinkStore · Tecnología. Todo en un solo lugar.</div></div>`);
   }
-  function printDeviceLabelByOrder(o,preparedWindow=null){
+  function label40x60Markup(o,qr){
+    return `<div style="width:40mm;height:60mm;padding:3.2mm 3mm 2.8mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#fff;color:#111"><div style="width:100%;text-align:center;border-bottom:.35mm solid #111;padding-bottom:2mm"><b style="font-size:13pt;letter-spacing:-.25pt">ThinkStore</b><div style="font-size:6.8pt;margin-top:.6mm">Servicio Técnico</div></div><div style="width:100%;text-align:center;margin-top:2.2mm"><b style="display:block;font-size:10.5pt;line-height:1.05">${esc(o.code)}</b><div style="font-size:7.8pt;font-weight:700;line-height:1.15;margin-top:1.5mm;max-height:9mm;overflow:hidden">${esc(o.device)}</div>${o.color?`<div style="font-size:6.8pt;margin-top:.8mm">${esc(o.color)}</div>`:''}</div><img src="${qr}" style="width:24mm;height:24mm;margin-top:2.3mm" alt="QR"><div style="font-size:6.2pt;text-align:center;line-height:1.2;margin-top:1.5mm">Escanea para ver el estado</div></div>`;
+  }
+  function labelLegacyMarkup(o,qr){
+    return `<div style="width:76mm;height:50mm;border:1px solid #111;border-radius:4mm;padding:4mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:grid;grid-template-columns:1fr 28mm;gap:3mm;align-items:center"><div><b style="font-size:13pt">ThinkStore</b><div style="font-size:7pt;margin-bottom:3mm">Servicio Técnico</div><b style="font-size:11pt">${esc(o.code)}</b><div style="font-size:9pt;margin-top:2mm">${esc(o.device)}</div><div style="font-size:8pt">${esc(o.color||'')}</div><div style="font-size:6.5pt;margin-top:2mm">Escanea para ver el estado</div></div><img src="${qr}" style="width:28mm;height:28mm" alt="QR"></div>`;
+  }
+  function printDeviceLabelByOrder(o,format='legacy'){
+    if(!o)return; const url=trackingUrl(o); const qr=qrUrl(url,220);
+    if(format==='40x60'){
+      const w=window.open('','_blank','width=520,height=760'); if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
+      w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(`Etiqueta ${o.code}`)}</title><style>*{box-sizing:border-box}html,body{margin:0!important;padding:0!important;width:40mm;height:60mm;background:#fff;overflow:hidden}@page{size:40mm 60mm;margin:0}@media print{html,body{width:40mm!important;height:60mm!important;margin:0!important;padding:0!important}}</style></head><body>${label40x60Markup(o,qr)}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);w.document.close();return;
+    }
+    openPrintWindow(`Etiqueta ${o.code}`,labelLegacyMarkup(o,qr));
+  }
+  function sanitizeLabelFileName(value){
+    return String(value||'etiqueta').trim().replace(/[^a-z0-9._-]+/gi,'-').replace(/-+/g,'-').replace(/^-|-$/g,'')||'etiqueta';
+  }
+  function createQrDataUrl(text,size=720){
+    if(typeof QRCode==='undefined') throw new Error('No se cargó el generador QR');
+    const holder=document.createElement('div');
+    holder.setAttribute('aria-hidden','true');
+    holder.style.cssText='position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;overflow:hidden;background:#fff';
+    document.body.appendChild(holder);
+    try{
+      new QRCode(holder,{text:String(text||''),width:size,height:size,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+      const canvas=holder.querySelector('canvas');
+      const img=holder.querySelector('img');
+      const dataUrl=canvas?.toDataURL?.('image/png')||img?.src||'';
+      if(!dataUrl) throw new Error('No se pudo convertir el QR');
+      return dataUrl;
+    }finally{holder.remove()}
+  }
+  function createLabelPdfFile(o,format='40x60'){
+    if(!o) throw new Error('Orden no disponible');
+    const jsPDF=window.jspdf?.jsPDF;
+    if(!jsPDF) throw new Error('No se cargó el generador PDF');
+    const url=trackingUrl(o);
+    const qrData=createQrDataUrl(url,720);
+    const is40=format==='40x60';
+    const pageW=is40?40:76, pageH=is40?60:50;
+    const doc=new jsPDF({orientation:pageW>pageH?'landscape':'portrait',unit:'mm',format:[pageW,pageH],compress:true});
+    doc.setProperties({title:`Etiqueta ${o.code}`,subject:'Etiqueta de servicio técnico ThinkStore',author:'ThinkStore',creator:'ThinkStore Support'});
+    doc.setTextColor(17,17,17);
+    doc.setDrawColor(17,17,17);
+    doc.setFont('helvetica','bold');
+    if(is40){
+      doc.setFontSize(13);
+      doc.text('ThinkStore',20,6.6,{align:'center'});
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+      doc.text('Servicio Tecnico',20,9.9,{align:'center'});
+      doc.setLineWidth(.35); doc.line(3,12,37,12);
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
+      doc.text(String(o.code||''),20,17,{align:'center'});
+      doc.setFontSize(7.5);
+      const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),34).slice(0,2);
+      doc.text(deviceLines,20,21,{align:'center',lineHeightFactor:1.05});
+      let colorY=21+(deviceLines.length*3.3)+.4;
+      if(o.color){doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.text(doc.splitTextToSize(String(o.color),32).slice(0,1),20,colorY,{align:'center'});colorY+=3}
+      const qrY=Math.max(27,colorY+1.2);
+      doc.addImage(qrData,'PNG',8,qrY,24,24,undefined,'FAST');
+      doc.setFont('helvetica','normal');doc.setFontSize(6.1);
+      doc.text('Escanea para ver el estado',20,Math.min(57.2,qrY+27.2),{align:'center'});
+    }else{
+      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('ThinkStore',4,7);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.text('Servicio Tecnico',4,10.5);
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.text(String(o.code||''),4,17);
+      doc.setFontSize(8.5);
+      const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),38).slice(0,2);
+      doc.text(deviceLines,4,22,{lineHeightFactor:1.08});
+      if(o.color){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.text(doc.splitTextToSize(String(o.color),38).slice(0,1),4,30)}
+      doc.setFontSize(6.2);doc.text('Escanea para ver el estado',4,43);
+      doc.addImage(qrData,'PNG',46,10.5,26,26,undefined,'FAST');
+      doc.setLineWidth(.25);doc.roundedRect(1.5,1.5,73,47,2.8,2.8);
+    }
+    const blob=doc.output('blob');
+    return new File([blob],`${sanitizeLabelFileName(o.code)}-${is40?'40x60':'anterior'}.pdf`,{type:'application/pdf'});
+  }
+  function downloadLabelFile(file){
+    const url=URL.createObjectURL(file); const a=document.createElement('a');
+    a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2500);
+  }
+  async function openLabelInHereLabel(o,format='40x60'){
+    try{
+      toast('Preparando etiqueta para HereLabel…');
+      const file=createLabelPdfFile(o,format);
+      const shareData={files:[file],title:`Etiqueta ${o.code}`,text:'Etiqueta ThinkStore lista para imprimir en HereLabel'};
+      const canShareFiles=!!navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}));
+      if(canShareFiles){
+        try{
+          await navigator.share(shareData);
+          toast('Etiqueta enviada. Selecciona HereLabel para abrirla e imprimir.');
+          return;
+        }catch(err){
+          if(err?.name==='AbortError') return;
+          console.warn('HereLabel share fallback',err);
+        }
+      }
+      downloadLabelFile(file);
+      toast('Se descargó el PDF de la etiqueta. Ábrelo con HereLabel para imprimir.');
+    }catch(err){console.error(err);toast('No pude preparar la etiqueta para HereLabel: '+(err?.message||err),'error')}
+  }
+  function openLabelFormatSelector(o){
     if(!o)return;
-    const qr=qrUrl(trackingUrl(o),360).replace('margin=8','margin=32');
-    const css=`@page{size:40mm 60mm;margin:0}html,body{margin:0;padding:0;width:40mm;background:#fff}.device-label{width:40mm;height:60mm;padding:2mm;overflow:hidden;text-align:center;break-inside:avoid;page-break-inside:avoid;color:#000;font-family:Arial,sans-serif}.label-brand{font-size:11pt;font-weight:800;line-height:5mm}.label-subtitle{font-size:6pt;line-height:3mm}.label-code{font-size:8pt;line-height:4mm;font-weight:700;white-space:nowrap;margin:1mm 0}.label-device{font-size:7pt;line-height:3.2mm;height:6.4mm;overflow:hidden;overflow-wrap:anywhere}.label-color{font-size:6pt;line-height:3mm;height:3mm;overflow:hidden}.label-qr{display:block;width:28mm;height:28mm;margin:0 auto}.label-hint{font-size:5.5pt;line-height:3mm}.label-actions{width:40mm;padding:3mm;font-size:9pt}@media print{html,body{width:40mm;height:60mm}.label-actions{display:none!important}}`;
-    openPrintWindow(`Etiqueta ${o.code} · 40 × 60 mm`,`<div class="device-label"><div class="label-brand">ThinkStore</div><div class="label-subtitle">Servicio técnico</div><div class="label-code">${esc(o.code)}</div><div class="label-device">${esc(o.device)}</div><div class="label-color">${esc(o.color||'')}</div><img class="label-qr" src="${qr}" alt="QR de seguimiento"><div class="label-hint">Escanea para consultar el estado</div></div><div class="label-actions no-print"><button onclick="window.print()">Imprimir etiqueta</button><p>Papel: 40 × 60 mm · Vertical · Escala 100% · Sin márgenes ni encabezados.</p></div>`,css,preparedWindow);
+    document.getElementById('tsLabelFormatModal')?.remove();
+    const saved=localStorage.getItem('ts_label_format')||'40x60';
+    const modal=document.createElement('div'); modal.id='tsLabelFormatModal'; modal.className='modal open';
+    modal.innerHTML=`<div class="card" style="max-width:560px"><h2 style="margin-top:0">Etiqueta del equipo</h2><p style="color:var(--muted);margin-top:-6px">Selecciona el formato y envíalo directamente a HereLabel o usa la impresión del navegador.</p><div style="display:grid;gap:10px;margin:18px 0"><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="40x60" ${saved==='40x60'?'checked':''} style="width:auto;margin-top:3px"><span><b>40 × 60 mm</b><small style="display:block;color:var(--muted);margin-top:3px">Formato actual de la etiquetadora M1 · vertical</small></span></label><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="legacy" ${saved==='legacy'?'checked':''} style="width:auto;margin-top:3px"><span><b>Formato anterior</b><small style="display:block;color:var(--muted);margin-top:3px">Conserva la etiqueta anterior para otras impresoras o usos</small></span></label></div><div style="background:#f5f7fb;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.5"><b>HereLabel</b><br><span style="color:var(--muted)">ThinkStore genera un PDF con la medida real. En iPhone/iPad se abrirá el menú Compartir: toca <b>HereLabel</b> y la etiqueta llegará lista para imprimir, sin tener que diseñarla de nuevo.</span></div><div class="actions" style="flex-wrap:wrap"><button type="button" id="tsOpenHereLabel">Abrir en HereLabel</button><button type="button" class="secondary" id="tsPrintSelectedLabel">Imprimir desde navegador</button><button type="button" class="secondary" id="tsCancelLabelFormat">Cancelar</button></div></div>`;
+    document.body.appendChild(modal);
+    const selectedFormat=()=>modal.querySelector('input[name="tsLabelFormat"]:checked')?.value||'40x60';
+    modal.querySelector('#tsCancelLabelFormat').onclick=()=>modal.remove();
+    modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()});
+    modal.querySelector('#tsOpenHereLabel').onclick=async()=>{const format=selectedFormat();localStorage.setItem('ts_label_format',format);modal.remove();await openLabelInHereLabel(o,format)};
+    modal.querySelector('#tsPrintSelectedLabel').onclick=()=>{const format=selectedFormat();localStorage.setItem('ts_label_format',format);modal.remove();printDeviceLabelByOrder(o,format)};
   }
   function showReceptionComplete(o){
     const m=document.getElementById('receptionCompleteModal'); if(!m)return; m.dataset.orderId=o.id;
@@ -1051,10 +930,10 @@ const TSService=(()=>{
   }
   function completedOrder(){const id=document.getElementById('receptionCompleteModal')?.dataset.orderId;return orders.find(x=>String(x.id)===String(id))}
   function printCompletedReception(){printReceptionSheetByOrder(completedOrder())}
-  function printCompletedLabel(){printDeviceLabelByOrder(completedOrder())}
+  function printCompletedLabel(){openLabelFormatSelector(completedOrder())}
   function openCompletedTracking(){const o=completedOrder();if(o)window.open(trackingUrl(o),'_blank')}
   function printOrder(i){const o=orders[i];printReceptionSheetByOrder(o)}
-  function printLabel(i){const o=orders[i];printDeviceLabelByOrder(o)}
+  function printLabel(i){const o=orders[i];openLabelFormatSelector(o)}
   async function lookupOrder(e){e.preventDefault();const q=lookupCode.value.trim().toUpperCase();lookupResult.innerHTML='<p>Consultando…</p>';const {data,error}=await supabaseClient.rpc('lookup_service_order',{p_code:q});const o=Array.isArray(data)?data[0]:data;lookupResult.innerHTML=!error&&o?`<div class="metric"><b>${o.status}</b><p>${o.device_model}<br>Última actualización: ${dateText(o.updated_at)}</p></div>`:`<p>No encontré esa orden.</p>`}
 
   async function initAuth(){
@@ -1071,7 +950,7 @@ const TSService=(()=>{
     if(sbSession?.user?.email){
       try{
         const profile=await getServiceProfile(sbSession.user.email);
-        session={name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email,permissions:profile.permissions??null};
+        session={name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email};
         localStorage.setItem('ts_service_session',JSON.stringify(session));
         if(isPanelPage()) await renderApp(); else goToPanel();
       }catch(err){
@@ -1087,7 +966,6 @@ const TSService=(()=>{
 
   document.addEventListener('DOMContentLoaded',()=>{
     fillAppleDeviceList();
-    initReceptionV2();
     initAuth();
     if(location.hash.includes('new-order')){document.body.classList.add('order-tab');setTimeout(()=>openServiceOrder(),250);}
     const url=new URL(location.href);
@@ -1095,5 +973,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{toggleDeviceAccess,toggleReceptionModels,searchReceptionModels,modelPickerKey,chooseReceptionModel,editSupportUser,changeStaffRole,saveSupportUser,setReceptionCategory,renderReceptionInspection,addReceptionPhotos,saveReceptionDraft,restoreReceptionDraft,confirmReception,openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView};
+  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView};
 })();

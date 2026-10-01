@@ -1,8 +1,8 @@
 {
   "name": "thinkstore",
-  "version": "14.46.0",
+  "version": "14.4.0",
   "private": true,
-  "description": "ThinkStore V14.46 - Etiqueta QR al guardar recepción",
+  "description": "ThinkStore V14.4 - verified customer onboarding + V14.3 panel/sync/barcode",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4"
   }
