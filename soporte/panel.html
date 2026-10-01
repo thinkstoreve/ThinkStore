@@ -18,7 +18,8 @@
 .ts-clean-nav .ts-nav-icon{margin-left:0!important;margin-right:0!important;}
 @media (max-width:900px){.ts-clean-nav{column-gap:14px!important;}}
 </style>
-<link rel="stylesheet" href="reception-v2.css?v=14.37" />
+<link rel="stylesheet" href="reception-v2.css?v=14.43" />
+<link rel="stylesheet" href="workshop/workshop.css?v=14.43">
 </head>
 <body class="support-panel-page">
   <div id="supportPanelLoader" class="support-panel-loader" aria-live="polite">
@@ -118,6 +119,7 @@
             <h3>Datos del cliente</h3>
             <div class="grid2 compact">
               <label>Cliente<input id="oClient" required placeholder="Nombre del cliente" /></label>
+              <label>Cédula / documento<input id="oDocument" placeholder="V-12345678" autocomplete="off" /></label><label>Dirección<textarea id="oAddress" autocomplete="street-address" placeholder="Dirección del cliente"></textarea></label>
               <label>Teléfono<input id="oPhone" required placeholder="0414-0000000" /></label>
               <label>Correo<input id="oEmail" type="email" placeholder="cliente@email.com" /></label>
               <label>Prioridad<select id="oPriority"><option>Normal</option><option>Alta</option><option>Urgente</option></select></label>
@@ -138,6 +140,7 @@
               <label>Serial / IMEI<input id="oSerial" placeholder="Serial / IMEI" /></label>
               <label>Contraseña<select id="oPasswordFlag"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
             </div>
+            <label>Clave de desbloqueo del dispositivo (para pruebas)<input id="oAccessCode" type="password" autocomplete="new-password" placeholder="PIN, contraseña o descripción del patrón" /></label><button type="button" class="secondary" onclick="TSService.toggleDeviceAccess(this)">Mostrar clave</button><small id="rxAccessHelp">PIN, contraseña o patrón del dispositivo para diagnóstico y pruebas de funcionamiento después de la reparación. Entrega voluntaria y uso técnico interno. No se imprime ni se guarda en borradores.</small>
             <label>Color<input id="oColor" placeholder="Ej: Space Black, Natural Titanium..." /></label>
             <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, cable, caja, funda..."></textarea></label>
           </div>
@@ -150,12 +153,12 @@
 
         <main class="order-center">
           <div class="order-box model-selector-box">
-            <h3>Seleccione el modelo del equipo</h3>
-            <div class="model-search-wrap">
-              <input id="deviceModelSearch" list="appleDeviceModels" placeholder="Buscar modelo de iPhone, iPad, Mac, AirPods, Apple Watch..." oninput="TSService.selectDeviceFromSearch(this.value)" />
-              <span>⌄</span>
+            <div class="rx-model-heading"><h3>Seleccione el modelo del equipo</h3><a class="rx-coverage-link" href="https://checkcoverage.apple.com/?locale=es_VE" target="_blank" rel="noopener noreferrer" title="Consultar la cobertura de Apple en una pestaña nueva">Garantía</a></div>
+            <div class="model-search-wrap" id="rxModelPicker">
+              <input id="deviceModelSearch" role="combobox" aria-label="Buscar modelo Apple" aria-controls="rxModelList" aria-expanded="false" aria-autocomplete="list" autocomplete="off" placeholder="Buscar modelo de iPhone, iPad, Mac, AirPods, Apple Watch..." oninput="TSService.searchReceptionModels(this.value)" onkeydown="TSService.modelPickerKey(event)" />
+              <button id="rxModelToggle" type="button" aria-label="Desplegar modelos" aria-controls="rxModelList" aria-expanded="false" onclick="TSService.toggleReceptionModels()">⌄</button><div id="rxModelList" role="listbox" aria-label="Modelos Apple" inert></div>
             </div>
-            <small>La lista se despliega hacia abajo desde el buscador, sin ocupar espacio fijo.</small>
+            <small>Busca un modelo o abre la lista. Desplázate con la rueda del mouse o la barra lateral.</small>
 
             <div class="selected-device-summary">
               <div id="selectedDeviceArt" class="device-art device-generic"><img id="selectedDeviceImg" class="selected-device-img" alt="" /></div>
@@ -345,6 +348,6 @@
     </div>
   </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=14.37"></script>
+  <script src="workshop/finance.js?v=14.43"></script><script src="workshop/workshop.js?v=14.43"></script><script src="app.js?v=14.43"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 {
   "name": "thinkstore",
-  "version": "14.37.0",
+  "version": "14.43.0",
   "private": true,
-  "description": "ThinkStore V14.37 - Soporte Recepci\u00f3n V2 + Marketing Empresas",
+  "description": "ThinkStore V14.43 - Compatibilidad de órdenes numéricas en taller",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4"
   }

@@ -9,8 +9,11 @@ exports.handler=async event=>{
     const token=clean(event.headers.authorization||event.headers.Authorization).replace(/^Bearer\s+/i,'');if(!token)return reply(401,{ok:false,error:'Sesión requerida'});
     const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:key,Authorization:`Bearer ${token}`}});const user=await ur.json().catch(()=>({}));if(!ur.ok||!user.email)return reply(401,{ok:false,error:'Sesión inválida'});
     const h={apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'};const req=async(path,options={})=>{const r=await fetch(`${url}/rest/v1/${path}`,{...options,headers:{...h,...(options.headers||{})}});const t=await r.text();let d;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||`Error ${r.status}`);return d};
-    const profiles=await req(`service_users?select=*&email=ilike.${encodeURIComponent(user.email)}&limit=1`);const profile=profiles?.[0];if(!profile||profile.activo===false)return reply(403,{ok:false,error:'Usuario de soporte no autorizado'});
-    const body=JSON.parse(event.body||'{}');if(clean(body.action)!=='notify_client')return reply(400,{ok:false,error:'Acción no válida'});
+    const profiles=await req(`service_users?select=*&email=eq.${encodeURIComponent(user.email.toLowerCase())}&limit=1`);const profile=profiles?.[0];if(!profile||profile.activo===false)return reply(403,{ok:false,error:'Usuario de soporte no autorizado'});
+    const body=JSON.parse(event.body||'{}');
+    if(['invite_user','save_user'].includes(clean(body.action)))return require('./support-user-actions').manage({body,profile,user,req,url,key,reply});
+    if(clean(body.action)!=='notify_client')return reply(400,{ok:false,error:'Acción no válida'});
+    if(!['superadmin','admin'].includes(profile.rol)&&Array.isArray(profile.permissions)&&!profile.permissions.some(p=>['orders','reception','technical','sales','logistics'].includes(p)))return reply(403,{ok:false,error:'Sin permiso para gestionar órdenes.'});
     const rows=await req(`service_orders?select=*&id=eq.${encodeURIComponent(clean(body.order_id))}&limit=1`);const o=rows?.[0];if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});if(!o.client_email)return reply(400,{ok:false,error:'La orden no tiene correo del cliente'});
     const resend=clean(process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY);if(!resend)return reply(501,{ok:false,error:'Falta RESEND_API_KEY en el sitio de Soporte'});
     const tracking=`https://soporte.thinkstore.com.ve/?orden=${encodeURIComponent(o.code)}`;const subject=`ThinkStore Soporte — ${o.status} | ${o.code}`;
