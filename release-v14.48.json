@@ -1,0 +1,12 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.48",
+  "base": "14.47",
+  "type": "full-consolidated",
+  "changes": [
+    "inventory-real-restored-in-admin-navigation",
+    "equipment-accessories-inventory-workspace",
+    "legacy-inventario_real-route-alias",
+    "inventory-central-service-parts-link"
+  ]
+}

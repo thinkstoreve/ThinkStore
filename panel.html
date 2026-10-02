@@ -230,7 +230,7 @@ const PERMS={cliente:['cuenta','mis_pedidos','mis_preordenes','favoritos','direc
 const MODULES=[
 {id:'dashboard',icon:'📊',title:'Dashboard',desc:'Resumen real del negocio conectado a Supabase.'},
 {id:'productos',icon:'📱',title:'Productos',desc:'Catálogo administrativo heredado del panel principal.'},
-{id:'inventario',icon:'📦',title:'Inventario',desc:'Inventario unificado ThinkStore + Inventory Central, con stock, variantes, seriales y disponibilidad real.'},
+{id:'inventario',icon:'📦',title:'Inventario real',desc:'Equipos y accesorios: stock físico, variantes, seriales, precios, reservado, vendido y publicación real.'},
 {id:'pedidos',icon:'📦',title:'Pedidos',desc:'Pedidos reales, estados y seguimiento.'},
 {id:'pagos',icon:'💳',title:'Pagos',desc:'Pagos y comprobantes reales de la tienda.'},
 {id:'clientes',icon:'👥',title:'Clientes / CRM',desc:'Clientes registrados reales en Supabase.'},
@@ -310,7 +310,12 @@ function updatePanelIdentity(){
 function store(k,v){if(v!==undefined)localStorage.setItem(k,JSON.stringify(v));try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return[]}}
 let TS_EFFECTIVE_ACCESS=null;
 function rolePerms(r=role()){if(TS_EFFECTIVE_ACCESS&&r===role()&&Array.isArray(TS_EFFECTIVE_ACCESS.permissions))return TS_EFFECTIVE_ACCESS.permissions;const custom=store('ts_role_permissions')||{};return custom[r]||PERMS[r]||PERMS.cliente}
-function can(id){const p=rolePerms();return p.includes('*')||p.includes(id)}
+function can(id){
+  const key=id==='inventario_real'?'inventario':id;
+  if(key==='inventario'&&isAdminRole())return true;
+  const p=rolePerms();
+  return p.includes('*')||p.includes(key);
+}
 function canAction(id){return can(id)}
 function normalizeEmail(v){return String(v||'').trim().toLowerCase()}
 function isAdminRole(){return ['admin','superadmin'].includes(role())}
@@ -860,7 +865,34 @@ const views={
 },
  inventario(){return views.inventario_real()},
  inventario_real(){
-   $('content').innerHTML=realBar()+`<div class="module"><div class="module-head"><div><b>Inventario unificado</b><small>ThinkStore, Staff POS e Inventory Central comparten la misma disponibilidad. Cualquier ajuste por SKU se sincroniza automáticamente en Supabase.</small></div><div class="actions"><a class="btn ghost" href="https://inventory.thinkstore.com.ve" target="_blank" rel="noopener">↗ Inventory Central</a><input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])"><button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button><button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button><button class="btn ghost" onclick="openPhysicalUnits()">🔢 Unidades físicas</button><button class="btn" onclick="loadRealInventory()">Actualizar</button></div></div><div class="notice inv-filter-note" style="margin:12px 0"><span><b>✓ Sincronización bidireccional:</b> stock, reservas, precios y unidades enlazadas por SKU.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div><div id="inventoryImportPreview"></div><div id="inventoryRealBox" class="inventory-stage">Cargando…</div></div>`;
+   $('content').innerHTML=realBar()+`<div class="module inventory-real-shell">
+     <div class="inventory-real-tabs">
+       <button class="inventory-real-tab active">📱 Equipos y accesorios</button>
+       <button class="inventory-real-tab" onclick="openModule('productos')">🗂️ Catálogo de productos</button>
+       <a class="inventory-real-tab link" href="https://inventory.thinkstore.com.ve" target="_blank" rel="noopener">🧩 Repuestos técnicos ↗</a>
+     </div>
+     <div class="module-head inventory-real-head">
+       <div><b>Inventario real · Equipos y accesorios</b><small>La metodología de Inventario Real queda integrada aquí: stock físico, disponible, reservado, vendido, variantes, seriales, precios, imágenes, publicación e historial.</small></div>
+       <div class="actions">
+         <input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])">
+         <button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button>
+         <button class="btn ghost" onclick="document.getElementById('inventoryExcelFile').click()">📊 Importar Excel</button>
+         <button class="btn ghost" onclick="openPhysicalUnits()">🔢 Unidades físicas</button>
+         <button class="btn" onclick="loadRealInventory()">Actualizar</button>
+       </div>
+     </div>
+     <div class="inventory-real-features">
+       <span>✓ Stock por SKU y variante</span>
+       <span>✓ Equipos por serial / IMEI</span>
+       <span>✓ Accesorios por cantidad</span>
+       <span>✓ Precio + publicación</span>
+       <span>✓ Reservado / vendido / disponible</span>
+       <span>✓ Historial y auditoría</span>
+     </div>
+     <div class="notice inv-filter-note" style="margin:12px 0"><span><b>Sincronización real:</b> ThinkStore, Staff POS y la tienda usan la misma disponibilidad de Supabase.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div>
+     <div id="inventoryImportPreview"></div>
+     <div id="inventoryRealBox" class="inventory-stage">Cargando…</div>
+   </div>`;
    loadRealInventory();
  },
  configuracion(){$('content').innerHTML=realBar()+`<div class="grid"><div class="module"><b>Supabase</b><small>${window.tsPanelSupabase?'Conectado':'No disponible'}</small></div><div class="module"><b>Admin API</b><small>Protegida con sesión Super Admin</small></div><div class="module"><b>Resend</b><small>Correos transaccionales mediante Netlify Functions</small></div><div class="module"><b>Service Center</b><small>Base independiente y aislada</small></div></div>`},
@@ -1360,7 +1392,7 @@ function renderProducts(){
       <div class="products-store-body"><h3>${esc(p.product_name)}</h3><div class="products-store-meta"><span>${esc(cat)}</span><span>${st.variants} variante${st.variants===1?'':'s'}</span></div>
       <div class="products-stock-row"><b>${st.available}</b> disponible${st.available===1?'':'s'} · ${st.reserved} reservado${st.reserved===1?'':'s'}${price.mixed?' · precios por variante':''}</div>
       <div class="products-store-price"><label>Precio USD<input id="${esc(id)}" type="number" min="0" step="0.01" value="${Number(price.value||0).toFixed(2)}"></label><button class="btn" onclick="saveProductPrice(decodeURIComponent('${encodeURIComponent(p.product_name)}'),'${esc(id)}')">Guardar</button></div>
-      <div class="products-store-actions"><button class="btn ghost" onclick="openProductEditorWindow(decodeURIComponent('${encodeURIComponent(p.product_name)}'))">Editar ficha</button>${st.variants?`<button class="btn ghost" onclick="location.hash='inventario_real';setTimeout(()=>openCatalogPublisher(decodeURIComponent('${encodeURIComponent(p.product_name)}')),350)">Variantes</button>`:''}</div></div>
+      <div class="products-store-actions"><button class="btn ghost" onclick="openProductEditorWindow(decodeURIComponent('${encodeURIComponent(p.product_name)}'))">Editar ficha</button>${st.variants?`<button class="btn ghost" onclick="location.hash='inventario';setTimeout(()=>openCatalogPublisher(decodeURIComponent('${encodeURIComponent(p.product_name)}')),350)">Variantes</button>`:''}</div></div>
     </article>`
   }).join('')||'<div class="result">No hay productos en esta categoría.</div>';
 }
@@ -1474,7 +1506,7 @@ function setPanelMenu(open){const layout=$('panelLayout'),toggle=$('menuToggle')
 function togglePanelMenu(){setPanelMenu(!panelMenuOpen())}
 function closePanelMenu(){setPanelMenu(false)}
 function openPanelMenu(){setPanelMenu(true)}
-async function openModule(id,opts={}){if(!can(id))return;window.currentModule=id;updatePanelIdentity();document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));const mod=MODULES.find(m=>m.id===id);const isHome=id===(ROLE_HOME[role()]||'');if($('heroTitle'))$('heroTitle').textContent=isHome?`Bienvenido, ${panelDisplayName()}`:(mod?.title||'ThinkStore');if($('heroText'))$('heroText').textContent=isHome?panelHomeCopy(role()):(mod?.desc||'');const hero=document.querySelector('.main-card>.hero');if(hero){hero.classList.toggle('panel-section-hero-hidden',!isHome);hero.classList.remove('admin-dashboard-hero-hidden');const kpis=hero.querySelector('.kpis');if(kpis)kpis.style.display=(isHome&&role()==='cliente')?'grid':'none'}const fn=views[id]||(()=>views.generic(id));await Promise.resolve(fn());if(isHome&&role()==='cliente')refreshKpis();if(opts.fromMenu)closePanelMenu()}
+async function openModule(id,opts={}){if(id==='inventario_real')id='inventario';if(!can(id))return;window.currentModule=id;updatePanelIdentity();document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));const mod=MODULES.find(m=>m.id===id);const isHome=id===(ROLE_HOME[role()]||'');if($('heroTitle'))$('heroTitle').textContent=isHome?`Bienvenido, ${panelDisplayName()}`:(mod?.title||'ThinkStore');if($('heroText'))$('heroText').textContent=isHome?panelHomeCopy(role()):(mod?.desc||'');const hero=document.querySelector('.main-card>.hero');if(hero){hero.classList.toggle('panel-section-hero-hidden',!isHome);hero.classList.remove('admin-dashboard-hero-hidden');const kpis=hero.querySelector('.kpis');if(kpis)kpis.style.display=(isHome&&role()==='cliente')?'grid':'none'}const fn=views[id]||(()=>views.generic(id));await Promise.resolve(fn());if(isHome&&role()==='cliente')refreshKpis();if(opts.fromMenu)closePanelMenu()}
 let realRefreshTimer=null;
 let tsInventoryImportRows=[];
 let tsCatalogAdmin=[];
@@ -1916,7 +1948,21 @@ async function viewDeliveryNote(code){
       .ts-printbar button{border:0;border-radius:999px;padding:10px 16px;margin:0 4px;font-weight:700;cursor:pointer}
       .ts-printbar button:first-child{background:#111;color:#fff}
       @media print{.ts-printbar{display:none!important}}
-    </style>`;
+    
+/* V14.48 · Inventario Real integrado */
+.inventory-real-shell{overflow:hidden}
+.inventory-real-tabs{display:flex;gap:9px;flex-wrap:wrap;padding:4px 0 16px;border-bottom:1px solid var(--line);margin-bottom:17px}
+.inventory-real-tab{appearance:none;border:1px solid #dcdfe4;background:#fff;color:#26384c;border-radius:999px;padding:10px 14px;font-weight:850;font-size:12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:.18s}
+.inventory-real-tab:hover{transform:translateY(-1px);box-shadow:0 7px 20px rgba(0,0,0,.06)}
+.inventory-real-tab.active{background:#111;color:#fff;border-color:#111}
+.inventory-real-tab.link{background:#f6f9fd;color:#1766b2;border-color:#d7e7f7}
+.inventory-real-head{align-items:flex-start}
+.inventory-real-head b{font-size:18px}
+.inventory-real-head small{display:block;max-width:760px;line-height:1.5;margin-top:5px;color:var(--muted)}
+.inventory-real-features{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0}
+.inventory-real-features span{display:inline-flex;padding:7px 10px;border-radius:999px;background:#f5f7fa;border:1px solid #e3e7ec;font-size:11px;font-weight:800;color:#536579}
+@media(max-width:760px){.inventory-real-tabs{display:grid;grid-template-columns:1fr}.inventory-real-tab{justify-content:center}.inventory-real-head{display:block}.inventory-real-head .actions{margin-top:12px}}
+</style>`;
     win.document.open();
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Nota de entrega ${esc(code)}</title>${css}</head><body>${printBar}${data.html||''}</body></html>`);
     win.document.close();
