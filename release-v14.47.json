@@ -1,0 +1,12 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.47",
+  "type": "full-consolidated",
+  "base": "14.38",
+  "includes": [
+    "public-service-parts-from-support-supabase",
+    "inventory-driven-service-parts",
+    "automatic-discount-display",
+    "official-logo-order-fix"
+  ]
+}

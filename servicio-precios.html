@@ -129,7 +129,8 @@ function openProduct(x){
   $('modalModel').textContent=x.model||x.series||x.device_category;
   $('modalTitle').textContent=x.repair||x.name||'Reparación';
   $('modalQuality').innerHTML=x.quality?`<span class="quality ${qualityClass(x.quality)}">${esc(x.quality)}</span>`:'';
-  $('modalPrice').textContent=price>0?`USD ${price.toFixed(2)}`:'Precio por confirmar';
+  const old=Number(x.original_price_usd||0),discount=Number(x.discount_percent||0);
+  $('modalPrice').innerHTML=price>0?(old>price&&discount>0?`<span class="old-price">USD ${old.toFixed(2)}</span> <span class="new-price sale">USD ${price.toFixed(2)}</span> <span class="discount" style="position:static;display:inline-flex;margin-left:8px">-${discount}%</span>`:`USD ${price.toFixed(2)}`):'Precio por confirmar';
   $('modalDescription').textContent=x.description||`${x.repair||'Servicio técnico'} para ${x.model||x.series||x.device_category}. Se confirma compatibilidad antes de intervenir el equipo.`;
   $('modalSku').textContent=x.sku||'—';$('modalWarranty').textContent=x.warranty||'3 meses de garantía';$('modalTime').textContent=x.repair_time||'Según diagnóstico';
   $('modalStock').textContent=x.catalog_only?'Pendiente de vincular al inventario':stock>3?`En stock · ${stock}`:stock>0?`Últimas piezas · ${stock}`:'Bajo pedido / consultar';

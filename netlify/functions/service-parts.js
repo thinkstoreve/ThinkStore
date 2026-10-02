@@ -9,6 +9,21 @@ const out=(status,body)=>({statusCode:status,headers:H,body:JSON.stringify(body)
 const clean=v=>String(v??'').trim();
 const norm=v=>clean(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const num=(v,d=0)=>{const n=Number(v);return Number.isFinite(n)?n:d};
+const isJwtKey=v=>/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(clean(v));
+const normalizeSupabaseUrl=v=>clean(v).replace(/\/+$/,'').replace(/\/rest\/v1(?:\/.*)?$/i,'');
+const headersForKey=key=>({apikey:key,...(isJwtKey(key)?{Authorization:`Bearer ${key}`}:{ }),'Content-Type':'application/json'});
+async function getAll(base,path,headers){
+  const rows=[];
+  for(let offset=0;offset<100000;offset+=1000){
+    const sep=path.includes('?')?'&':'?';
+    const batch=await getJson(`${base}/rest/v1/${path}${sep}limit=1000&offset=${offset}`,headers);
+    if(!Array.isArray(batch))break;
+    rows.push(...batch);
+    if(batch.length<1000)break;
+  }
+  return rows;
+}
+
 function deviceCategory(...vals){
   const t=norm(vals.join(' '));
   if(/airpods|earpods|audifono|auricular|estuche/.test(t))return 'AirPods';
@@ -78,6 +93,33 @@ exports.handler=async(event)=>{
   if(!base||!service)return out(501,{ok:false,error:'Faltan variables de Supabase'});
   const headers={apikey:service,Authorization:`Bearer ${service}`,'Content-Type':'application/json'};
   try{
+    const supportBase=normalizeSupabaseUrl(process.env.SUPPORT_SUPABASE_URL);
+    const supportKey=clean(process.env.SUPPORT_SUPABASE_SECRET_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY);
+    if(supportBase&&supportKey){
+      try{
+        const sh=headersForKey(supportKey);
+        const rows=await getAll(supportBase,'service_parts?select=id,sku,name,category,compatible_models,quantity,sale_price,catalog_details&active=eq.true&published=eq.true&order=category.asc,name.asc,sku.asc',sh);
+        if(rows.length){
+          const items=rows.map(p=>{
+            const m=p.catalog_details||{},pct=Math.max(0,Math.min(95,Math.round(num(m.discount_percent,0)))),price=p.sale_price===null?0:num(p.sale_price,0);
+            let original=num(m.original_price_usd,0);
+            if(pct>0&&price>0&&original<=price)original=Math.round((price/(1-pct/100))*100)/100;
+            return {
+              id:String(p.id),sku:clean(p.sku),name:clean(p.name),model:clean(m.model||p.compatible_models),category:clean(p.category),
+              subcategory:'',description:clean(m.description),compatibility:clean(p.compatible_models),image_url:clean(m.image_url),
+              price_usd:price,available:Math.max(0,num(p.quantity,0)),stock_min:0,
+              original_price_usd:pct>0?original:0,discount_percent:pct,is_offer:pct>0,
+              repair:clean(m.repair),quality:clean(m.quality),model_type:clean(m.model_type),
+              series:clean(m.series),device_category:clean(p.category)||deviceCategory(p.name,p.compatible_models),
+              warranty:clean(m.warranty),repair_time:clean(m.repair_time),catalog_only:p.sale_price===null
+            };
+          }).filter(x=>x.device_category!=='Servicios · Mantenimiento'&&x.device_category!=='Servicios · Software'&&x.device_category!=='Servicios · Hardware');
+          return out(200,{ok:true,source:'support_service_parts',updated_at:new Date().toISOString(),items});
+        }
+      }catch(e){
+        console.warn('Support service_parts fallback:',e.message);
+      }
+    }
     const [products,bridges,variants,catalog,catalogImages]=await Promise.all([
       getJson(`${base}/rest/v1/thinkstore_inventory_products?select=id,data&workspace_key=eq.main&limit=3000`,headers),
       getJson(`${base}/rest/v1/thinkstore_inventory_bridge?select=inventory_product_id,sku,variant_id&workspace_key=eq.main&limit=3000`,headers).catch(()=>[]),
