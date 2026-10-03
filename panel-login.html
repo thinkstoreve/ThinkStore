@@ -98,9 +98,10 @@
     const params=new URLSearchParams(location.search);
     const invite=String(params.get('invite')||'').trim().toLowerCase();
     const requestedNext=String(params.get('next')||'panel.html');
+    const forceReauth=params.get('reauth')==='1';
     const normalizeRole=v=>{const raw=String(v||'cliente').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_');return ({super_admin:'superadmin',superadministrator:'superadmin',super_administrator:'superadmin',administrator:'admin',gerente:'admin',tech:'tecnico',technical:'tecnico',seller:'vendedor',sales:'vendedor',ventas:'vendedor'}[raw]||raw)};
     function safeNext(){try{const u=new URL(requestedNext,location.href);if(u.origin!==location.origin)return 'panel.html';if(!/\/panel\.html$/i.test(u.pathname))return 'panel.html';return u.pathname.split('/').pop()+(u.hash||'')}catch(e){return 'panel.html'}}
-    function show(view){['login','forgot','recovery'].forEach(v=>$(v+'Panel')?.classList.toggle('active',v===view));const q=new URLSearchParams();if(view!=='login')q.set('view',view);if(requestedNext!=='panel.html')q.set('next',requestedNext);if(invite)q.set('invite',invite);history.replaceState(null,'','panel-login.html'+(q.toString()?'?'+q.toString():''));}
+    function show(view){['login','forgot','recovery'].forEach(v=>$(v+'Panel')?.classList.toggle('active',v===view));const q=new URLSearchParams();if(view!=='login')q.set('view',view);if(requestedNext!=='panel.html')q.set('next',requestedNext);if(invite)q.set('invite',invite);if(forceReauth)q.set('reauth','1');history.replaceState(null,'','panel-login.html'+(q.toString()?'?'+q.toString():''));}
     function status(id,msg,type='err'){const el=$(id);if(!el)return;el.textContent=msg;el.className='status show '+type;}
     async function profileFor(authUser){if(!authUser?.id)return null;let r=await sb.from('profiles').select('*').eq('id',authUser.id).maybeSingle();if(r.error)throw r.error;if(r.data)return r.data;const email=String(authUser.email||'').trim().toLowerCase();if(!email)return null;r=await sb.from('profiles').select('*').eq('email',email).maybeSingle();if(!r.error&&r.data)return r.data;r=await sb.from('profiles').select('*').eq('correo',email).maybeSingle();if(r.error)throw r.error;return r.data||null;}
     async function cachePanelUser(authUser){const p=await profileFor(authUser);if(!p)return {ok:false,reason:'Tu cuenta no tiene un perfil interno autorizado.'};const active=(p.active??p.activo??true)!==false;if(!active)return {ok:false,reason:'Esta cuenta está desactivada. Contacta a un Super Admin.'};const role=normalizeRole(p.role||p.rol||'cliente');const u={id:authUser.id,email:p.email||p.correo||authUser.email||'',name:p.full_name||p.nombre||p.name||authUser.user_metadata?.name||String(authUser.email||'Usuario').split('@')[0],role,rol:role,source:'supabase'};localStorage.setItem(LS_USER,JSON.stringify(u));return {ok:true,user:u};}
@@ -108,6 +109,11 @@
     if(invite){$('email').value=invite;status('loginStatus','Invitación detectada. Ingresa la contraseña de tu cuenta para continuar.','ok');}
     const initial=params.get('view');if(initial&&['forgot','recovery'].includes(initial))show(initial);
     if(!sb){status('loginStatus','No se pudo cargar la conexión segura con Supabase.','err');return;}
+    if(forceReauth){
+      status('loginStatus','Por seguridad, vuelve a ingresar tu contraseña para autorizar cambios de usuarios.','ok');
+      localStorage.removeItem(LS_USER);
+      sb.auth.signOut({scope:'local'}).catch(()=>{});
+    }
 
     $('loginForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('loginBtn');btn.disabled=true;status('loginStatus','Verificando acceso…','ok');try{const email=$('email').value.trim().toLowerCase();const {data,error}=await sb.auth.signInWithPassword({email,password:$('password').value});if(error)throw error;const cached=await cachePanelUser(data.user);if(!cached.ok){await sb.auth.signOut();localStorage.removeItem(LS_USER);throw new Error(cached.reason)}status('loginStatus','Acceso autorizado. Abriendo tu panel…','ok');setTimeout(()=>location.replace(safeNext()),220);}catch(err){const msg=String(err?.message||err||'');status('loginStatus',/invalid login credentials/i.test(msg)?'Correo o contraseña incorrectos.':msg||'No se pudo iniciar sesión.','err');btn.disabled=false;}});
 
@@ -116,7 +122,7 @@
     $('recoveryForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('recoveryBtn');btn.disabled=true;try{const {error}=await sb.auth.updateUser({password:$('newPassword').value});if(error)throw error;status('recoveryStatus','Contraseña actualizada. Abriendo tu panel…','ok');const {data}=await sb.auth.getUser();if(data?.user){const cached=await cachePanelUser(data.user);if(cached.ok){setTimeout(()=>location.replace(safeNext()),500);return;}}setTimeout(()=>show('login'),850);}catch(err){status('recoveryStatus',err.message||'No se pudo actualizar la contraseña.','err');btn.disabled=false;}});
 
     sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')show('recovery');});
-    sb.auth.getSession().then(async({data})=>{if(params.get('view'))return;const authUser=data?.session?.user;if(!authUser)return;try{const cached=await cachePanelUser(authUser);if(cached.ok)location.replace(safeNext());}catch(e){console.warn('Panel login session:',e)}});
+    sb.auth.getSession().then(async({data})=>{if(params.get('view')||forceReauth)return;const authUser=data?.session?.user;if(!authUser)return;try{const cached=await cachePanelUser(authUser);if(cached.ok)location.replace(safeNext());}catch(e){console.warn('Panel login session:',e)}});
   })();
   </script>
 </body>

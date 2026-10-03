@@ -623,14 +623,67 @@ function requestAdminSecret(force=false){
   if(!secret){secret=prompt('Código especial de administrador')||''; if(secret)sessionStorage.setItem(ADMIN_SECRET_KEY,secret.trim())}
   return secret.trim();
 }
-async function adminApiHeaders(extra={}){
-  const headers={...extra};
+async function tsSecureAdminSession(){
+  if(!window.tsPanelSupabase)return null;
   try{
-    const resp=await window.tsPanelSupabase?.auth?.getSession?.();
-    const token=resp?.data?.session?.access_token;
-    if(token){headers.Authorization=`Bearer ${token}`;return headers}
-  }catch(e){}
-  const legacy=getAdminSecret();if(legacy)headers['x-admin-secret']=legacy;
+    let resp=await window.tsPanelSupabase.auth.getSession();
+    let session=resp?.data?.session||null;
+    const now=Math.floor(Date.now()/1000);
+    if(session?.access_token && (!session.expires_at || Number(session.expires_at)>now+45))return session;
+
+    const refreshed=await window.tsPanelSupabase.auth.refreshSession();
+    session=refreshed?.data?.session||null;
+    if(session?.access_token)return session;
+  }catch(e){
+    console.warn('ThinkStore secure session:',e);
+  }
+  return null;
+}
+function tsPendingInviteDraft(){
+  const name=$('staffInviteName')?.value||'';
+  const email=$('staffInviteEmail')?.value||'';
+  const roleSel=$('staffInviteRole')?.value||'';
+  const staff=Boolean($('staffInviteAppVentas')?.checked);
+  if(name||email||roleSel){
+    sessionStorage.setItem('ts_pending_staff_invite',JSON.stringify({name,email,roleSel,staff}));
+  }
+}
+function tsRestorePendingInviteDraft(){
+  try{
+    const raw=sessionStorage.getItem('ts_pending_staff_invite');
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    if($('staffInviteName'))$('staffInviteName').value=d.name||'';
+    if($('staffInviteEmail'))$('staffInviteEmail').value=d.email||'';
+    if($('staffInviteRole')&&d.roleSel)$('staffInviteRole').value=d.roleSel;
+    if($('staffInviteAppVentas'))$('staffInviteAppVentas').checked=Boolean(d.staff);
+    sessionStorage.removeItem('ts_pending_staff_invite');
+  }catch(_){}
+}
+function tsRequireSecureLogin(next='permisos'){
+  tsPendingInviteDraft();
+  const qp=new URLSearchParams();
+  qp.set('reauth','1');
+  qp.set('next',`panel.html#${next}`);
+  location.href=`panel-login.html?${qp.toString()}`;
+}
+async function adminApiHeaders(extra={},opts={}){
+  const headers={...extra};
+  const session=await tsSecureAdminSession();
+  if(session?.access_token){
+    headers.Authorization=`Bearer ${session.access_token}`;
+    return headers;
+  }
+  const legacy=getAdminSecret();
+  if(legacy){
+    headers['x-admin-secret']=legacy;
+    return headers;
+  }
+  if(opts.requireAuth){
+    const err=new Error('Tu sesión segura expiró. Vuelve a iniciar sesión para realizar esta acción.');
+    err.code='SECURE_SESSION_REQUIRED';
+    throw err;
+  }
   return headers;
 }
 function mapClient(c){return {source:'supabase',supabase_id:c.id||'',id:c.cedula_rif||c.id||'',name:c.nombre||c.name||'Cliente',email:c.correo||c.email||'',phone:c.telefono||c.phone||'',state:c.estado||c.state||'',city:c.ciudad||c.city||'',address:c.direccion||c.address||'',shipping:c.metodo_envio_preferido||c.shipping||'',agency:c.agencia_destino||'',created_at:c.created_at||''}}
@@ -677,7 +730,7 @@ async function refreshClientRealData(opts={}){
 
 async function updateOrderRemote(code,status,guide='',note=''){
   const o=orders().find(x=>String(orderCode(x))===String(code));
-  const headers=await adminApiHeaders({'Content-Type':'application/json'});
+  const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
   const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({id:o?.id,code,status,guideNumber:guide,note})});
   const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo actualizar el pedido');
   await refreshRealData({silent:true}); return data;
@@ -710,7 +763,7 @@ function trimTransparentCanvas(sourceCanvas){const ctx=sourceCanvas.getContext('
 function normalizeCampaignAsset(file){return new Promise(async(resolve,reject)=>{try{const src=await loadCampaignImageFile(file);const img=new Image();img.onload=()=>{const source=document.createElement('canvas');source.width=img.width;source.height=img.height;const sctx=source.getContext('2d');sctx.clearRect(0,0,source.width,source.height);sctx.drawImage(img,0,0);const trimmed=trimTransparentCanvas(source);const canvas=document.createElement('canvas');const W=1600,H=900,pad=16;canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);const maxW=W-pad*2,maxH=H-pad*2;const scale=Math.min(maxW/trimmed.width,maxH/trimmed.height);const drawW=Math.max(1,Math.round(trimmed.width*scale));const drawH=Math.max(1,Math.round(trimmed.height*scale));const dx=Math.round((W-drawW)/2),dy=Math.round((H-drawH)/2);ctx.drawImage(trimmed,dx,dy,drawW,drawH);const wantsTransparency=/image\/(png|webp)/i.test(file.type);const mime=wantsTransparency?'image/png':'image/jpeg';const quality=wantsTransparency?undefined:0.95;canvas.toBlob(async(blob)=>{if(!blob)return reject(new Error('No se pudo preparar la imagen.'));const ext=wantsTransparency?'png':'jpg';const normalizedFile=new File([blob],(file.name||'campana').replace(/\.[^.]+$/,'')+`-thinkstore.${ext}`,{type:mime});const preview=await loadCampaignImageFile(normalizedFile);resolve({file:normalizedFile,preview})},mime,quality)};img.onerror=()=>reject(new Error('La imagen no es válida.'));img.src=src}catch(error){reject(error)}})}
 async function previewCampaignImage(input){const f=input.files?.[0];if(!f)return;if(!/^image\/(jpeg|png|webp)$/i.test(f.type))return showCampaignResult('error','Usa una imagen JPG, PNG o WEBP.');if(f.size>5*1024*1024)return showCampaignResult('error','La imagen debe pesar menos de 5 MB.');showCampaignResult('loading','Ajustando imagen automáticamente y respetando la transparencia…');try{const normalized=await normalizeCampaignAsset(f);tsCampaignImage.file=normalized.file;tsCampaignImage.preview=normalized.preview;tsCampaignImage.url='';if($('mBannerUrl'))$('mBannerUrl').value='';if($('mImageFit'))$('mImageFit').value='contain';if($('mImageX'))$('mImageX').value=50;if($('mImageY'))$('mImageY').value=50;tsCampaignImage.fit='contain';tsCampaignImage.x=50;tsCampaignImage.y=50;const st=$('mImageStage');st.classList.add('has-image');$('mImageLocal').src=normalized.preview;$('mImageLocal').style.objectFit='contain';$('mImageLocal').style.objectPosition='50% 50%';updateCampaignPreview();showCampaignResult('success','Imagen ajustada correctamente. Ahora se verá más grande y conservará la transparencia cuando aplique.')}catch(error){showCampaignResult('error',error.message||'No se pudo preparar la imagen.')}}
 function setCampaignImagePosition(){tsCampaignImage.fit=val('mImageFit')||'cover';tsCampaignImage.x=Number(val('mImageX')||50);tsCampaignImage.y=Number(val('mImageY')||50);const img=$('mImageLocal');if(img){img.style.objectFit=tsCampaignImage.fit;img.style.objectPosition=`${tsCampaignImage.x}% ${tsCampaignImage.y}%`}updateCampaignPreview()}
-async function uploadCampaignImage(){if(!tsCampaignImage.file)return val('mBannerUrl')||tsCampaignImage.url||'';const body={name:tsCampaignImage.file.name,type:tsCampaignImage.file.type,data:tsCampaignImage.preview};const headers=await adminApiHeaders({'Content-Type':'application/json'});const res=await fetch('/.netlify/functions/campaign-image',{method:'POST',headers,body:JSON.stringify(body)});const responseText=await res.text();let d={};try{d=responseText?JSON.parse(responseText):{}}catch(_){d={error:responseText}}if(!res.ok||!d.ok)throw new Error(d.error||'No se pudo subir la imagen de campaña.');tsCampaignImage.url=d.url||'';tsCampaignImage.file=null;if($('mBannerUrl'))$('mBannerUrl').value=tsCampaignImage.url;return tsCampaignImage.url}
+async function uploadCampaignImage(){if(!tsCampaignImage.file)return val('mBannerUrl')||tsCampaignImage.url||'';const body={name:tsCampaignImage.file.name,type:tsCampaignImage.file.type,data:tsCampaignImage.preview};const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});const res=await fetch('/.netlify/functions/campaign-image',{method:'POST',headers,body:JSON.stringify(body)});const responseText=await res.text();let d={};try{d=responseText?JSON.parse(responseText):{}}catch(_){d={error:responseText}}if(!res.ok||!d.ok)throw new Error(d.error||'No se pudo subir la imagen de campaña.');tsCampaignImage.url=d.url||'';tsCampaignImage.file=null;if($('mBannerUrl'))$('mBannerUrl').value=tsCampaignImage.url;return tsCampaignImage.url}
 function updateCampaignPreview(){const img=$('pvBanner');if(!img)return;const src=tsCampaignImage.preview||tsCampaignImage.url||val('mBannerUrl');if(src){img.src=src;img.classList.add('show');img.style.objectFit=val('mImageFit')||'cover';img.style.objectPosition=`${val('mImageX')||50}% ${val('mImageY')||50}%`}else img.classList.remove('show');if($('pvKicker'))$('pvKicker').textContent=val('mKicker')||'CAMPAÑA THINKSTORE';const badge=val('mBadge');if($('pvBadge')){$('pvBadge').textContent=badge;$('pvBadge').classList.toggle('show',!!badge)};$('pvTitle').textContent=val('mTitle')||'El nuevo iPhone 18 llega a ThinkStore';$('pvSubtitle').textContent=val('mSubtitle')||'';$('pvMessage').textContent=val('mMessage')||'';$('pvProduct').textContent=val('mProduct')||'iPhone 18 Pro / Pro Max';$('pvDetails').textContent=val('mDetails')||'Elige tu acabado y capacidad. Te acompañamos durante todo el proceso de reserva.';$('pvOffer').textContent=val('mOffer')||'Preventa abierta · Unidades limitadas';const pricePro=val('mPricePro'),priceProMax=val('mPriceProMax'),prices=$('pvPrices');if($('pvPricePro'))$('pvPricePro').textContent=pricePro;if($('pvPriceProMax'))$('pvPriceProMax').textContent=priceProMax;if($('pvPriceProCard'))$('pvPriceProCard').style.display=pricePro?'block':'none';if($('pvPriceProMaxCard'))$('pvPriceProMaxCard').style.display=priceProMax?'block':'none';if(prices){prices.classList.toggle('show',!!(pricePro||priceProMax));prices.style.gridTemplateColumns=(pricePro&&priceProMax)?'repeat(2,minmax(0,1fr))':'1fr'}$('pvButton').textContent=val('mButton')||'Reservar iPhone 18';const sec=$('pvSecondary'),secLabel=val('mSecondaryButton'),secUrl=val('mSecondaryUrl');if(sec){sec.textContent=secLabel||'';sec.href=secUrl||'#';sec.style.display=(secLabel&&secUrl)?'inline-block':'none'}}
 function normalizeManualEmails(raw){return Array.from(new Set(String(raw||'').split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))))}
 function updateManualEmailCount(){const list=normalizeManualEmails(val('mManualEmails'));if($('mManualCount'))$('mManualCount').textContent=`${list.length} válido${list.length===1?'':'s'}`;if($('mDashManual'))$('mDashManual').textContent=list.length;return list}
@@ -786,7 +839,7 @@ async function sendCampaign(mode='campaign'){
   showCampaignResult('loading',mode==='test'?'Preparando y enviando correo de prueba…':'Preparando campaña y destinatarios…');
   try{
     if(tsCampaignImage.file)payload.bannerUrl=await uploadCampaignImage();
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/send-campaign',{method:'POST',headers,body:JSON.stringify(payload)});
     const responseText=await res.text();let data={};try{data=responseText?JSON.parse(responseText):{}}catch(_){data={error:responseText}}
     if(!res.ok||!data.ok)throw new Error(data.error||data.errors?.[0]||`La función de campañas respondió HTTP ${res.status}.`);
@@ -830,7 +883,7 @@ function openDashboardDetail(type){
 
 let tsCrmMeta=new Map();
 async function adminOperations(action,payload={}){
-  const headers=await adminApiHeaders({'Content-Type':'application/json'});
+  const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
   const res=await fetch('/.netlify/functions/admin-operations',{method:'POST',headers,body:JSON.stringify({action,...payload})});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo completar la operación');
@@ -1244,7 +1297,7 @@ const views={
    </div>`;
    loadRealInventory();
  },
- configuracion(){$('content').innerHTML=realBar()+`<div class="grid"><div class="module"><b>Supabase</b><small>${window.tsPanelSupabase?'Conectado':'No disponible'}</small></div><div class="module"><b>Admin API</b><small>Protegida con sesión Super Admin</small></div><div class="module"><b>Resend</b><small>Correos transaccionales mediante Netlify Functions</small></div><div class="module"><b>Service Center</b><small>Base independiente y aislada</small></div></div>`},
+ configuracion(){$('content').innerHTML=realBar()+`<div class="grid"><div class="module"><b>Supabase</b><small>${window.tsPanelSupabase?'Conectado':'No disponible'}</small><button class="btn ghost" style="margin-top:10px" onclick="tsRequireSecureLogin('configuracion')">Revalidar sesión segura</button></div><div class="module"><b>Admin API</b><small>Protegida con sesión Super Admin</small></div><div class="module"><b>Resend</b><small>Correos transaccionales mediante Netlify Functions</small></div><div class="module"><b>Service Center</b><small>Base independiente y aislada</small></div></div>`},
  permisos(){renderProfiles()},
  mis_pedidos(){
    const u=user();const mine=orders().filter(o=>{const c=orderClient(o);return normalizeEmail(c.email)===normalizeEmail(u.email)||String(o.cliente_id||'')===String(u.id||'')});
@@ -1373,7 +1426,7 @@ async function openReceipt(receiptId,pedidoId,button){
   const original=button?.textContent||'Ver comprobante'; if(button){button.disabled=true;button.textContent='Abriendo…'}
   const popup=window.open('about:blank','_blank');
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-receipt',{method:'POST',headers,body:JSON.stringify({receiptId,pedidoId})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok||!data.signedUrl)throw new Error(data.error||'No se pudo generar un enlace nuevo para el comprobante.');
@@ -1405,7 +1458,7 @@ async function paymentDecision(code,approved){
   if(!confirm(approved?'¿Confirmar este pago? Después quedará bloqueado para evitar cambios accidentales.':'¿Rechazar este pago? Después quedará bloqueado para evitar cambios accidentales.'))return;
   try{
     const o=orders().find(x=>String(orderCode(x))===String(code));
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({id:o?.id,code,action:'payment_decision',approved})});
     const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar la decisión de pago');
     await refreshRealData({silent:true});renderPayments();renderOrdersList();refreshKpis();
@@ -1417,7 +1470,7 @@ async function unlockPaymentDecision(code){
   const managerCode=prompt('Código de autorización de gerente')||''; if(!managerCode.trim())return;
   try{
     const o=orders().find(x=>String(orderCode(x))===String(code));
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({id:o?.id,code,action:'unlock_payment_decision',managerCode:managerCode.trim(),reason:reason.trim()})});
     const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo desbloquear la decisión');
     await refreshRealData({silent:true});renderPayments();renderOrdersList();refreshKpis();alert('Decisión de pago desbloqueada. Ya puede corregirse.');
@@ -1443,7 +1496,7 @@ async function deleteAbandonedOrder(code){
   if(confirmCode.trim().toUpperCase()!==String(code).trim().toUpperCase())return alert('El número no coincide. No se eliminó nada.');
   const reason=prompt('Motivo de eliminación','Pedido no concretado')||'Pedido no concretado';
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({id:o?.id,code,action:'delete_order',confirmCode:confirmCode.trim(),reason:reason.trim()})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo eliminar el pedido');
@@ -1459,7 +1512,7 @@ function tsOrderRequiredUnits(o){return orderItems(o).reduce((n,i)=>n+Math.max(1
 function tsOrderAssignedUnits(o){return Number(tsUnitAssignmentCounts[String(o.id||'')]||0)}
 function tsOrderUnitsReady(o){const r=tsOrderRequiredUnits(o);return r>0&&tsOrderAssignedUnits(o)>=r}
 async function unitAssignmentApi(action,payload={}){
-  const headers=await adminApiHeaders({'Content-Type':'application/json'});
+  const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
   const res=await fetch('/.netlify/functions/unit-assignments',{method:'POST',headers,body:JSON.stringify({action,...payload})});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.ok){const e=new Error(data.error||'No se pudo completar la operación');e.data=data;throw e}
@@ -1608,7 +1661,7 @@ function openOrderDiscount(code){
 }
 async function saveOrderDiscount(code){
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({code,action:'update_discount',discount_type:val('odDiscountType'),discount_value:Number(val('odDiscountValue')||0),discount_reason:val('odDiscountReason')})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar el descuento');
@@ -1765,7 +1818,7 @@ async function saveProductPrice(name,inputId){
   if(!Number.isFinite(price)||price<0)return alert('Introduce un precio válido.');
   if(!confirm(`Aplicar ${money(price)} como precio a todas las variantes de ${name}?`))return;
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'set_product_price',product_name:name,price_usd:price})});
     const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar el precio');
     await loadProductsCatalog();
@@ -1784,7 +1837,7 @@ function openCategoryManager(){
 }
 async function saveCatalogCategory(i,original){
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const payload={action:'save_category',original_name:original,name:val('catName'+i),description:val('catDesc'+i),sort_order:Number(val('catSort'+i)||1000),active:val('catActive'+i)==='true'};
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify(payload)}),data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar la categoría');
@@ -1794,7 +1847,7 @@ async function saveCatalogCategory(i,original){
 async function createCatalogCategory(){
   const name=val('newCatName');if(!name)return alert('Escribe el nombre de la categoría.');
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'save_category',name,description:val('newCatDesc'),sort_order:Number(val('newCatSort')||500),active:true})}),data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo crear la categoría');
     await loadProductsCatalog();openCategoryManager();
@@ -1803,7 +1856,7 @@ async function createCatalogCategory(){
 async function deleteCatalogCategory(name){
   if(!confirm(`Eliminar la categoría “${name}”? Solo es posible si no tiene productos.`))return;
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'delete_category',name})}),data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo eliminar');
     await loadProductsCatalog();openCategoryManager();
@@ -1835,7 +1888,7 @@ async function createNewCatalogProduct(){
   if(!name||!category)return alert('Completa nombre y categoría.');
   if(!Number.isInteger(stock)||stock<0)return alert('El stock debe ser un número entero igual o mayor que 0.');
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const key=catalogSlug(name);let image_url=null,storage_path=null;
     if(tsNewProductImageFile){
       if(result)result.innerHTML='<div class="notice">Subiendo imagen…</div>';
@@ -2128,7 +2181,7 @@ async function saveCatalogPublication(forcePublished){
   const resultBox=$('cpResult');
   try{
     const name=val('cpName'),key=val('cpKey')||catalogSlug(name),category=val('cpCategory'),description=val('cpDescription'),sort_order=Number(val('cpSort')||1000);
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     if(resultBox)resultBox.innerHTML='<div class="notice">Guardando galería…</div>';
     for(let i=0;i<cpGalleryDraft.length;i++){
       const img=cpGalleryDraft[i]; if(!img.pending||!img.file)continue;
@@ -2156,7 +2209,7 @@ async function adjustRealInventory(id,sku){
   if(!Number.isFinite(qty)||qty===0)return;
   const note=prompt('Motivo del ajuste:','Ajuste administrativo')||'Ajuste administrativo';
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'adjust',variant_id:id,quantity:qty,note})});
     const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo ajustar');
     await loadRealInventory();alert('Inventario actualizado.');
@@ -2177,7 +2230,7 @@ async function saveRealInventoryV1357(id){
   const payload={action:'set',variant_id:id,stock_on_hand:stock,stock_min:min,price_usd:price};
   if(invConditionKey(v.condition)==='preowned')payload.cosmetic_grade=val('invEditGrade');
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify(payload)});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok){
@@ -2194,7 +2247,7 @@ async function editRealInventory(id,sku,currentStock,currentMin,currentPrice){
   const stock=Number(stockText), min=Number(minText), price=Number(priceText);
   if(!Number.isInteger(stock)||stock<0||!Number.isInteger(min)||min<0||!Number.isFinite(price)||price<0)return alert('Revisa stock, mínimo y precio.');
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'set',variant_id:id,stock_on_hand:stock,stock_min:min,price_usd:price})});
     const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar');
     await loadRealInventory();alert('Stock y precio actualizados en Supabase. La tienda usará estos valores automáticamente.');
@@ -2293,7 +2346,7 @@ async function handleInventoryExcel(file){
       price_usd:num(inventoryCell(row,map,['Precio USD (EDITAR)','Precio USD','Precio'])),
     })).filter(x=>x.sku);
     if(!tsInventoryImportRows.length)throw new Error('No encontré la columna SKU o filas válidas.');
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'preview_import',rows:tsInventoryImportRows})});
     const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo validar el Excel');
     const x=data.summary||{}, sample=data.preview||[];
@@ -2306,7 +2359,7 @@ async function applyInventoryExcel(){
   const preview=$('inventoryImportPreview');
   try{
     preview.innerHTML='<div class="notice">Aplicando inventario y precios en Supabase…</div>';
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/inventory',{method:'POST',headers,body:JSON.stringify({action:'apply_import',rows:tsInventoryImportRows})});
     const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo importar');
     const x=data.result||{};
@@ -2381,7 +2434,7 @@ async function createManualSale(){
    }
    result('saleResult','Registrando venta…');
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-create-sale',{method:'POST',headers,body:JSON.stringify(payload)}); const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo crear la venta');
      if(data.fx_quote)result('saleResult',`Tasa aplicada: ${data.fx_quote.rate} · Total ${window.ThinkStoreFX.ves(data.fx_quote.total_ves)}`);
@@ -2401,7 +2454,7 @@ async function viewDeliveryNote(code){
   if(!win)return alert('El navegador bloqueó la ventana. Permite ventanas emergentes para ThinkStore.');
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Cargando nota de entrega…</title></head><body style="font-family:Arial;padding:30px">Cargando nota de entrega…</body></html>');
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({code,action:'view_delivery_note'})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo cargar la nota');
@@ -2472,7 +2525,7 @@ async function resendDeliveryNote(code){
   const o=orders().find(x=>orderCode(x)===code); if(!o)return alert('Pedido no encontrado.');
   const c=orderClient(o); if(!c.email)return alert('Este cliente no tiene correo.');
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({code,action:'resend_delivery_note'})}); const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||data.email?.error||'No se pudo enviar la nota');
     alert('Nota de Entrega enviada correctamente a '+c.email+'.');
@@ -2501,7 +2554,7 @@ function tsBaseUiRole(v){return normalizePanelRole(v==='super_admin'?'superadmin
 async function refreshEffectiveAccess(){
   if(!window.tsPanelSupabase)return null;
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const task=(async()=>{
       const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'access'})});
       const data=await res.json().catch(()=>({}));
@@ -2515,16 +2568,31 @@ async function refreshEffectiveAccess(){
   }
 }
 async function loadAdminProfiles(){
-  const headers=await adminApiHeaders({'Content-Type':'application/json'});
+  const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
   const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'list'})});
   const data=await res.json().catch(()=>({}));
+  if(res.status===401){
+    const err=new Error(data.error||'Tu sesión segura expiró.');
+    err.code=data.code||'AUTH_REQUIRED';
+    err.auth_reason=data.reason||'';
+    throw err;
+  }
   if(!res.ok||!data.ok)throw new Error(data.error||'No se pudieron cargar usuarios y roles');
   realState.profiles=data.profiles||[];tsAdminRoles=data.roles||[];return data;
 }
 async function renderProfiles(){
   const canInvite=['admin','superadmin'].includes(role());
   $('content').innerHTML=realBar()+`<div class="ts-staff-access-hero"><div><span>APP VENTAS</span><h2>Equipo y accesos</h2><p>Invita empleados, asigna roles y controla quién puede entrar a ThinkStore Staff.</p></div><a class="btn" href="staff/" target="_blank" rel="noopener">Abrir App Ventas ↗</a></div><div class="section-title"><div><h2>Usuarios internos</h2><small>Solo personal de trabajo creado mediante invitación administrativa. Los clientes registrados en la tienda nunca aparecen aquí.</small></div><div class="actions"><button class="btn ghost" onclick="renderProfiles()">Actualizar</button>${canInvite?'<button class="btn" onclick="showInternalInvite()">+ Invitar empleado</button>':''}${role()==='superadmin'?'<button class="btn ghost" onclick="showRoleEditor()">+ Crear rol</button>':''}</div></div><div class="toolbar"><input id="profileSearch" placeholder="Buscar empleado, correo o rol" oninput="drawAdminProfiles()"></div><div id="profilesMsg"></div><div id="roleEditor"></div><div id="rolesSummary"></div><div id="profilesBox"><div class="result">Cargando equipo interno…</div></div>`;
-  try{const data=await loadAdminProfiles();window.tsProfilesViewerRole=data.viewer_role||role();drawRolesSummary();drawAdminProfiles()}catch(e){$('profilesBox').innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
+  try{
+    const data=await loadAdminProfiles();
+    window.tsProfilesViewerRole=data.viewer_role||role();
+    drawRolesSummary();drawAdminProfiles();
+  }catch(e){
+    const authIssue=e?.code==='SECURE_SESSION_REQUIRED'||String(e?.code||'').startsWith('AUTH_')||/sesión.*expir|sesión no autorizada/i.test(String(e?.message||''));
+    $('profilesBox').innerHTML=authIssue
+      ?`<div class="notice critical"><b>La sesión visual del Panel sigue abierta, pero la sesión segura de Supabase expiró.</b><small>Para invitar o modificar usuarios debes revalidar tu acceso. No perderás el borrador de la invitación.</small><div class="actions"><button class="btn" onclick="tsRequireSecureLogin('permisos')">Revalidar sesión</button></div></div>`
+      :`<div class="notice critical">${esc(e.message)}</div>`;
+  }
 }
 function drawRolesSummary(){
  const box=$('rolesSummary');if(!box)return;const custom=tsAdminRoles.filter(r=>!r.system);const canManage=role()==='superadmin';
@@ -2542,11 +2610,11 @@ function showRoleEditor(key=''){
 async function saveCustomRole(existingKey=''){
  if(role()!=='superadmin')return;const name=val('roleName'),role_key=existingKey||val('roleKey'),base_role=val('roleBase'),active=val('roleActive')!=='0';const permissions=[...document.querySelectorAll('.rp-check:checked')].map(x=>x.value);
  if(!name||!role_key)return alert('Completa nombre y clave del rol.');
- try{const headers=await adminApiHeaders({'Content-Type':'application/json'});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'save_role',role_key,name,base_role,permissions,active})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar el rol');audit('rol_personalizado_guardado',`${name} · ${permissions.length} permisos`);await renderProfiles()}catch(e){alert(e.message)}
+ try{const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'save_role',role_key,name,base_role,permissions,active})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar el rol');audit('rol_personalizado_guardado',`${name} · ${permissions.length} permisos`);await renderProfiles()}catch(e){alert(e.message)}
 }
 async function deleteCustomRole(key){
  if(role()!=='superadmin'||!confirm('¿Eliminar este rol personalizado? Los usuarios asignados volverán a su rol base.'))return;
- try{const headers=await adminApiHeaders({'Content-Type':'application/json'});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'delete_role',role_key:key})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo eliminar');await renderProfiles()}catch(e){alert(e.message)}
+ try{const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'delete_role',role_key:key})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo eliminar');await renderProfiles()}catch(e){alert(e.message)}
 }
 function internalRoleChoices(viewerRole=role()){
   const blocked=viewerRole==='admin'?new Set(['admin','superadmin']):new Set();
@@ -2616,6 +2684,7 @@ function showInternalInvite(){
     <div id="staffInviteStatus"></div>
   </div>`;
   syncStaffInviteAccess();
+  tsRestorePendingInviteDraft();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 async function inviteInternalUser(){
@@ -2634,18 +2703,30 @@ async function inviteInternalUser(){
   if(btn){btn.disabled=true;btn.textContent='Enviando…'}
   if(statusBox)statusBox.innerHTML='<div class="notice">Creando acceso y enviando invitación…</div>';
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-users',{
       method:'POST',headers,
       body:JSON.stringify({action:'invite',full_name,email,role:baseRole||'vendedor',custom_role_key,permission_overrides})
     });
     const data=await res.json().catch(()=>({}));
+    if(res.status===401){
+      const err=new Error(data.error||'Tu sesión segura expiró.');
+      err.code=data.code||'AUTH_REQUIRED';
+      err.auth_reason=data.reason||'';
+      throw err;
+    }
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo enviar la invitación');
     if(statusBox)statusBox.innerHTML=`<div class="notice success"><b>Invitación enviada ✅</b><small>${esc(full_name)} recibirá un correo para crear su contraseña.${staffAccess?' App Ventas quedó habilitada.':' App Ventas quedó deshabilitada.'}</small></div>`;
     await loadAdminProfiles();drawAdminProfiles();
     setTimeout(()=>{if($('roleEditor'))$('roleEditor').innerHTML=''},2200);
   }catch(e){
-    if(statusBox)statusBox.innerHTML=`<div class="notice critical">${esc(e.message||String(e))}</div>`;
+    const authIssue=e?.code==='SECURE_SESSION_REQUIRED'||String(e?.code||'').startsWith('AUTH_')||/sesión.*expir|sesión no autorizada/i.test(String(e?.message||''));
+    if(authIssue){
+      tsPendingInviteDraft();
+      if(statusBox)statusBox.innerHTML=`<div class="notice critical"><b>Tu sesión segura necesita revalidarse.</b><small>El Panel se abrió con la copia local, pero Supabase ya no acepta el token de esta sesión. Tu invitación quedó guardada.</small><div class="actions"><button class="btn" onclick="tsRequireSecureLogin('permisos')">Revalidar y continuar</button></div></div>`;
+    }else if(statusBox){
+      statusBox.innerHTML=`<div class="notice critical">${esc(e.message||String(e))}</div>`;
+    }
     if(btn){btn.disabled=false;btn.textContent='Enviar invitación'}
   }
 }
@@ -2712,7 +2793,7 @@ async function saveAdminProfile(id,keepEditor=false){
   target.permission_overrides=over;
   const label=tsProfileEmail(target)||tsProfileName(target);
   try{
-    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
     const res=await fetch('/.netlify/functions/admin-users',{
       method:'POST',headers,
       body:JSON.stringify({action:'update',id,role:base,custom_role_key:custom,active,permission_overrides:over})

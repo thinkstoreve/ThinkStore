@@ -13,7 +13,14 @@ exports.handler=async(event)=>{
   const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL;
   const service=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY;
   if(!url||!service)return out(500,{ok:false,error:'Supabase Admin no está configurado'});
-  const viewer=await authenticate(event,url,service);if(!viewer.ok)return out(401,{ok:false,error:'Sesión no autorizada'});
+  const viewer=await authenticate(event,url,service);
+  if(!viewer.ok)return out(401,{
+    ok:false,
+    error:'Sesión no autorizada',
+    code:viewer.code||'AUTH_REQUIRED',
+    reason:viewer.reason||'',
+    server_project_ref:projectRef(url)
+  });
   let body={};try{body=JSON.parse(event.body||'{}')}catch(_){return out(400,{ok:false,error:'JSON inválido'})}
   const action=String(body.action||'access').toLowerCase();
   if(action==='access')return out(200,{ok:true,...await effectiveAccess(viewer.profile,url,service)});
@@ -119,6 +126,7 @@ exports.handler=async(event)=>{
 };
 function svc(k){return{apikey:k,Authorization:`Bearer ${k}`,'Content-Type':'application/json'}}
 function out(statusCode,body){return{statusCode,headers:H,body:JSON.stringify(body)}}
+function projectRef(url){try{const h=new URL(String(url||'')).hostname;return h.endsWith('.supabase.co')?h.slice(0,-'.supabase.co'.length):h}catch{return''}}
 function slug(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40)}
 function normalizeDbRole(v){const r=String(v||'').toLowerCase().replace(/[ -]+/g,'_');return ROLE_MAP[r]||null}
 function normalizeUiRole(v){let r=String(v||'cliente').toLowerCase().replace(/[ -]+/g,'_');if(r==='super_admin')r='superadmin';if(r==='administrator'||r==='gerente')r='admin';return r}
@@ -129,10 +137,39 @@ function isInternalProfile(p){return p?.is_internal===true}
 function roleLabel(r){return({vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Socio Administrador'})[normalizeUiRole(r)]||String(r||'Usuario interno')}
 async function findProfileByEmail(url,service,email){const paths=[`email=eq.${encodeURIComponent(email)}`,`correo=eq.${encodeURIComponent(email)}`];for(const q of paths){const r=await fetch(`${url}/rest/v1/profiles?select=*&${q}&limit=1`,{headers:svc(service)});if(r.ok){const rows=await r.json().catch(()=>[]);if(rows?.[0])return rows[0];}}return null}
 async function authenticate(event,url,service){
-  const token=String(event.headers.authorization||event.headers.Authorization||'').replace(/^Bearer\s+/i,'');if(!token)return{ok:false};
-  const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}});const u=await ur.json().catch(()=>({}));if(!ur.ok||!u.id)return{ok:false};
-  const pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:svc(service)});const rows=await pr.json().catch(()=>[]),p=rows?.[0];
-  if(!p||(p.active??p.activo??true)===false)return{ok:false};return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',role:normalizeUiRole(p.role||p.rol),internal:p.is_internal===true,profile:p};
+  const token=String(event.headers.authorization||event.headers.Authorization||'').replace(/^Bearer\s+/i,'');
+  if(!token)return{ok:false,code:'AUTH_MISSING_TOKEN',reason:'La solicitud llegó sin token Bearer.'};
+
+  let ur,u;
+  try{
+    ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}});
+    u=await ur.json().catch(()=>({}));
+  }catch(e){
+    return{ok:false,code:'AUTH_ENDPOINT_UNAVAILABLE',reason:String(e?.message||e||'Auth no disponible')};
+  }
+  if(!ur.ok||!u.id){
+    return{
+      ok:false,
+      code:'AUTH_TOKEN_INVALID',
+      reason:String(u?.msg||u?.message||`Auth HTTP ${ur.status}`)
+    };
+  }
+
+  const pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:svc(service)});
+  const rows=await pr.json().catch(()=>[]);
+  if(!pr.ok)return{ok:false,code:'AUTH_PROFILE_LOOKUP_FAILED',reason:String(rows?.message||rows?.error||`Profiles HTTP ${pr.status}`)};
+  const p=rows?.[0];
+  if(!p)return{ok:false,code:'AUTH_PROFILE_NOT_FOUND',reason:'La sesión es válida pero no existe perfil interno para este usuario.'};
+  if((p.active??p.activo??true)===false)return{ok:false,code:'AUTH_PROFILE_INACTIVE',reason:'El perfil interno está desactivado.'};
+
+  return{
+    ok:true,
+    user_id:u.id,
+    email:u.email||p.email||p.correo||'',
+    role:normalizeUiRole(p.role||p.rol),
+    internal:p.is_internal===true,
+    profile:p
+  };
 }
 async function effectiveAccess(profile,url,service){
   const base=normalizeUiRole(profile?.role||profile?.rol),over=cleanOverrides(profile?.permission_overrides);let permissions=[...(DEFAULT_PERMS[base]||DEFAULT_PERMS.cliente)],roleName=base,customKey=profile?.custom_role_key||null;

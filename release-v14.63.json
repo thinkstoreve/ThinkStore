@@ -1,0 +1,13 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.63",
+  "base": "14.62",
+  "type": "secure-session-invite-fix",
+  "fixes": [
+    "secure-admin-session-refresh",
+    "forced-reauth-for-privileged-actions",
+    "preserve-invite-draft",
+    "admin-users-auth-diagnostics",
+    "clear-expired-local-admin-session"
+  ]
+}
