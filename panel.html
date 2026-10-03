@@ -272,6 +272,40 @@ body.ts-premium-admin .ts-premium-side{
   }
 }
 </style>
+<style>
+/* V14.61 · Navegación robusta + Enterprise interno */
+body.ts-premium-admin .ts-premium-side,
+body.ts-premium-admin .ts-premium-side *,
+body.ts-premium-admin .ts-premium-main button,
+body.ts-premium-admin .ts-premium-main a{
+  pointer-events:auto!important;
+}
+body.ts-premium-admin .ts-premium-side{z-index:1200!important}
+.ts-side-nav-item,.ts-side-enterprise,.ts-kpi-grid button,.ts-premium-panel button{touch-action:manipulation}
+.ts-enterprise-module{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+.ts-enterprise-internal-grid{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:9px;margin-top:12px}
+.ts-enterprise-internal-grid button{border:1px solid #e4e5e9;background:#fff;border-radius:15px;padding:12px;text-align:left;display:grid;gap:5px;cursor:pointer;box-shadow:0 5px 18px #00000008}
+.ts-enterprise-internal-grid button:hover{transform:translateY(-1px);box-shadow:0 9px 26px #00000012}
+.ts-enterprise-internal-grid svg{width:19px;color:#1477d7}
+.ts-enterprise-internal-grid b{font-size:10px}
+.ts-enterprise-internal-grid small{font-size:8px;color:#808188}
+@media(max-width:1100px){.ts-enterprise-internal-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.ts-enterprise-internal-grid{grid-template-columns:1fr 1fr}}
+</style>
+<style>
+/* V14.62 · Equipo y accesos / App Ventas */
+.ts-staff-access-hero{display:flex;justify-content:space-between;align-items:center;gap:16px;background:linear-gradient(135deg,#111318,#252a32);color:#fff;border-radius:20px;padding:22px 24px;margin-bottom:18px}
+.ts-staff-access-hero span{font-size:9px;letter-spacing:.13em;color:#8fbfff;font-weight:900}
+.ts-staff-access-hero h2{margin:5px 0 4px;font-size:26px}
+.ts-staff-access-hero p{margin:0;color:#c7cbd2;font-size:12px}
+.ts-staff-access-hero .btn{background:#fff;color:#111;border:0;text-decoration:none}
+.ts-app-access-choice{display:grid!important;gap:8px!important}
+.ts-access-switch-copy{display:grid;grid-template-columns:auto 1fr;column-gap:9px;align-items:center;border:1px solid #e0e2e6;background:#fafbfc;border-radius:13px;padding:11px 12px}
+.ts-access-switch-copy input{width:18px!important;height:18px!important;margin:0!important;grid-row:1/3}
+.ts-access-switch-copy b{font-size:11px}
+.ts-access-switch-copy small{font-size:9px;color:#7c7e85}
+@media(max-width:700px){.ts-staff-access-hero{align-items:flex-start;flex-direction:column}.ts-staff-access-hero .btn{width:100%;text-align:center}}
+</style>
 </head>
 <body>
 <div id="panelBoot" class="panel-boot" aria-live="polite"><div class="panel-boot-card"><img class="panel-boot-logo" src="logo-thinkstore.png" alt="ThinkStore"><div id="panelBootText">Preparando tu cuenta…</div><div class="panel-boot-bar"><i></i></div></div></div>
@@ -294,7 +328,7 @@ body.ts-premium-admin .ts-premium-side{
       </div>
       <button class="ts-icon-btn ts-apps-btn" type="button" aria-label="Aplicaciones ThinkStore" onclick="openPanelAppLauncher()"><span class="ts-grid-dots"></span></button>
       <button class="panel-user-chip ts-user-chip" id="panelUserChip" type="button" aria-label="Usuario activo" onclick="togglePanelUserMenu(event)"><span class="panel-user-avatar" id="panelUserAvatar">TS</span><span class="panel-user-copy"><b id="panelUserName">Usuario</b><small id="panelUserRoleMini">Sesión activa</small></span><span class="ts-chevron">⌄</span></button>
-      <div id="panelUserMenu" class="ts-user-menu" hidden><button type="button" onclick="openModule('cuenta')">Mi cuenta</button><a href="index.html">Abrir tienda</a><a href="staff/" data-roles="vendedor,admin,superadmin">App Ventas</a><a href="https://enterprise.thinkstore.com.ve" target="_blank" rel="noopener" data-roles="admin,superadmin">Enterprise</a><button type="button" class="danger" onclick="logout()">Cerrar sesión</button></div>
+      <div id="panelUserMenu" class="ts-user-menu" hidden><button type="button" onclick="openModule('cuenta')">Mi cuenta</button><a href="index.html">Abrir tienda</a><a href="staff/" data-roles="vendedor,admin,superadmin">App Ventas</a><button type="button" data-module="enterprise" data-roles="admin,superadmin">Enterprise</button><button type="button" class="danger" onclick="logout()">Cerrar sesión</button></div>
       <span id="panelBrandText" hidden>ThinkStore · Panel</span><span id="rolePill" hidden>Admin</span>
     </div>
   </div>
@@ -378,7 +412,7 @@ const MODULES=[
 {id:'puntos',icon:'🎁',title:'Puntos VIP',desc:'Fidelización del cliente.'},
 {id:'crm',icon:'🎯',title:'CRM inteligente',desc:'Segmentación y seguimiento comercial.'},
 {id:'recomendaciones',icon:'🧠',title:'Recomendaciones',desc:'Venta cruzada y accesorios sugeridos.'},
-{id:'permisos',icon:'🔐',title:'Usuarios internos',desc:'Perfiles, roles y accesos internos.'},
+{id:'permisos',icon:'🔐',title:'Equipo y accesos',desc:'Empleados, roles, App Ventas y permisos internos.'},
 {id:'auditoria',icon:'📝',title:'Auditoría',desc:'Historial de cambios internos.'},
 {id:'comisiones',icon:'💰',title:'Comisiones',desc:'Cálculo de comisiones por vendedor.'}
 ];
@@ -876,14 +910,125 @@ async function openCashHistory(){
   try{const data=await adminOperations('cash_closure_list'),r=data.rows||[];$('cashHistoryBox').innerHTML=r.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Total</th><th>Efectivo</th><th>Diferencia</th><th>Usuario</th><th></th></tr></thead><tbody>${r.map((x,i)=>`<tr><td>${esc(x.business_date)}</td><td><b>${money(x.total_confirmed_usd)}</b></td><td>${money(x.counted_cash_usd)}</td><td>${money(x.cash_difference_usd)}</td><td>${esc(x.actor_email||'—')}</td><td><button class="btn ghost" onclick='openCashClosureReport(${JSON.stringify(x).replace(/'/g,"&#39;")})'>Ver / imprimir</button></td></tr>`).join('')}</tbody></table></div>`:'No hay cierres guardados.'}catch(e){$('cashHistoryBox').innerHTML=`<div class="notice warn">${esc(e.message)}</div>`}
 }
 
-async function enterpriseSummaryRequest(){
-  if(!window.tsPanelSupabase)throw new Error('Supabase no está disponible.');
-  const {data:{session}}=await window.tsPanelSupabase.auth.getSession();
-  if(!session?.access_token)throw new Error('Sesión administrativa requerida.');
-  const r=await fetch('/.netlify/functions/enterprise-summary',{headers:{Authorization:`Bearer ${session.access_token}`},cache:'no-store'});
-  const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo cargar Enterprise');
-  return d;
+function enterpriseCaracasKey(value=new Date()){
+  const d=value instanceof Date?value:new Date(value||'');
+  if(Number.isNaN(d.getTime()))return '';
+  try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
+  catch{return d.toISOString().slice(0,10)}
 }
+function buildLocalEnterpriseSummary(){
+  const today=enterpriseCaracasKey();
+  const anchor=new Date(today+'T12:00:00-04:00');
+  const shift=(anchor.getDay()+6)%7;
+  const monday=new Date(anchor);monday.setDate(monday.getDate()-shift);
+  const keys=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return enterpriseCaracasKey(d)});
+  const week=new Set(keys);
+
+  const all=orders().filter(Boolean);
+  const valid=all.filter(o=>!/cancel|rechaz|anulad/i.test(orderStatus(o)));
+  const isPaid=o=>String(o.payment_decision||'').toLowerCase()==='approved'||/pago verificado|preparando|comprando proveedor|tr[aá]nsito|disponible|enviado|entregado|completado/i.test(orderStatus(o));
+  const channel=o=>String(o.order_channel||o.channel||'online').toLowerCase()==='presencial'?'presencial':'online';
+
+  const created=valid.filter(o=>week.has(enterpriseCaracasKey(o.created_at||o.date)));
+  const collected=valid.filter(o=>isPaid(o)&&week.has(enterpriseCaracasKey(o.payment_decision_at||o.updated_at||o.created_at||o.date)));
+  const online=created.filter(o=>channel(o)==='online');
+  const presencial=created.filter(o=>channel(o)==='presencial');
+  const pending=valid.filter(o=>/pago por verificar|pago recibido|pendiente/i.test(orderStatus(o))&&!isPaid(o));
+  const appointments=(realState.appointments||[]).filter(a=>week.has(String(a.preferred_date||enterpriseCaracasKey(a.created_at))));
+
+  const shopCollected=collected.reduce((n,o)=>n+orderTotal(o),0);
+
+  const daily=keys.map(date=>{
+    const made=valid.filter(o=>enterpriseCaracasKey(o.created_at||o.date)===date);
+    const paidRows=valid.filter(o=>isPaid(o)&&enterpriseCaracasKey(o.payment_decision_at||o.updated_at||o.created_at||o.date)===date);
+    const aps=appointments.filter(a=>String(a.preferred_date||enterpriseCaracasKey(a.created_at))===date);
+    return{
+      date,
+      online_sales:made.filter(o=>channel(o)==='online').length,
+      online_amount:made.filter(o=>channel(o)==='online').reduce((n,o)=>n+orderTotal(o),0),
+      presencial_sales:made.filter(o=>channel(o)==='presencial').length,
+      presencial_amount:made.filter(o=>channel(o)==='presencial').reduce((n,o)=>n+orderTotal(o),0),
+      shop_collected:paidRows.reduce((n,o)=>n+orderTotal(o),0),
+      service_received:0,
+      service_collected:0,
+      service_delivered:0,
+      appointments:aps.length,
+      home_appointments:aps.filter(a=>/domicilio|delivery/i.test(String(a.service_mode||''))).length,
+      global_collected:paidRows.reduce((n,o)=>n+orderTotal(o),0)
+    };
+  });
+
+  return{
+    ok:true,
+    local_fallback:true,
+    timezone:'America/Caracas',
+    period:{start:keys[0],end:keys[6],today},
+    data_quality:{support_connected:false,support_payment_ready:false,errors:['Servicio Técnico pendiente de conexión Enterprise']},
+    sales:{
+      registered:created.length,
+      registered_amount:created.reduce((n,o)=>n+orderTotal(o),0),
+      collected_count:collected.length,
+      collected_amount:shopCollected,
+      pending_count:pending.length,
+      pending_amount:pending.reduce((n,o)=>n+orderTotal(o),0),
+      online_count:online.length,
+      online_amount:online.reduce((n,o)=>n+orderTotal(o),0),
+      presencial_count:presencial.length,
+      presencial_amount:presencial.reduce((n,o)=>n+orderTotal(o),0),
+      delivery_count:0
+    },
+    support:{
+      received:0,quoted_amount:0,collected_count:0,collected_amount:0,
+      pending_collection_count:0,pending_collection_amount:0,
+      ready:0,delivered:0,to_deliver:0,home_services:0
+    },
+    appointments:{
+      total:appointments.length,
+      home:appointments.filter(a=>/domicilio|delivery/i.test(String(a.service_mode||''))).length,
+      store:appointments.filter(a=>!/domicilio|delivery/i.test(String(a.service_mode||''))).length,
+      pending:appointments.length
+    },
+    global:{
+      collected_amount:shopCollected,
+      registered_amount:created.reduce((n,o)=>n+orderTotal(o),0),
+      company_50:shopCollected*.50,
+      partner_a_25:shopCollected*.25,
+      partner_b_25:shopCollected*.25
+    },
+    daily
+  };
+}
+async function enterpriseSummaryRequest(){
+  if(!window.tsPanelSupabase)return buildLocalEnterpriseSummary();
+  try{
+    const sessionResult=await Promise.race([
+      window.tsPanelSupabase.auth.getSession(),
+      new Promise(resolve=>setTimeout(()=>resolve({data:{session:null}}),2600))
+    ]);
+    const session=sessionResult?.data?.session;
+    if(!session?.access_token)return buildLocalEnterpriseSummary();
+
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),5500);
+    try{
+      const r=await fetch('/.netlify/functions/enterprise-summary',{
+        headers:{Authorization:`Bearer ${session.access_token}`},
+        cache:'no-store',
+        signal:controller.signal
+      });
+      const d=await r.json().catch(()=>({}));
+      if(r.ok&&d.ok)return d;
+      console.warn('Enterprise summary API:',d.error||r.status);
+      return buildLocalEnterpriseSummary();
+    }finally{
+      clearTimeout(timer);
+    }
+  }catch(e){
+    console.warn('Enterprise fallback:',e);
+    return buildLocalEnterpriseSummary();
+  }
+}
+
 function enterpriseMoney(v){return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function enterpriseDay(v){try{return new Date(v+'T12:00:00-04:00').toLocaleDateString('es-VE',{weekday:'short',day:'2-digit',month:'short'})}catch{return v}}
 function unifiedSummaryHtml(d,full=false){
@@ -900,15 +1045,29 @@ async function loadUnifiedDashboardSummary(){
   catch(e){box.innerHTML=`<div class="notice warn">Resumen Enterprise pendiente: ${esc(e.message)}</div>`}
 }
 async function loadEnterprisePanel(){
-  const box=$('enterprisePanelBox');if(!box)return;
-  box.innerHTML='<div class="notice">Cargando ventas, citas y Soporte…</div>';
+  const box=$('enterprisePanelBox');
+  if(!box)return;
+  box.innerHTML='<div class="notice">Cargando Enterprise dentro del Panel…</div>';
+
   try{
     const d=await enterpriseSummaryRequest();
-    box.innerHTML=unifiedSummaryHtml(d,true)+`<div class="ts-enterprise-open"><div><b>Enterprise completo</b><small>BI, finanzas, CRM, inventario y operación cruzada.</small></div><a class="btn" href="https://enterprise.thinkstore.com.ve" target="_blank" rel="noopener">Abrir Enterprise ↗</a></div>`;
-  }catch(e){box.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
+    const quality=d.local_fallback
+      ?`<div class="notice warn"><b>Enterprise integrado activo.</b> Las ventas y citas se muestran desde el Panel. Servicio Técnico se completará automáticamente cuando responda la conexión Enterprise.</div>`
+      :'';
+
+    box.innerHTML=quality+unifiedSummaryHtml(d,true)+`
+      <div class="ts-enterprise-internal-grid">
+        <button data-module="ventas"><span>${tsPremiumIcon('ventas')}</span><b>Ventas</b><small>Online y presenciales</small></button>
+        <button data-module="pedidos"><span>${tsPremiumIcon('pedidos')}</span><b>Pedidos</b><small>Estados y seguimiento</small></button>
+        <button data-module="pagos"><span>${tsPremiumIcon('pagos')}</span><b>Cobros</b><small>Pagos por verificar</small></button>
+        <button data-module="clientes"><span>${tsPremiumIcon('clientes')}</span><b>Clientes</b><small>CRM y actividad</small></button>
+        <button data-module="inventario"><span>${tsPremiumIcon('inventario')}</span><b>Inventario</b><small>Stock conectado</small></button>
+        <button onclick="openSupportApp()"><span>${tsPremiumIcon('servicio')}</span><b>Servicio Técnico</b><small>Recepción y órdenes ↗</small></button>
+      </div>`;
+  }catch(e){
+    box.innerHTML=`<div class="notice critical"><b>Enterprise no pudo cargar.</b><br>${esc(e.message||e)}</div>`;
+  }
 }
-
-
 function tsPremiumSetText(id,value){const el=$(id);if(el)el.textContent=value}
 function tsPremiumSetWidth(id,value){const el=$(id);if(el)el.style.width=`${Math.max(0,Math.min(100,Number(value)||0))}%`}
 function hydratePremiumDashboard(data,baseAlerts=[]){
@@ -943,7 +1102,7 @@ const views={
   const alerts=[];if(pending.length)alerts.push({level:'warn',icon:'pagos',title:`${pending.length} pago${pending.length===1?'':'s'} por revisar`,detail:'Comprobantes pendientes.',module:'pagos'});if(inv.low)alerts.push({level:'danger',icon:'inventario',title:`${inv.low} referencia${inv.low===1?'':'s'} con stock bajo`,detail:'Inventory requiere atención.',module:'inventario'});setPanelNotifications(alerts);try{const data=await enterpriseSummaryRequest();hydratePremiumDashboard(data,alerts)}catch(e){console.warn('Dashboard Enterprise:',e.message)}
  },
  async enterprise(){
-   $('content').innerHTML=`<div class="module"><div class="module-head"><div><b>Enterprise · Centro global</b><small>Ventas online, ventas presenciales, citas, Servicio Técnico, cobros, entregas y distribución semanal.</small></div><div class="actions"><a class="btn" href="https://enterprise.thinkstore.com.ve" target="_blank" rel="noopener">Abrir Enterprise completo ↗</a></div></div><div id="enterprisePanelBox">Cargando…</div></div>`;
+   $('content').innerHTML=`<div class="module ts-enterprise-module"><div class="module-head"><div><b>Enterprise · Centro global</b><small>Ventas, citas, Servicio Técnico, cobros y distribución semanal sin salir del Panel Administrativo.</small></div><div class="actions"><button class="btn ghost" onclick="loadEnterprisePanel()">Actualizar</button></div></div><div id="enterprisePanelBox">Cargando…</div></div>`;
    await loadEnterprisePanel();
  },
  async cuenta(){
@@ -1703,7 +1862,7 @@ function downloadCSV(filename,rows){const csv=rows.map(r=>r.map(x=>`"${String(x?
 
 let tsPremiumNotifications=[];
 function openSupportApp(){window.open('https://soporte.thinkstore.com.ve','_blank','noopener')}
-function openPanelAppLauncher(){showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">APLICACIONES</span><h2>ThinkStore</h2><p class="muted">Accesos rápidos del ecosistema.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="ts-app-launcher"><button onclick="location.href='staff/'">${tsPremiumIcon('ventas')}<b>App Ventas</b><small>Ventas presenciales</small></button><button onclick="openSupportApp()">${tsPremiumIcon('servicio')}<b>Soporte</b><small>Recepción y reparaciones</small></button><button onclick="window.open('https://inventory.thinkstore.com.ve','_blank','noopener')">${tsPremiumIcon('inventario')}<b>Inventory</b><small>Stock y movimientos</small></button><button onclick="window.open('https://enterprise.thinkstore.com.ve','_blank','noopener')">${tsPremiumIcon('enterprise')}<b>Enterprise</b><small>Resumen global</small></button></div>`)}
+function openPanelAppLauncher(){showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">APLICACIONES</span><h2>ThinkStore</h2><p class="muted">Accesos rápidos del ecosistema.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="ts-app-launcher"><button onclick="location.href='staff/'">${tsPremiumIcon('ventas')}<b>App Ventas</b><small>Ventas presenciales</small></button><button onclick="openSupportApp()">${tsPremiumIcon('servicio')}<b>Soporte</b><small>Recepción y reparaciones</small></button><button onclick="window.open('https://inventory.thinkstore.com.ve','_blank','noopener')">${tsPremiumIcon('inventario')}<b>Inventory</b><small>Stock y movimientos</small></button><button data-module="enterprise">${tsPremiumIcon('enterprise')}<b>Enterprise</b><small>Resumen global</small></button></div>`)}
 function togglePanelUserMenu(e){e?.stopPropagation();const el=$('panelUserMenu');if(!el)return;el.hidden=!el.hidden;if(!el.hidden&&$('panelNotificationPopover'))$('panelNotificationPopover').hidden=true}
 function setPanelNotifications(items=[]){tsPremiumNotifications=Array.isArray(items)?items.filter(Boolean):[];const c=$('panelNotificationCount'),l=$('panelNotificationList'),s=$('panelNotificationSubtitle');if(c){c.textContent=String(tsPremiumNotifications.length);c.hidden=!tsPremiumNotifications.length}if(s)s.textContent=tsPremiumNotifications.length?`${tsPremiumNotifications.length} pendiente${tsPremiumNotifications.length===1?'':'s'}`:'Todo al día';if(l)l.innerHTML=tsPremiumNotifications.length?tsPremiumNotifications.map((x,i)=>`<button type="button" onclick="runPanelNotification(${i})"><span class="ts-notice-icon ${esc(x.level||'info')}">${tsPremiumIcon(x.icon||'generic')}</span><span><b>${esc(x.title||'Alerta')}</b><small>${esc(x.detail||'')}</small></span><em>›</em></button>`).join(''):'<div class="ts-empty">No hay alertas pendientes.</div>'}
 function runPanelNotification(i){const x=tsPremiumNotifications[i];if(!x)return;togglePanelNotifications();if(x.module)openModule(x.module);else if(x.external==='support')openSupportApp()}
@@ -1713,6 +1872,42 @@ function handlePanelGlobalSearch(raw=''){const box=$('panelSearchResults');if(!b
 function openPanelSearchHit(i){const x=(window.tsPanelSearchHits||[])[i];if(!x)return;closePanelSearch();openModule(x.module)}
 document.addEventListener('click',e=>{if(!e.target.closest('.ts-global-search'))closePanelSearch();if(!e.target.closest('.ts-notification-wrap')&&$('panelNotificationPopover'))$('panelNotificationPopover').hidden=true;if(!e.target.closest('.ts-user-chip')&&!e.target.closest('.ts-user-menu')&&!e.target.closest('.ts-side-user')&&$('panelUserMenu'))$('panelUserMenu').hidden=true});
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&String(e.key).toLowerCase()==='k'){e.preventDefault();$('panelGlobalSearch')?.focus()}if(e.key==='Escape'){closePanelSearch();if($('panelNotificationPopover'))$('panelNotificationPopover').hidden=true;if($('panelUserMenu'))$('panelUserMenu').hidden=true}});
+
+function tsPanelExtractModule(el){
+  if(!el)return '';
+  if(el.dataset?.module)return String(el.dataset.module||'').trim();
+  const raw=String(el.getAttribute?.('onclick')||'');
+  const m=raw.match(/openModule\(\s*['"]([^'"]+)['"]/);
+  return m?.[1]||'';
+}
+function tsPanelBindNavigation(){
+  if(window.__tsPanelNavBound)return;
+  window.__tsPanelNavBound=true;
+
+  document.addEventListener('click',function(e){
+    const el=e.target.closest('[data-module],[onclick*="openModule("]');
+    if(!el)return;
+    const id=tsPanelExtractModule(el);
+    if(!id)return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    if(el.closest('.client-modal')){
+      try{closeClientModal()}catch{}
+    }
+    if($('panelUserMenu'))$('panelUserMenu').hidden=true;
+    if($('panelNotificationPopover'))$('panelNotificationPopover').hidden=true;
+
+    Promise.resolve(openModule(id,{fromMenu:Boolean(el.closest('#side'))}))
+      .catch(err=>{
+        console.error('ThinkStore navegación:',err);
+        const content=$('content');
+        if(content)content.innerHTML=`<div class="module"><div class="notice critical"><b>No se pudo abrir ${esc(id)}.</b><br>${esc(err?.message||err||'Error desconocido')}</div></div>`;
+      });
+  },true);
+}
+
 function renderSide(){
   const side=$('side');if(!side)return;
   const currentRole=normalizePanelRole(role());
@@ -1728,7 +1923,53 @@ function setPanelMenu(open){const layout=$('panelLayout'),toggle=$('menuToggle')
 function togglePanelMenu(){setPanelMenu(!panelMenuOpen())}
 function closePanelMenu(){setPanelMenu(false)}
 function openPanelMenu(){setPanelMenu(true)}
-async function openModule(id,opts={}){if(id==='inventario_real')id='inventario';if(!can(id))return;window.currentModule=id;updatePanelIdentity();document.querySelectorAll('#side button').forEach(b=>b.classList.toggle('active',b.dataset.module===id));const mod=MODULES.find(m=>m.id===id);const isHome=id===(ROLE_HOME[role()]||'');if($('heroTitle'))$('heroTitle').textContent=isHome?`Bienvenido, ${panelDisplayName()}`:(mod?.title||'ThinkStore');if($('heroText'))$('heroText').textContent=isHome?panelHomeCopy(role()):(mod?.desc||'');const hero=document.querySelector('.main-card>.hero');if(hero){hero.classList.toggle('panel-section-hero-hidden',!isHome||(isAdminRole()&&id==='dashboard'));hero.classList.remove('admin-dashboard-hero-hidden');const kpis=hero.querySelector('.kpis');if(kpis)kpis.style.display=(isHome&&role()==='cliente')?'grid':'none'}const fn=views[id]||(()=>views.generic(id));await Promise.resolve(fn());if(isHome&&role()==='cliente')refreshKpis();if(opts.fromMenu)closePanelMenu()}
+async function openModule(id,opts={}){
+  if(id==='inventario_real')id='inventario';
+  id=String(id||'').trim();
+  if(!id)return false;
+
+  if(!can(id)){
+    console.warn('ThinkStore módulo sin permiso:',id,role());
+    const content=$('content');
+    if(content)content.innerHTML=`<div class="module"><div class="notice warn"><b>No tienes permiso para abrir ${esc(id)}.</b></div></div>`;
+    return false;
+  }
+
+  window.currentModule=id;
+  updatePanelIdentity();
+  document.querySelectorAll('#side button[data-module]').forEach(b=>b.classList.toggle('active',b.dataset.module===id));
+
+  if(opts.updateHash!==false){
+    try{history.replaceState(null,'','#'+encodeURIComponent(id))}catch{}
+  }
+
+  const mod=MODULES.find(m=>m.id===id);
+  const isHome=id===(ROLE_HOME[role()]||'');
+  if($('heroTitle'))$('heroTitle').textContent=isHome?`Bienvenido, ${panelDisplayName()}`:(mod?.title||'ThinkStore');
+  if($('heroText'))$('heroText').textContent=isHome?panelHomeCopy(role()):(mod?.desc||'');
+
+  const hero=document.querySelector('.main-card>.hero');
+  if(hero){
+    hero.classList.toggle('panel-section-hero-hidden',!isHome||(isAdminRole()&&id==='dashboard'));
+    hero.classList.remove('admin-dashboard-hero-hidden');
+    const kpis=hero.querySelector('.kpis');
+    if(kpis)kpis.style.display=(isHome&&role()==='cliente')?'grid':'none';
+  }
+
+  const fn=views[id]||(()=>views.generic(id));
+  try{
+    await Promise.resolve(fn());
+  }catch(err){
+    console.error('ThinkStore módulo '+id,err);
+    const content=$('content');
+    if(content)content.innerHTML=`<div class="module"><div class="notice critical"><b>${esc(mod?.title||id)} no terminó de cargar.</b><br>${esc(err?.message||err||'Error')}</div></div>`;
+    return false;
+  }
+
+  if(isHome&&role()==='cliente')refreshKpis();
+  if(opts.fromMenu)closePanelMenu();
+  return true;
+}
 let realRefreshTimer=null;
 let tsInventoryImportRows=[];
 let tsCatalogAdmin=[];
@@ -2245,6 +2486,7 @@ const TS_INTERNAL_ROLES=[
   ['tecnico','Técnico'],['logistica','Logística'],['admin','Admin'],['superadmin','Super Admin']
 ];
 const TS_ACTION_PERMISSIONS=[
+ ['staff.access','App Ventas · Acceder a ThinkStore Staff'],
  ['inventory.import','Inventario · Importar Excel'],['inventory.edit','Inventario · Editar stock/precios'],['catalog.publish','Catálogo · Publicar productos'],
  ['orders.edit','Pedidos · Cambiar estados'],['payments.approve','Pagos · Aprobar/Rechazar'],['sales.create','Ventas · Registrar venta'],
  ['customers.edit','Clientes · Editar'],['marketing.send','Marketing · Enviar campañas'],['users.manage','Usuarios · Asignar roles'],['roles.manage','Roles · Crear/editar permisos']
@@ -2281,7 +2523,7 @@ async function loadAdminProfiles(){
 }
 async function renderProfiles(){
   const canInvite=['admin','superadmin'].includes(role());
-  $('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Usuarios internos</h2><small>Solo personal de trabajo creado mediante invitación administrativa. Los clientes registrados en la tienda nunca aparecen aquí.</small></div><div class="actions"><button class="btn ghost" onclick="renderProfiles()">Actualizar</button>${canInvite?'<button class="btn" onclick="showInternalInvite()">+ Invitar empleado</button>':''}${role()==='superadmin'?'<button class="btn ghost" onclick="showRoleEditor()">+ Crear rol</button>':''}</div></div><div class="toolbar"><input id="profileSearch" placeholder="Buscar empleado, correo o rol" oninput="drawAdminProfiles()"></div><div id="profilesMsg"></div><div id="roleEditor"></div><div id="rolesSummary"></div><div id="profilesBox"><div class="result">Cargando equipo interno…</div></div>`;
+  $('content').innerHTML=realBar()+`<div class="ts-staff-access-hero"><div><span>APP VENTAS</span><h2>Equipo y accesos</h2><p>Invita empleados, asigna roles y controla quién puede entrar a ThinkStore Staff.</p></div><a class="btn" href="staff/" target="_blank" rel="noopener">Abrir App Ventas ↗</a></div><div class="section-title"><div><h2>Usuarios internos</h2><small>Solo personal de trabajo creado mediante invitación administrativa. Los clientes registrados en la tienda nunca aparecen aquí.</small></div><div class="actions"><button class="btn ghost" onclick="renderProfiles()">Actualizar</button>${canInvite?'<button class="btn" onclick="showInternalInvite()">+ Invitar empleado</button>':''}${role()==='superadmin'?'<button class="btn ghost" onclick="showRoleEditor()">+ Crear rol</button>':''}</div></div><div class="toolbar"><input id="profileSearch" placeholder="Buscar empleado, correo o rol" oninput="drawAdminProfiles()"></div><div id="profilesMsg"></div><div id="roleEditor"></div><div id="rolesSummary"></div><div id="profilesBox"><div class="result">Cargando equipo interno…</div></div>`;
   try{const data=await loadAdminProfiles();window.tsProfilesViewerRole=data.viewer_role||role();drawRolesSummary();drawAdminProfiles()}catch(e){$('profilesBox').innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
 }
 function drawRolesSummary(){
@@ -2312,10 +2554,68 @@ function internalRoleChoices(viewerRole=role()){
   const custom=tsAdminRoles.filter(r=>!r.system&&r.active!==false&&!blocked.has(tsBaseUiRole(r.base_role))).map(r=>({value:`custom:${r.role_key}`,label:`${r.name} · base ${tsRoleLabel(tsBaseUiRole(r.base_role))}`,base:tsBaseUiRole(r.base_role)}));
   return [...system,...custom];
 }
+
+function tsBaseRoleDefaultStaff(roleKey){
+  return ['vendedor','admin','superadmin'].includes(normalizePanelRole(roleKey));
+}
+function tsProfileStaffAccess(p){
+  const roleKey=tsProfileRole(p);
+  const ov=p?.permission_overrides||{allow:[],deny:[]};
+  if((ov.deny||[]).includes('staff.access'))return false;
+  if((ov.allow||[]).includes('staff.access'))return true;
+  return tsBaseRoleDefaultStaff(roleKey);
+}
+function syncStaffInviteAccess(){
+  const sel=$('staffInviteRole'),box=$('staffInviteAppVentas');
+  if(!sel||!box)return;
+  const value=String(sel.value||'');
+  const base=value.startsWith('base:')?value.slice(5):
+    value.startsWith('custom:')?(tsAdminRoles.find(r=>r.role_key===value.slice(7))?.base_role||'vendedor'):'vendedor';
+  box.checked=tsBaseRoleDefaultStaff(base);
+}
+function applyStaffAccessOverride(profile,enabled){
+  const roleKey=tsProfileRole(profile);
+  const current=profile.permission_overrides||{allow:[],deny:[]};
+  const allow=new Set(current.allow||[]),deny=new Set(current.deny||[]);
+  const inherited=tsBaseRoleDefaultStaff(roleKey);
+  allow.delete('staff.access');deny.delete('staff.access');
+  if(enabled&&!inherited)allow.add('staff.access');
+  if(!enabled&&inherited)deny.add('staff.access');
+  return{allow:[...allow],deny:[...deny]};
+}
+
 function showInternalInvite(){
   if(!['admin','superadmin'].includes(role()))return alert('No tienes permiso para invitar usuarios internos.');
   const options=internalRoleChoices().map((r,i)=>`<option value="${esc(r.value)}" ${i===0?'selected':''}>${esc(r.label)}</option>`).join('');
-  $('roleEditor').innerHTML=`<div class="card" style="padding:22px;margin:18px 0"><div class="section-title"><div><h3>Invitar empleado</h3><small>Crea el acceso interno y envía un enlace seguro para que el empleado establezca su propia contraseña.</small></div><button class="btn ghost" onclick="document.getElementById('roleEditor').innerHTML=''">Cerrar</button></div><div class="form"><label>Nombre y apellido<input id="staffInviteName" autocomplete="name" placeholder="Ej. Andrea Pérez"></label><label>Correo del empleado<input id="staffInviteEmail" type="email" autocomplete="email" placeholder="nombre@correo.com"></label><label>Rol interno<select id="staffInviteRole">${options}</select></label></div><div class="notice" style="margin-top:14px"><b>Invitación segura</b><small>ThinkStore enviará un correo oficial con el botón “Crear mi contraseña”. No se genera ni se muestra una contraseña temporal.</small></div><div class="actions"><button class="btn" id="staffInviteBtn" onclick="inviteInternalUser()">Enviar invitación</button><button class="btn ghost" onclick="document.getElementById('roleEditor').innerHTML=''">Cancelar</button></div><div id="staffInviteStatus"></div></div>`;
+  $('roleEditor').innerHTML=`<div class="card ts-access-card" style="padding:22px;margin:18px 0">
+    <div class="section-title">
+      <div><h3>Invitar empleado</h3><small>Crea la cuenta interna y define desde aquí si podrá entrar a App Ventas.</small></div>
+      <button class="btn ghost" onclick="document.getElementById('roleEditor').innerHTML=''">Cerrar</button>
+    </div>
+    <div class="form">
+      <label>Nombre y apellido<input id="staffInviteName" autocomplete="name" placeholder="Ej. Andrea Pérez"></label>
+      <label>Correo del empleado<input id="staffInviteEmail" type="email" autocomplete="email" placeholder="nombre@correo.com"></label>
+      <label>Rol interno<select id="staffInviteRole" onchange="syncStaffInviteAccess()">${options}</select></label>
+      <label class="ts-app-access-choice">
+        <span>Acceso a App Ventas</span>
+        <span class="ts-access-switch-copy">
+          <input id="staffInviteAppVentas" type="checkbox">
+          <b>Permitir acceso</b>
+          <small>Usará este mismo correo y la contraseña que cree desde la invitación.</small>
+        </span>
+      </label>
+    </div>
+    <div class="notice" style="margin-top:14px">
+      <b>¿Qué contraseña usará?</b>
+      <small>ThinkStore no crea una contraseña temporal. El empleado recibe un correo oficial, pulsa “Crear mi contraseña” y define una contraseña privada. Luego entra en <b>App Ventas</b> con ese correo y esa contraseña.</small>
+    </div>
+    <div class="actions">
+      <button class="btn" id="staffInviteBtn" onclick="inviteInternalUser()">Enviar invitación</button>
+      <button class="btn ghost" onclick="document.getElementById('roleEditor').innerHTML=''">Cancelar</button>
+    </div>
+    <div id="staffInviteStatus"></div>
+  </div>`;
+  syncStaffInviteAccess();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 async function inviteInternalUser(){
@@ -2323,21 +2623,75 @@ async function inviteInternalUser(){
   const full_name=val('staffInviteName').trim(),email=normalizeEmail(val('staffInviteEmail')),selection=val('staffInviteRole');
   if(!full_name||!email)return alert('Completa nombre y correo del empleado.');
   const custom_role_key=selection.startsWith('custom:')?selection.slice(7):'',baseRole=selection.startsWith('base:')?selection.slice(5):'';
-  const btn=$('staffInviteBtn'),statusBox=$('staffInviteStatus');if(btn){btn.disabled=true;btn.textContent='Enviando…'};if(statusBox)statusBox.innerHTML='<div class="notice">Creando acceso y enviando invitación…</div>';
+  const selectedBase=baseRole||(tsAdminRoles.find(r=>r.role_key===custom_role_key)?.base_role||'vendedor');
+  const staffAccess=Boolean($('staffInviteAppVentas')?.checked);
+  const inherited=tsBaseRoleDefaultStaff(selectedBase);
+  const permission_overrides={
+    allow:staffAccess&&!inherited?['staff.access']:[],
+    deny:!staffAccess&&inherited?['staff.access']:[]
+  };
+  const btn=$('staffInviteBtn'),statusBox=$('staffInviteStatus');
+  if(btn){btn.disabled=true;btn.textContent='Enviando…'}
+  if(statusBox)statusBox.innerHTML='<div class="notice">Creando acceso y enviando invitación…</div>';
   try{
     const headers=await adminApiHeaders({'Content-Type':'application/json'});
-    const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'invite',full_name,email,role:baseRole||'vendedor',custom_role_key})});
-    const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo enviar la invitación');
-    if(statusBox)statusBox.innerHTML=`<div class="notice success"><b>Invitación enviada ✅</b><small>${esc(full_name)} recibirá un correo para crear su propia contraseña y acceder al Panel ThinkStore.</small></div>`;
-    await loadAdminProfiles();drawAdminProfiles();setTimeout(()=>{if($('roleEditor'))$('roleEditor').innerHTML=''},1800);
-  }catch(e){if(statusBox)statusBox.innerHTML=`<div class="notice critical">${esc(e.message||String(e))}</div>`;if(btn){btn.disabled=false;btn.textContent='Enviar invitación'}}
+    const res=await fetch('/.netlify/functions/admin-users',{
+      method:'POST',headers,
+      body:JSON.stringify({action:'invite',full_name,email,role:baseRole||'vendedor',custom_role_key,permission_overrides})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo enviar la invitación');
+    if(statusBox)statusBox.innerHTML=`<div class="notice success"><b>Invitación enviada ✅</b><small>${esc(full_name)} recibirá un correo para crear su contraseña.${staffAccess?' App Ventas quedó habilitada.':' App Ventas quedó deshabilitada.'}</small></div>`;
+    await loadAdminProfiles();drawAdminProfiles();
+    setTimeout(()=>{if($('roleEditor'))$('roleEditor').innerHTML=''},2200);
+  }catch(e){
+    if(statusBox)statusBox.innerHTML=`<div class="notice critical">${esc(e.message||String(e))}</div>`;
+    if(btn){btn.disabled=false;btn.textContent='Enviar invitación'}
+  }
 }
 function drawAdminProfiles(){
-  const box=$('profilesBox');if(!box)return;const q=normalizeEmail(val('profileSearch')),viewer=role(),canEdit=['admin','superadmin'].includes(viewer);
+  const box=$('profilesBox');if(!box)return;
+  const q=normalizeEmail(val('profileSearch')),viewer=role(),canEdit=['admin','superadmin'].includes(viewer);
   const list=(realState.profiles||[]).filter(p=>p?.is_internal===true).filter(p=>!q||JSON.stringify(p).toLowerCase().includes(q));
-  const roleOptions=(p)=>{const custom=tsCustomRole(p),base=tsProfileRole(p),selected=custom?`custom:${custom}`:`base:${base}`;let choices=internalRoleChoices(viewer);if(!choices.some(r=>r.value===selected)){choices=[{value:selected,label:custom?(tsAdminRoles.find(r=>r.role_key===custom)?.name||custom):(ROLE_LABELS[base]||base),base},...choices]}return choices.map(r=>`<option value="${esc(r.value)}" ${r.value===selected?'selected':''}>${esc(r.label)}</option>`).join('')};
-  const canManageTarget=p=>{const self=String(p.id||'')===String(user()?.id||'');if(!canEdit||self)return false;if(viewer==='superadmin')return true;return !['admin','superadmin'].includes(tsProfileRole(p));};
-  box.innerHTML=`<div class="notice" style="margin:18px 0"><b>Equipo interno ThinkStore</b> · ${list.length} empleado(s) por invitación. Esta lista no usa los registros públicos de clientes.</div><div class="table-wrap"><table class="table"><thead><tr><th>Empleado</th><th>Correo</th><th>Rol asignado</th><th>Estado</th><th>Acceso individual</th><th>Acción</th></tr></thead><tbody>${list.map(p=>{const id=String(p.id||''),active=(p.active??p.activo??true)!==false,self=id===String(user()?.id||''),ov=p.permission_overrides||{allow:[],deny:[]},manageable=canManageTarget(p);return `<tr><td><b>${esc(tsProfileName(p))}</b>${self?' <span class="badge">Tu cuenta</span>':''}</td><td>${esc(tsProfileEmail(p)||'—')}</td><td><select id="pr-role-${esc(id)}" ${manageable?'':'disabled'}>${roleOptions(p)}</select></td><td><select id="pr-active-${esc(id)}" ${manageable?'':'disabled'}><option value="1" ${active?'selected':''}>Activo</option><option value="0" ${!active?'selected':''}>Inactivo</option></select></td><td>${manageable?`<button class="btn ghost" onclick="editUserOverrides('${esc(id)}')">Personalizar (${(ov.allow||[]).length}+ / ${(ov.deny||[]).length}−)</button>`:`${(ov.allow||[]).length}+ / ${(ov.deny||[]).length}−`}</td><td>${manageable?`<button class="btn" onclick="saveAdminProfile('${esc(id)}')">Guardar</button>`:'—'}</td></tr>`}).join('')||'<tr><td colspan="6">No hay empleados internos creados todavía.</td></tr>'}</tbody></table></div>`;
+  const roleOptions=(p)=>{
+    const custom=tsCustomRole(p),base=tsProfileRole(p),selected=custom?`custom:${custom}`:`base:${base}`;
+    let choices=internalRoleChoices(viewer);
+    if(!choices.some(r=>r.value===selected)){
+      choices=[{value:selected,label:custom?(tsAdminRoles.find(r=>r.role_key===custom)?.name||custom):(ROLE_LABELS[base]||base),base},...choices];
+    }
+    return choices.map(r=>`<option value="${esc(r.value)}" ${r.value===selected?'selected':''}>${esc(r.label)}</option>`).join('');
+  };
+  const canManageTarget=p=>{
+    const self=String(p.id||'')===String(user()?.id||'');
+    if(!canEdit||self)return false;
+    if(viewer==='superadmin')return true;
+    return !['admin','superadmin'].includes(tsProfileRole(p));
+  };
+  box.innerHTML=`<div class="notice" style="margin:18px 0">
+    <b>Equipo y accesos ThinkStore</b> · ${list.length} empleado(s).
+    <small>App Ventas usa el mismo correo interno y la contraseña creada por el empleado desde su invitación.</small>
+  </div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Empleado</th><th>Correo</th><th>Rol</th><th>App Ventas</th><th>Estado</th><th>Permisos</th><th>Acción</th></tr></thead>
+    <tbody>${list.map(p=>{
+      const id=String(p.id||''),active=(p.active??p.activo??true)!==false,self=id===String(user()?.id||''),ov=p.permission_overrides||{allow:[],deny:[]},manageable=canManageTarget(p),staff=tsProfileStaffAccess(p);
+      return `<tr>
+        <td><b>${esc(tsProfileName(p))}</b>${self?' <span class="badge">Tu cuenta</span>':''}</td>
+        <td>${esc(tsProfileEmail(p)||'—')}</td>
+        <td><select id="pr-role-${esc(id)}" ${manageable?'':'disabled'}>${roleOptions(p)}</select></td>
+        <td>
+          <select id="pr-staff-${esc(id)}" ${manageable?'':'disabled'}>
+            <option value="1" ${staff?'selected':''}>✅ Con acceso</option>
+            <option value="0" ${!staff?'selected':''}>⛔ Sin acceso</option>
+          </select>
+        </td>
+        <td><select id="pr-active-${esc(id)}" ${manageable?'':'disabled'}><option value="1" ${active?'selected':''}>Activo</option><option value="0" ${!active?'selected':''}>Inactivo</option></select></td>
+        <td>${manageable?`<button class="btn ghost" onclick="editUserOverrides('${esc(id)}')">Personalizar (${(ov.allow||[]).length}+ / ${(ov.deny||[]).length}−)</button>`:`${(ov.allow||[]).length}+ / ${(ov.deny||[]).length}−`}</td>
+        <td>${manageable?`<button class="btn" onclick="saveAdminProfile('${esc(id)}')">Guardar</button>`:'—'}</td>
+      </tr>`;
+    }).join('')||'<tr><td colspan="7">No hay empleados internos creados todavía.</td></tr>'}
+    </tbody>
+  </table></div>`;
 }
 function editUserOverrides(id){
  const p=(realState.profiles||[]).find(x=>String(x.id)===String(id));if(!p)return;const ov=p.permission_overrides||{allow:[],deny:[]};const all=[...MODULES.map(m=>[m.id,m.title]),...TS_ACTION_PERMISSIONS];
@@ -2345,8 +2699,34 @@ function editUserOverrides(id){
 }
 async function saveUserOverrides(id){const p=(realState.profiles||[]).find(x=>String(x.id)===String(id));if(!p)return;const allow=[],deny=[];document.querySelectorAll('.uo-select').forEach(x=>{if(x.value==='allow')allow.push(x.dataset.key);if(x.value==='deny')deny.push(x.dataset.key)});p.permission_overrides={allow,deny};await saveAdminProfile(id,true)}
 async function saveAdminProfile(id,keepEditor=false){
-  if(!['admin','superadmin'].includes(role()))return alert('No tienes permiso para modificar accesos internos.');const sel=$(`pr-role-${id}`)?.value||`base:${tsProfileRole((realState.profiles||[]).find(p=>String(p.id)===String(id)))}`,active=$(`pr-active-${id}`)?.value!=='0';const target=(realState.profiles||[]).find(p=>String(p.id)===String(id));const custom=sel.startsWith('custom:')?sel.slice(7):'',base=sel.startsWith('base:')?sel.slice(5):tsProfileRole(target),over=target?.permission_overrides||{allow:[],deny:[]};const label=tsProfileEmail(target)||tsProfileName(target);
-  try{const headers=await adminApiHeaders({'Content-Type':'application/json'});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'update',id,role:base,custom_role_key:custom,active,permission_overrides:over})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar');audit('acceso_usuario_actualizado',`${label} · ${custom||base}`);if(!keepEditor){const msg=$('profilesMsg');if(msg)msg.innerHTML='<div class="notice">Cambios guardados ✅</div>';}await loadAdminProfiles();drawRolesSummary();drawAdminProfiles();if(keepEditor)$('roleEditor').innerHTML='<div class="notice">Excepciones guardadas ✅</div>'}catch(e){alert(e.message)}
+  if(!['admin','superadmin'].includes(role()))return alert('No tienes permiso para modificar accesos internos.');
+  const target=(realState.profiles||[]).find(p=>String(p.id)===String(id));
+  if(!target)return;
+  const sel=$(`pr-role-${id}`)?.value||`base:${tsProfileRole(target)}`;
+  const active=$(`pr-active-${id}`)?.value!=='0';
+  const staffEnabled=$(`pr-staff-${id}`)?.value!=='0';
+  const custom=sel.startsWith('custom:')?sel.slice(7):'';
+  const base=sel.startsWith('base:')?sel.slice(5):tsProfileRole(target);
+  target.role=base;
+  const over=applyStaffAccessOverride(target,staffEnabled);
+  target.permission_overrides=over;
+  const label=tsProfileEmail(target)||tsProfileName(target);
+  try{
+    const headers=await adminApiHeaders({'Content-Type':'application/json'});
+    const res=await fetch('/.netlify/functions/admin-users',{
+      method:'POST',headers,
+      body:JSON.stringify({action:'update',id,role:base,custom_role_key:custom,active,permission_overrides:over})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar');
+    audit('acceso_usuario_actualizado',`${label} · ${custom||base} · Staff ${staffEnabled?'ON':'OFF'}`);
+    if(!keepEditor){
+      const msg=$('profilesMsg');
+      if(msg)msg.innerHTML=`<div class="notice success">Cambios guardados ✅ · App Ventas ${staffEnabled?'habilitada':'deshabilitada'}.</div>`;
+    }
+    await loadAdminProfiles();drawRolesSummary();drawAdminProfiles();
+    if(keepEditor)$('roleEditor').innerHTML='<div class="notice">Excepciones guardadas ✅</div>';
+  }catch(e){alert(e.message)}
 }
 
 function tsSafeCall(fn,label='Panel'){
@@ -2382,6 +2762,7 @@ function tsShowPanelShell(){
 }
 
 async function boot(){
+  tsPanelBindNavigation();
   const bootText=$('panelBootText');
 
   // Corrige automáticamente sesiones antiguas guardadas como

@@ -11,7 +11,6 @@
 
   if (!window.supabaseClient) {
     window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    if(window.ThinkStoreOffline)window.ThinkStoreOffline.setTokenProvider(async()=>{const {data}=await window.supabaseClient.auth.getSession();return data?.session?.access_token||''});
   }
 
   console.log("Supabase conectado");

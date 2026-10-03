@@ -1,10 +1,10 @@
 {
   "name": "ThinkStore Enterprise",
   "short_name": "Enterprise",
-  "description": "Centro global ThinkStore para ventas, soporte, CRM, finanzas y operación con modo offline.",
-  "id": "https://enterprise.thinkstore.com.ve/",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "description": "Centro global ThinkStore para ventas, soporte, CRM, finanzas y operación.",
+  "id": "./",
+  "start_url": "./index.html?source=pwa",
+  "scope": "./",
   "launch_handler": {
     "client_mode": "navigate-existing"
   },
@@ -47,7 +47,7 @@
     {
       "name": "Centro de Operaciones",
       "short_name": "Operaciones",
-      "url": "/?view=operations",
+      "url": "./?view=operations",
       "description": "Ventas, clientes, soporte y alertas.",
       "icons": [
         {
@@ -59,7 +59,7 @@
     {
       "name": "CRM Clientes",
       "short_name": "CRM",
-      "url": "/?view=clients",
+      "url": "./?view=clients",
       "description": "Clientes 360 y segmentos.",
       "icons": [
         {
@@ -71,7 +71,7 @@
     {
       "name": "Centro de Soporte",
       "short_name": "Soporte",
-      "url": "/?view=support",
+      "url": "./?view=support",
       "description": "Órdenes y estados de soporte.",
       "icons": [
         {
@@ -83,7 +83,7 @@
     {
       "name": "Finanzas",
       "short_name": "Finanzas",
-      "url": "/?view=financeAdvanced",
+      "url": "./?view=financeAdvanced",
       "description": "Flujo de caja y metas comerciales.",
       "icons": [
         {

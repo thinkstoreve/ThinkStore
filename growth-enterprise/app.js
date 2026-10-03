@@ -155,7 +155,7 @@ async function sendPasswordRecovery(){
   try{
     setLoginMessage('Enviando enlace de recuperación...', '');
     const { error } = await getClient().auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://enterprise.thinkstore.com.ve/reset-password'
+      redirectTo: new URL('reset-password.html',location.href).href
     });
     if(error) throw error;
     setLoginMessage('Te enviamos un enlace para restablecer tu contraseña.', 'success');
@@ -168,26 +168,36 @@ async function sendPasswordRecovery(){
 async function logout(){ await window.supabaseClient?.auth?.signOut(); location.reload(); }
 async function bootAuth(){
   try{
-    const client = getClient();
-    const { data:{ session } } = await client.auth.getSession();
+    const client=getClient();
+    const sessionResult=await Promise.race([
+      client.auth.getSession(),
+      new Promise(resolve=>setTimeout(()=>resolve({data:{session:null}}),4000))
+    ]);
+    const session=sessionResult?.data?.session;
+
     if(!session?.user){
-      const cached=JSON.parse(localStorage.getItem('ts_enterprise_profile')||'null');
-      if(!navigator.onLine&&cached){currentProfile=cached;applyAdminIdentity({email:cached.email},cached);showApp();return}
+      setLoginMessage('Inicia sesión para abrir Enterprise.','');
       return;
     }
+
     try{
-      const profile = await getAdminProfile(session.user);
-      applyAdminIdentity(session.user, profile);
+      const profile=await getAdminProfile(session.user);
+      applyAdminIdentity(session.user,profile);
       showApp();
     }catch(error){
       const cached=JSON.parse(localStorage.getItem('ts_enterprise_profile')||'null');
-      if(!navigator.onLine&&cached){currentProfile=cached;applyAdminIdentity(session.user,cached);showApp();return}
+      if(cached){
+        currentProfile=cached;
+        applyAdminIdentity(session.user,cached);
+        showApp();
+        setLoginMessage('Enterprise abrió con el último perfil autorizado mientras actualiza permisos.','');
+        return;
+      }
       throw error;
     }
   }catch(error){
-    console.warn('Sesión no autorizada:', error.message);
-    if(navigator.onLine)await window.supabaseClient?.auth?.signOut();
-    setLoginMessage(error.message || 'Inicia sesión nuevamente.', 'error');
+    console.warn('Enterprise:',error.message||error);
+    setLoginMessage(error.message||'No se pudo conectar con Supabase. Reintenta.','error');
   }
 }
 function renderHome(){
@@ -2468,12 +2478,6 @@ function renderV9RealMarketing(data){
       if(id === 'ai') renderV9AI2(v9Cache);
     }
   };
-
-  if('serviceWorker' in navigator){
-    window.addEventListener('load', ()=>{
-      navigator.serviceWorker.register('sw.js').catch(error=>console.warn('PWA service worker:', error.message || error));
-    });
-  }
 })();
 
 /* ThinkStore Enterprise V9.5 · PWA descargable */

@@ -7,7 +7,7 @@ const H={
 };
 const DEFAULT_PERMS={
   cliente:['cuenta','mis_pedidos','mis_reparaciones','garantias','puntos'],
-  vendedor:['dashboard','ventas','cotizaciones','clientes','pagos','preordenes','crm','recomendaciones'],
+  vendedor:['dashboard','ventas','cotizaciones','clientes','pagos','preordenes','crm','recomendaciones','staff.access'],
   recepcion:['dashboard','recepcion','clientes','tickets','garantias','citas'],
   soporte:['dashboard','recepcion','clientes','tickets','garantias','citas'],
   tecnico:['dashboard','tecnico','diagnostico','repuestos','pruebas','garantias'],
@@ -39,6 +39,8 @@ exports.handler=async(event)=>{
   if(auth.profile?.is_internal!==true)return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente. ThinkStore Staff es exclusivo para personal invitado por un administrador.'});
   if(!INTERNAL.includes(auth.role)&&!auth.profile?.custom_role_key)return out(403,{ok:false,error:'Esta app es exclusiva para el equipo interno de ThinkStore'});
   const access=await effectiveAccess(auth.profile,url,service);
+  const canOpenStaff=access.permissions.includes('*')||access.permissions.includes('staff.access');
+  if(!canOpenStaff)return out(403,{ok:false,error:'Tu cuenta interna no tiene habilitado el acceso a App Ventas. Pide a un Administrador que lo active en Equipo y accesos.'});
   const canSell=access.permissions.includes('*')||access.permissions.includes('ventas');
   const action=clean(event.queryStringParameters?.action||'bootstrap').toLowerCase();
   if(action==='me')return out(200,{ok:true,user:userPayload(auth,access),can_sell:canSell});
