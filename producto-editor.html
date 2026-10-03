@@ -114,7 +114,9 @@ linear-gradient(45deg,#f2f2f4 25%,transparent 25%),linear-gradient(-45deg,#f2f2f
 <script src="data.js"></script>
 <script>
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const productName=new URLSearchParams(location.search).get('product')||'';
+const editorParams=new URLSearchParams(location.search);
+const productName=editorParams.get('product')||'';
+const requestedVariantId=editorParams.get('variant')||'';
 let state={variants:[],catalog:null,images:[],categories:[],selected:null,prepared:null,preparedColor:'',batteryReady:true,imageColorReady:true};
 let client=null;
 
@@ -147,7 +149,7 @@ async function authHeaders(){
   return {'Content-Type':'application/json',Authorization:`Bearer ${token}`};
 }
 async function boot(){
-  $('title').textContent=productName||'Producto';
+  $('title').textContent=productName||'Producto';if($('editorOrigin'))$('editorOrigin').textContent=requestedVariantId?'Inventario real · editor completo de variante':'Editor completo de producto';
   const cfg=window.THINKSTORE_SUPABASE||{};
   client=(window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY)?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
   if(!productName)return fail('No se recibió el producto.');
@@ -162,7 +164,7 @@ async function load(){
     state.catalog=(d.catalog_products||[]).find(v=>norm(v.product_name)===norm(productName))||{};
     state.images=(d.catalog_images||[]).filter(v=>String(v.product_key||'')===String(state.catalog.product_key||slug(productName)));
     state.categories=d.catalog_categories||[];state.batteryReady=d.battery_health_ready!==false;state.imageColorReady=d.catalog_image_color_ready!==false;
-    state.selected=state.variants[0]||null;
+    state.selected=(requestedVariantId?state.variants.find(v=>String(v.id)===String(requestedVariantId)):null)||state.variants[0]||null;
     renderAll();$('syncState').textContent='Datos reales · actualizado';
   }catch(e){fail(e.message)}
 }

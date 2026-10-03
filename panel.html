@@ -872,7 +872,7 @@ const views={
        <a class="inventory-real-tab link" href="https://inventory.thinkstore.com.ve" target="_blank" rel="noopener">🧩 Repuestos técnicos ↗</a>
      </div>
      <div class="module-head inventory-real-head">
-       <div><b>Inventario real · Equipos y accesorios</b><small>La metodología de Inventario Real queda integrada aquí: stock físico, disponible, reservado, vendido, variantes, seriales, precios, imágenes, publicación e historial.</small></div>
+       <div><b>Inventario real · Equipos y accesorios</b><small>Inventario Real vuelve a usar el editor avanzado: ficha, variantes, stock, precio, condición Pre-Owned, salud de batería, imágenes por color, publicación e historial.</small></div>
        <div class="actions">
          <input id="inventoryExcelFile" type="file" accept=".xlsx,.xls" hidden onchange="handleInventoryExcel(this.files?.[0])">
          <button class="btn ghost" onclick="downloadInventoryExcel()">⬇️ Descargar inventario</button>
@@ -889,6 +889,7 @@ const views={
        <span>✓ Reservado / vendido / disponible</span>
        <span>✓ Historial y auditoría</span>
      </div>
+     <div class="notice" style="margin:0 0 12px"><b>Editor central:</b> el botón <b>Editar ficha</b> abre ahora el editor avanzado directamente en <b>Inventory Central</b>, manteniendo variantes, Pre-Owned, batería, imágenes y vista previa en un solo lugar.</div>
      <div class="notice inv-filter-note" style="margin:12px 0"><span><b>Sincronización real:</b> ThinkStore, Staff POS y la tienda usan la misma disponibilidad de Supabase.</span><span>🟢 En stock · 🟠 Stock bajo · ⚪ Sin stock</span></div>
      <div id="inventoryImportPreview"></div>
      <div id="inventoryRealBox" class="inventory-stage">Cargando…</div>
@@ -1396,10 +1397,20 @@ function renderProducts(){
     </article>`
   }).join('')||'<div class="result">No hay productos en esta categoría.</div>';
 }
-function openProductEditorWindow(productName){
-  const url='producto-editor.html?product='+encodeURIComponent(productName||'');
+function openProductEditorWindow(productName,variantId=''){
+  const q=new URLSearchParams({product:productName||''});
+  if(variantId)q.set('variant',variantId);
+  const url='producto-editor.html?'+q.toString();
   const w=window.open(url,'_blank','noopener');
   if(!w)alert('El navegador bloqueó la nueva ventana. Permite ventanas emergentes para ThinkStore.');
+}
+function openRealInventoryEditor(id){
+  const v=(tsCatalogInventoryRows||[]).find(x=>String(x.id)===String(id));
+  if(!v)return alert('Variante no encontrada.');
+  const q=new URLSearchParams({variant:String(v.id),product:v.product_name||''});
+  const url='https://inventory.thinkstore.com.ve/?'+q.toString();
+  const w=window.open(url,'_blank','noopener');
+  if(!w)alert('El navegador bloqueó Inventory. Permite ventanas emergentes para ThinkStore.');
 }
 async function saveProductPrice(name,inputId){
   const price=Number($(inputId)?.value);
@@ -1598,12 +1609,12 @@ function renderRealInventoryCards(rows){
     ${invConditionKey(selected.condition)==='preowned'?`<div class="inv-facet"><div class="inv-facet-label">Estado estético</div>${grades.length?`<div class="inv-facet-buttons">${grades.map(x=>`<button class="inv-facet-btn ${String(selected.cosmetic_grade||'')===x?'active':''}" onclick="selectInventoryFacet('${encodeURIComponent(name)}','grade','${encodeURIComponent(x)}')">${esc(x)}</button>`).join('')}</div>`:`<small class="muted">Sin clasificar · usa Editar para asignar Excelente, Bueno o Bien.</small>`}</div>`:''}
     <div class="inv-variant-summary"><div><small>Disponible</small><b>${Number(selected.available||0)}</b></div><div><small>Reservado</small><b>${Number(selected.stock_reserved||0)}</b></div><div><small>Vendido</small><b>${Number(selected.stock_sold||0)}</b></div><div><small>Físico</small><b>${Number(selected.stock_on_hand||0)}</b></div><div><small>Precio</small><b>${Number(selected.price_usd||0)>0?money(selected.price_usd):'Por definir'}</b></div><div><small>Publicación</small><b style="font-size:12px">${cp?.published?'Publicado':'Borrador'}</b></div></div>
     <details class="inv-hidden-sku" style="margin-top:10px"><summary>Identificador técnico</summary><code>SKU: ${esc(selected.sku||'—')} · ID: ${esc(selected.id||'—')}</code></details>
-    <div class="inv-card-actions"><button class="btn ghost" onclick="openCatalogPublisher(decodeURIComponent('${encodeURIComponent(name)}'))">${cp?'Publicación':'Publicar'}</button><button class="btn ghost" onclick="editRealInventoryV1357('${esc(selected.id)}')">Editar</button><button class="btn ghost" onclick="adjustRealInventory('${esc(selected.id)}','${esc(shortInventoryCode(selected))}')">± Stock</button><button class="btn ghost" onclick="openInventoryHistory('${esc(selected.id)}','${esc(shortInventoryCode(selected))}',decodeURIComponent('${encodeURIComponent(name)}'))">Historial</button></div></article>`;
+    <div class="inv-card-actions"><button class="btn ghost" onclick="openCatalogPublisher(decodeURIComponent('${encodeURIComponent(name)}'))">${cp?'Publicación':'Publicar'}</button><button class="btn ghost" onclick="openRealInventoryEditor('${esc(selected.id)}')">Editar ficha</button><button class="btn ghost" onclick="adjustRealInventory('${esc(selected.id)}','${esc(shortInventoryCode(selected))}')">± Stock</button><button class="btn ghost" onclick="openInventoryHistory('${esc(selected.id)}','${esc(shortInventoryCode(selected))}',decodeURIComponent('${encodeURIComponent(name)}'))">Historial</button></div></article>`;
   }).join('')}</div>${groups.length?'':'<div class="notice">No hay productos que coincidan con los filtros.</div>'}`;
 }
 function renderRealInventoryTable(rows){
   const host=$('realInvTable');if(!host)return;
-  host.innerHTML=`<div class="table-wrap"><table class="table inv-table"><thead><tr><th>Producto</th><th>Código</th><th>Variante</th><th>Estado</th><th>Disponible</th><th>Reservado</th><th>Vendido</th><th>Precio</th><th>Acciones</th></tr></thead><tbody>${rows.map(v=>{const a=Number(v.available||0),st=invStatusFor(v),statusLabel=st==='out'?'Sin stock':st==='low'?'Stock bajo':'En stock';return `<tr><td><b>${esc(v.product_name)}</b><br><small>${esc(invCategoryFor(v))}</small></td><td><span class="inv-short-code">${esc(shortInventoryCode(v))}</span><br><small>${esc(v.model||'')}</small></td><td>${esc([v.capacity,v.color,invConditionLabel(v.condition),v.cosmetic_grade].filter(Boolean).join(' · '))}</td><td><span class="stock-pill ${st}">${statusLabel}</span></td><td><b>${a}</b></td><td>${Number(v.stock_reserved||0)}</td><td>${Number(v.stock_sold||0)}</td><td>${Number(v.price_usd||0)>0?money(v.price_usd):'Por definir'}</td><td><div class="inv-actions"><button class="btn ghost" onclick="editRealInventoryV1357('${esc(v.id)}')">Editar</button><button class="btn ghost" onclick="adjustRealInventory('${esc(v.id)}','${esc(shortInventoryCode(v))}')">± Stock</button><button class="btn ghost" onclick="openInventoryHistory('${esc(v.id)}','${esc(shortInventoryCode(v))}',decodeURIComponent('${encodeURIComponent(v.product_name)}'))">Historial</button></div><details class="inv-hidden-sku"><summary>SKU</summary><code>${esc(v.sku||'—')}</code></details></td></tr>`}).join('')||'<tr><td colspan="9">Sin resultados.</td></tr>'}</tbody></table></div>`;
+  host.innerHTML=`<div class="table-wrap"><table class="table inv-table"><thead><tr><th>Producto</th><th>Código</th><th>Variante</th><th>Estado</th><th>Disponible</th><th>Reservado</th><th>Vendido</th><th>Precio</th><th>Acciones</th></tr></thead><tbody>${rows.map(v=>{const a=Number(v.available||0),st=invStatusFor(v),statusLabel=st==='out'?'Sin stock':st==='low'?'Stock bajo':'En stock';return `<tr><td><b>${esc(v.product_name)}</b><br><small>${esc(invCategoryFor(v))}</small></td><td><span class="inv-short-code">${esc(shortInventoryCode(v))}</span><br><small>${esc(v.model||'')}</small></td><td>${esc([v.capacity,v.color,invConditionLabel(v.condition),v.cosmetic_grade].filter(Boolean).join(' · '))}</td><td><span class="stock-pill ${st}">${statusLabel}</span></td><td><b>${a}</b></td><td>${Number(v.stock_reserved||0)}</td><td>${Number(v.stock_sold||0)}</td><td>${Number(v.price_usd||0)>0?money(v.price_usd):'Por definir'}</td><td><div class="inv-actions"><button class="btn ghost" onclick="openRealInventoryEditor('${esc(v.id)}')">Editar ficha</button><button class="btn ghost" onclick="adjustRealInventory('${esc(v.id)}','${esc(shortInventoryCode(v))}')">± Stock</button><button class="btn ghost" onclick="openInventoryHistory('${esc(v.id)}','${esc(shortInventoryCode(v))}',decodeURIComponent('${encodeURIComponent(v.product_name)}'))">Historial</button></div><details class="inv-hidden-sku"><summary>SKU</summary><code>${esc(v.sku||'—')}</code></details></td></tr>`}).join('')||'<tr><td colspan="9">Sin resultados.</td></tr>'}</tbody></table></div>`;
 }
 function catalogSlug(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto'}
 function galleryRowsFor(key){return (tsCatalogImages||[]).filter(x=>String(x.product_key||'')===String(key||'')).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0))}

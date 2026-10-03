@@ -501,6 +501,16 @@ const TSService=(()=>{
     return deviceVisualAssets[(name||'').trim().toLowerCase()]||null;
   }
   let currentDeviceView='all';
+
+  let receptionDeviceCategory='apple';
+  let receptionQuickFailures=[];
+  const receptionPhotoFiles={front:null,back:null,detail:null};
+  const receptionCatalog={
+    apple:{brand:'Apple',categories:['iPhone','iPad','AirPods','Apple Watch','MacBook Air','MacBook Pro','iMac','Mac mini','Mac Studio','Mac Pro'],placeholder:'Buscar modelo de iPhone, iPad, Mac, AirPods, Apple Watch…',failures:['No enciende','Pantalla rota','No carga','Batería','Cámara','Audio','Face ID / Touch ID','Humedad','Software','Se reinicia'],checklist:[['Pantalla','Funciona','No funciona','No aplica'],['Táctil','Funciona','No funciona','No aplica'],['Botones','Funciona','No funciona','No aplica'],['Cámara frontal','Funciona','No funciona','No aplica'],['Cámara trasera','Funciona','No funciona','No aplica'],['Flash','Funciona','No funciona','No aplica'],['Altavoz','Funciona','No funciona','No aplica'],['Micrófono','Funciona','No funciona','No aplica'],['Auricular','Funciona','No funciona','No aplica'],['WiFi','Funciona','No funciona','No aplica'],['Bluetooth','Funciona','No funciona','No aplica'],['Red celular','No aplica','Funciona','No funciona'],['Batería','No aplica','Funciona','No retiene carga'],['Cargador','No aplica','Incluido','No incluido'],['Face ID / Touch ID','No aplica','Funciona','No funciona'],['iCloud / Cuenta','No aplica','Cerrada','Abierta'],['SIM','No aplica','Incluida','No incluida']]},
+    other:{brand:'',categories:['Android','Laptop','Tablet','Audio','Smartwatch','Otro'],placeholder:'Escribe marca y modelo del equipo…',failures:['No enciende','Pantalla rota','No carga','Batería','Puerto de carga','Audio','Cámara','WiFi / Bluetooth','Humedad','Software'],checklist:[['Pantalla','Funciona','No funciona','No aplica'],['Táctil','Funciona','No funciona','No aplica'],['Botones','Funciona','No funciona','No aplica'],['Cámara','Funciona','No funciona','No aplica'],['Altavoz','Funciona','No funciona','No aplica'],['Micrófono','Funciona','No funciona','No aplica'],['WiFi','Funciona','No funciona','No aplica'],['Bluetooth','Funciona','No funciona','No aplica'],['USB / Puertos','Funciona','No funciona','No aplica'],['Carga','Funciona','No funciona','No aplica'],['Batería','Funciona','No retiene carga','No aplica'],['Teclado / Controles','No aplica','Funciona','No funciona']]},
+    gaming:{brand:'',categories:['PlayStation','Xbox','Nintendo','Consola portátil','Control / mando','Otro gaming'],placeholder:'Escribe consola o modelo del control…',failures:['No enciende','No da video','HDMI','Sobrecalienta','No lee discos','No carga','Joystick drift','Botones / gatillos','Conectividad','Humedad'],checklist:[['Encendido','Funciona','No funciona','No aplica'],['Video / HDMI','Funciona','No funciona','No aplica'],['Puerto HDMI','Funciona','No funciona','No aplica'],['USB / Puertos','Funciona','No funciona','No aplica'],['WiFi / Bluetooth','Funciona','No funciona','No aplica'],['Lector','Funciona','No funciona','No aplica'],['Almacenamiento','Funciona','No funciona','No aplica'],['Ventilación','Funciona','No funciona','No aplica'],['Temperatura','Normal','Alta','No aplica'],['Joystick / sticks','Funciona','Drift / falla','No aplica'],['Botones / gatillos','Funciona','No funciona','No aplica'],['Carga / batería','Funciona','No funciona','No aplica']]}
+  };
+
   function applyInspectionView(asset,view){
     const diagram=document.getElementById('deviceDiagram');
     if(!diagram||!asset)return;
@@ -568,12 +578,10 @@ const TSService=(()=>{
     applyDeviceVisualAssets(d);
   }
   function selectDeviceFromSearch(value){
+    if(receptionDeviceCategory!=='apple'){oDevice.value=value;updateReceptionDeviceVisual();renderReceptionSummary();return}
     const d=findAppleDevice(value);
-    if(d){
-      const deviceInput=document.getElementById('oDevice');
-      if(deviceInput) deviceInput.value=d.name;
-    }
-    previewSelectedDevice(value);
+    if(d){oDevice.value=d.name;oCategory.value=d.category;previewSelectedDevice(d.name)}
+    renderReceptionSummary();
   }
 
 
@@ -680,10 +688,86 @@ const TSService=(()=>{
   }
 
   function filterDeviceCategory(category){
-    const list=document.getElementById('appleDeviceModels');
-    if(!list)return;
+    if(receptionDeviceCategory!=='apple'){renderReceptionSummary();return}
+    const list=document.getElementById('appleDeviceModels');if(!list)return;
     const filtered=category?appleDevices.filter(d=>d.category===category||d.category.includes(category)):appleDevices;
     list.innerHTML=filtered.map(d=>`<option value="${d.name}">${d.category}</option>`).join('');
+    renderReceptionSummary();
+  }
+
+
+  function receptionChecklistHtml(items){return items.map(([name,...values])=>`<label><input type="checkbox" /> ${esc(name)} <select>${values.map(v=>`<option>${esc(v)}</option>`).join('')}</select></label>`).join('')}
+  function renderReceptionQuickFailures(){
+    const box=document.getElementById('quickFailureChips');if(!box)return;
+    box.innerHTML=(receptionCatalog[receptionDeviceCategory]?.failures||[]).map(x=>`<button type="button" class="${receptionQuickFailures.includes(x)?'active':''}" data-failure="${esc(x)}">${esc(x)}</button>`).join('');
+    box.querySelectorAll('[data-failure]').forEach(b=>b.onclick=()=>toggleQuickFailure(b.dataset.failure));
+  }
+  function renderAdaptiveReceptionChecklist(savedChecklist=null){
+    const box=document.getElementById('receptionChecklist');if(!box)return;
+    box.innerHTML=receptionChecklistHtml(receptionCatalog[receptionDeviceCategory]?.checklist||[]);
+    if(savedChecklist)applyReceptionChecklist(savedChecklist);
+  }
+  function renderReceptionSummary(){
+    const box=document.getElementById('receptionV2Summary');if(!box)return;
+    const kindLabel=receptionDeviceCategory==='apple'?'Apple':receptionDeviceCategory==='gaming'?'Consolas y controles':'Otros equipos';
+    const photoCount=Object.values(receptionPhotoFiles).filter(Boolean).length;
+    const checklistDone=[...document.querySelectorAll('#receptionChecklist input[type=checkbox]')].filter(x=>x.checked).length;
+    const model=document.getElementById('oDevice')?.value?.trim()||'Sin modelo';
+    const issue=document.getElementById('oIssue')?.value?.trim()||'Sin falla reportada';
+    box.innerHTML=`<div><span>Tipo</span><b>${esc(kindLabel)}</b></div><div><span>Equipo</span><b>${esc(model)}</b></div><div><span>Falla</span><b>${esc(issue)}</b></div><div><span>Pruebas marcadas</span><b>${checklistDone}</b></div><div><span>Fotos</span><b>${photoCount} / 3</b></div>${receptionQuickFailures.length?`<div class="wide"><span>Fallas rápidas</span><b>${receptionQuickFailures.map(esc).join(' · ')}</b></div>`:''}`;
+    const count=document.getElementById('receptionPhotoCount');if(count)count.textContent=`${photoCount} / 3`;
+  }
+  function updateReceptionDeviceVisual(){
+    const title=document.getElementById('serviceDeviceTitle'),desc=document.getElementById('serviceDeviceDesc'),selectedName=document.getElementById('selectedDeviceName'),selectedMeta=document.getElementById('selectedDeviceMeta'),diagram=document.getElementById('deviceDiagram');
+    if(receptionDeviceCategory==='apple'){previewSelectedDevice(document.getElementById('oDevice')?.value||'');return}
+    if(selectedName)selectedName.textContent=receptionDeviceCategory==='gaming'?'Consola o control':'Equipo no Apple';
+    if(selectedMeta)selectedMeta.textContent='Escribe marca y modelo. La inspección se adapta al tipo seleccionado.';
+    if(title)title.textContent=receptionDeviceCategory==='gaming'?'Inspección de consola / control':'Inspección del equipo';
+    if(desc)desc.textContent=receptionDeviceCategory==='gaming'?'Marca golpes, puertos dañados, carcasa, sticks, gatillos o zonas con sobrecalentamiento.':'Marca golpes, rayas, pantalla, puertos, bisagras o daños visibles.';
+    const img=document.getElementById('selectedDeviceImg');if(img){img.removeAttribute('src');img.style.display='none'}
+    if(diagram){diagram.style.backgroundImage='';diagram.classList.remove('has-model-image');diagram.className=`device-diagram device-diagram-generic reception-${receptionDeviceCategory}`;diagram.querySelectorAll('.diagram-side,.diagram-front,.diagram-back,.diagram-top,.diagram-bottom').forEach(el=>el.style.display='');clearDamageMarks()}
+  }
+  function setReceptionDeviceCategory(kind='apple',savedChecklist=null){
+    receptionDeviceCategory=['apple','other','gaming'].includes(kind)?kind:'apple';
+    const cfg=receptionCatalog[receptionDeviceCategory];
+    const hidden=document.getElementById('oDeviceCategoryV2');if(hidden)hidden.value=receptionDeviceCategory;
+    document.querySelectorAll('.reception-device-tab').forEach(b=>b.classList.toggle('active',b.dataset.deviceKind===receptionDeviceCategory));
+    const brand=document.getElementById('oBrand'),category=document.getElementById('oCategory'),search=document.getElementById('deviceModelSearch'),device=document.getElementById('oDevice');
+    if(brand){brand.value=cfg.brand;brand.placeholder=receptionDeviceCategory==='apple'?'Apple':'Marca del equipo'}
+    if(category)category.innerHTML=`<option value="">Todas</option>${cfg.categories.map(x=>`<option>${esc(x)}</option>`).join('')}`;
+    if(search){search.placeholder=cfg.placeholder;search.value=device?.value||'';if(receptionDeviceCategory==='apple')search.setAttribute('list','appleDeviceModels');else search.removeAttribute('list')}
+    if(device){device.placeholder=cfg.placeholder;if(receptionDeviceCategory==='apple')device.setAttribute('list','appleDeviceModels');else device.removeAttribute('list')}
+    if(receptionDeviceCategory==='apple')filterDeviceCategory(category?.value||'');else{const list=document.getElementById('appleDeviceModels');if(list)list.innerHTML=''}
+    receptionQuickFailures=[];renderReceptionQuickFailures();renderAdaptiveReceptionChecklist(savedChecklist);updateReceptionDeviceVisual();renderReceptionSummary();
+  }
+  function toggleQuickFailure(value){
+    const i=receptionQuickFailures.indexOf(value);if(i>=0)receptionQuickFailures.splice(i,1);else receptionQuickFailures.push(value);
+    const issue=document.getElementById('oIssue');
+    if(issue){const all=[...new Set([...receptionQuickFailures,...issue.value.split(' · ').filter(Boolean).filter(x=>!receptionCatalog[receptionDeviceCategory].failures.includes(x))])];issue.value=all.join(' · ')}
+    renderReceptionQuickFailures();renderReceptionSummary();
+  }
+  function clearQuickFailures(){receptionQuickFailures=[];renderReceptionQuickFailures();renderReceptionSummary()}
+  function previewReceptionPhoto(slot,input){
+    const file=input?.files?.[0]||null;receptionPhotoFiles[slot]=file;
+    const id=slot==='front'?'receptionPhotoPreviewFront':slot==='back'?'receptionPhotoPreviewBack':'receptionPhotoPreviewDetail',box=document.getElementById(id);if(!box)return;
+    if(!file){box.innerHTML='＋';renderReceptionSummary();return}
+    const url=URL.createObjectURL(file);box.innerHTML=`<img src="${url}" alt="Foto de recepción"><button type="button" data-remove-photo="${slot}">×</button>`;box.querySelector('button').onclick=e=>{e.preventDefault();e.stopPropagation();removeReceptionPhoto(slot)};renderReceptionSummary();
+  }
+  function removeReceptionPhoto(slot){
+    receptionPhotoFiles[slot]=null;
+    const input=document.getElementById(slot==='front'?'receptionPhotoFront':slot==='back'?'receptionPhotoBack':'receptionPhotoDetail');if(input)input.value='';
+    const box=document.getElementById(slot==='front'?'receptionPhotoPreviewFront':slot==='back'?'receptionPhotoPreviewBack':'receptionPhotoPreviewDetail');if(box)box.innerHTML='＋';renderReceptionSummary();
+  }
+  function resetReceptionPhotos(){for(const k of Object.keys(receptionPhotoFiles))receptionPhotoFiles[k]=null;['receptionPhotoFront','receptionPhotoBack','receptionPhotoDetail'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});['receptionPhotoPreviewFront','receptionPhotoPreviewBack','receptionPhotoPreviewDetail'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='＋'})}
+  async function uploadReceptionPhotos(orderId){
+    for(const [slot,file] of Object.entries(receptionPhotoFiles).filter(([,f])=>f)){
+      try{
+        if(file.size>8*1024*1024)continue;
+        const ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,''),path=`${orderId}/reception-${slot}-${Date.now()}-${crypto.randomUUID()}.${ext}`;
+        const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,{upsert:false});if(upError){console.warn(upError);continue}
+        await supabaseClient.from('service_order_photos').insert({order_id:orderId,file_url:'private',storage_path:path,label:`Recepción · ${slot==='front'?'Frontal':slot==='back'?'Trasera':'Detalle'}`,created_by_email:session?.email||null});
+      }catch(err){console.warn('Reception photo',err)}
+    }
   }
 
 
@@ -703,6 +787,9 @@ const TSService=(()=>{
     currentDeviceView='all';
     document.querySelectorAll('.device-view-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view==='all'));
     clearDamageMarks();
+    resetReceptionPhotos();
+    setReceptionDeviceCategory('apple');
+    renderReceptionSummary();
   }
   function openServiceOrder(){
     if(!can('reception')&&!can('orders')){alert('No tienes permiso para crear órdenes');return}
@@ -714,6 +801,9 @@ const TSService=(()=>{
     }
     document.body.classList.add('order-tab');
     document.getElementById('orderModal').classList.add('open');
+    ['oClient','oDevice','oIssue','oCategory','oBrand'].forEach(id=>document.getElementById(id)?.addEventListener('input',renderReceptionSummary));
+    document.getElementById('receptionChecklist')?.addEventListener('change',renderReceptionSummary);
+    renderReceptionSummary();
     setTimeout(()=>document.getElementById('deviceModelSearch')?.focus(),120);
   }
   function applyReceptionChecklist(checklist={}){
@@ -733,35 +823,42 @@ const TSService=(()=>{
     oClient.value=o.client||'';oPhone.value=o.phone||'';oEmail.value=o.email||'';oPriority.value=o.priority||'Normal';
     oDevice.value=o.device||'';deviceModelSearch.value=o.device||'';oColor.value=o.color||'';oSerial.value=o.serial||'';oIssue.value=o.issue||'';oAccessories.value=o.accessories||'';oVisual.value=o.visual||'';oTechNotes.value=o.technicalNotes||'';
     oPasswordFlag.value=o.passwordReceived?'Sí':'No';
-    const d=findAppleDevice(o.device||''); if(d){oCategory.value=d.category||'';previewSelectedDevice(o.device);selectDeviceFromSearch(o.device)}
-    applyReceptionChecklist(o.checklist||{});
+    const meta=o.checklist?.__meta||{};
+    const savedKind=meta.device_category||((o.deviceType||'').toLowerCase().startsWith('gaming')?'gaming':(o.deviceType||'').toLowerCase().startsWith('other')?'other':'apple');
+    setReceptionDeviceCategory(savedKind,o.checklist||{});
+    receptionQuickFailures=Array.isArray(meta.quick_failures)?meta.quick_failures.slice():[];renderReceptionQuickFailures();
+    if(savedKind==='apple'){const d=findAppleDevice(o.device||'');if(d){oCategory.value=d.category||'';previewSelectedDevice(o.device);selectDeviceFromSearch(o.device)}}else{
+      const typeText=String(o.deviceType||'').split('·').slice(1).join('·').trim();if(typeText)oCategory.value=typeText;
+    }
     const sig=o.signatures||{};sigReceptionName.value=sig.reception||session?.name||'';sigClientName.value=sig.client||o.client||'';sigTechName.value=sig.technician||'';sigSupervisorName.value=sig.supervisor||'';
+    renderReceptionSummary();
     document.body.classList.add('order-tab');document.getElementById('orderModal').classList.add('open');setTimeout(()=>oSerial?.focus(),120);
   }
   function code(){const year=new Date().getFullYear(),nums=orders.filter(o=>String(o.code).includes(`TS-SVC-${year}-`)).map(o=>Number(String(o.code).split('-').pop())||0);return `TS-SVC-${year}-${String(Math.max(0,...nums)+1).padStart(4,'0')}`}
   async function saveOrder(e){
     e.preventDefault();
-    const device=findAppleDevice(oDevice.value);
+    const device=receptionDeviceCategory==='apple'?findAppleDevice(oDevice.value):null;
     const checklist={};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
+    checklist.__meta={device_category:receptionDeviceCategory,quick_failures:receptionQuickFailures.slice(),reception_v2:true};
     const signatures={reception:sigReceptionName.value.trim()||session?.name||'',client:sigClientName.value.trim(),technician:sigTechName.value.trim(),supervisor:sigSupervisorName.value.trim()};
-    const base={client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:device?.category||null,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:oPasswordFlag.value==='Sí',priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:oTechNotes.value.trim()||null,reception_checklist:checklist,signatures,status:'Recibido'};
+    const deviceType=receptionDeviceCategory==='apple'?(device?.category||oCategory.value||'Apple'):receptionDeviceCategory==='gaming'?`Gaming · ${oCategory.value||'Consola / control'}`:`Other · ${oCategory.value||'Otro equipo'}`;
+    const base={client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:deviceType,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:oPasswordFlag.value==='Sí',priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:oTechNotes.value.trim()||null,reception_checklist:checklist,signatures,status:'Recibido'};
     if(activeReceptionOrderId){
       const previous=orders.find(x=>String(x.id)===String(activeReceptionOrderId));
       const {data,error}=await supabaseClient.from('service_orders').update(base).eq('id',activeReceptionOrderId).select('*').single();
       if(error){alert('No se pudo guardar la recepción: '+error.message);return}
-      await supabaseClient.from('service_order_notes').insert({order_id:activeReceptionOrderId,note:'Recepción física registrada/actualizada. Checklist, accesorios, serial/IMEI y condición del equipo guardados.',visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});
+      await uploadReceptionPhotos(activeReceptionOrderId);
+      await supabaseClient.from('service_order_notes').insert({order_id:activeReceptionOrderId,note:`Recepción V2 actualizada · ${receptionDeviceCategory}. Checklist, fotos y condición guardados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});
       await audit('update_reception',activeReceptionOrderId,previous||null,base);
-      activeReceptionOrderId=null;await loadSupportData();closeModals();await renderPanel('orders');toast('Recepción guardada en la orden '+(data?.code||previous?.code||''));return;
+      activeReceptionOrderId=null;await loadSupportData();closeModals();await renderPanel('orders');toast('Recepción V2 guardada en la orden '+(data?.code||previous?.code||''));return;
     }
     const row={...base,code:code(),quote_status:'Pendiente',created_by_email:session?.email||null};
     const {data,error}=await supabaseClient.from('service_orders').insert(row).select('*').single();
     if(error){alert('No se pudo crear la orden: '+error.message);return}
-    await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:'Equipo recibido y checklist registrado.',visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,row);
-    if(pendingAppointmentId){
-      await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);
-    }
-    const createdOrder=mapOrder(data); pendingAppointmentId=null;
-    await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso finalizado. Orden creada: '+row.code);
+    await uploadReceptionPhotos(data.id);
+    await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:`Equipo recibido con Recepción V2 · ${receptionDeviceCategory}. Checklist y fotos registrados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,row);
+    if(pendingAppointmentId)await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);
+    const createdOrder=mapOrder(data);pendingAppointmentId=null;await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso V2 finalizado. Orden creada: '+row.code);
   }
   async function updateStatus(i,status){
     const order=orders[i];if(!order)return;
@@ -973,5 +1070,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView};
+  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();
