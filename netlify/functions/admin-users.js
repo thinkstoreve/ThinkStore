@@ -28,13 +28,13 @@ exports.handler=async(event)=>{
 
   if(action==='list'){
     const [pr,rr]=await Promise.all([
-      fetch(`${url}/rest/v1/profiles?select=*&is_internal=eq.true&order=created_at.desc`,{headers:svc(service)}),
+      fetch(`${url}/rest/v1/profiles?select=*&order=created_at.desc`,{headers:svc(service)}),
       fetch(`${url}/rest/v1/ts_roles?select=*&order=system.desc,name.asc`,{headers:svc(service)})
     ]);
     const allProfiles=await pr.json().catch(()=>[]),roles=await rr.json().catch(()=>[]);
     if(!pr.ok){
       const msg=String(allProfiles?.message||allProfiles?.error||'');
-      if(/is_internal|column/i.test(msg))return out(409,{ok:false,error:'Ejecuta primero supabase_v14_1_internal_staff_isolation.sql para separar empleados de clientes.'});
+      if(/column/i.test(msg)&&/is_internal/i.test(msg))return out(409,{ok:false,error:'El esquema de perfiles necesita actualizarse antes de administrar empleados.'});
       return out(pr.status,{ok:false,error:'No se pudieron cargar los usuarios internos',details:allProfiles});
     }
     if(!rr.ok)return out(rr.status,{ok:false,error:'Ejecuta primero SQL V1.6.6 de Roles y Permisos',details:roles});
@@ -133,7 +133,12 @@ function normalizeUiRole(v){let r=String(v||'cliente').toLowerCase().replace(/[ 
 function cleanPerms(v){return [...new Set((Array.isArray(v)?v:[]).map(x=>String(x||'').trim()).filter(Boolean))].slice(0,150)}
 function cleanOverrides(v){const o=v&&typeof v==='object'?v:{};return{allow:cleanPerms(o.allow),deny:cleanPerms(o.deny)}}
 function effectiveStaffAccess(role,overrides={allow:[],deny:[]}){const r=normalizeUiRole(role);if((overrides.deny||[]).includes('staff.access'))return false;if((overrides.allow||[]).includes('staff.access'))return true;return ['vendedor','admin','superadmin'].includes(r)}
-function isInternalProfile(p){return p?.is_internal===true}
+function isInternalProfile(p){
+  if(p?.is_internal===true)return true;
+  const role=normalizeUiRole(p?.role||p?.rol);
+  // Compatibilidad con cuentas internas creadas antes de la columna is_internal.
+  return INTERNAL_UI_ROLES.includes(role)||Boolean(p?.custom_role_key);
+}
 function roleLabel(r){return({vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Socio Administrador'})[normalizeUiRole(r)]||String(r||'Usuario interno')}
 async function findProfileByEmail(url,service,email){const paths=[`email=eq.${encodeURIComponent(email)}`,`correo=eq.${encodeURIComponent(email)}`];for(const q of paths){const r=await fetch(`${url}/rest/v1/profiles?select=*&${q}&limit=1`,{headers:svc(service)});if(r.ok){const rows=await r.json().catch(()=>[]);if(rows?.[0])return rows[0];}}return null}
 async function authenticate(event,url,service){
@@ -167,7 +172,7 @@ async function authenticate(event,url,service){
     user_id:u.id,
     email:u.email||p.email||p.correo||'',
     role:normalizeUiRole(p.role||p.rol),
-    internal:p.is_internal===true,
+    internal:isInternalProfile(p),
     profile:p
   };
 }
