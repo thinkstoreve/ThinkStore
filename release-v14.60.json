@@ -1,0 +1,14 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.60",
+  "base": "14.59",
+  "type": "panel-role-menu-fix",
+  "fixes": [
+    "normalize-super-admin-local-session",
+    "superadmin-unconditional-full-access",
+    "restore-premium-sidebar",
+    "force-admin-dashboard-home",
+    "generic-admin-fallback-to-dashboard",
+    "preserve-v14-59-stable-boot"
+  ]
+}
