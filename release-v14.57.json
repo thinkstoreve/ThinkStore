@@ -1,0 +1,14 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.57",
+  "base": "14.55",
+  "panel_ui": "premium-stable",
+  "fixes": [
+    "restore-openModule",
+    "preserve-boot-required-ids",
+    "premium-css-in-real-head",
+    "official-wordmark",
+    "svg-icons",
+    "premium-dashboard"
+  ]
+}

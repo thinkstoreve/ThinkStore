@@ -1,0 +1,17 @@
+/panel.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/panel-login.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/logo-thinkstore.png
+  Cache-Control: public, max-age=3600
+
+/supabase-config.js
+  Cache-Control: no-cache, must-revalidate
+
+/data.js
+  Cache-Control: no-cache, must-revalidate
+
+/ts-fx.js
+  Cache-Control: no-cache, must-revalidate

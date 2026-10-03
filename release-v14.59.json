@@ -1,0 +1,15 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.59",
+  "base": "14.58",
+  "type": "recovery-full",
+  "panel": "recovered-stable",
+  "changes": [
+    "restore-original-loading-icon",
+    "remove-admin-offline-runtime",
+    "remove-admin-service-worker",
+    "clear-stale-admin-pwa-cache",
+    "non-blocking-panel-shell",
+    "five-second-absolute-failsafe"
+  ]
+}
