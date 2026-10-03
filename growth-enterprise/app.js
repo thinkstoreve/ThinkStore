@@ -111,6 +111,7 @@ async function getAdminProfile(user){
   }
 
   currentProfile = profile;
+  try{localStorage.setItem('ts_enterprise_profile',JSON.stringify(profile))}catch{}
   return profile;
 }
 function applyAdminIdentity(user, profile={}){
@@ -169,13 +170,23 @@ async function bootAuth(){
   try{
     const client = getClient();
     const { data:{ session } } = await client.auth.getSession();
-    if(!session?.user) return;
-    const profile = await getAdminProfile(session.user);
-    applyAdminIdentity(session.user, profile);
-    showApp();
+    if(!session?.user){
+      const cached=JSON.parse(localStorage.getItem('ts_enterprise_profile')||'null');
+      if(!navigator.onLine&&cached){currentProfile=cached;applyAdminIdentity({email:cached.email},cached);showApp();return}
+      return;
+    }
+    try{
+      const profile = await getAdminProfile(session.user);
+      applyAdminIdentity(session.user, profile);
+      showApp();
+    }catch(error){
+      const cached=JSON.parse(localStorage.getItem('ts_enterprise_profile')||'null');
+      if(!navigator.onLine&&cached){currentProfile=cached;applyAdminIdentity(session.user,cached);showApp();return}
+      throw error;
+    }
   }catch(error){
     console.warn('Sesión no autorizada:', error.message);
-    await window.supabaseClient?.auth?.signOut();
+    if(navigator.onLine)await window.supabaseClient?.auth?.signOut();
     setLoginMessage(error.message || 'Inicia sesión nuevamente.', 'error');
   }
 }
