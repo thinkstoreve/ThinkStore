@@ -118,12 +118,26 @@
       </section>
       <section class="order-layout">
         <aside class="order-left">
-          <div class="order-box">
-            <h3>Datos del cliente</h3>
-            <div class="grid2 compact">
-              <label>Cliente<input id="oClient" required placeholder="Nombre del cliente" /></label>
-              <label>Teléfono<input id="oPhone" required placeholder="0414-0000000" /></label>
-              <label>Correo<input id="oEmail" type="email" placeholder="cliente@email.com" /></label>
+          <div class="order-box client-data-box">
+            <div class="client-data-head">
+              <div>
+                <h3>Datos del cliente</h3>
+                <p>Información privada de recepción. No se incluye en el QR público.</p>
+              </div>
+              <span>CLIENTE</span>
+            </div>
+            <div class="client-data-grid">
+              <label class="span2">Nombre completo<input id="oClient" required placeholder="Nombre y apellido" autocomplete="name" /></label>
+              <label>Tipo de cliente<select id="oClientType"><option>Particular</option><option>Empresa</option></select></label>
+              <label>Cédula / RIF<input id="oClientDocument" placeholder="V-12345678 / J-00000000-0" /></label>
+              <label>Teléfono principal<input id="oPhone" required placeholder="0414-0000000" autocomplete="tel" /></label>
+              <label>Teléfono alterno<input id="oPhoneAlt" placeholder="Opcional" autocomplete="tel" /></label>
+              <label class="span2">Correo<input id="oEmail" type="email" placeholder="cliente@email.com" autocomplete="email" /></label>
+              <label class="span2">Empresa / razón social<input id="oCompany" placeholder="Opcional" /></label>
+              <label class="span2">Dirección corta<input id="oAddressShort" placeholder="Edificio, calle o referencia breve" autocomplete="street-address" /></label>
+              <label>Municipio / ciudad<input id="oCity" placeholder="Ej: Chacao" autocomplete="address-level2" /></label>
+              <label>Estado<input id="oState" placeholder="Ej: Miranda" autocomplete="address-level1" /></label>
+              <label>Contacto preferido<select id="oContactMethod"><option>WhatsApp</option><option>Llamada</option><option>Correo</option></select></label>
               <label>Prioridad<select id="oPriority"><option>Normal</option><option>Alta</option><option>Urgente</option></select></label>
             </div>
           </div>
@@ -136,10 +150,12 @@
                 <option value="">Todas</option><option>iPhone</option><option>iPad</option><option>AirPods</option><option>Apple Watch</option><option>MacBook Air</option><option>MacBook Pro</option><option>iMac</option><option>Mac mini</option><option>Mac Studio</option><option>Mac Pro</option>
               </select></label>
             </div>
-            <label>Modelo<input id="oDevice" required list="appleDeviceModels" placeholder="Buscar modelo Apple..." oninput="TSService.previewSelectedDevice(this.value)" /></label>
+            <input id="oDevice" type="hidden" required />
             <div class="grid2 compact">
               <label>Serial / IMEI<input id="oSerial" placeholder="Serial / IMEI" /></label>
               <label>Contraseña<select id="oPasswordFlag"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
+              <label>Modalidad<select id="oServiceMode"><option>Presencial</option><option>A domicilio</option><option>Envío nacional</option></select></label>
+              <label>Ingreso<select id="oIntakeSource"><option>Recepción directa</option><option>Cita web</option><option>WhatsApp / Online</option></select></label>
             </div>
             <label>Color<input id="oColor" placeholder="Ej: Space Black, Natural Titanium..." /></label>
             <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, cable, caja, funda..."></textarea></label>
@@ -153,12 +169,27 @@
 
         <main class="order-center">
           <div class="order-box model-selector-box">
-            <h3>Seleccione el modelo del equipo</h3>
-            <div class="model-search-wrap">
-              <input id="deviceModelSearch" list="appleDeviceModels" placeholder="Buscar modelo de iPhone, iPad, Mac, AirPods, Apple Watch..." oninput="TSService.selectDeviceFromSearch(this.value)" />
-              <span>⌄</span>
+            <div class="model-selector-head">
+              <div>
+                <h3>Seleccione el modelo del equipo</h3>
+                <p id="modelSelectorHint">Busca un modelo o usa la flecha para ver toda la categoría seleccionada.</p>
+              </div>
+              <span id="modelCategoryPill">Apple</span>
             </div>
-            <small>La lista se despliega hacia abajo desde el buscador, sin ocupar espacio fijo.</small>
+
+            <div id="premiumModelSelect" class="premium-model-select">
+              <div class="premium-model-control">
+                <span class="premium-model-search-icon">⌕</span>
+                <input id="deviceModelSearch" autocomplete="off" placeholder="Buscar modelo de iPhone, iPad, Mac, AirPods, Apple Watch..." oninput="TSService.handleModelSearch(this.value)" onfocus="TSService.openModelDropdown(false)" />
+                <button id="modelDropdownToggle" type="button" class="premium-model-arrow" aria-label="Mostrar todos los modelos de la categoría" aria-expanded="false" onclick="TSService.toggleModelDropdown()">⌄</button>
+              </div>
+              <div id="modelDropdown" class="premium-model-dropdown" hidden></div>
+            </div>
+
+            <div class="model-selector-foot">
+              <small id="modelSelectorCount">Selecciona una categoría o abre la lista completa.</small>
+              <button type="button" class="model-clear-btn" onclick="TSService.clearSelectedModel()">Limpiar</button>
+            </div>
 
             <div class="selected-device-summary">
               <div id="selectedDeviceArt" class="device-art device-generic"><img id="selectedDeviceImg" class="selected-device-img" alt="" /></div>
@@ -311,11 +342,16 @@
         <label>Técnico responsable<select id="mTechnician"></select></label>
         <label>Estado del presupuesto<select id="mQuoteStatus"><option>Pendiente</option><option>Preparado</option><option>Enviado</option><option>Aprobado</option><option>Rechazado</option></select></label>
         <label>Monto del presupuesto<input id="mQuoteAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Estado de cobro<select id="mPaymentStatus"><option>Pendiente</option><option>Abono parcial</option><option>Cobrado</option></select></label>
+        <label>Monto cobrado USD<input id="mAmountPaid" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Método de pago<select id="mPaymentMethod"><option value="">Sin definir</option><option>Efectivo USD</option><option>Zelle</option><option>Pago Móvil</option><option>Transferencia</option><option>Punto de Venta</option><option>Efectivo Bs</option><option>Otro</option></select></label>
+        <label>Modalidad del servicio<select id="mServiceMode"><option>Presencial</option><option>A domicilio</option><option>Envío nacional</option></select></label>
         <label>Garantía de reparación (días)<input id="mWarrantyDays" type="number" min="0" step="1" value="0"></label>
         <label>Método de entrega<input id="mDeliveryMethod" placeholder="Retiro, MRW, Zoom, Tealca..."></label>
         <label>Empresa de envío<input id="mTrackingCompany" placeholder="Empresa de envío"></label>
       </div>
       <label>Número de guía<input id="mTrackingCode" placeholder="Número de guía"></label>
+      <label>Nota de cobro<textarea id="mPaymentNotes" placeholder="Referencia, abono, observación o acuerdo de pago..."></textarea></label>
       <label>Diagnóstico y observaciones técnicas<textarea id="mTechnicalNotes" placeholder="Diagnóstico, piezas, pruebas y observaciones..."></textarea></label>
       <div class="order-box"><h3>Fotografías y archivos privados</h3><div class="file-actions"><input id="mOrderFile" type="file" accept="image/*,.pdf"><button type="button" onclick="TSService.uploadOrderFile()">Subir archivo</button></div><div id="mOrderFiles" class="order-files"></div></div>
       <div class="actions"><button>Guardar cambios</button><button type="button" class="secondary" onclick="TSService.notifyOrderClient()">Enviar actualización al cliente</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>

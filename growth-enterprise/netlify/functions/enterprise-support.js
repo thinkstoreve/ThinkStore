@@ -9,7 +9,7 @@ exports.handler=async function(event){
   const mainUrl=clean(process.env.SUPABASE_URL).replace(/\/$/,'');
   const mainKey=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const supportUrl=clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/$/,'');
-  const supportKey=clean(process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY);
+  const supportKey=clean(process.env.SUPPORT_SUPABASE_SECRET_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY);
   if(!mainUrl||!mainKey)return json(501,{ok:false,error:'Faltan variables del Supabase principal'});
   if(!supportUrl||!supportKey)return json(501,{ok:false,error:'Configura SUPPORT_SUPABASE_URL y SUPPORT_SUPABASE_SERVICE_ROLE_KEY en Enterprise'});
 

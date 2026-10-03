@@ -60,6 +60,7 @@
 
       <nav class="nav-list" aria-label="Módulos Growth Enterprise">
         <button class="nav active" data-view="executive"><i>▦</i>Panel Ejecutivo</button>
+        <button class="nav" data-view="weekly"><i>▥</i>Resumen semanal</button>
         <button class="nav" data-view="operations"><i>🌎</i>Centro Operaciones</button>
         <button class="nav" data-view="mobile"><i>📱</i>Mobile/PWA</button>
         <button class="nav" data-view="commercial"><i>🏪</i>Control Comercial</button>
@@ -120,6 +121,8 @@
           <article class="metric"><div class="icon blue">⌁</div><span>Pagos por revisar</span><strong id="metricPendingPayments">Cargando...</strong><small class="up" id="metricPendingNote">Validación pendiente</small><button>⋮</button></article>
         </div>
 
+        <section id="enterpriseWeeklySummary" class="enterprise-weekly-home"></section>
+
         <div class="main-grid">
           <article class="panel chart-panel">
             <div class="panel-head"><h3>Crecimiento de Ventas</h3><button>Mensual⌄</button></div>
@@ -158,6 +161,7 @@
         </div>
       </section>
 
+      <section id="weekly" class="view module-view"></section>
       <section id="operations" class="view module-view"></section>
       <section id="mobile" class="view module-view"></section>
       <section id="commercial" class="view module-view"></section>

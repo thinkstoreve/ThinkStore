@@ -1,0 +1,14 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.53",
+  "base": "14.52",
+  "support_version": "8.2",
+  "enterprise_version": "10.0",
+  "features": [
+    "daily-support-dashboard",
+    "weekly-global-summary",
+    "support-payment-tracking",
+    "enterprise-main-support-bridge",
+    "weekly-50-25-25-split"
+  ]
+}

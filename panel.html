@@ -211,7 +211,7 @@ body{background:#fff}
 <body>
 <div id="panelBoot" class="panel-boot" aria-live="polite"><div class="panel-boot-card"><img class="panel-boot-logo" src="logo-thinkstore.png" alt="ThinkStore"><div id="panelBootText">Preparando tu cuenta…</div><div class="panel-boot-bar"><i></i></div></div></div>
 <section id="gate" class="gate" hidden aria-hidden="true"></section>
-<div id="app" class="app"><header class="top"><div class="top-inner"><button id="menuToggle" class="menu-toggle" type="button" aria-label="Abrir menú" aria-controls="side" aria-expanded="false" onclick="togglePanelMenu()"><span class="menu-toggle-lines"></span></button><div class="brand"><img src="logo-thinkstore.png" alt="ThinkStore"><span id="panelBrandText">ThinkStore · Cuenta</span><span id="rolePill" class="role-pill">Cliente</span></div><div class="panel-user-chip" id="panelUserChip" aria-label="Usuario activo"><span class="panel-user-avatar" id="panelUserAvatar">TS</span><span class="panel-user-copy"><small id="panelUserRoleMini">Sesión activa</small><b id="panelUserName">Usuario</b></span></div><nav class="nav"><a href="index.html">Tienda</a><a href="staff/" data-roles="vendedor,admin,superadmin">App Ventas</a><a href="https://enterprise.thinkstore.com.ve" target="_blank" rel="noopener" data-roles="admin,superadmin">Growth Enterprise</a><button onclick="logout()">Cerrar sesión</button></nav></div></header><main class="layout menu-collapsed" id="panelLayout"><div class="menu-backdrop" id="menuBackdrop" onclick="closePanelMenu()"></div><aside class="side" id="side" aria-label="Menú del panel"></aside><section class="main-card"><div class="hero"><h1 id="heroTitle">Bienvenido</h1><p id="heroText">Aquí puedes gestionar tus pedidos, reparaciones, favoritos, direcciones y beneficios.</p><div class="kpis"><div class="kpi"><b id="kpi1">0</b><small id="kpiLabel1">Pedidos</small></div><div class="kpi"><b id="kpi2">0</b><small id="kpiLabel2">Clientes</small></div><div class="kpi"><b id="kpi3">0</b><small id="kpiLabel3">Tickets</small></div><div class="kpi"><b id="kpi4">0</b><small id="kpiLabel4">Envíos</small></div></div></div><div id="content"></div></section></main><footer class="footer" id="panelFooter">ThinkStore.com.ve · Cuenta de cliente</footer></div>
+<div id="app" class="app"><header class="top"><div class="top-inner"><button id="menuToggle" class="menu-toggle" type="button" aria-label="Abrir menú" aria-controls="side" aria-expanded="false" onclick="togglePanelMenu()"><span class="menu-toggle-lines"></span></button><div class="brand"><img src="logo-thinkstore.png" alt="ThinkStore"><span id="panelBrandText">ThinkStore · Cuenta</span><span id="rolePill" class="role-pill">Cliente</span></div><div class="panel-user-chip" id="panelUserChip" aria-label="Usuario activo"><span class="panel-user-avatar" id="panelUserAvatar">TS</span><span class="panel-user-copy"><small id="panelUserRoleMini">Sesión activa</small><b id="panelUserName">Usuario</b></span></div><nav class="nav"><a href="index.html">Tienda</a><a href="staff/" data-roles="vendedor,admin,superadmin">App Ventas</a><a href="https://enterprise.thinkstore.com.ve" target="_blank" rel="noopener" data-roles="admin,superadmin">Enterprise</a><button onclick="logout()">Cerrar sesión</button></nav></div></header><main class="layout menu-collapsed" id="panelLayout"><div class="menu-backdrop" id="menuBackdrop" onclick="closePanelMenu()"></div><aside class="side" id="side" aria-label="Menú del panel"></aside><section class="main-card"><div class="hero"><h1 id="heroTitle">Bienvenido</h1><p id="heroText">Aquí puedes gestionar tus pedidos, reparaciones, favoritos, direcciones y beneficios.</p><div class="kpis"><div class="kpi"><b id="kpi1">0</b><small id="kpiLabel1">Pedidos</small></div><div class="kpi"><b id="kpi2">0</b><small id="kpiLabel2">Clientes</small></div><div class="kpi"><b id="kpi3">0</b><small id="kpiLabel3">Tickets</small></div><div class="kpi"><b id="kpi4">0</b><small id="kpiLabel4">Envíos</small></div></div></div><div id="content"></div></section></main><footer class="footer" id="panelFooter">ThinkStore.com.ve · Cuenta de cliente</footer></div>
 <script src="data.js">// ThinkStore V1.5.1 · Cliente: pedidos Supabase + local unificados
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -237,6 +237,7 @@ const MODULES=[
 {id:'preordenes',icon:'⏳',title:'Preórdenes',desc:'Seguimiento de preórdenes y entregas.'},
 {id:'logistica',icon:'🚚',title:'Envíos / Logística',desc:'Empresa, guía y estado de envíos.'},
 {id:'marketing',icon:'📣',title:'Marketing',desc:'Campañas de correo conectadas a Resend y clientes reales.'},
+{id:'enterprise',icon:'🏢',title:'Enterprise',desc:'Resumen global real de ventas, citas, soporte, cobros y distribución semanal.'},
 {id:'configuracion',icon:'⚙️',title:'Configuración',desc:'Estado de las integraciones y herramientas administrativas.'},
 {id:'cuenta',icon:'👤',title:'Mi cuenta',desc:'Datos, historial y actividad de la cuenta.'},
 {id:'mis_pedidos',icon:'📦',title:'Mis pedidos',desc:'Todos tus pedidos y su seguimiento.'},
@@ -702,6 +703,39 @@ async function openCashHistory(){
   showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">CAJA</span><h2>Historial de cierres</h2><p class="muted">Cierres diarios guardados en Supabase.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div id="cashHistoryBox" class="result">Cargando…</div>`);
   try{const data=await adminOperations('cash_closure_list'),r=data.rows||[];$('cashHistoryBox').innerHTML=r.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Fecha</th><th>Total</th><th>Efectivo</th><th>Diferencia</th><th>Usuario</th><th></th></tr></thead><tbody>${r.map((x,i)=>`<tr><td>${esc(x.business_date)}</td><td><b>${money(x.total_confirmed_usd)}</b></td><td>${money(x.counted_cash_usd)}</td><td>${money(x.cash_difference_usd)}</td><td>${esc(x.actor_email||'—')}</td><td><button class="btn ghost" onclick='openCashClosureReport(${JSON.stringify(x).replace(/'/g,"&#39;")})'>Ver / imprimir</button></td></tr>`).join('')}</tbody></table></div>`:'No hay cierres guardados.'}catch(e){$('cashHistoryBox').innerHTML=`<div class="notice warn">${esc(e.message)}</div>`}
 }
+
+async function enterpriseSummaryRequest(){
+  if(!window.tsPanelSupabase)throw new Error('Supabase no está disponible.');
+  const {data:{session}}=await window.tsPanelSupabase.auth.getSession();
+  if(!session?.access_token)throw new Error('Sesión administrativa requerida.');
+  const r=await fetch('/.netlify/functions/enterprise-summary',{headers:{Authorization:`Bearer ${session.access_token}`},cache:'no-store'});
+  const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo cargar Enterprise');
+  return d;
+}
+function enterpriseMoney(v){return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function enterpriseDay(v){try{return new Date(v+'T12:00:00-04:00').toLocaleDateString('es-VE',{weekday:'short',day:'2-digit',month:'short'})}catch{return v}}
+function unifiedSummaryHtml(d,full=false){
+  const s=d.sales||{},p=d.support||{},a=d.appointments||{},g=d.global||{};
+  const daily=full?`<div class="ts-global-daily">${(d.daily||[]).map(x=>`<div class="${x.date===d.period.today?'today':''}"><b>${esc(enterpriseDay(x.date))}</b><span>Online ${x.online_sales}</span><span>Presencial ${x.presencial_sales}</span><span>Soporte ${x.service_received}</span><span>Citas ${x.appointments}</span><strong>${enterpriseMoney(x.global_collected)}</strong></div>`).join('')}</div>`:'';
+  return `<section class="ts-global-panel"><div class="ts-global-head"><div><small>RESUMEN GLOBAL SEMANAL · DATOS REALES</small><h3>${esc(enterpriseDay(d.period.start))} — ${esc(enterpriseDay(d.period.end))}</h3></div>${full?'<button class="btn ghost" onclick="loadEnterprisePanel()">Actualizar</button>':''}</div>
+  <div class="ts-global-kpis"><div><span>Cobrado global</span><b>${enterpriseMoney(g.collected_amount)}</b><small>Ventas + soporte</small></div><div><span>Online</span><b>${enterpriseMoney(s.online_amount)}</b><small>${s.online_count||0} venta(s)</small></div><div><span>Presencial</span><b>${enterpriseMoney(s.presencial_amount)}</b><small>${s.presencial_count||0} venta(s)</small></div><div><span>Servicio técnico</span><b>${enterpriseMoney(p.collected_amount)}</b><small>${p.received||0} recibido(s)</small></div></div>
+  <div class="ts-global-mini"><span>Citas <b>${a.total||0}</b></span><span>A domicilio <b>${a.home||0}</b></span><span>Pendiente soporte <b>${enterpriseMoney(p.pending_collection_amount)}</b></span><span>Listos <b>${p.ready||0}</b></span><span>Entregados <b>${p.delivered||0}</b></span><span>Por entregar <b>${p.to_deliver||0}</b></span></div>
+  <div class="ts-global-split"><span>Empresa 50% <b>${enterpriseMoney(g.company_50)}</b></span><span>Socio A 25% <b>${enterpriseMoney(g.partner_a_25)}</b></span><span>Socio B 25% <b>${enterpriseMoney(g.partner_b_25)}</b></span></div>${daily}</section>`;
+}
+async function loadUnifiedDashboardSummary(){
+  const box=$('tsUnifiedDashboard');if(!box)return;
+  try{const d=await enterpriseSummaryRequest();box.innerHTML=unifiedSummaryHtml(d,false)}
+  catch(e){box.innerHTML=`<div class="notice warn">Resumen Enterprise pendiente: ${esc(e.message)}</div>`}
+}
+async function loadEnterprisePanel(){
+  const box=$('enterprisePanelBox');if(!box)return;
+  box.innerHTML='<div class="notice">Cargando ventas, citas y Soporte…</div>';
+  try{
+    const d=await enterpriseSummaryRequest();
+    box.innerHTML=unifiedSummaryHtml(d,true)+`<div class="ts-enterprise-open"><div><b>Enterprise completo</b><small>BI, finanzas, CRM, inventario y operación cruzada.</small></div><a class="btn" href="https://enterprise.thinkstore.com.ve" target="_blank" rel="noopener">Abrir Enterprise ↗</a></div>`;
+  }catch(e){box.innerHTML=`<div class="notice critical">${esc(e.message)}</div>`}
+}
+
 const views={
  generic(id){$('content').innerHTML=`<div class="notice warn">Este módulo conserva la interfaz Multi-Rol. Su integración profunda se mantiene separada del panel administrativo real.</div>`},
  async dashboard(){
@@ -754,8 +788,14 @@ const views={
       </aside>
     </div>
 
+    <div id="tsUnifiedDashboard" class="ts-unified-dashboard"><div class="notice">Cargando resumen semanal global…</div></div>
     <div class="ts-admin-insight"><div><small>Estado operativo</small><br><strong>${pendingAttention?`${pendingAttention} asunto(s) requieren atención`:'Todo al día'}</strong></div><div><small>${todayOrders.length} pedidos hoy · ${clients.length} clientes · ${inv.variants} variantes de inventario · ${newClients.length} clientes nuevos en 30 días</small></div></div>
   </div>`;
+  loadUnifiedDashboardSummary();
+ },
+ async enterprise(){
+   $('content').innerHTML=`<div class="module"><div class="module-head"><div><b>Enterprise · Centro global</b><small>Ventas online, ventas presenciales, citas, Servicio Técnico, cobros, entregas y distribución semanal.</small></div><div class="actions"><a class="btn" href="https://enterprise.thinkstore.com.ve" target="_blank" rel="noopener">Abrir Enterprise completo ↗</a></div></div><div id="enterprisePanelBox">Cargando…</div></div>`;
+   await loadEnterprisePanel();
  },
  async cuenta(){
    const u=user();
@@ -1973,6 +2013,15 @@ async function viewDeliveryNote(code){
 .inventory-real-features{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0}
 .inventory-real-features span{display:inline-flex;padding:7px 10px;border-radius:999px;background:#f5f7fa;border:1px solid #e3e7ec;font-size:11px;font-weight:800;color:#536579}
 @media(max-width:760px){.inventory-real-tabs{display:grid;grid-template-columns:1fr}.inventory-real-tab{justify-content:center}.inventory-real-head{display:block}.inventory-real-head .actions{margin-top:12px}}
+
+/* V14.53 · Enterprise global */
+.ts-unified-dashboard{margin-top:16px}.ts-global-panel{border:1px solid #e2e4e8;background:linear-gradient(180deg,#fff,#fafbfc);border-radius:20px;padding:16px;margin-top:14px}
+.ts-global-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:11px}.ts-global-head small{font-size:9px;font-weight:850;letter-spacing:.09em;color:#777}.ts-global-head h3{margin:4px 0 0}
+.ts-global-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.ts-global-kpis>div{background:#fff;border:1px solid #e5e6e9;border-radius:14px;padding:11px;display:grid;gap:3px}.ts-global-kpis span,.ts-global-kpis small{font-size:9.5px;color:#777}.ts-global-kpis b{font-size:18px}
+.ts-global-mini{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.ts-global-mini span{background:#f1f3f6;border-radius:999px;padding:7px 9px;font-size:10px}.ts-global-split{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;background:#111;color:#fff;border-radius:15px;padding:9px}.ts-global-split span{padding:6px;font-size:10px}.ts-global-split b{display:block;color:#fff;margin-top:2px}
+.ts-global-daily{display:grid;margin-top:12px}.ts-global-daily>div{display:grid;grid-template-columns:100px repeat(4,1fr) 100px;gap:7px;border-bottom:1px solid #eee;padding:8px;font-size:10px;align-items:center}.ts-global-daily>div.today{background:#eef6ff;border-radius:9px}
+.ts-enterprise-open{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#f5f6f8;border:1px solid #e2e4e8;border-radius:17px;padding:13px;margin-top:12px}.ts-enterprise-open small{display:block;color:#777;margin-top:2px}
+@media(max-width:900px){.ts-global-kpis{grid-template-columns:1fr 1fr}.ts-global-split{grid-template-columns:1fr}.ts-global-daily>div{grid-template-columns:80px 1fr 1fr 90px}.ts-global-daily>div span:nth-of-type(3),.ts-global-daily>div span:nth-of-type(4){display:none}}
 </style>`;
     win.document.open();
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Nota de entrega ${esc(code)}</title>${css}</head><body>${printBar}${data.html||''}</body></html>`);

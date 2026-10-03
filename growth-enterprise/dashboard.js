@@ -45,7 +45,7 @@ async function requireEnterpriseAdmin() {
     }
   }
 
-  if (!profile || profile.active === false || !['admin','administrator','super_admin'].includes(String(profile.role || '').toLowerCase())) {
+  if (!profile || profile.active === false || !['admin','administrator','super_admin','superadmin','gerente'].includes(String(profile.role || '').toLowerCase())) {
     await client.auth.signOut();
     window.location.href = 'index.html';
     return null;

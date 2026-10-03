@@ -1,5 +1,6 @@
 const titles = {
   executive:["Panel Ejecutivo","Resumen general de tu negocio en tiempo real."],
+  weekly:["Resumen semanal","Ventas online y presenciales, Servicio Técnico, citas, cobros, entregas y reparto 50/25/25."],
   commercial:["Control Comercial ThinkStore","Ventas, clientes, inventario, pagos, notas de entrega y correos con datos reales."],
   sales:["Ventas","Pedidos, ingresos, canales y rendimiento comercial."],
   products:["Productos","Catálogo estratégico, top ventas y rentabilidad por modelo."],
@@ -104,7 +105,7 @@ async function getAdminProfile(user){
     throw new Error('Este usuario está desactivado.');
   }
 
-  const allowedAdminRoles = ['admin','administrator','super_admin'];
+  const allowedAdminRoles = ['admin','administrator','super_admin','superadmin','gerente'];
   if(!allowedAdminRoles.includes(String(profile.role || '').toLowerCase())){
     throw new Error('Acceso restringido: este panel es solo para administradores.');
   }
@@ -2923,4 +2924,90 @@ function renderV9RealMarketing(data){
     observer.observe(document.getElementById('app') || document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class'] });
     setTimeout(runProd11, 600);
   });
+})();
+
+
+/* ==========================================================
+   Enterprise V10 · Resumen global diario y semanal
+   ========================================================== */
+(function(){
+  let weeklyCache=null;
+  const wMoney=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const wNum=n=>Number(n||0).toLocaleString('es-VE');
+  const wDay=key=>{try{return new Date(key+'T12:00:00-04:00').toLocaleDateString('es-VE',{weekday:'short',day:'2-digit',month:'short'})}catch{return key}};
+  async function weeklyHeaders(){
+    const h={'Content-Type':'application/json'};
+    const {data}=await window.supabaseClient.auth.getSession();
+    if(data?.session?.access_token)h.Authorization=`Bearer ${data.session.access_token}`;
+    return h;
+  }
+  function weeklyQuality(data){
+    const q=data?.data_quality||{},parts=[];
+    parts.push(q.support_connected?'Soporte conectado':'Soporte sin conexión');
+    parts.push(q.support_payment_ready?'Cobranza activa':'Falta migración de cobranza');
+    return parts.join(' · ');
+  }
+  function weeklyDailyRows(data){
+    return (data.daily||[]).map(d=>`<div class="ent-week-day ${d.date===data.period.today?'today':''}">
+      <b>${safe(wDay(d.date))}</b>
+      <span><i>Online</i>${wNum(d.online_sales)} · ${wMoney(d.online_amount)}</span>
+      <span><i>Presencial</i>${wNum(d.presencial_sales)} · ${wMoney(d.presencial_amount)}</span>
+      <span><i>Soporte</i>${wNum(d.service_received)} recibidos</span>
+      <span><i>Citas</i>${wNum(d.appointments)}${d.home_appointments?` · ${wNum(d.home_appointments)} domicilio`:''}</span>
+      <strong>${wMoney(d.global_collected)}</strong>
+    </div>`).join('');
+  }
+  function weeklyMarkup(data,compact=false){
+    const s=data.sales||{},p=data.support||{},a=data.appointments||{},g=data.global||{};
+    return `<div class="ent-week-head"><div><span>SEMANA ACTUAL · ${safe(data.timezone||'America/Caracas')}</span><h2>${safe(wDay(data.period.start))} — ${safe(wDay(data.period.end))}</h2><p>${safe(weeklyQuality(data))}</p></div><button type="button" onclick="loadEnterpriseWeeklySummary(true)">Actualizar</button></div>
+      <div class="ent-global-kpis">
+        <article><span>Cobrado global</span><b>${wMoney(g.collected_amount)}</b><small>Ventas verificadas + Servicio Técnico cobrado</small></article>
+        <article><span>Ventas online</span><b>${wMoney(s.online_amount)}</b><small>${wNum(s.online_count)} operación(es) registradas</small></article>
+        <article><span>Ventas presenciales</span><b>${wMoney(s.presencial_amount)}</b><small>${wNum(s.presencial_count)} operación(es) registradas</small></article>
+        <article><span>Servicio Técnico</span><b>${wMoney(p.collected_amount)}</b><small>${wNum(p.received)} recibidos · ${wNum(p.collected_count)} cobros</small></article>
+      </div>
+      <div class="ent-week-grid">
+        <article><span>Citas</span><b>${wNum(a.total)}</b><small>${wNum(a.home)} a domicilio</small></article>
+        <article><span>Servicios recibidos</span><b>${wNum(p.received)}</b><small>${wNum(p.home_services)} a domicilio</small></article>
+        <article><span>Pendiente por cobrar</span><b>${wMoney(p.pending_collection_amount)}</b><small>${wNum(p.pending_collection_count)} servicio(s)</small></article>
+        <article><span>Listos</span><b>${wNum(p.ready)}</b><small>Listos para entregar</small></article>
+        <article><span>Entregados</span><b>${wNum(p.delivered)}</b><small>Durante la semana</small></article>
+        <article><span>Por entregar</span><b>${wNum(p.to_deliver)}</b><small>Órdenes abiertas</small></article>
+      </div>
+      <div class="ent-split">
+        <div><span>DISTRIBUCIÓN DE LO COBRADO</span><h3>${wMoney(g.collected_amount)}</h3><p>No incluye ventas ni servicios pendientes por cobrar.</p></div>
+        <div class="ent-split-values"><article><span>Empresa · 50%</span><b>${wMoney(g.company_50)}</b></article><article><span>Socio A · 25%</span><b>${wMoney(g.partner_a_25)}</b></article><article><span>Socio B · 25%</span><b>${wMoney(g.partner_b_25)}</b></article></div>
+      </div>
+      ${compact?'':`<article class="panel ent-week-table"><div class="panel-head"><h3>Detalle diario</h3><span class="tag">Datos reales</span></div><div>${weeklyDailyRows(data)}</div></article>`}
+      ${data.data_quality?.errors?.length?`<div class="ent-data-warning">${data.data_quality.errors.map(safe).join(' · ')}</div>`:''}`;
+  }
+  function renderWeekly(data){
+    weeklyCache=data;window.enterpriseWeeklySummaryData=data;
+    const home=qs('enterpriseWeeklySummary');if(home)home.innerHTML=weeklyMarkup(data,true);
+    const full=qs('weekly');if(full)full.innerHTML=`<article class="panel v10-weekly-shell">${weeklyMarkup(data,false)}</article>`;
+    const dateBtn=document.querySelector('.date-btn');if(dateBtn)dateBtn.textContent=`▣ ${wDay(data.period.start)} - ${wDay(data.period.end)} ⌄`;
+  }
+  async function loadEnterpriseWeeklySummary(force=false){
+    const targets=[qs('enterpriseWeeklySummary'),qs('weekly')].filter(Boolean);
+    if(!force&&weeklyCache){renderWeekly(weeklyCache);return weeklyCache}
+    targets.forEach(el=>{if(el&&!el.innerHTML.trim())el.innerHTML='<article class="panel"><p>Cargando resumen global real…</p></article>'});
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-summary',{headers:await weeklyHeaders(),cache:'no-store'});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo cargar el resumen Enterprise');
+      renderWeekly(data);return data;
+    }catch(error){
+      const html=`<article class="panel ent-data-warning"><b>Enterprise no pudo cargar el resumen global.</b><p>${safe(error.message||error)}</p></article>`;
+      targets.forEach(el=>{if(el)el.innerHTML=html});
+      return null;
+    }
+  }
+  window.loadEnterpriseWeeklySummary=loadEnterpriseWeeklySummary;
+
+  const oldShow=showApp;
+  showApp=function(){oldShow();setTimeout(()=>loadEnterpriseWeeklySummary(true),260)};
+  const oldSwitch=window.switchView||switchView;
+  window.switchView=switchView=function(id){oldSwitch(id);if(id==='weekly')setTimeout(()=>loadEnterpriseWeeklySummary(false),40)};
+
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&weeklyCache)loadEnterpriseWeeklySummary(true)});
 })();
