@@ -1,5 +1,5 @@
-const CACHE="thinkstore-enterprise-v10-1";
-const CORE=["./", "./index.html", "./dashboard.html", "./install.html", "./offline.html", "./reset-password.html", "./styles.css", "./app.js", "./dashboard.js", "./reset-password.js", "./supabase.js", "./support-config.js", "./offline-runtime.js", "./manifest.webmanifest", "./assets/thinkstore-logo-white.png", "./assets/thinkstore-logo-black.png", "./assets/app-icon-192.png", "./assets/app-icon-512.png"];
+const CACHE="thinkstore-support-v8-3";
+const CORE=["./panel.html", "./index.html", "./styles.css", "./app.js", "./offline-runtime.js", "./manifest.webmanifest", "./offline.html", "./favicon-192.png", "./favicon-512.png", "./assets/thinkstore-logo-white.png"];
 const OFFLINE="./offline.html";
 const NAV_ONLY=null;
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(async c=>{for(const u of CORE){try{const r=await fetch(u,{cache:'reload'});if(r.ok||r.type==='opaque')await c.put(u,r.clone())}catch{}}}).then(()=>self.skipWaiting()))});

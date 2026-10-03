@@ -2,6 +2,7 @@ const TSService=(()=>{
   const SUPABASE_URL='https://tnezvnziqnjxhcwjtcuy.supabase.co';
   const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZXp2bnppcW5qeGhjd2p0Y3V5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwODk5ODUsImV4cCI6MjA5NzY2NTk4NX0.OsFkefVeW4FN_uVML1ncE0i6FR_Dmg8eLPY9TEnezpM';
   const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  if(window.ThinkStoreOffline)window.ThinkStoreOffline.setTokenProvider(async()=>{const {data}=await supabaseClient.auth.getSession();return data?.session?.access_token||''});
 
   const roles={
     superadmin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports'],
@@ -1227,12 +1228,20 @@ const TSService=(()=>{
         localStorage.setItem('ts_service_session',JSON.stringify(session));
         if(isPanelPage()) await renderApp(); else goToPanel();
       }catch(err){
+        const local=JSON.parse(localStorage.getItem('ts_service_session')||'null');
+        if(!navigator.onLine&&local?.email){
+          session=local;
+          if(isPanelPage())await renderApp();else goToPanel();
+          return;
+        }
         await supabaseClient.auth.signOut();
         localStorage.removeItem('ts_service_session');
         session=null;
         if(isPanelPage()) location.replace('index.html');
       }
     }else if(isPanelPage()){
+      const local=JSON.parse(localStorage.getItem('ts_service_session')||'null');
+      if(!navigator.onLine&&local?.email){session=local;await renderApp();return}
       location.replace('index.html');
     }
   }

@@ -1,7 +1,7 @@
-const CACHE="thinkstore-enterprise-v10-1";
-const CORE=["./", "./index.html", "./dashboard.html", "./install.html", "./offline.html", "./reset-password.html", "./styles.css", "./app.js", "./dashboard.js", "./reset-password.js", "./supabase.js", "./support-config.js", "./offline-runtime.js", "./manifest.webmanifest", "./assets/thinkstore-logo-white.png", "./assets/thinkstore-logo-black.png", "./assets/app-icon-192.png", "./assets/app-icon-512.png"];
-const OFFLINE="./offline.html";
-const NAV_ONLY=null;
+const CACHE="thinkstore-admin-v14-54";
+const CORE=["./panel.html", "./panel-login.html", "./panel.webmanifest", "./panel-offline.html", "./offline-runtime.js", "./data.js", "./supabase-config.js", "./ts-fx.js?v=14.1", "./logo-thinkstore.png", "./favicon-192.png", "./favicon-512.png", "./apple-touch-icon.png"];
+const OFFLINE="./panel-offline.html";
+const NAV_ONLY=["panel.html", "panel-login.html", "panel-offline.html"];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(async c=>{for(const u of CORE){try{const r=await fetch(u,{cache:'reload'});if(r.ok||r.type==='opaque')await c.put(u,r.clone())}catch{}}}).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE&&k.startsWith('thinkstore-')).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('message',e=>{if(e.data?.type==='SKIP_WAITING')self.skipWaiting()});
