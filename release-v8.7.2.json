@@ -1,0 +1,20 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.7.2",
+  "base": "8.7.1",
+  "type": "full-consolidated-bigint-safe",
+  "includes": [
+    "Bitácora técnica visible al cliente",
+    "Seguimiento seguro por token",
+    "Fotos públicas/privadas",
+    "Mensajería cliente-técnico",
+    "Cotización y aprobación con políticas",
+    "Reseñas",
+    "Centro de notificaciones",
+    "Alertas de citas web",
+    "Alertas de mensajes",
+    "Alertas de estados",
+    "Correo de respaldo a soporte",
+    "Correcciones BIGINT"
+  ]
+}

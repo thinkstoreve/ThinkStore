@@ -1,0 +1,12 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.7.7",
+  "base": "8.7.6",
+  "type": "secure-link-privacy-client-name",
+  "changes": [
+    "hide full tracking URL and token from printed service order",
+    "hide full tracking URL from reception completion card",
+    "keep QR as secure access method",
+    "show client name discreetly on secure tracking portal only"
+  ]
+}

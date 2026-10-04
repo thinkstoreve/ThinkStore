@@ -1,0 +1,12 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.7.9",
+  "base": "8.7.8",
+  "type": "instant-web-appointment-email",
+  "changes": [
+    "instant email to soporte@thinkstore.com.ve on appointment_new",
+    "database webhook via pg_net",
+    "digest remains as fallback without duplicate email",
+    "email_sent_at updated after successful instant delivery"
+  ]
+}
