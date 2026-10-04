@@ -358,8 +358,16 @@
         <label>Empresa de envío<input id="mTrackingCompany" placeholder="Empresa de envío"></label>
       </div>
       <label>Número de guía<input id="mTrackingCode" placeholder="Número de guía"></label>
-      <label>Nota de cobro<textarea id="mPaymentNotes" placeholder="Referencia, abono, observación o acuerdo de pago..."></textarea></label>
-      <label>Diagnóstico y observaciones técnicas<textarea id="mTechnicalNotes" placeholder="Diagnóstico, piezas, pruebas y observaciones..."></textarea></label>
+      <div class="manager-writing-grid">
+        <section class="manager-note-card">
+          <div class="manager-card-head"><span>COBRANZA</span><h3>Notas de pago y acuerdos</h3><p>Registra referencias, abonos, acuerdos con el cliente o cualquier observación relacionada con el cobro.</p></div>
+          <label class="premium-field">Nota de cobro<textarea id="mPaymentNotes" placeholder="Referencia, abono, observación o acuerdo de pago..."></textarea><small>Uso interno del equipo de soporte y caja.</small></label>
+        </section>
+        <section class="manager-note-card manager-note-card-lg">
+          <div class="manager-card-head"><span>ÁREA TÉCNICA</span><h3>Diagnóstico y observaciones</h3><p>Espacio interno para registrar el diagnóstico técnico, pruebas realizadas, piezas involucradas y seguimiento del trabajo. Los códigos de cita web ya no se mostrarán aquí.</p></div>
+          <label class="premium-field">Detalle técnico<textarea id="mTechnicalNotes" placeholder="Ej. Se detecta daño en pantalla, batería degradada y equipo pendiente de pruebas finales después del cambio de pieza."></textarea><small>La información visible para el cliente debe publicarse desde la bitácora o desde el chat de esta orden.</small></label>
+        </section>
+      </div>
       <div id="mQuoteApprovalState"></div>
       <section class="quote-send-panel">
         <div><span>COTIZACIÓN AL CLIENTE</span><b>Solicitar aprobación</b><small>El cliente recibirá un correo con enlace seguro, podrá hacer preguntas y aceptar las políticas antes de aprobar.</small></div>
@@ -402,14 +410,14 @@
       </div>
       <div class="tracking-preview">
         <span>Seguimiento del cliente</span>
-        <code id="rcTracking">—</code>
+        <code id="rcTracking">Enlace seguro disponible mediante QR</code>
       </div>
       <div class="reception-print-actions">
         <button type="button" onclick="TSService.printCompletedReception()">🧾 Imprimir hoja de recepción</button>
         <button type="button" class="secondary" onclick="TSService.printCompletedLabel()">🏷️ Etiqueta QR / HereLabel</button>
         <button type="button" class="secondary" onclick="TSService.openCompletedTracking()">↗ Ver seguimiento</button>
       </div>
-      <p class="reception-privacy-note">El QR contiene únicamente el enlace público de seguimiento y el número de orden; no incluye datos personales del cliente.</p>
+      <p class="reception-privacy-note">El QR abre el seguimiento seguro de esta orden. El enlace completo y su token no se muestran impresos.</p>
     </div>
   </div>
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
