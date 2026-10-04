@@ -1,6 +1,7 @@
 const H={'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,content-type','Access-Control-Allow-Methods':'POST,OPTIONS'};
 const ROLE_MAP={cliente:'cliente',vendedor:'vendedor',recepcion:'recepcion',soporte:'soporte',tecnico:'tecnico',logistica:'logistica',admin:'admin',superadmin:'superadmin',super_admin:'superadmin'};
-const DEFAULT_PERMS={cliente:['cuenta','mis_pedidos','mis_reparaciones','garantias','puntos'],vendedor:['dashboard','ventas','cotizaciones','clientes','pagos','preordenes','crm','recomendaciones','staff.access'],recepcion:['dashboard','recepcion','clientes','tickets','garantias','citas'],soporte:['dashboard','recepcion','clientes','tickets','garantias','citas'],tecnico:['dashboard','tecnico','diagnostico','repuestos','pruebas','garantias'],logistica:['dashboard','logistica','guias','entregas','pedidos','preordenes'],admin:['*'],superadmin:['*']};
+const DEFAULT_PERMS={cliente:['cuenta','mis_pedidos','mis_reparaciones','garantias','puntos'],vendedor:['dashboard','ventas','cotizaciones','clientes','pagos','preordenes','crm','recomendaciones','staff.access','platform.staff'],recepcion:['dashboard','recepcion','clientes','tickets','garantias','citas','platform.support'],soporte:['dashboard','recepcion','clientes','tickets','garantias','citas','platform.support'],tecnico:['dashboard','tecnico','diagnostico','repuestos','pruebas','garantias','platform.support'],logistica:['dashboard','logistica','guias','entregas','pedidos','preordenes','platform.support'],admin:['*'],superadmin:['*']};
+const PLATFORM_KEYS=['staff','support','inventory','enterprise','marketing','admin'];
 const INTERNAL_UI_ROLES=['vendedor','recepcion','soporte','tecnico','logistica','admin','superadmin'];
 const INTERNAL_DB_ROLES=['vendedor','recepcion','soporte','tecnico','logistica','admin','superadmin'];
 const clean=(v,max=320)=>String(v??'').trim().slice(0,max);
@@ -43,7 +44,8 @@ exports.handler=async(event)=>{
   }
 
   if(action==='invite'){
-    const fullName=clean(body.full_name,180),email=clean(body.email,320).toLowerCase(),requested=String(body.role||'vendedor').trim(),custom=slug(body.custom_role_key||''),permissionOverrides=cleanOverrides(body.permission_overrides);
+    const fullName=clean(body.full_name,180),email=clean(body.email,320).toLowerCase(),requested=String(body.role||'vendedor').trim(),custom=slug(body.custom_role_key||'');
+    let permissionOverrides=cleanOverrides(body.permission_overrides);
     if(!fullName)return out(400,{ok:false,error:'Escribe el nombre del empleado'});
     if(!validEmail(email))return out(400,{ok:false,error:'Correo inválido'});
     let dbRole=normalizeUiRole(requested)==='superadmin'?'superadmin':(ROLE_MAP[requested]||normalizeDbRole(requested)),customRole=null;
@@ -53,7 +55,8 @@ exports.handler=async(event)=>{
     }
     const uiRole=normalizeUiRole(dbRole);
     if(!INTERNAL_UI_ROLES.includes(uiRole))return out(400,{ok:false,error:'Selecciona un rol interno válido'});
-    if(viewer.role==='admin'&&['admin','superadmin'].includes(uiRole))return out(403,{ok:false,error:'Un Administrador no puede crear otro Administrador o Super Admin'});
+    const platformAccess=cleanPlatformAccess(body.platform_access,uiRole);
+    permissionOverrides=applyPlatformAccessToOverrides(permissionOverrides,platformAccess,uiRole);
     const resend=process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY;
     if(!resend)return out(503,{ok:false,error:'Falta configurar RESEND_API_KEY en Netlify'});
     const site=(process.env.THINKSTORE_SITE_URL||'https://thinkstore.com.ve').replace(/\/$/,'');
@@ -69,12 +72,13 @@ exports.handler=async(event)=>{
     if(!linkResp.ok||!userId||!actionLink)return out(linkResp.status||400,{ok:false,error:linkBody?.msg||linkBody?.message||'No se pudo crear la invitación'});
 
     try{
-      const authUpdate=await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,{method:'PUT',headers:svc(service),body:JSON.stringify({user_metadata:{full_name:fullName,thinkstore_internal:true},app_metadata:{thinkstore_role:dbRole,thinkstore_internal:true}})});
+      const authUpdate=await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,{method:'PUT',headers:svc(service),body:JSON.stringify({user_metadata:{full_name:fullName,thinkstore_internal:true},app_metadata:{thinkstore_role:dbRole,thinkstore_internal:true,thinkstore_platforms:enabledPlatformKeys(platformAccess),inventory_role:(uiRole==='superadmin'||uiRole==='admin')?'super_admin':(platformAccess.inventory?.enabled?(platformAccess.inventory.role||'viewer'):null)}})});
       if(!authUpdate.ok)throw detailError('No se pudo preparar la cuenta',await authUpdate.text());
       const createdProfile=await createInternalProfile(url,service,{id:userId,email,fullName,dbRole,custom,invitedBy:viewer.user_id,permissionOverrides});
-      await sendInternalInvitation({resend,to:email,fullName,roleLabel:customRole?.name||roleLabel(uiRole),actionLink,site,staffAccess:effectiveStaffAccess(uiRole,permissionOverrides)});
-      await auditServer(url,service,viewer,'usuario_interno_invitado',`${fullName} · ${email} · ${customRole?.name||roleLabel(uiRole)}`);
-      return out(201,{ok:true,profile:createdProfile,invite_sent:true});
+      const sync=await syncPlatformProfiles({url,service,userId,email,fullName,uiRole,permissionOverrides});
+      await sendInternalInvitation({resend,to:email,fullName,roleLabel:customRole?.name||roleLabel(uiRole),actionLink,site,staffAccess:effectiveStaffAccess(uiRole,permissionOverrides),platforms:platformAccess});
+      await auditServer(url,service,viewer,'usuario_interno_invitado',`${fullName} · ${email} · ${customRole?.name||roleLabel(uiRole)} · ${enabledPlatformKeys(platformAccess).join(', ')}`);
+      return out(201,{ok:true,profile:createdProfile,invite_sent:true,platforms:platformAccess,platform_sync:sync});
     }catch(err){
       await rollbackInvite(url,service,userId);
       return out(502,{ok:false,error:err?.message||'No se pudo enviar la invitación',details:err?.detail||''});
@@ -105,7 +109,6 @@ exports.handler=async(event)=>{
     const tr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,{headers:svc(service)});const targetRows=await tr.json().catch(()=>[]),target=targetRows?.[0];
     if(!target||!isInternalProfile(target))return out(404,{ok:false,error:'El usuario interno no existe'});
     const targetRole=normalizeUiRole(target.role||target.rol);
-    if(viewer.role==='admin'&&['admin','superadmin'].includes(targetRole))return out(403,{ok:false,error:'Un Administrador no puede modificar accesos administrativos'});
     let dbRole=ROLE_MAP[requested]||normalizeDbRole(requested),customRole=null;
     if(custom){
       const rr=await fetch(`${url}/rest/v1/ts_roles?select=*&role_key=eq.${encodeURIComponent(custom)}&active=eq.true&limit=1`,{headers:svc(service)});const rows=await rr.json().catch(()=>[]);customRole=rows?.[0];
@@ -113,14 +116,20 @@ exports.handler=async(event)=>{
     }
     const nextUi=normalizeUiRole(dbRole);
     if(!INTERNAL_UI_ROLES.includes(nextUi))return out(400,{ok:false,error:'Rol interno inválido'});
-    if(viewer.role==='admin'&&['admin','superadmin'].includes(nextUi))return out(403,{ok:false,error:'Un Administrador no puede asignar roles administrativos'});
     if(id===viewer.user_id && (nextUi!=='superadmin'||active===false||custom))return out(409,{ok:false,error:'Por seguridad no puedes degradar, desactivar ni personalizar tu propia cuenta Super Admin'});
-    const overrides=cleanOverrides(body.permission_overrides);
+    let overrides=cleanOverrides(body.permission_overrides);
+    const platformAccess=cleanPlatformAccess(body.platform_access,nextUi);
+    if(body.platform_access&&typeof body.platform_access==='object')overrides=applyPlatformAccessToOverrides(overrides,platformAccess,nextUi);
     const patch={role:dbRole,active,is_internal:true,custom_role_key:custom||null,permission_overrides:overrides};
     const rr=await fetch(`${url}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...svc(service),Prefer:'return=representation'},body:JSON.stringify(patch)});
     const rows=await rr.json().catch(()=>[]);if(!rr.ok)return out(rr.status,{ok:false,error:'No se pudo actualizar el perfil',details:rows});
-    await auditServer(url,service,viewer,'acceso_usuario_actualizado',`${target.email||target.correo||target.full_name||id} · ${custom||nextUi}`);
-    return out(200,{ok:true,profile:rows?.[0]||null});
+    const updatedProfile=rows?.[0]||{...target,...patch};
+    const targetEmail=target.email||target.correo||'';
+    const targetName=target.full_name||target.nombre||target.name||targetEmail;
+    const sync=await syncPlatformProfiles({url,service,userId:id,email:targetEmail,fullName:targetName,uiRole:nextUi,permissionOverrides:overrides,active});
+    await updateAuthPlatformMetadata(url,service,id,nextUi,platformsFromProfile(updatedProfile));
+    await auditServer(url,service,viewer,'acceso_usuario_actualizado',`${targetEmail||targetName||id} · ${custom||nextUi} · ${enabledPlatformKeys(platformsFromProfile(updatedProfile)).join(', ')}`);
+    return out(200,{ok:true,profile:updatedProfile,platforms:platformsFromProfile(updatedProfile),platform_sync:sync});
   }
   return out(400,{ok:false,error:'Acción no soportada'});
 };
@@ -139,7 +148,7 @@ function isInternalProfile(p){
   // Compatibilidad con cuentas internas creadas antes de la columna is_internal.
   return INTERNAL_UI_ROLES.includes(role)||Boolean(p?.custom_role_key);
 }
-function roleLabel(r){return({vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Socio Administrador'})[normalizeUiRole(r)]||String(r||'Usuario interno')}
+function roleLabel(r){return({vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Super Admin'})[normalizeUiRole(r)]||String(r||'Usuario interno')}
 async function findProfileByEmail(url,service,email){const paths=[`email=eq.${encodeURIComponent(email)}`,`correo=eq.${encodeURIComponent(email)}`];for(const q of paths){const r=await fetch(`${url}/rest/v1/profiles?select=*&${q}&limit=1`,{headers:svc(service)});if(r.ok){const rows=await r.json().catch(()=>[]);if(rows?.[0])return rows[0];}}return null}
 async function authenticate(event,url,service){
   const token=String(event.headers.authorization||event.headers.Authorization||'').replace(/^Bearer\s+/i,'');
@@ -183,10 +192,82 @@ async function effectiveAccess(profile,url,service){
     if(r){permissions=cleanPerms(r.permissions);roleName=r.name||customKey;}
   }
   if(!permissions.includes('*')){permissions=[...new Set([...permissions,...over.allow])].filter(x=>!over.deny.includes(x));}
-  return{user_id:profile.id,base_role:base,custom_role_key:customKey,role_name:roleName,permissions,permission_overrides:over};
+  return{user_id:profile.id,base_role:base,custom_role_key:customKey,role_name:roleName,permissions,permission_overrides:over,platforms:platformsFromProfile(profile)};
 }
-function invitationHtml({fullName,roleLabelText,actionLink,site,staffAccess=false}){const logo=`${site}/assets/thinkstore-email-logo.jpg`;return `<!doctype html><html lang="es"><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111114"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f7;padding:34px 16px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border:1px solid #e5e5e7;border-radius:28px;overflow:hidden"><tr><td style="padding:42px"><img src="${esc(logo)}" alt="ThinkStore" style="display:block;width:170px;max-width:60%;height:auto"><div style="margin-top:30px;font-size:12px;letter-spacing:2.2px;text-transform:uppercase;color:#7b7b83;font-weight:800">Panel administrativo ThinkStore</div><h1 style="font-size:34px;line-height:1.12;margin:12px 0;color:#111114">Bienvenido, ${esc(fullName)}</h1><p style="font-size:18px;line-height:1.6;color:#606068;margin:0 0 20px">Has sido invitado al equipo interno de ThinkStore con el rol <b style="color:#111114">${esc(roleLabelText)}</b>.</p><div style="background:#f7f7f8;border-radius:18px;padding:20px;margin:22px 0"><div style="font-size:14px;color:#5f5f67;line-height:1.6">Por seguridad no se creó una contraseña temporal. Usa el botón para establecer una contraseña privada que solo tú conocerás.${staffAccess?'<br><br><b>App Ventas:</b> tu acceso está habilitado. Después de crear tu contraseña podrás iniciar sesión en ThinkStore Staff con este mismo correo.':''}</div></div><a href="${esc(actionLink)}" style="display:inline-block;background:#111114;color:#fff;text-decoration:none;padding:15px 24px;border-radius:14px;font-weight:800">Crear mi contraseña</a><p style="font-size:13px;line-height:1.6;color:#8a8a92;margin-top:30px">Este acceso es personal e intransferible. Si no esperabas esta invitación, puedes ignorar este correo.</p></td></tr></table></td></tr></table></body></html>`}
-async function sendInternalInvitation({resend,to,fullName,roleLabel:roleLabelText,actionLink,site,staffAccess=false}){const from=process.env.FROM_ACCESS_EMAIL||process.env.FROM_EMAIL||'ThinkStore Accesos <noreply@thinkstore.com.ve>';const replyTo=process.env.REPLY_TO_ACCESS||process.env.REPLY_TO||'soporte@thinkstore.com.ve';const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[to],reply_to:replyTo,subject:`Bienvenido al Panel ThinkStore · ${roleLabelText}`,html:invitationHtml({fullName,roleLabelText,actionLink,site,staffAccess})})});const d=await r.json().catch(()=>({}));if(!r.ok)throw detailError(d?.message||'No se pudo enviar el correo de invitación',JSON.stringify(d));return d}
+function platformEmailLabel(key){return({staff:'App Ventas',support:'Servicio Técnico',inventory:'Inventory',enterprise:'Enterprise',marketing:'Marketing',admin:'Panel Admin'})[key]||key}
+function invitationHtml({fullName,roleLabelText,actionLink,site,staffAccess=false,platforms={}}){
+  const logo=`${site}/assets/thinkstore-email-logo.jpg`;
+  const enabled=enabledPlatformKeys(platforms);
+  const chips=enabled.map(k=>`<span style="display:inline-block;margin:0 7px 8px 0;padding:8px 12px;border-radius:999px;background:#f2f2f4;color:#111114;font-size:12px;font-weight:800">${esc(platformEmailLabel(k))}</span>`).join('');
+  return `<!doctype html><html lang="es"><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111114"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f7;padding:34px 16px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border:1px solid #e5e5e7;border-radius:30px;overflow:hidden"><tr><td style="background:#0b0b0d;padding:30px 42px"><img src="${esc(logo)}" alt="ThinkStore" style="display:block;width:165px;max-width:60%;height:auto;filter:brightness(0) invert(1)"><div style="margin-top:20px;font-size:11px;letter-spacing:2.3px;text-transform:uppercase;color:#9da0a8;font-weight:800">ThinkStore Admin · Acceso unificado</div></td></tr><tr><td style="padding:40px 42px"><h1 style="font-size:34px;line-height:1.1;margin:0 0 12px;color:#111114">Tu acceso a ThinkStore</h1><p style="font-size:17px;line-height:1.6;color:#606068;margin:0 0 20px">Hola <b style="color:#111114">${esc(fullName)}</b>. Has sido invitado al equipo interno con el rol <b style="color:#111114">${esc(roleLabelText)}</b>.</p><div style="background:#f7f7f8;border-radius:20px;padding:20px;margin:22px 0"><div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#7b7b83;font-weight:800;margin-bottom:12px">Plataformas asignadas</div>${chips||'<span style="color:#777">Acceso interno según permisos asignados.</span>'}<p style="font-size:14px;color:#5f5f67;line-height:1.6;margin:12px 0 0">Usarás <b>un solo correo y una sola contraseña</b> para tus accesos ThinkStore. Desde el Panel podrás abrir las plataformas que tengas autorizadas.</p></div><div style="background:#eef6ff;border:1px solid #d7e9ff;border-radius:18px;padding:17px;margin:20px 0"><b style="display:block;margin-bottom:6px">Seguridad</b><span style="font-size:13px;line-height:1.55;color:#4b5d73">No se creó una contraseña temporal. Tú definirás tu contraseña privada y el administrador nunca podrá verla.</span></div><a href="${esc(actionLink)}" style="display:inline-block;background:#111114;color:#fff;text-decoration:none;padding:15px 25px;border-radius:999px;font-weight:800">Crear mi contraseña</a><p style="font-size:13px;line-height:1.6;color:#8a8a92;margin:28px 0 0">Correo enviado por ThinkStore Admin. Si no esperabas esta invitación, puedes ignorarlo.</p></td></tr></table></td></tr></table></body></html>`
+}
+async function sendInternalInvitation({resend,to,fullName,roleLabel:roleLabelText,actionLink,site,staffAccess=false,platforms={}}){
+  const from=process.env.FROM_ADMIN_EMAIL||process.env.FROM_ACCESS_EMAIL||'ThinkStore Admin <admin@thinkstore.com.ve>';
+  const replyTo=process.env.REPLY_TO_ADMIN||process.env.REPLY_TO_ACCESS||'admin@thinkstore.com.ve';
+  const enabled=enabledPlatformKeys(platforms).map(platformEmailLabel).join(' · ');
+  const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[to],reply_to:replyTo,subject:`Tu acceso ThinkStore · ${enabled||roleLabelText}`,html:invitationHtml({fullName,roleLabelText,actionLink,site,staffAccess,platforms})})});
+  const d=await r.json().catch(()=>({}));if(!r.ok)throw detailError(d?.message||'No se pudo enviar el correo de invitación',JSON.stringify(d));return d
+}
+
+function defaultPlatformEnabled(role,key){
+  const r=normalizeUiRole(role);
+  if(['admin','superadmin'].includes(r))return true;
+  if(key==='staff')return r==='vendedor';
+  if(key==='support')return ['recepcion','soporte','tecnico','logistica'].includes(r);
+  if(key==='marketing')return false;
+  return false;
+}
+function defaultPlatformRole(role,key){
+  const r=normalizeUiRole(role);
+  if(['admin','superadmin'].includes(r))return key==='support'?'superadmin':key==='inventory'?'admin':key==='enterprise'?'manager':key==='marketing'?'sender':r;
+  if(key==='support')return ({recepcion:'reception',soporte:'reception',tecnico:'technician',logistica:'logistics',vendedor:'sales'})[r]||'reception';
+  if(key==='inventory')return 'viewer';
+  if(key==='enterprise')return 'viewer';
+  if(key==='marketing')return 'viewer';
+  if(key==='staff')return 'vendedor';
+  return '';
+}
+function cleanPlatformRole(key,value,baseRole){
+  const v=String(value||'').toLowerCase().replace(/[^a-z_]/g,'');
+  const allowed={staff:['vendedor'],support:['reception','technician','sales','logistics','admin','superadmin'],inventory:['viewer','editor','admin'],enterprise:['viewer','manager'],marketing:['viewer','sender'],admin:['superadmin']}[key]||[];
+  return allowed.includes(v)?v:defaultPlatformRole(baseRole,key);
+}
+function cleanPlatformAccess(v,baseRole){
+  const src=v&&typeof v==='object'?v:{};const out={};const admin=['admin','superadmin'].includes(normalizeUiRole(baseRole));
+  for(const key of PLATFORM_KEYS){const item=src[key]&&typeof src[key]==='object'?src[key]:{};out[key]={enabled:admin?true:(item.enabled===undefined?defaultPlatformEnabled(baseRole,key):item.enabled===true),role:cleanPlatformRole(key,item.role,baseRole)};}
+  return out;
+}
+function stripPlatformPerms(list=[]){return cleanPerms(list).filter(k=>!/^platform\./.test(k)&&!/^(staff|support|inventory|enterprise|marketing|admin)\.role\./.test(k)&&k!=='staff.access')}
+function applyPlatformAccessToOverrides(overrides,platforms,baseRole){
+  const r=normalizeUiRole(baseRole);if(['admin','superadmin'].includes(r))return cleanOverrides(overrides);
+  const allow=stripPlatformPerms(overrides.allow),deny=stripPlatformPerms(overrides.deny);
+  for(const key of PLATFORM_KEYS){const p=platforms[key]||{enabled:false,role:''};if(p.enabled){allow.push(`platform.${key}`);if(p.role)allow.push(`${key}.role.${p.role}`);if(key==='staff')allow.push('staff.access');if(key==='marketing'){allow.push('marketing');if(p.role==='sender')allow.push('marketing.send')}}else{deny.push(`platform.${key}`);if(key==='staff')deny.push('staff.access')}}
+  return{allow:cleanPerms(allow),deny:cleanPerms(deny)};
+}
+function findRolePermission(overrides,key,fallback){const p=(overrides?.allow||[]).find(x=>x.startsWith(`${key}.role.`));return p?p.slice(`${key}.role.`.length):fallback}
+function platformsFromProfile(profile){
+  const base=normalizeUiRole(profile?.role||profile?.rol),over=cleanOverrides(profile?.permission_overrides),admin=['admin','superadmin'].includes(base),out={};
+  for(const key of PLATFORM_KEYS){let enabled=admin||defaultPlatformEnabled(base,key);if((over.deny||[]).includes(`platform.${key}`))enabled=false;if((over.allow||[]).includes(`platform.${key}`))enabled=true;out[key]={enabled,role:findRolePermission(over,key,defaultPlatformRole(base,key))};}
+  return out;
+}
+function enabledPlatformKeys(platforms={}){return PLATFORM_KEYS.filter(k=>platforms?.[k]?.enabled)}
+function inventoryPermissions(role){if(role==='admin')return{products:true,stock:true,units:true,furniture:true,suppliers:true,locations:true,audit:true,users:true,settings:true,write:true};if(role==='editor')return{products:true,stock:true,units:true,furniture:true,suppliers:true,locations:true,audit:false,users:false,settings:false,write:true};return{products:true,stock:true,units:true,furniture:true,suppliers:true,locations:true,audit:false,users:false,settings:false,write:false}}
+function supportRoleFor(base,platforms){if(['admin','superadmin'].includes(normalizeUiRole(base)))return'superadmin';const r=platforms?.support?.role||defaultPlatformRole(base,'support');return ['reception','technician','sales','logistics','admin','superadmin'].includes(r)?r:'reception'}
+async function syncPlatformProfiles({url,service,userId,email,fullName,uiRole,permissionOverrides,active=true}){
+  const profile={id:userId,email,full_name:fullName,role:uiRole,permission_overrides:permissionOverrides,active};const platforms=platformsFromProfile(profile),warnings=[];
+  try{
+    const inv=platforms.inventory;
+    const invDbRole=['admin','superadmin'].includes(normalizeUiRole(uiRole))?'super_admin':(inv.role==='viewer'?'viewer':'admin');
+    const invBody={user_id:userId,role:invDbRole,active:Boolean(active&&inv.enabled),full_name:fullName,email,partner:['admin','superadmin'].includes(normalizeUiRole(uiRole)),permissions:inventoryPermissions(inv.role),updated_at:new Date().toISOString()};
+    const ir=await fetch(`${url}/rest/v1/thinkstore_inventory_users?on_conflict=user_id`,{method:'POST',headers:{...svc(service),Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(invBody)});if(!ir.ok)warnings.push('Inventory: '+await ir.text());
+  }catch(e){warnings.push('Inventory: '+String(e?.message||e))}
+  try{
+    const supportUrl=clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/+$/,'');const supportKey=clean(process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPPORT_SUPABASE_SECRET_KEY);
+    if(supportUrl&&supportKey&&email){const sr=supportRoleFor(uiRole,platforms),body={email:String(email).toLowerCase(),nombre:fullName||email,rol:sr,activo:Boolean(active&&platforms.support.enabled)};const rr=await fetch(`${supportUrl}/rest/v1/service_users?on_conflict=email`,{method:'POST',headers:{apikey:supportKey,Authorization:`Bearer ${supportKey}`,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(body)});if(!rr.ok)warnings.push('Soporte: '+await rr.text())}
+  }catch(e){warnings.push('Soporte: '+String(e?.message||e))}
+  return{ok:warnings.length===0,warnings,platforms};
+}
+async function updateAuthPlatformMetadata(url,service,userId,uiRole,platforms){try{await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,{method:'PUT',headers:svc(service),body:JSON.stringify({app_metadata:{thinkstore_role:uiRole,thinkstore_internal:true,thinkstore_platforms:enabledPlatformKeys(platforms),inventory_role:['admin','superadmin'].includes(normalizeUiRole(uiRole))?'super_admin':(platforms.inventory?.enabled?(platforms.inventory.role||'viewer'):null)}})})}catch{}}
 
 async function createInternalProfile(url,service,{id,email,fullName,dbRole,custom,invitedBy,permissionOverrides}){
   const invitedAt=new Date().toISOString();

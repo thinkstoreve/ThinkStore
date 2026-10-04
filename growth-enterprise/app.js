@@ -45,74 +45,30 @@ function getClient(){
   return window.supabaseClient;
 }
 async function getAdminProfile(user){
-  const client = getClient();
-  const email = String(user?.email || '').trim();
-
-  let profile = null;
-
-  // 1) Esquema actual de ThinkStore: public.roles_usuarios
-  //    Columnas: id, email, nombre, rol, activo
-  //    Se consulta primero para evitar el error 500/RLS de public.profiles.
-  const rolesRes = await client
-    .from('roles_usuarios')
-    .select('id,email,nombre,rol,activo')
-    .ilike('email', email)
-    .maybeSingle();
-
-  if(rolesRes.error){
-    console.warn('No se pudo consultar roles_usuarios:', rolesRes.error.message || rolesRes.error);
-  }
-
-  if(rolesRes.data){
-    profile = {
-      id: rolesRes.data.id,
-      email: rolesRes.data.email,
-      full_name: rolesRes.data.nombre,
-      role: rolesRes.data.rol,
-      active: rolesRes.data.activo,
-      source: 'roles_usuarios'
-    };
-  }
-
-  // 2) Respaldo opcional: public.profiles.
-  //    Solo se usa si roles_usuarios no tiene el correo.
-  //    Si profiles tiene políticas RLS recursivas, el error se ignora para no bloquear Enterprise.
-  if(!profile){
-    const profilesRes = await client
-      .from('profiles')
-      .select('id,email,full_name,role,active')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if(profilesRes.error){
-      console.warn('No se pudo consultar profiles:', profilesRes.error.message || profilesRes.error);
-    }
-
-    if(profilesRes.data){
-      profile = {
-        ...profilesRes.data,
-        source: 'profiles'
-      };
-    }
-  }
-
-  if(!profile){
-    throw new Error('Este usuario no tiene perfil/rol asignado en Supabase. Revisa roles_usuarios o profiles.');
-  }
-
-  const isActive = profile.active !== false && profile.active !== null && profile.active !== 'false';
-  if(!isActive){
-    throw new Error('Este usuario está desactivado.');
-  }
-
-  const allowedAdminRoles = ['admin','administrator','super_admin','superadmin','gerente'];
-  if(!allowedAdminRoles.includes(String(profile.role || '').toLowerCase())){
-    throw new Error('Acceso restringido: este panel es solo para administradores.');
-  }
-
-  currentProfile = profile;
-  try{localStorage.setItem('ts_enterprise_profile',JSON.stringify(profile))}catch{}
-  return profile;
+  const client=getClient();
+  const email=String(user?.email||'').trim();
+  let legacy=null,profile=null;
+  const rolesRes=await client.from('roles_usuarios').select('id,email,nombre,rol,activo').ilike('email',email).maybeSingle();
+  if(!rolesRes.error&&rolesRes.data) legacy={id:rolesRes.data.id,email:rolesRes.data.email,full_name:rolesRes.data.nombre,role:rolesRes.data.rol,active:rolesRes.data.activo,source:'roles_usuarios'};
+  else if(rolesRes.error) console.warn('No se pudo consultar roles_usuarios:',rolesRes.error.message||rolesRes.error);
+  const profilesRes=await client.from('profiles').select('id,email,full_name,role,active,permission_overrides').eq('id',user.id).maybeSingle();
+  if(!profilesRes.error&&profilesRes.data) profile={...profilesRes.data,source:'profiles'};
+  else if(profilesRes.error) console.warn('No se pudo consultar profiles:',profilesRes.error.message||profilesRes.error);
+  const chosen=profile||legacy;
+  if(!chosen) throw new Error('Este usuario no tiene un perfil interno ThinkStore.');
+  const isActive=(chosen.active??true)!==false&&(chosen.active??true)!=='false';
+  if(!isActive) throw new Error('Este usuario está desactivado.');
+  const role=String(chosen.role||legacy?.role||'').toLowerCase().replace(/[ -]+/g,'_');
+  const adminRoles=['admin','administrator','super_admin','superadmin','gerente'];
+  let over=chosen.permission_overrides||{};if(typeof over==='string'){try{over=JSON.parse(over)}catch{over={}}}
+  const allow=Array.isArray(over.allow)?over.allow:[],deny=Array.isArray(over.deny)?over.deny:[];
+  const admin=adminRoles.includes(role);
+  const allowed=admin||(!deny.includes('platform.enterprise')&&allow.includes('platform.enterprise'));
+  if(!allowed) throw new Error('Tu cuenta no tiene acceso a Enterprise. Solicita el permiso desde el Panel ThinkStore.');
+  const enterpriseRole=admin?'manager':(allow.includes('enterprise.role.manager')?'manager':'viewer');
+  currentProfile={...chosen,role:chosen.role||legacy?.role,enterprise_role:enterpriseRole,is_full_admin:admin};
+  try{localStorage.setItem('ts_enterprise_profile',JSON.stringify(currentProfile))}catch{}
+  return currentProfile;
 }
 function applyAdminIdentity(user, profile={}){
   const email = profile.email || user.email || 'admin@thinkstore.com.ve';
@@ -142,7 +98,8 @@ async function unlock(event){
     setLoginMessage(error.message || 'No se pudo iniciar sesión.', 'error');
   }
 }
-function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); renderHome(); renderModules(); renderStaffAccess(); loadEnterpriseV1Real(); }
+function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); applyEnterpriseAccessUI(); renderHome(); renderModules(); if(currentProfile?.is_full_admin)renderStaffAccess(); loadEnterpriseV1Real(); }
+function applyEnterpriseAccessUI(){const app=qs('app');if(!app)return;app.classList.remove('enterprise-viewer','enterprise-manager');if(!currentProfile?.is_full_admin)app.classList.add(currentProfile?.enterprise_role==='manager'?'enterprise-manager':'enterprise-viewer');const sub=qs('pageSubtitle');if(sub&&!currentProfile?.is_full_admin&&currentProfile?.enterprise_role==='viewer')sub.textContent='Acceso Enterprise · Solo lectura'}
 
 async function sendPasswordRecovery(){
   const email = qs('adminEmail')?.value.trim();

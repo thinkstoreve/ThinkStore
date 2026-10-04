@@ -271,12 +271,7 @@
         <label>Empresa de envío<input id="mTrackingCompany" placeholder="Empresa de envío"></label>
       </div>
       <label>Número de guía<input id="mTrackingCode" placeholder="Número de guía"></label>
-      <div class="manager-writing-grid single">
-        <section class="manager-note-card manager-note-card-lg">
-          <div class="manager-card-head"><span>ÁREA TÉCNICA</span><h3>Diagnóstico y observaciones</h3><p>Espacio interno para registrar el diagnóstico técnico y el seguimiento del trabajo. Los códigos de cita web ya no se mostrarán aquí.</p></div>
-          <label class="premium-field">Detalle técnico<textarea id="mTechnicalNotes" placeholder="Ej. Se detecta daño en pantalla, batería degradada y equipo pendiente de pruebas finales después del cambio de pieza."></textarea><small>Usa este espacio para notas internas del técnico.</small></label>
-        </section>
-      </div>
+      <label>Diagnóstico y observaciones técnicas<textarea id="mTechnicalNotes" placeholder="Diagnóstico, piezas, pruebas y observaciones..."></textarea></label>
       <div class="order-box"><h3>Fotografías y archivos privados</h3><div class="file-actions"><input id="mOrderFile" type="file" accept="image/*,.pdf"><button type="button" onclick="TSService.uploadOrderFile()">Subir archivo</button></div><div id="mOrderFiles" class="order-files"></div></div>
       <div class="actions"><button>Guardar cambios</button><button type="button" class="secondary" onclick="TSService.notifyOrderClient()">Enviar actualización al cliente</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
     </form>

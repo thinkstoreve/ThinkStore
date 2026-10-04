@@ -1,0 +1,15 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.66",
+  "base": "14.65",
+  "type": "marketing-service-email-template",
+  "changes": [
+    "Servicio Técnico marketing email gets dedicated premium template",
+    "removes iPhone 18 Pro/Pro Max hardcoded labels from service campaign",
+    "Reparaciones and Revisiones cards with editable values",
+    "iPhone and MacBook imagery in service price cards",
+    "MacBook battery service hero asset",
+    "clickable Consultar servicio técnico, Agenda tu cita and WhatsApp CTAs",
+    "service template saved in campaign history"
+  ]
+}

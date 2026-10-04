@@ -1,3 +1,0 @@
-ThinkStore Soporte V8.8.1
-Dashboard alto contraste y notificaciones agrupadas por cliente.
-No requiere SQL.

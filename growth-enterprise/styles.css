@@ -141,3 +141,7 @@ button,input,select,textarea{font-size:16px}
   .topbar h1,.page-title{font-size:22px!important}.nav{padding:10px!important}
   button,.button,.btn{min-height:44px}
 }
+
+
+/* V10.3 · Acceso unificado ThinkStore */
+.enterprise-sso-btn{display:block;text-decoration:none;text-align:center;background:#fff;color:#111;border-radius:14px;padding:14px 18px;font-weight:850;margin:18px 0 12px;box-shadow:0 12px 32px rgba(0,0,0,.18)}.enterprise-login-divider{display:flex;align-items:center;gap:10px;color:#9197a5;font-size:11px;text-transform:uppercase;letter-spacing:.09em;margin:4px 0 12px}.enterprise-login-divider:before,.enterprise-login-divider:after{content:'';height:1px;background:rgba(255,255,255,.16);flex:1}.enterprise-readonly-badge{display:inline-flex;align-items:center;border:1px solid #d8dde7;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:800;color:#536174;background:#f7f9fc}.enterprise-viewer .nav[data-view="staff"],.enterprise-viewer .nav[data-view="settings"],.enterprise-viewer .nav[data-view="integrations"],.enterprise-viewer .nav[data-view="automations"],.enterprise-manager .nav[data-view="staff"],.enterprise-manager .nav[data-view="settings"],.enterprise-manager .nav[data-view="integrations"],.enterprise-manager .nav[data-view="automations"]{display:none!important}

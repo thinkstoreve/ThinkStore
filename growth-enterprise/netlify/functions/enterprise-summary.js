@@ -45,6 +45,9 @@ async function rest(base,key,path){
   if(!r.ok){const e=new Error(d?.message||d?.error||`HTTP ${r.status}`);e.status=r.status;throw e}
   return Array.isArray(d)?d:[];
 }
+function parseOverrides(profile={}){let o=profile?.permission_overrides||{};if(typeof o==='string'){try{o=JSON.parse(o)}catch{o={}}}return{allow:Array.isArray(o.allow)?o.allow:[],deny:Array.isArray(o.deny)?o.deny:[]}}
+function enterpriseAccess(profile={}){const role=norm(profile?.role||profile?.rol).replace(/\s+/g,'_'),active=(profile?.active??profile?.activo??true)!==false;if(!profile||!active)return{ok:false,role:'viewer',admin:false};const admin=['admin','super_admin','superadmin','administrator','gerente'].includes(role);const o=parseOverrides(profile);const allowed=admin||(!o.deny.includes('platform.enterprise')&&o.allow.includes('platform.enterprise'));const erole=admin||o.allow.includes('enterprise.role.manager')?'manager':'viewer';return{ok:allowed,role:erole,admin}}
+
 async function authAdmin(event,base,key){
   const token=clean(event.headers.authorization||event.headers.Authorization).replace(/^Bearer\s+/i,'');
   if(!token)return{ok:false,error:'Sesión requerida'};
@@ -57,9 +60,9 @@ async function authAdmin(event,base,key){
   ].filter(Boolean)){
     try{const rows=await rest(base,key,path);if(rows[0]){profile=rows[0];break}}catch{}
   }
-  const active=(profile?.active??profile?.activo??true)!==false;
+  const access=enterpriseAccess(profile);
   const role=profile?.role||profile?.rol||'';
-  return{ok:Boolean(profile&&active&&isAdminRole(role)),user:u,profile,role,error:'Acceso Enterprise no autorizado'};
+  return{ok:access.ok,user:u,profile,role,enterprise_role:access.role,is_full_admin:access.admin,error:'Acceso Enterprise no autorizado'};
 }
 
 exports.handler=async(event)=>{

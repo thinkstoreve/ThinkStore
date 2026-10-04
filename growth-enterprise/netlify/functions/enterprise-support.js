@@ -3,6 +3,9 @@ const clean=v=>String(v??'').trim();
 const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+function parseOverrides(profile={}){let o=profile?.permission_overrides||{};if(typeof o==='string'){try{o=JSON.parse(o)}catch{o={}}}return{allow:Array.isArray(o.allow)?o.allow:[],deny:Array.isArray(o.deny)?o.deny:[]}}
+function enterpriseAccess(profile={}){const role=norm(profile?.role||profile?.rol).replace(/\s+/g,'_'),active=(profile?.active??profile?.activo??true)!==false;if(!profile||!active)return{ok:false,role:'viewer',admin:false};const admin=['admin','super_admin','superadmin','administrator','gerente'].includes(role);const o=parseOverrides(profile);const allowed=admin||(!o.deny.includes('platform.enterprise')&&o.allow.includes('platform.enterprise'));const erole=admin||o.allow.includes('enterprise.role.manager')?'manager':'viewer';return{ok:allowed,role:erole,admin}}
+
 exports.handler=async function(event){
   if(event.httpMethod==='OPTIONS')return json(200,{ok:true});
   if(!['GET','POST'].includes(event.httpMethod))return json(405,{ok:false,error:'Método no permitido'});
@@ -16,7 +19,7 @@ exports.handler=async function(event){
   async function authorize(){
     const legacy=clean(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']);
     const allowed=[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].map(clean).filter(Boolean);
-    if(legacy&&allowed.includes(legacy))return{ok:true,role:'superadmin'};
+    if(legacy&&allowed.includes(legacy))return{ok:true,role:'manager',is_full_admin:true};
     const token=clean(event.headers.authorization||event.headers.Authorization).replace(/^Bearer\s+/i,'');
     if(!token)return{ok:false};
     const ur=await fetch(`${mainUrl}/auth/v1/user`,{headers:{apikey:mainKey,Authorization:`Bearer ${token}`}});
@@ -26,12 +29,13 @@ exports.handler=async function(event){
     const pr=await fetch(`${mainUrl}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(user.id)}&limit=1`,{headers});
     const pa=await pr.json().catch(()=>[]);if(pr.ok)profile=pa[0]||null;
     if(!profile&&user.email){const rr=await fetch(`${mainUrl}/rest/v1/roles_usuarios?select=*&email=ilike.${encodeURIComponent(user.email)}&limit=1`,{headers});const ra=await rr.json().catch(()=>[]);if(rr.ok)profile=ra[0]||null}
-    const role=norm(profile?.role||profile?.rol),active=(profile?.active??profile?.activo??true)!==false;
-    return{ok:Boolean(profile&&active&&['admin','super_admin','superadmin','administrator','gerente'].includes(role)),user,role};
+    const access=enterpriseAccess(profile);
+    return{ok:access.ok,user,role:access.role,is_full_admin:access.admin};
   }
 
   try{
     const auth=await authorize();if(!auth.ok)return json(401,{ok:false,error:'Acceso Enterprise no autorizado'});
+    if(event.httpMethod!=='GET'&&auth.role!=='manager')return json(403,{ok:false,error:'Tu acceso Enterprise es de solo lectura'});
     const h={apikey:supportKey,Authorization:`Bearer ${supportKey}`,'Content-Type':'application/json'};
     const request=async(path,options={})=>{const res=await fetch(`${supportUrl}/rest/v1/${path}`,{...options,headers:{...h,...(options.headers||{})}});const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!res.ok)throw new Error(data?.message||data?.error||`Error Soporte ${res.status}`);return data};
     if(event.httpMethod==='GET'){

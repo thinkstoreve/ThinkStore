@@ -2,6 +2,9 @@ const json=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/
 const clean=v=>String(v??'').trim();
 const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
+function parseOverrides(profile={}){let o=profile?.permission_overrides||{};if(typeof o==='string'){try{o=JSON.parse(o)}catch{o={}}}return{allow:Array.isArray(o.allow)?o.allow:[],deny:Array.isArray(o.deny)?o.deny:[]}}
+function enterpriseAccess(profile={}){const role=norm(profile?.role||profile?.rol).replace(/\s+/g,'_'),active=(profile?.active??profile?.activo??true)!==false;if(!profile||!active)return{ok:false,role:'viewer',admin:false};const admin=['admin','super_admin','superadmin','administrator','gerente'].includes(role);const o=parseOverrides(profile);const allowed=admin||(!o.deny.includes('platform.enterprise')&&o.allow.includes('platform.enterprise'));const erole=admin||o.allow.includes('enterprise.role.manager')?'manager':'viewer';return{ok:allowed,role:erole,admin}}
+
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return json(200,{ok:true});
   if(event.httpMethod!=='POST')return json(405,{ok:false,error:'Método no permitido'});
@@ -22,10 +25,10 @@ exports.handler=async event=>{
       let profile=null;
       const pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(user.id)}&limit=1`,{headers:adminHeaders});const pa=await pr.json().catch(()=>[]);if(pr.ok)profile=pa[0]||null;
       if(!profile&&user.email){const rr=await fetch(`${url}/rest/v1/roles_usuarios?select=*&email=ilike.${encodeURIComponent(user.email)}&limit=1`,{headers:adminHeaders});const ra=await rr.json().catch(()=>[]);if(rr.ok)profile=ra[0]||null}
-      const role=norm(profile?.role||profile?.rol),active=(profile?.active??profile?.activo??true)!==false;
-      authorized=Boolean(profile&&active&&['admin','super_admin','superadmin','administrator','gerente'].includes(role));
+      const access=enterpriseAccess(profile);
+      authorized=Boolean(access.ok&&access.role==='manager');
     }
-    if(!authorized)return json(403,{ok:false,error:'Acceso administrador no autorizado'});
+    if(!authorized)return json(403,{ok:false,error:'Enterprise requiere permiso Manager para modificar datos'});
     let body={};try{body=JSON.parse(event.body||'{}')}catch{return json(400,{ok:false,error:'JSON inválido'})}
     if(clean(body.action)!=='update_client')return json(400,{ok:false,error:'Acción no válida'});
     const email=clean(body.email).toLowerCase();if(!email)return json(400,{ok:false,error:'Correo del cliente requerido'});
