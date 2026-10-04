@@ -1274,42 +1274,39 @@ const TSService=(()=>{
     return `<div style="width:40mm;height:60mm;padding:3.2mm 3mm 2.8mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#fff;color:#111"><div style="width:100%;text-align:center;border-bottom:.35mm solid #111;padding-bottom:2mm"><b style="font-size:13pt;letter-spacing:-.25pt">ThinkStore</b><div style="font-size:6.8pt;margin-top:.6mm">Servicio Técnico</div></div><div style="width:100%;text-align:center;margin-top:2.2mm"><b style="display:block;font-size:10.5pt;line-height:1.05">${esc(o.code)}</b><div style="font-size:7.8pt;font-weight:700;line-height:1.15;margin-top:1.5mm;max-height:9mm;overflow:hidden">${esc(o.device)}</div>${o.color?`<div style="font-size:6.8pt;margin-top:.8mm">${esc(o.color)}</div>`:''}</div><img src="${qr}" style="width:24mm;height:24mm;margin-top:2.3mm" alt="QR"><div style="font-size:6.2pt;text-align:center;line-height:1.2;margin-top:1.5mm">Escanea para ver el estado</div></div>`;
   }
   function labelLegacyMarkup(o,qr){
-    return `<div style="width:40mm;height:60mm;padding:3mm 3mm 2.6mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;background:#fff;color:#111;overflow:hidden">
-      <div style="border:.35mm solid #111;border-radius:2.6mm;padding:2.5mm 2.5mm 2.2mm;display:flex;flex-direction:column;height:100%">
-        <div style="display:flex;justify-content:space-between;gap:2mm;align-items:flex-start;border-bottom:.3mm solid #111;padding-bottom:1.8mm">
-          <div>
-            <b style="display:block;font-size:12pt;line-height:1">ThinkStore</b>
-            <div style="font-size:6.4pt;margin-top:.6mm">Servicio Técnico</div>
-          </div>
-          <div style="font-size:5.8pt;text-align:right;line-height:1.2">ETIQUETA<br>DE SERVICIO</div>
-        </div>
-        <div style="margin-top:2.2mm">
-          <b style="display:block;font-size:10pt;line-height:1.05">${esc(o.code)}</b>
-          <div style="font-size:8pt;font-weight:700;line-height:1.15;margin-top:1.4mm;max-height:8mm;overflow:hidden">${esc(o.device)}</div>
-          ${o.color?`<div style="font-size:6.8pt;margin-top:.8mm">${esc(o.color)}</div>`:''}
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 20mm;gap:2mm;align-items:end;margin-top:auto">
-          <div style="font-size:6pt;line-height:1.3;padding-bottom:1mm">
-            <b>Seguimiento</b><br>
-            Escanea el QR para consultar el estado de la orden.
-          </div>
-          <img src="${qr}" style="width:20mm;height:20mm;justify-self:end" alt="QR">
-        </div>
+    // Formato anterior ORIGINAL: 76x50 mm, escalado completo sin
+    // alterar distribución para papel físico 40x60 en horizontal.
+    const legacyScale=60/76;
+    const original=`<div style="width:76mm;height:50mm;border:1px solid #111;border-radius:4mm;padding:4mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:grid;grid-template-columns:1fr 28mm;gap:3mm;align-items:center;background:#fff;color:#111">
+      <div>
+        <b style="font-size:13pt">ThinkStore</b>
+        <div style="font-size:7pt;margin-bottom:3mm">Servicio Técnico</div>
+        <b style="font-size:11pt">${esc(o.code)}</b>
+        <div style="font-size:9pt;margin-top:2mm">${esc(o.device)}</div>
+        <div style="font-size:8pt">${esc(o.color||'')}</div>
+        <div style="font-size:6.5pt;margin-top:2mm">Escanea para ver el estado</div>
       </div>
+      <img src="${qr}" style="width:28mm;height:28mm" alt="QR">
+    </div>`;
+    return `<div style="width:60mm;height:40mm;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:flex-start">
+      <div style="width:76mm;height:50mm;transform:scale(${legacyScale});transform-origin:left center;flex:0 0 auto">${original}</div>
     </div>`;
   }
   function printDeviceLabelByOrder(o,format='legacy'){
     if(!o)return;
     const url=trackingUrl(o);
     const qr=qrUrl(url,260);
-    const markup=format==='40x60'?label40x60Markup(o,qr):labelLegacyMarkup(o,qr);
-    const w=window.open('','_blank','width=520,height=760');
+    const isCurrent=format==='40x60';
+    const markup=isCurrent?label40x60Markup(o,qr):labelLegacyMarkup(o,qr);
+    const pageW=isCurrent?40:60;
+    const pageH=isCurrent?60:40;
+    const w=window.open('','_blank',isCurrent?'width=520,height=760':'width=760,height=520');
     if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(`Etiqueta ${o.code}`)}</title><style>
       *{box-sizing:border-box}
-      html,body{margin:0!important;padding:0!important;width:40mm;height:60mm;background:#fff;overflow:hidden}
-      @page{size:40mm 60mm;margin:0}
-      @media print{html,body{width:40mm!important;height:60mm!important;margin:0!important;padding:0!important}}
+      html,body{margin:0!important;padding:0!important;width:${pageW}mm;height:${pageH}mm;background:#fff;overflow:hidden}
+      @page{size:${pageW}mm ${pageH}mm;margin:0}
+      @media print{html,body{width:${pageW}mm!important;height:${pageH}mm!important;margin:0!important;padding:0!important}}
     </style></head><body>${markup}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);
     w.document.close();
   }
@@ -1340,12 +1337,20 @@ const TSService=(()=>{
     const qrData=createQrDataUrl(url,720);
     const isCurrent=format==='40x60';
 
-    // Ambos diseños usan la misma medida física de la Hanin M1.
-    const pageW=40, pageH=60;
-    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:[pageW,pageH],compress:true});
+    // Etiqueta actual: 40x60 vertical.
+    // Formato anterior: mismo papel 40x60, girado horizontal = 60x40.
+    const pageW=isCurrent?40:60;
+    const pageH=isCurrent?60:40;
+    const doc=new jsPDF({
+      orientation:isCurrent?'portrait':'landscape',
+      unit:'mm',
+      format:[pageW,pageH],
+      compress:true
+    });
+
     doc.setProperties({
       title:`Etiqueta ${o.code}`,
-      subject:'Etiqueta 40x60 mm de servicio técnico ThinkStore',
+      subject:isCurrent?'Etiqueta 40x60 mm de servicio técnico ThinkStore':'Etiqueta anterior ThinkStore · papel 40x60 horizontal',
       author:'ThinkStore',
       creator:'ThinkStore Support'
     });
@@ -1353,7 +1358,6 @@ const TSService=(()=>{
     doc.setDrawColor(17,17,17);
 
     if(isCurrent){
-      // Diseño actual 40 x 60.
       doc.setFont('helvetica','bold');
       doc.setFontSize(13);
       doc.text('ThinkStore',20,6.6,{align:'center'});
@@ -1387,49 +1391,48 @@ const TSService=(()=>{
       doc.setFontSize(6.1);
       doc.text('Escanea para ver el estado',20,Math.min(57.2,qrY+27.2),{align:'center'});
     }else{
-      // "Formato anterior" adaptado a 40 x 60 para la M1.
-      doc.setLineWidth(.30);
-      doc.roundedRect(2,2,36,56,2.4,2.4);
+      // Formato anterior ORIGINAL 76x50, escalado uniformemente a 60x39.47.
+      // No se altera su composición horizontal.
+      const S=60/76;
+      const Y=(40-(50*S))/2;
+      const X=0;
+      const sx=v=>X+(v*S);
+      const sy=v=>Y+(v*S);
+
+      doc.setLineWidth(.25*S);
+      doc.roundedRect(sx(1.5),sy(1.5),73*S,47*S,2.8*S,2.8*S);
 
       doc.setFont('helvetica','bold');
-      doc.setFontSize(12);
-      doc.text('ThinkStore',4.5,7.2);
+      doc.setFontSize(13*S);
+      doc.text('ThinkStore',sx(4),sy(7));
 
       doc.setFont('helvetica','normal');
-      doc.setFontSize(6.4);
-      doc.text('Servicio Tecnico',4.5,10.2);
-      doc.setFontSize(5.5);
-      doc.text(['ETIQUETA','DE SERVICIO'],35.3,6.3,{align:'right',lineHeightFactor:1.05});
-
-      doc.setLineWidth(.28);
-      doc.line(4.5,12.4,35.5,12.4);
+      doc.setFontSize(7*S);
+      doc.text('Servicio Tecnico',sx(4),sy(10.5));
 
       doc.setFont('helvetica','bold');
-      doc.setFontSize(10);
-      doc.text(String(o.code||''),4.5,17.2);
+      doc.setFontSize(11*S);
+      doc.text(String(o.code||''),sx(4),sy(17));
 
-      doc.setFontSize(7.8);
-      const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),31).slice(0,2);
-      doc.text(deviceLines,4.5,21.2,{lineHeightFactor:1.08});
+      doc.setFontSize(8.5*S);
+      const deviceWidth=38*S;
+      const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),deviceWidth).slice(0,2);
+      doc.text(deviceLines,sx(4),sy(22),{lineHeightFactor:1.08});
 
-      let y=21.2+(deviceLines.length*3.3)+.5;
       if(o.color){
         doc.setFont('helvetica','normal');
-        doc.setFontSize(6.4);
-        doc.text(doc.splitTextToSize(String(o.color),30).slice(0,1),4.5,y);
+        doc.setFontSize(7*S);
+        doc.text(doc.splitTextToSize(String(o.color),38*S).slice(0,1),sx(4),sy(30));
       }
 
-      doc.addImage(qrData,'PNG',17.5,34.5,18.5,18.5,undefined,'FAST');
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(6.0);
-      doc.text('Seguimiento',4.5,39);
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(5.4);
-      doc.text(doc.splitTextToSize('Escanea el QR para consultar el estado de la orden.',11.5),4.5,42,{lineHeightFactor:1.18});
+      doc.setFontSize(6.2*S);
+      doc.text('Escanea para ver el estado',sx(4),sy(43));
+
+      doc.addImage(qrData,'PNG',sx(46),sy(10.5),26*S,26*S,undefined,'FAST');
     }
 
     const blob=doc.output('blob');
-    const suffix=isCurrent?'40x60':'anterior-40x60';
+    const suffix=isCurrent?'40x60':'anterior-40x60-horizontal';
     return new File([blob],`${sanitizeLabelFileName(o.code)}-${suffix}.pdf`,{type:'application/pdf'});
   }
   function downloadLabelFile(file){
@@ -1462,7 +1465,7 @@ const TSService=(()=>{
     document.getElementById('tsLabelFormatModal')?.remove();
     const saved=localStorage.getItem('ts_label_format')||'40x60';
     const modal=document.createElement('div'); modal.id='tsLabelFormatModal'; modal.className='modal open';
-    modal.innerHTML=`<div class="card" style="max-width:560px"><h2 style="margin-top:0">Etiqueta del equipo</h2><p style="color:var(--muted);margin-top:-6px">Selecciona el formato y envíalo directamente a HereLabel o usa la impresión del navegador.</p><div style="display:grid;gap:10px;margin:18px 0"><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="40x60" ${saved==='40x60'?'checked':''} style="width:auto;margin-top:3px"><span><b>40 × 60 mm</b><small style="display:block;color:var(--muted);margin-top:3px">Formato actual de la etiquetadora M1 · vertical</small></span></label><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="legacy" ${saved==='legacy'?'checked':''} style="width:auto;margin-top:3px"><span><b>Formato anterior · 40 × 60 mm</b><small style="display:block;color:var(--muted);margin-top:3px">Diseño anterior adaptado a la etiquetadora Hanin M1</small></span></label></div><div style="background:#f5f7fb;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.5"><b>HereLabel</b><br><span style="color:var(--muted)">ThinkStore genera un PDF con la medida real. En iPhone/iPad se abrirá el menú Compartir: toca <b>HereLabel</b> y la etiqueta llegará lista para imprimir, sin tener que diseñarla de nuevo.</span></div><div class="actions" style="flex-wrap:wrap"><button type="button" id="tsOpenHereLabel">Abrir en HereLabel</button><button type="button" class="secondary" id="tsPrintSelectedLabel">Imprimir desde navegador</button><button type="button" class="secondary" id="tsCancelLabelFormat">Cancelar</button></div></div>`;
+    modal.innerHTML=`<div class="card" style="max-width:560px"><h2 style="margin-top:0">Etiqueta del equipo</h2><p style="color:var(--muted);margin-top:-6px">Selecciona el formato y envíalo directamente a HereLabel o usa la impresión del navegador.</p><div style="display:grid;gap:10px;margin:18px 0"><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="40x60" ${saved==='40x60'?'checked':''} style="width:auto;margin-top:3px"><span><b>40 × 60 mm</b><small style="display:block;color:var(--muted);margin-top:3px">Formato actual de la etiquetadora M1 · vertical</small></span></label><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="legacy" ${saved==='legacy'?'checked':''} style="width:auto;margin-top:3px"><span><b>Formato anterior · 40 × 60 mm horizontal</b><small style="display:block;color:var(--muted);margin-top:3px">Mismo diseño horizontal anterior, ajustado al papel 40 × 60 mm de la Hanin M1</small></span></label></div><div style="background:#f5f7fb;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.5"><b>HereLabel</b><br><span style="color:var(--muted)">ThinkStore genera un PDF con la medida real. En iPhone/iPad se abrirá el menú Compartir: toca <b>HereLabel</b> y la etiqueta llegará lista para imprimir, sin tener que diseñarla de nuevo.</span></div><div class="actions" style="flex-wrap:wrap"><button type="button" id="tsOpenHereLabel">Abrir en HereLabel</button><button type="button" class="secondary" id="tsPrintSelectedLabel">Imprimir desde navegador</button><button type="button" class="secondary" id="tsCancelLabelFormat">Cancelar</button></div></div>`;
     document.body.appendChild(modal);
     const selectedFormat=()=>modal.querySelector('input[name="tsLabelFormat"]:checked')?.value||'40x60';
     modal.querySelector('#tsCancelLabelFormat').onclick=()=>modal.remove();

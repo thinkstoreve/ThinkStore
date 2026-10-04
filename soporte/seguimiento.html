@@ -72,6 +72,51 @@
     const steps=['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado'];
     const params=new URLSearchParams(location.search);let code=(params.get('orden')||'').trim().toUpperCase();let token=(params.get('token')||'').trim();let liveTimer=null;
     let selectedRating=0;
+
+    // V8.7.3: referencias DOM explícitas.
+    // No depender de variables globales creadas automáticamente por id,
+    // porque nombres como "status" y "closeTerms" chocan con propiedades
+    // o funciones del navegador.
+    const lookupScreen=document.getElementById('lookupScreen');
+    const portal=document.getElementById('portal');
+    const secureChip=document.getElementById('secureChip');
+    const lookupForm=document.getElementById('lookup');
+    const lookupNotice=document.getElementById('lookupNotice');
+    const orderCode=document.getElementById('orderCode');
+    const device=document.getElementById('device');
+    const statusEl=document.getElementById('status');
+    const updatedTop=document.getElementById('updatedTop');
+    const heroCopy=document.getElementById('heroCopy');
+    const timeline=document.getElementById('timeline');
+    const latestTechnical=document.getElementById('latestTechnical');
+    const technicalList=document.getElementById('technicalList');
+    const gallery=document.getElementById('gallery');
+    const chat=document.getElementById('chat');
+    const composer=document.getElementById('composer');
+    const replyMessage=document.getElementById('replyMessage');
+    const replyNotice=document.getElementById('replyNotice');
+    const sendReply=document.getElementById('sendReply');
+    const quoteApprovalCard=document.getElementById('quoteApprovalCard');
+    const quoteAmount=document.getElementById('quoteAmount');
+    const quoteRepairDetails=document.getElementById('quoteRepairDetails');
+    const quoteDecisionState=document.getElementById('quoteDecisionState');
+    const quoteActions=document.getElementById('quoteActions');
+    const quoteComment=document.getElementById('quoteComment');
+    const quoteNotice=document.getElementById('quoteNotice');
+    const sendQuoteQuestion=document.getElementById('sendQuoteQuestion');
+    const openApproveQuote=document.getElementById('openApproveQuote');
+    const quoteTermsModal=document.getElementById('quoteTermsModal');
+    const closeTermsBtn=document.getElementById('closeTerms');
+    const acceptRepairTerms=document.getElementById('acceptRepairTerms');
+    const confirmApproveQuote=document.getElementById('confirmApproveQuote');
+    const termsNotice=document.getElementById('termsNotice');
+    const feedbackCard=document.getElementById('feedbackCard');
+    const feedbackExisting=document.getElementById('feedbackExisting');
+    const feedbackForm=document.getElementById('feedbackForm');
+    const feedbackComment=document.getElementById('feedbackComment');
+    const feedbackNotice=document.getElementById('feedbackNotice');
+    const sendFeedback=document.getElementById('sendFeedback');
+    const updated=document.getElementById('updated');
     const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const fmt=v=>v?new Date(v).toLocaleString('es-VE'):'—';
     function renderTimeline(current){let idx=steps.indexOf(String(current||'Recibido'));if(idx<0)idx=0;timeline.innerHTML=steps.map((s,i)=>`<div class="step ${i<idx?'done':i===idx?'current':''}"><span class="dot">${i<idx?'✓':i+1}</span><div><b>${s}</b><small>${i===idx?'Estado actual':i<idx?'Completado':'Pendiente'}</small></div></div>`).join('')}
@@ -94,7 +139,7 @@
       }
     }
     function openTerms(){acceptRepairTerms.checked=false;confirmApproveQuote.disabled=true;termsNotice.innerHTML='';quoteTermsModal.classList.remove('hidden')}
-    function closeTerms(){quoteTermsModal.classList.add('hidden')}
+    function hideTerms(){quoteTermsModal.classList.add('hidden')}
     function renderFeedback(o,feedback){
       const card=document.getElementById('feedbackCard');
       if(o.status!=='Entregado'){card.classList.add('hidden');return}
@@ -106,26 +151,40 @@
         feedbackExisting.classList.add('hidden');feedbackForm.classList.remove('hidden');
       }
     }
-    async function api(payload){const r=await fetch('/.netlify/functions/public-service-portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||'No se pudo cargar el seguimiento.');return d}
-    async function loadPortal(silent=false){if(!code)return showLookup();try{const d=await api({action:'lookup',code,token});if(!d.secure){showBasic(d.order);return}lookupScreen.classList.add('hidden');portal.classList.remove('hidden');secureChip.textContent='Enlace seguro';const o=d.order;orderCode.textContent=o.code;device.textContent=o.device_model||'Tu equipo';status.textContent=o.status||'Recibido';updatedTop.textContent='Actualizado '+fmt(o.updated_at);heroCopy.textContent='Consulta el diagnóstico, bitácora, fotografías y mensajes relacionados con tu reparación.';renderTimeline(o.status);const notes=d.notes||[];latestTechnical.innerHTML=notes.length?noteCard(notes[0]):'<div class="empty">Aún no hay diagnóstico público.</div>';technicalList.innerHTML=notes.length?notes.map(noteCard).join(''):'<div class="empty">Nuestro equipo todavía no ha publicado entradas técnicas.</div>';renderPhotos(d.photos||[]);renderMessages(d.messages||[]);renderQuote(o);renderFeedback(o,d.feedback||null);composer.classList.remove('hidden');updated.textContent='Última sincronización: '+new Date().toLocaleString('es-VE')+' · actualización automática';if(!silent){clearInterval(liveTimer);liveTimer=setInterval(()=>loadPortal(true),15000)}}catch(e){if(!silent)showError(e.message)}}
+    async function api(payload){
+      const r=await fetch('/.netlify/functions/public-service-portal',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      const raw=await r.text();
+      let d={};
+      try{d=raw?JSON.parse(raw):{}}catch{d={}}
+      if(!r.ok||!d.ok){
+        const detail=d.error||`No se pudo cargar el seguimiento (HTTP ${r.status}).`;
+        throw new Error(detail);
+      }
+      return d;
+    }
+    async function loadPortal(silent=false){if(!code)return showLookup();try{const d=await api({action:'lookup',code,token});if(!d.secure){showBasic(d.order);return}lookupScreen.classList.add('hidden');portal.classList.remove('hidden');secureChip.textContent='Enlace seguro';const o=d.order;orderCode.textContent=o.code;device.textContent=o.device_model||'Tu equipo';statusEl.textContent=o.status||'Recibido';updatedTop.textContent='Actualizado '+fmt(o.updated_at);heroCopy.textContent='Consulta el diagnóstico, bitácora, fotografías y mensajes relacionados con tu reparación.';renderTimeline(o.status);const notes=d.notes||[];latestTechnical.innerHTML=notes.length?noteCard(notes[0]):'<div class="empty">Aún no hay diagnóstico público.</div>';technicalList.innerHTML=notes.length?notes.map(noteCard).join(''):'<div class="empty">Nuestro equipo todavía no ha publicado entradas técnicas.</div>';renderPhotos(d.photos||[]);renderMessages(d.messages||[]);renderQuote(o);renderFeedback(o,d.feedback||null);composer.classList.remove('hidden');updated.textContent='Última sincronización: '+new Date().toLocaleString('es-VE')+' · actualización automática';if(!silent){clearInterval(liveTimer);liveTimer=setInterval(()=>loadPortal(true),15000)}}catch(e){if(!silent)showError(e.message)}}
     function showLookup(){portal.classList.add('hidden');lookupScreen.classList.remove('hidden');secureChip.textContent='Consulta de orden'}
-    function showBasic(o){quoteApprovalCard.classList.add('hidden');feedbackCard.classList.add('hidden');lookupScreen.classList.add('hidden');portal.classList.remove('hidden');secureChip.textContent='Vista básica';orderCode.textContent=o.code;device.textContent=o.device_model||'Tu equipo';status.textContent=o.status||'Recibido';updatedTop.textContent='Actualizado '+fmt(o.updated_at);heroCopy.textContent='Este es un seguimiento básico. Para ver diagnóstico, fotografías y responder mensajes abre el enlace seguro enviado por ThinkStore.';renderTimeline(o.status);latestTechnical.innerHTML='<div class="notice warn">Abre el enlace seguro recibido por correo o escanea el QR de tu orden para ver el seguimiento completo.</div>';technicalList.innerHTML='<div class="empty">El detalle técnico está protegido.</div>';gallery.innerHTML='<div class="empty">Las imágenes están disponibles únicamente desde el enlace seguro.</div>';chat.innerHTML='<div class="empty">Los mensajes están disponibles únicamente desde el enlace seguro.</div>';composer.classList.add('hidden');updated.textContent='Última actualización: '+fmt(o.updated_at)}
+    function showBasic(o){quoteApprovalCard.classList.add('hidden');feedbackCard.classList.add('hidden');lookupScreen.classList.add('hidden');portal.classList.remove('hidden');secureChip.textContent='Vista básica';orderCode.textContent=o.code;device.textContent=o.device_model||'Tu equipo';statusEl.textContent=o.status||'Recibido';updatedTop.textContent='Actualizado '+fmt(o.updated_at);heroCopy.textContent='Este es un seguimiento básico. Para ver diagnóstico, fotografías y responder mensajes abre el enlace seguro enviado por ThinkStore.';renderTimeline(o.status);latestTechnical.innerHTML='<div class="notice warn">Abre el enlace seguro recibido por correo o escanea el QR de tu orden para ver el seguimiento completo.</div>';technicalList.innerHTML='<div class="empty">El detalle técnico está protegido.</div>';gallery.innerHTML='<div class="empty">Las imágenes están disponibles únicamente desde el enlace seguro.</div>';chat.innerHTML='<div class="empty">Los mensajes están disponibles únicamente desde el enlace seguro.</div>';composer.classList.add('hidden');updated.textContent='Última actualización: '+fmt(o.updated_at)}
     function showError(message){showLookup();lookupNotice.innerHTML=`<div class="notice err">${esc(message)}</div>`}
-    lookup.addEventListener('submit',e=>{e.preventDefault();code=document.getElementById('code').value.trim().toUpperCase();token='';history.replaceState(null,'',`?orden=${encodeURIComponent(code)}`);loadPortal()});
+    lookupForm.addEventListener('submit',e=>{e.preventDefault();code=document.getElementById('code').value.trim().toUpperCase();token='';history.replaceState(null,'',`?orden=${encodeURIComponent(code)}`);loadPortal()});
     const codeInput=document.getElementById('code');
     sendReply.addEventListener('click',async()=>{const message=replyMessage.value.trim();if(!message)return;sendReply.disabled=true;replyNotice.innerHTML='';try{await api({action:'reply',code,token,message});replyMessage.value='';replyNotice.innerHTML='<div class="notice" style="background:#edf8f1;color:#217a45;border:1px solid #c8e8d4">Mensaje enviado.</div>';await loadPortal(true)}catch(e){replyNotice.innerHTML=`<div class="notice err">${esc(e.message)}</div>`}finally{sendReply.disabled=false}});
     document.querySelectorAll('[data-quick]').forEach(b=>b.addEventListener('click',()=>{quoteComment.value=b.dataset.quick||'';quoteComment.focus()}));
     sendQuoteQuestion.addEventListener('click',async()=>{const message=quoteComment.value.trim();if(!message)return;sendQuoteQuestion.disabled=true;quoteNotice.innerHTML='';try{await api({action:'reply',code,token,message});quoteComment.value='';quoteNotice.innerHTML='<div class="notice" style="background:#edf8f1;color:#217a45;border:1px solid #c8e8d4">Consulta enviada al técnico.</div>';await loadPortal(true)}catch(e){quoteNotice.innerHTML=`<div class="notice err">${esc(e.message)}</div>`}finally{sendQuoteQuestion.disabled=false}});
     openApproveQuote.addEventListener('click',openTerms);
-    closeTerms.addEventListener('click',closeTerms);
-    quoteTermsModal.addEventListener('click',e=>{if(e.target===quoteTermsModal)closeTerms()});
+    closeTermsBtn.addEventListener('click',hideTerms);
+    quoteTermsModal.addEventListener('click',e=>{if(e.target===quoteTermsModal)hideTerms()});
     acceptRepairTerms.addEventListener('change',()=>{confirmApproveQuote.disabled=!acceptRepairTerms.checked});
     confirmApproveQuote.addEventListener('click',async()=>{
       if(!acceptRepairTerms.checked)return;
       confirmApproveQuote.disabled=true;termsNotice.innerHTML='';
       try{
         const d=await api({action:'approve_quote',code,token,accept_terms:true,comment:quoteComment.value.trim()});
-        closeTerms();
+        hideTerms();
         quoteNotice.innerHTML='<div class="notice" style="background:#edf8f1;color:#217a45;border:1px solid #c8e8d4"><b>Cotización aprobada.</b> ThinkStore ya recibió tu autorización.</div>';
         await loadPortal(true);
       }catch(e){
@@ -146,7 +205,15 @@
       catch(e){feedbackNotice.innerHTML=`<div class="notice err">${esc(e.message)}</div>`}
       finally{sendFeedback.disabled=false}
     });
-    if(code){codeInput.value=code;loadPortal()}else showLookup();
+    try{
+      if(code){codeInput.value=code;loadPortal()}else showLookup();
+    }catch(error){
+      console.error('ThinkStore seguimiento boot:',error);
+      portal.classList.add('hidden');
+      lookupScreen.classList.remove('hidden');
+      secureChip.textContent='Seguimiento';
+      lookupNotice.innerHTML=`<div class="notice err">No pudimos iniciar el seguimiento. Recarga la página o inténtalo nuevamente.</div>`;
+    }
   </script>
 </body>
 </html>
