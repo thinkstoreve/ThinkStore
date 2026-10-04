@@ -6,5 +6,5 @@
 window.THINKSTORE_SUPABASE = {
   SUPABASE_URL: 'https://clhnndxsgzqnihhtrout.supabase.co',
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_Q7ynhCPp8nMFQywia1LqCQ_6UEAGqRZ',
-  SITE_URL: 'https://thinkstore.com.ve'
+  SITE_URL: window.location.origin
 };

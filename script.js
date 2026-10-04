@@ -2817,7 +2817,7 @@ async function saveCustomer(e){
       password: c.pass,
       options: {
         emailRedirectTo,
-        data: { name: c.name, phone: c.phone }
+        data: { name: c.name, phone: c.phone, thinkstore_internal: false }
       }
     });
     if(error) throw error;
@@ -5792,41 +5792,56 @@ window.addEventListener('load', ()=>{
     const allowed=map[role]||map.cliente;
     return allowed.includes('*') || allowed.includes(module);
   };
+  function explicitInternalProfile(profile,authUser){
+    if(!profile)return false;
+    const metaInternal=authUser?.app_metadata?.thinkstore_internal===true || authUser?.user_metadata?.thinkstore_internal===true;
+    if(metaInternal)return true;
+    if(profile.is_internal===true)return true;
+    if(profile.internal_origin||profile.internal_invited_at||profile.internal_invited_by||profile.custom_role_key)return true;
+    if(profile.is_internal===false)return false;
+    return ['admin','superadmin'].includes(normalizeRole(profile.role||profile.rol||'cliente'));
+  }
   async function hydrateRoleFromSupabase(){
     const u=readUser();
     if(!u || !window.tsSupabaseReady || !window.tsSupabase) return u;
     try{
       const session=await window.tsSupabase.auth.getSession();
-      const uid=session?.data?.session?.user?.id || u.supabase_id || u.id;
-      const email=session?.data?.session?.user?.email || u.email;
-      let role='cliente';
-      // profiles es la fuente canónica del Panel Multi-Rol. Evita que una fila antigua
-      // de staff_profiles (por ejemplo vendedor) rebaje un Admin/Super Admin.
+      const authUser=session?.data?.session?.user||null;
+      const uid=authUser?.id || u.supabase_id || u.id;
+      const email=authUser?.email || u.email;
+      let role='cliente',knownClient=false,explicitInternal=false;
+
       if(uid){
-        const canonical=await window.tsSupabase.from('profiles').select('role,rol,active,activo,email,correo').eq('id',uid).maybeSingle();
+        const canonical=await window.tsSupabase.from('profiles').select('*').eq('id',uid).maybeSingle();
         if(!canonical.error && canonical.data && (canonical.data.active??canonical.data.activo??true)!==false){
-          role=normalizeRole(canonical.data.role||canonical.data.rol||'cliente');
+          explicitInternal=explicitInternalProfile(canonical.data,authUser);
+          if(explicitInternal)role=normalizeRole(canonical.data.role||canonical.data.rol||'cliente');
         }
-        if(role==='cliente'){
+        const clientRow=await window.tsSupabase.from('clientes').select('id').eq('id',uid).maybeSingle();
+        if(!clientRow.error && clientRow.data)knownClient=true;
+        if(role==='cliente'&&!knownClient){
           const r1=await window.tsSupabase.from('staff_profiles').select('role,is_active').eq('id',uid).maybeSingle();
           if(!r1.error && r1.data && r1.data.is_active!==false) role=normalizeRole(r1.data.role);
         }
-        if(role==='cliente'){
-          const r2=await window.tsSupabase.from('clientes').select('role,rol,tipo').eq('id',uid).maybeSingle();
-          if(!r2.error && r2.data) role=normalizeRole(r2.data.role||r2.data.rol||r2.data.tipo||'cliente');
+      }
+
+      if(email && role==='cliente' && !knownClient){
+        const c2=await window.tsSupabase.from('profiles').select('*').or(`email.eq.${email},correo.eq.${email}`).maybeSingle();
+        if(!c2.error && c2.data && (c2.data.active??c2.data.activo??true)!==false && explicitInternalProfile(c2.data,authUser)){
+          explicitInternal=true;
+          role=normalizeRole(c2.data.role||c2.data.rol||'cliente');
         }
       }
-      if(email && role==='cliente'){
-        const c2=await window.tsSupabase.from('profiles').select('role,rol,active,activo').or(`email.eq.${email},correo.eq.${email}`).maybeSingle();
-        if(!c2.error && c2.data && (c2.data.active??c2.data.activo??true)!==false) role=normalizeRole(c2.data.role||c2.data.rol||'cliente');
-      }
-      if(email && role==='cliente'){
+      if(email && role==='cliente' && !knownClient){
         const r3=await window.tsSupabase.from('staff_profiles').select('role,is_active').eq('email',email).maybeSingle();
         if(!r3.error && r3.data && r3.data.is_active!==false) role=normalizeRole(r3.data.role);
       }
-      u.role=role; u.rol=role; writeUser(u);
+
+      // Una cuenta presente en clientes nunca obtiene privilegios internos por un rol histórico mal asignado.
+      if(knownClient&&!explicitInternal)role='cliente';
+      u.role=role;u.rol=role;u.is_internal=explicitInternal;writeUser(u);
       return u;
-    }catch(e){ console.warn('ThinkStore role hydrate:', e); return u; }
+    }catch(e){console.warn('ThinkStore role hydrate:',e);u.role='cliente';u.rol='cliente';u.is_internal=false;writeUser(u);return u;}
   }
   function updateNavRole(){
     const btn=document.getElementById('clientNavBtn');

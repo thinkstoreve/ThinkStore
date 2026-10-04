@@ -24,7 +24,10 @@ exports.handler=async(event)=>{
   });
   let body={};try{body=JSON.parse(event.body||'{}')}catch(_){return out(400,{ok:false,error:'JSON inválido'})}
   const action=String(body.action||'access').toLowerCase();
-  if(action==='access')return out(200,{ok:true,...await effectiveAccess(viewer.profile,url,service)});
+  if(action==='access'){
+    if(!viewer.internal)return out(403,{ok:false,error:'Esta cuenta es de cliente y no tiene acceso a plataformas internas'});
+    return out(200,{ok:true,...await effectiveAccess(viewer.profile,url,service)});
+  }
   if(!viewer.internal||!['admin','superadmin'].includes(viewer.role))return out(403,{ok:false,error:'Acceso administrativo no autorizado'});
 
   if(action==='list'){
@@ -117,12 +120,24 @@ exports.handler=async(event)=>{
     const nextUi=normalizeUiRole(dbRole);
     if(!INTERNAL_UI_ROLES.includes(nextUi))return out(400,{ok:false,error:'Rol interno inválido'});
     if(id===viewer.user_id && (nextUi!=='superadmin'||active===false||custom))return out(409,{ok:false,error:'Por seguridad no puedes degradar, desactivar ni personalizar tu propia cuenta Super Admin'});
+    // Solo Super Admin puede conceder o modificar niveles Admin / Super Admin.
+    // Esto mantiene al Administrador operativo sin permitir escaladas de privilegios.
+    if(viewer.role!=='superadmin' && (['admin','superadmin'].includes(nextUi)||['admin','superadmin'].includes(targetRole)))
+      return out(403,{ok:false,error:'Solo Super Admin puede administrar cuentas Administrador o Super Admin'});
     let overrides=cleanOverrides(body.permission_overrides);
     const platformAccess=cleanPlatformAccess(body.platform_access,nextUi);
     if(body.platform_access&&typeof body.platform_access==='object')overrides=applyPlatformAccessToOverrides(overrides,platformAccess,nextUi);
-    const patch={role:dbRole,active,is_internal:true,custom_role_key:custom||null,permission_overrides:overrides};
+
+    // Compatibilidad de esquema: ThinkStore tuvo perfiles con role/active y también
+    // instalaciones históricas con rol/activo. Select=* nos permite detectar en
+    // tiempo real qué columnas existen y actualizar únicamente esas columnas.
+    const patch=profileUpdatePatch(target,{dbRole,active,custom,overrides});
     const rr=await fetch(`${url}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...svc(service),Prefer:'return=representation'},body:JSON.stringify(patch)});
-    const rows=await rr.json().catch(()=>[]);if(!rr.ok)return out(rr.status,{ok:false,error:'No se pudo actualizar el perfil',details:rows});
+    const rows=await rr.json().catch(()=>[]);
+    if(!rr.ok){
+      const detail=Array.isArray(rows)?JSON.stringify(rows):String(rows?.message||rows?.error||rows?.details||'');
+      return out(rr.status,{ok:false,error:'No se pudo actualizar el perfil',details:rows,reason:detail});
+    }
     const updatedProfile=rows?.[0]||{...target,...patch};
     const targetEmail=target.email||target.correo||'';
     const targetName=target.full_name||target.nombre||target.name||targetEmail;
@@ -141,12 +156,36 @@ function normalizeDbRole(v){const r=String(v||'').toLowerCase().replace(/[ -]+/g
 function normalizeUiRole(v){let r=String(v||'cliente').toLowerCase().replace(/[ -]+/g,'_');if(r==='super_admin')r='superadmin';if(r==='administrator'||r==='gerente')r='admin';return r}
 function cleanPerms(v){return [...new Set((Array.isArray(v)?v:[]).map(x=>String(x||'').trim()).filter(Boolean))].slice(0,150)}
 function cleanOverrides(v){const o=v&&typeof v==='object'?v:{};return{allow:cleanPerms(o.allow),deny:cleanPerms(o.deny)}}
+function hasOwn(o,k){return Boolean(o)&&Object.prototype.hasOwnProperty.call(o,k)}
+function profileUpdatePatch(target,{dbRole,active,custom,overrides}){
+  const patch={};
+  // Rol: escribe ambos únicamente si ambos existen; si existe uno, usa ese.
+  if(hasOwn(target,'role'))patch.role=dbRole;
+  if(hasOwn(target,'rol'))patch.rol=dbRole;
+  if(!hasOwn(target,'role')&&!hasOwn(target,'rol'))patch.role=dbRole;
+
+  // Estado activo: mismo criterio para active/activo.
+  if(hasOwn(target,'active'))patch.active=active;
+  if(hasOwn(target,'activo'))patch.activo=active;
+  if(!hasOwn(target,'active')&&!hasOwn(target,'activo'))patch.active=active;
+
+  // Columnas modernas opcionales: no rompen instalaciones históricas si aún no existen.
+  if(hasOwn(target,'is_internal'))patch.is_internal=true;
+  if(hasOwn(target,'custom_role_key'))patch.custom_role_key=custom||null;
+  if(hasOwn(target,'permission_overrides'))patch.permission_overrides=overrides;
+  if(hasOwn(target,'updated_at'))patch.updated_at=new Date().toISOString();
+  return patch;
+}
 function effectiveStaffAccess(role,overrides={allow:[],deny:[]}){const r=normalizeUiRole(role);if((overrides.deny||[]).includes('staff.access'))return false;if((overrides.allow||[]).includes('staff.access'))return true;return ['vendedor','admin','superadmin'].includes(r)}
-function isInternalProfile(p){
-  if(p?.is_internal===true)return true;
-  const role=normalizeUiRole(p?.role||p?.rol);
-  // Compatibilidad con cuentas internas creadas antes de la columna is_internal.
-  return INTERNAL_UI_ROLES.includes(role)||Boolean(p?.custom_role_key);
+function isInternalProfile(p,u=null){
+  if(!p)return false;
+  const metaInternal=u?.app_metadata?.thinkstore_internal===true||u?.user_metadata?.thinkstore_internal===true;
+  if(metaInternal)return true;
+  if(p.is_internal===true)return true;
+  if(p.internal_origin||p.internal_invited_at||p.internal_invited_by||p.custom_role_key)return true;
+  if(p.is_internal===false)return false;
+  // Compatibilidad mínima: solo Admin/Super Admin bootstrap sin columna is_internal.
+  return ['admin','superadmin'].includes(normalizeUiRole(p.role||p.rol));
 }
 function roleLabel(r){return({vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Super Admin'})[normalizeUiRole(r)]||String(r||'Usuario interno')}
 async function findProfileByEmail(url,service,email){const paths=[`email=eq.${encodeURIComponent(email)}`,`correo=eq.${encodeURIComponent(email)}`];for(const q of paths){const r=await fetch(`${url}/rest/v1/profiles?select=*&${q}&limit=1`,{headers:svc(service)});if(r.ok){const rows=await r.json().catch(()=>[]);if(rows?.[0])return rows[0];}}return null}
@@ -181,7 +220,7 @@ async function authenticate(event,url,service){
     user_id:u.id,
     email:u.email||p.email||p.correo||'',
     role:normalizeUiRole(p.role||p.rol),
-    internal:isInternalProfile(p),
+    internal:isInternalProfile(p,u),
     profile:p
   };
 }
@@ -278,9 +317,19 @@ async function createInternalProfile(url,service,{id,email,fullName,dbRole,custo
   const canonicalRole=normalizeUiRole(dbRole)==='superadmin'?'superadmin':normalizeDbRole(dbRole);
   if(!canonicalRole)throw detailError('Rol interno no válido',String(dbRole||''));
 
+  const extended={custom_role_key:custom||null,permission_overrides:permissionOverrides||{allow:[],deny:[]},...marker};
   const baseProfiles=[
-    {id,email,full_name:fullName,role:canonicalRole,active:true,custom_role_key:custom||null,permission_overrides:permissionOverrides||{allow:[],deny:[]},...marker},
-    {id,email,nombre:fullName,role:canonicalRole,active:true,custom_role_key:custom||null,permission_overrides:permissionOverrides||{allow:[],deny:[]},...marker}
+    // Esquema moderno
+    {id,email,full_name:fullName,role:canonicalRole,active:true,...extended},
+    {id,email,nombre:fullName,role:canonicalRole,active:true,...extended},
+    // Esquema histórico V64 (rol/activo)
+    {id,email,nombre:fullName,rol:canonicalRole,activo:true,...extended},
+    {id,email,full_name:fullName,rol:canonicalRole,activo:true,...extended},
+    // Fallback mínimo: permite crear el acceso aun cuando las columnas opcionales
+    // de permisos todavía no estén presentes. Para Admin/Super Admin el acceso
+    // total se deriva directamente del rol base.
+    {id,email,full_name:fullName,role:canonicalRole,active:true},
+    {id,email,nombre:fullName,rol:canonicalRole,activo:true}
   ];
 
   let last='';

@@ -565,6 +565,16 @@ function normalizePanelRole(value){
   };
   return aliases[raw]||raw;
 }
+function tsProfileExplicitInternal(profile,authUser=null){
+  if(!profile)return false;
+  const metaInternal=authUser?.app_metadata?.thinkstore_internal===true || authUser?.user_metadata?.thinkstore_internal===true;
+  if(metaInternal)return true;
+  if(profile.is_internal===true)return true;
+  if(profile.internal_origin||profile.internal_invited_at||profile.internal_invited_by||profile.custom_role_key)return true;
+  if(profile.is_internal===false)return false;
+  // Compatibilidad exclusiva para administradores bootstrap de versiones antiguas.
+  return ['admin','superadmin'].includes(normalizePanelRole(profile.role||profile.rol||'cliente'));
+}
 async function canonicalPanelProfile(authUser){
   if(!window.tsPanelSupabase||!authUser?.id)return null;
   let {data:profile,error}=await window.tsPanelSupabase.from('profiles').select('*').eq('id',authUser.id).maybeSingle();
@@ -578,11 +588,13 @@ async function canonicalPanelProfile(authUser){
 async function setPanelUserFromAuth(authUser,{silent=false}={}){
   const profile=await canonicalPanelProfile(authUser);
   if(!profile)return false;
-  const panelRole=normalizePanelRole(profile.role||profile.rol||'cliente');
+  const rawRole=normalizePanelRole(profile.role||profile.rol||'cliente');
+  const internal=tsProfileExplicitInternal(profile,authUser);
+  const panelRole=internal?rawRole:'cliente';
   const active=(profile.active??profile.activo??true)!==false;
   if(!active)return false;
-  setUser({id:authUser.id,email:profile.email||profile.correo||authUser.email||'',name:profile.full_name||profile.nombre||authUser.user_metadata?.name||String(authUser.email||'Usuario').split('@')[0],role:panelRole,rol:panelRole,source:'supabase'});
-  if(!silent)audit('login_interno','Acceso Supabase: '+(authUser.email||'')+' · '+panelRole);
+  setUser({id:authUser.id,email:profile.email||profile.correo||authUser.email||'',name:profile.full_name||profile.nombre||authUser.user_metadata?.name||String(authUser.email||'Usuario').split('@')[0],role:panelRole,rol:panelRole,is_internal:internal,source:'supabase'});
+  if(!silent)audit(internal?'login_interno':'login_cliente','Acceso Supabase: '+(authUser.email||'')+' · '+panelRole);
   return true;
 }
 async function secureLogin(){
@@ -2691,7 +2703,7 @@ async function inviteInternalUser(){
   try{const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'invite',full_name,email,role:baseRole||'vendedor',custom_role_key,permission_overrides:{allow:[],deny:[]},platform_access})});const data=await res.json().catch(()=>({}));if(res.status===401){const err=new Error(data.error||'Tu sesión segura expiró.');err.code=data.code||'AUTH_REQUIRED';throw err}if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo enviar la invitación');const enabled=Object.entries(platform_access).filter(([,v])=>v.enabled).map(([k])=>TS_PLATFORMS[k]?.label||k);if(statusBox)statusBox.innerHTML=`<div class="notice success"><b>Invitación enviada ✅</b><small>${esc(full_name)} recibirá el acceso desde admin@thinkstore.com.ve. Plataformas: ${esc(enabled.join(' · ')||'según rol')}.</small></div>`;await loadAdminProfiles();drawAdminProfiles();setTimeout(()=>{if($('roleEditor'))$('roleEditor').innerHTML=''},2400)}catch(e){const authIssue=String(e?.code||'').startsWith('AUTH_')||/sesión.*expir|sesión no autorizada/i.test(String(e?.message||''));if(authIssue){tsPendingInviteDraft();if(statusBox)statusBox.innerHTML=`<div class="notice critical"><b>Tu sesión segura necesita revalidarse.</b><small>Tu invitación quedó guardada.</small><div class="actions"><button class="btn" onclick="tsRequireSecureLogin('permisos')">Revalidar y continuar</button></div></div>`}else if(statusBox)statusBox.innerHTML=`<div class="notice critical">${esc(e.message||String(e))}</div>`;if(btn){btn.disabled=false;btn.textContent='Enviar invitación'}}
 }
 function drawAdminProfiles(){
-  const box=$('profilesBox');if(!box)return;const q=normalizeEmail(val('profileSearch')),viewer=role(),canEdit=['admin','superadmin'].includes(viewer);const list=(realState.profiles||[]).filter(p=>p?.is_internal===true||['admin','superadmin','vendedor','recepcion','soporte','tecnico','logistica'].includes(tsProfileRole(p))).filter(p=>!q||JSON.stringify(p).toLowerCase().includes(q));
+  const box=$('profilesBox');if(!box)return;const q=normalizeEmail(val('profileSearch')),viewer=role(),canEdit=['admin','superadmin'].includes(viewer);const list=(realState.profiles||[]).filter(p=>tsProfileExplicitInternal(p)).filter(p=>!q||JSON.stringify(p).toLowerCase().includes(q));
   const roleOptions=(p)=>{const custom=tsCustomRole(p),base=tsProfileRole(p),selected=custom?`custom:${custom}`:`base:${base}`;let choices=internalRoleChoices(viewer);if(!choices.some(r=>r.value===selected))choices=[{value:selected,label:custom?(tsAdminRoles.find(r=>r.role_key===custom)?.name||custom):(ROLE_LABELS[base]||base),base},...choices];return choices.map(r=>`<option value="${esc(r.value)}" ${r.value===selected?'selected':''}>${esc(r.label)}</option>`).join('')};
   const canManageTarget=p=>canEdit&&String(p.id||'')!==String(user()?.id||'');
   box.innerHTML=`<div class="notice" style="margin:18px 0"><b>Acceso unificado ThinkStore</b> · ${list.length} usuario(s).<small>Super Admin / Administrador tiene acceso total. Los demás usan una sola cuenta solo en las plataformas asignadas.</small></div><div class="table-wrap"><table class="table ts-platform-table"><thead><tr><th>Usuario</th><th>Correo</th><th>Rol base</th><th>Plataformas</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${list.map(p=>{const id=String(p.id||''),active=(p.active??p.activo??true)!==false,self=id===String(user()?.id||''),manageable=canManageTarget(p);return `<tr><td><b>${esc(tsProfileName(p))}</b>${self?' <span class="badge">Tu cuenta</span>':''}</td><td>${esc(tsProfileEmail(p)||'—')}</td><td><select id="pr-role-${esc(id)}" ${manageable?'':'disabled'}>${roleOptions(p)}</select></td><td><div class="ts-platform-badges">${tsPlatformBadges(p)}</div>${manageable?`<button class="btn ghost" style="margin-top:7px" onclick="editUserPlatforms('${esc(id)}')">Editar accesos</button>`:''}</td><td><select id="pr-active-${esc(id)}" ${manageable?'':'disabled'}><option value="1" ${active?'selected':''}>Activo</option><option value="0" ${!active?'selected':''}>Inactivo</option></select></td><td>${manageable?`<button class="btn" onclick="saveAdminProfile('${esc(id)}')">Guardar rol/estado</button>`:'—'}</td></tr>`}).join('')||'<tr><td colspan="6">No hay usuarios internos creados todavía.</td></tr>'}</tbody></table></div>`;
@@ -2705,7 +2717,7 @@ function editUserOverrides(id){
 async function saveUserOverrides(id){const p=(realState.profiles||[]).find(x=>String(x.id)===String(id));if(!p)return;const allow=[],deny=[];document.querySelectorAll('.uo-select').forEach(x=>{if(x.value==='allow')allow.push(x.dataset.key);if(x.value==='deny')deny.push(x.dataset.key)});p.permission_overrides={allow,deny};await saveAdminProfile(id,true)}
 async function saveAdminProfile(id,keepEditor=false,platformAccess=null){
   if(!['admin','superadmin'].includes(role()))return alert('No tienes permiso para modificar accesos internos.');const target=(realState.profiles||[]).find(p=>String(p.id)===String(id));if(!target)return;const sel=$(`pr-role-${id}`)?.value||`base:${tsProfileRole(target)}`,active=$(`pr-active-${id}`)?.value!=='0',custom=sel.startsWith('custom:')?sel.slice(7):'',base=sel.startsWith('base:')?sel.slice(5):tsProfileRole(target),over=target.permission_overrides||{allow:[],deny:[]},label=tsProfileEmail(target)||tsProfileName(target);
-  try{const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'update',id,role:base,custom_role_key:custom,active,permission_overrides:over,...(platformAccess?{platform_access:platformAccess}:{})})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar');audit('acceso_usuario_actualizado',`${label} · ${custom||base}`);const msg=$('profilesMsg');if(msg)msg.innerHTML=`<div class="notice success">Accesos guardados ✅</div>`;await loadAdminProfiles();drawRolesSummary();drawAdminProfiles();if(platformAccess&&$('roleEditor'))$('roleEditor').innerHTML='<div class="notice success">Plataformas y permisos actualizados ✅</div>'}catch(e){alert(e.message)}
+  try{const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});const res=await fetch('/.netlify/functions/admin-users',{method:'POST',headers,body:JSON.stringify({action:'update',id,role:base,custom_role_key:custom,active,permission_overrides:over,...(platformAccess?{platform_access:platformAccess}:{})})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok){const detail=String(data.reason||data.details?.message||data.details?.error||'').trim();throw new Error((data.error||'No se pudo guardar')+(detail?': '+detail:''))}audit('acceso_usuario_actualizado',`${label} · ${custom||base}`);const msg=$('profilesMsg');if(msg)msg.innerHTML=`<div class="notice success">Accesos guardados ✅</div>`;await loadAdminProfiles();drawRolesSummary();drawAdminProfiles();if(platformAccess&&$('roleEditor'))$('roleEditor').innerHTML='<div class="notice success">Plataformas y permisos actualizados ✅</div>'}catch(e){alert(e.message)}
 }
 
 function tsSafeCall(fn,label='Panel'){
