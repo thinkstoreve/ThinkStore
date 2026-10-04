@@ -5,12 +5,12 @@ const TSService=(()=>{
   if(window.ThinkStoreOffline)window.ThinkStoreOffline.setTokenProvider(async()=>{const {data}=await supabaseClient.auth.getSession();return data?.session?.access_token||''});
 
   const roles={
-    superadmin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports'],
-    admin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','reports'],
-    reception:['dashboard','appointments','orders','reception','bitacora','parts','clients'],
-    technician:['dashboard','orders','technical','bitacora','parts'],
-    sales:['dashboard','orders','sales','parts','clients'],
-    logistics:['dashboard','orders','logistics'],
+    superadmin:['dashboard','notifications','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports'],
+    admin:['dashboard','notifications','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','reports'],
+    reception:['dashboard','notifications','appointments','orders','reception','bitacora','parts','clients'],
+    technician:['dashboard','notifications','orders','technical','bitacora','parts'],
+    sales:['dashboard','notifications','orders','sales','parts','clients'],
+    logistics:['dashboard','notifications','orders','logistics'],
     client:['client_status']
   };
 
@@ -39,12 +39,122 @@ const TSService=(()=>{
   let serviceParts=[];
   let partMovements=[];
   let serviceAppointments=[];
+  let supportAlerts=[];
+  let supportAlertTimer=null;
+  let notificationFilter='all';
+  const seenSupportAlertIds=new Set();
 
   const dateText=v=>v?new Date(v).toLocaleString('es-VE'):'Sin fecha';
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function toast(message,type='ok'){let el=document.getElementById('serviceToast');if(!el){el=document.createElement('div');el.id='serviceToast';document.body.appendChild(el)}el.className=`service-toast ${type}`;el.textContent=message;requestAnimationFrame(()=>el.classList.add('show'));clearTimeout(window.__serviceToast);window.__serviceToast=setTimeout(()=>el.classList.remove('show'),4200)}
-  function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
-  function mapNote(row,byId){const order=byId.get(row.order_id);return{id:row.id,orderId:row.order_id,orderCode:order?.code||'Sin orden',type:row.note_type||'Seguimiento',author:row.author_name||'Soporte ThinkStore',status:row.status_after||order?.status||'',detail:row.note||'',files:row.attachments||'',created:dateText(row.created_at)};}
+  function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',quoteRepairDetails:row.quote_repair_details||'',quoteSentAt:row.quote_sent_at||'',quoteApprovedAt:row.quote_approved_at||'',quoteClientComment:row.quote_client_comment||'',quoteTermsVersion:row.quote_terms_version||'',quoteTermsAcceptedAt:row.quote_terms_accepted_at||'',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',publicToken:row.public_token||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
+  function mapNote(row,byId){const order=byId.get(row.order_id);return{id:row.id,orderId:row.order_id,orderCode:order?.code||'Sin orden',type:row.note_type||'Seguimiento',author:row.author_name||'Soporte ThinkStore',status:row.status_after||order?.status||'',detail:row.note||'',files:row.attachments||'',visibility:row.visibility||'internal',clientTitle:row.client_title||'',diagnosis:row.diagnosis||'',workPerformed:row.work_performed||'',partsUsed:row.parts_used||'',testsPerformed:row.tests_performed||'',clientNotes:row.client_notes||'',created:dateText(row.created_at),created_at:row.created_at};}
+
+  function clientVisibleNotesForOrder(orderId){
+    return bitacora.filter(n=>String(n.orderId)===String(orderId)&&n.visibility==='client').sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  }
+  function clientNoteHtml(n){
+    const blocks=[['Diagnóstico',n.diagnosis],['Trabajo realizado',n.workPerformed],['Repuestos / piezas',n.partsUsed],['Pruebas realizadas',n.testsPerformed],['Observaciones para el cliente',n.clientNotes]].filter(([,v])=>String(v||'').trim());
+    return `<article class="client-note-card"><div class="client-note-head"><div><span>${esc(n.type||'Actualización')}</span><b>${esc(n.clientTitle||n.status||'Actualización de servicio')}</b></div><small>${esc(n.created)} · ${esc(n.author||'ThinkStore')}</small></div>${n.detail?`<p class="client-note-summary">${esc(n.detail)}</p>`:''}${blocks.length?`<div class="client-note-grid">${blocks.map(([k,v])=>`<div><span>${esc(k)}</span><p>${esc(v)}</p></div>`).join('')}</div>`:''}</article>`;
+  }
+
+  function relevantSupportAlerts(rows=[]){
+    if(!session)return [];
+    if(['superadmin','admin','reception','sales'].includes(session.role))return rows;
+    return rows.filter(a=>!a.assigned_to_email||String(a.assigned_to_email).toLowerCase()===String(session.email||'').toLowerCase());
+  }
+  function notificationMeta(type='general'){
+    const map={
+      appointment_new:{label:'CITA WEB',icon:'◷',className:'appointment'},
+      appointment_updated:{label:'CITA ACTUALIZADA',icon:'◷',className:'appointment'},
+      client_message:{label:'MENSAJE DEL CLIENTE',icon:'✉',className:'message'},
+      client_review:{label:'RESEÑA',icon:'★',className:'review'},
+      quote_approved:{label:'COTIZACIÓN APROBADA',icon:'✓',className:'approved'},
+      order_ready:{label:'LISTO PARA ENTREGAR',icon:'✓',className:'ready'},
+      order_status:{label:'CAMBIO DE ESTADO',icon:'↻',className:'status'}
+    };
+    return map[type]||{label:'NOTIFICACIÓN',icon:'●',className:'general'};
+  }
+  function updateNotificationBadge(){
+    const count=supportAlerts.length;
+    const badge=document.getElementById('supportNotificationBadge');
+    if(badge){badge.textContent=count>99?'99+':String(count);badge.hidden=count===0}
+    const btn=document.getElementById('supportNotificationButton');
+    if(btn)btn.classList.toggle('has-unread',count>0);
+    document.querySelectorAll('#roleMenu .support-menu-count').forEach(el=>{el.textContent=count;el.hidden=count===0});
+  }
+  function renderSupportAlerts(){
+    updateNotificationBadge();
+    let host=document.getElementById('supportAlertCenter');
+    if(!supportAlerts.length){if(host)host.remove();return}
+    if(!host){host=document.createElement('div');host.id='supportAlertCenter';document.body.appendChild(host)}
+    host.className='support-alert-center';
+    host.innerHTML=`<div class="support-alert-head"><div><span>ACTIVIDAD RECIENTE</span><b>${supportAlerts.length} sin leer</b></div><div class="support-alert-head-actions"><button type="button" onclick="TSService.renderPanel('notifications')">Ver todas</button><button type="button" onclick="document.getElementById('supportAlertCenter')?.classList.toggle('collapsed')">—</button></div></div>
+      <div class="support-alert-list">${supportAlerts.slice(0,6).map(a=>{const m=notificationMeta(a.event_type);return `<article class="support-alert-card ${m.className}"><i>${m.icon}</i><div><span>${m.label}</span><b>${esc(a.title||'Actualización')}</b><p>${esc(a.message||'')}</p><small>${dateText(a.created_at)}</small></div><button type="button" onclick="TSService.openSupportNotification('${esc(a.id)}','${esc(a.entity_type||'')}','${esc(a.entity_id||'')}','${esc(a.order_id||'')}','${esc(a.appointment_id||'')}')">Abrir</button></article>`}).join('')}</div>`;
+  }
+  async function loadSupportAlerts(silent=true){
+    if(!session)return;
+    const {data,error}=await supabaseClient.from('support_notifications').select('*').is('read_at',null).order('created_at',{ascending:false}).limit(80);
+    if(error){if(!silent)console.warn('Notificaciones:',error.message);return}
+    const next=relevantSupportAlerts(data||[]);
+    const fresh=next.filter(a=>!seenSupportAlertIds.has(a.id));
+    next.forEach(a=>seenSupportAlertIds.add(a.id));
+    supportAlerts=next;
+    renderSupportAlerts();
+    if(fresh.length)toast(fresh[0].title||'Nueva notificación de soporte','ok');
+  }
+  async function markNotificationRead(id){
+    if(!id)return;
+    await supabaseClient.from('support_notifications').update({read_at:new Date().toISOString()}).eq('id',id);
+    supportAlerts=supportAlerts.filter(a=>String(a.id)!==String(id));
+    renderSupportAlerts();
+  }
+  async function openSupportNotification(id,entityType='',entityId='',orderId='',appointmentId=''){
+    await markNotificationRead(id);
+    if(orderId){await openOrderManager(orderId);return}
+    if(entityType==='appointment'||appointmentId){await renderPanel('appointments');return}
+    await renderPanel('notifications');
+  }
+  async function markAllNotificationsRead(){
+    const ids=supportAlerts.map(a=>a.id);
+    if(!ids.length)return;
+    const {error}=await supabaseClient.from('support_notifications').update({read_at:new Date().toISOString()}).in('id',ids);
+    if(error)return toast('No se pudieron marcar como leídas: '+error.message,'error');
+    supportAlerts=[];renderSupportAlerts();await renderPanel('notifications');toast('Notificaciones marcadas como leídas.');
+  }
+  function notificationMatchesFilter(row){
+    if(notificationFilter==='all')return true;
+    if(notificationFilter==='appointments')return String(row.event_type||'').startsWith('appointment_');
+    if(notificationFilter==='messages')return row.event_type==='client_message';
+    if(notificationFilter==='reviews')return row.event_type==='client_review';
+    if(notificationFilter==='quotes')return row.event_type==='quote_approved';
+    if(notificationFilter==='status')return ['order_status','order_ready'].includes(row.event_type);
+    return true;
+  }
+  async function setNotificationFilter(value){notificationFilter=value||'all';await renderPanel('notifications')}
+  async function renderNotifications(box){
+    box.innerHTML='<div class="tablewrap"><h3>Centro de notificaciones</h3><p>Cargando actividad…</p></div>';
+    const {data,error}=await supabaseClient.from('support_notifications').select('*').order('created_at',{ascending:false}).limit(180);
+    if(error){box.innerHTML=`<div class="tablewrap"><h3>Notificaciones</h3><div class="appointment-error"><b>No se pudieron cargar.</b><p>${esc(error.message)}</p></div></div>`;return}
+    const rows=relevantSupportAlerts(data||[]),visible=rows.filter(notificationMatchesFilter),unread=rows.filter(x=>!x.read_at).length;
+    const counts={
+      appointments:rows.filter(x=>String(x.event_type||'').startsWith('appointment_')).length,
+      messages:rows.filter(x=>x.event_type==='client_message').length,
+      reviews:rows.filter(x=>x.event_type==='client_review').length,
+      quotes:rows.filter(x=>x.event_type==='quote_approved').length,
+      status:rows.filter(x=>['order_status','order_ready'].includes(x.event_type)).length
+    };
+    const chips=[['all','Todas',rows.length],['appointments','Citas',counts.appointments],['messages','Mensajes',counts.messages],['quotes','Cotizaciones',counts.quotes],['reviews','Reseñas',counts.reviews],['status','Estados',counts.status]];
+    box.innerHTML=`<section class="notifications-hero"><div><span class="eyebrow">CENTRO DE ACTIVIDAD</span><h2>Notificaciones de Servicio Técnico</h2><p>Citas web, mensajes, preguntas, reseñas, aprobaciones y cambios de estado en un solo lugar.</p></div><div class="notifications-mail"><span>CORREO DE RESPALDO</span><b>soporte@thinkstore.com.ve</b><small>Resumen automático de novedades pendientes cada 5 minutos.</small></div></section>
+    <div class="notifications-toolbar"><div class="notification-chips">${chips.map(([v,l,c])=>`<button class="${notificationFilter===v?'active':''}" onclick="TSService.setNotificationFilter('${v}')">${l}<span>${c}</span></button>`).join('')}</div><div><button class="secondary" onclick="TSService.loadSupportAlerts(false).then(()=>TSService.renderPanel('notifications'))">Actualizar</button><button onclick="TSService.markAllNotificationsRead()" ${unread?'':'disabled'}>Marcar todo leído</button></div></div>
+    <div class="notifications-summary"><div><span>Sin leer</span><b>${unread}</b></div><div><span>Citas</span><b>${counts.appointments}</b></div><div><span>Mensajes</span><b>${counts.messages}</b></div><div><span>Reseñas</span><b>${counts.reviews}</b></div></div>
+    <div class="notification-feed">${visible.length?visible.map(n=>{const m=notificationMeta(n.event_type);return `<article class="notification-row ${n.read_at?'read':'unread'} ${m.className}"><div class="notification-icon">${m.icon}</div><div class="notification-copy"><div><span>${m.label}</span>${n.email_sent_at?'<em>Correo enviado</em>':'<em class="pending-mail">Correo pendiente</em>'}</div><h3>${esc(n.title||'Actualización')}</h3><p>${esc(n.message||'')}</p><small>${dateText(n.created_at)}</small></div><div class="notification-actions">${!n.read_at?`<button class="secondary" onclick="TSService.markNotificationRead('${esc(n.id)}').then(()=>TSService.renderPanel('notifications'))">Leída</button>`:''}<button onclick="TSService.openSupportNotification('${esc(n.id)}','${esc(n.entity_type||'')}','${esc(n.entity_id||'')}','${esc(n.order_id||'')}','${esc(n.appointment_id||'')}')">Abrir</button></div></article>`}).join(''):'<div class="notifications-empty">No hay notificaciones en este filtro.</div>'}</div>`;
+  }
+  function startSupportAlertPolling(){
+    clearInterval(supportAlertTimer);
+    loadSupportAlerts(true).catch(()=>{});
+    supportAlertTimer=setInterval(()=>loadSupportAlerts(true).catch(()=>{}),10000);
+  }
   async function loadSupportData(){
     const [orderRes,noteRes,photoRes,partsRes,movementsRes,appointmentsRes]=await Promise.all([
       supabaseClient.from('service_orders').select('*').order('created_at',{ascending:false}),
@@ -138,6 +248,7 @@ const TSService=(()=>{
     await supabaseClient.auth.signOut();
     localStorage.removeItem('ts_service_session');
     session=null;
+    clearInterval(supportAlertTimer);supportAlertTimer=null;supportAlerts=[];renderSupportAlerts();
     const dash=document.getElementById('roleDashboard');
     if(dash) dash.classList.add('hidden');
     location.href='index.html';
@@ -145,6 +256,7 @@ const TSService=(()=>{
 
   function menuItems(){return[
     {id:'dashboard',label:'Dashboard',icon:'⌂',group:'Resumen'},
+    {id:'notifications',label:'Notificaciones',icon:'●',group:'Resumen'},
     {id:'appointments',label:'Citas web',icon:'◷',group:'Operación'},
     {id:'orders',label:'Órdenes de servicio',icon:'▣',group:'Operación'},
     {id:'reception',label:'Recepción',icon:'⇥',group:'Operación'},
@@ -167,7 +279,7 @@ const TSService=(()=>{
     nav.innerHTML=items.map(i=>{
       const group=i.group!==lastGroup?`<span class="nav-group-label">${i.group}</span>`:'';
       lastGroup=i.group;
-      return `${group}<button type="button" class="support-nav-btn" data-view="${i.id}" onclick="TSService.renderPanel('${i.id}')"><span class="support-nav-icon" aria-hidden="true">${i.icon}</span><span>${i.label}</span></button>`;
+      return `${group}<button type="button" class="support-nav-btn" data-view="${i.id}" onclick="TSService.renderPanel('${i.id}')"><span class="support-nav-icon" aria-hidden="true">${i.icon}</span><span>${i.label}</span>${i.id==='notifications'?`<small class="support-menu-count" ${supportAlerts.length?'':'hidden'}>${supportAlerts.length}</small>`:''}</button>`;
     }).join('');
   }
 
@@ -178,7 +290,7 @@ const TSService=(()=>{
     if(!dash||!nav)return;
     renderRoleMenu();
     const box=document.getElementById('panelContent');if(box)box.innerHTML='<div class="notice">Cargando datos reales de soporte…</div>';
-    try{await loadSupportData();await renderPanel('dashboard')}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
+    try{await loadSupportData();await renderPanel('dashboard');startSupportAlertPolling()}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
     dash.classList.remove('hidden');
     requestAnimationFrame(()=>{
       requestAnimationFrame(()=>{
@@ -264,7 +376,7 @@ const TSService=(()=>{
     const title=document.getElementById('panelTitle');
     const box=document.getElementById('panelContent');
     const s=stats();
-    const titles={dashboard:'Dashboard',appointments:'Citas web',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',parts:'Inventario de repuestos',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
+    const titles={dashboard:'Dashboard',notifications:'Notificaciones',appointments:'Citas web',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',parts:'Inventario de repuestos',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
     title.textContent=titles[view]||'Panel';
 
     if(view==='dashboard'){
@@ -321,6 +433,8 @@ const TSService=(()=>{
         </div>`;
       return;
     }
+
+    if(view==='notifications'){await renderNotifications(box);return}
 
     if(view==='appointments'){await renderAppointments(box);return}
 
@@ -402,47 +516,42 @@ const TSService=(()=>{
 
   function openBitacora(code=''){
     if(!can('bitacora')){alert('Tu rol no tiene permiso para bitácora');return}
-    document.getElementById('bOrderCode').value=code||'';
-    document.getElementById('bAuthor').value=session?.name||'';
-    document.getElementById('bitacoraModal').classList.add('open');
+    bOrderCode.value=code||'';bAuthor.value=session?.name||'';bType.value='Diagnóstico';bDetail.value='';bFiles.value='';
+    bClientVisible.checked=false;bNotifyClient.checked=false;bClientTitle.value='';bDiagnosis.value='';bWorkPerformed.value='';bPartsUsed.value='';bTestsPerformed.value='';bClientNotes.value='';
+    syncBitacoraVisibility();renderBitacoraClientHistory(code);document.getElementById('bitacoraModal').classList.add('open');
   }
-
+  function syncBitacoraVisibility(){
+    const visible=Boolean(document.getElementById('bClientVisible')?.checked),wrap=document.getElementById('bClientFields'),notify=document.getElementById('bNotifyClient');
+    if(wrap)wrap.hidden=!visible;if(notify){notify.disabled=!visible;if(!visible)notify.checked=false}
+  }
+  function renderBitacoraClientHistory(code=''){
+    const box=document.getElementById('bClientHistory');if(!box)return;
+    const order=orders.find(o=>o.code.toUpperCase()===String(code||'').trim().toUpperCase());
+    if(!order){box.innerHTML='<small>Selecciona una orden para ver las actualizaciones publicadas.</small>';return}
+    const notes=clientVisibleNotesForOrder(order.id).slice(0,3);
+    box.innerHTML=notes.length?notes.map(clientNoteHtml).join(''):'<small>Esta orden todavía no tiene actualizaciones visibles para el cliente.</small>';
+  }
   async function saveBitacora(e){
-    e.preventDefault();
-    const code=bOrderCode.value.trim().toUpperCase();
-    const order=orders.find(o=>o.code.toUpperCase()===code);
+    e.preventDefault();const code=bOrderCode.value.trim().toUpperCase();const order=orders.find(o=>o.code.toUpperCase()===code);
     if(!order){alert('No existe una orden con el código '+code);return}
-    const entry={
-      orderCode:code,
-      type:bType.value,
-      author:bAuthor.value.trim()||session?.name||'Sin responsable',
-      status:bStatus.value,
-      detail:bDetail.value.trim(),
-      files:bFiles.value.trim(),
-      created:new Date().toLocaleString('es-VE')
-    };
-    const {error:noteError}=await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:entry.detail,visibility:'internal',author_name:entry.author,note_type:entry.type,status_after:entry.status,attachments:entry.files||null});
-    if(noteError){alert('No se pudo guardar la bitácora: '+noteError.message);return}
-    const {error:updateError}=await supabaseClient.from('service_orders').update({status:entry.status}).eq('id',order.id);
-    if(updateError){alert('La nota se guardó, pero no se actualizó el estado: '+updateError.message);return}
-    await audit('add_note',order.id,null,entry);await loadSupportData();closeModals();await renderPanel('bitacora');toast('Entrada guardada y reflejada en la orden.');
+    const clientVisible=Boolean(bClientVisible.checked),notifyClient=clientVisible&&Boolean(bNotifyClient.checked);
+    const entry={orderCode:code,type:bType.value,author:bAuthor.value.trim()||session?.name||'Sin responsable',status:bStatus.value,detail:bDetail.value.trim(),files:bFiles.value.trim(),visibility:clientVisible?'client':'internal',clientTitle:bClientTitle.value.trim(),diagnosis:bDiagnosis.value.trim(),workPerformed:bWorkPerformed.value.trim(),partsUsed:bPartsUsed.value.trim(),testsPerformed:bTestsPerformed.value.trim(),clientNotes:bClientNotes.value.trim(),created:new Date().toLocaleString('es-VE')};
+    if(clientVisible&&!entry.clientTitle)entry.clientTitle=entry.type==='Entrega'?'Resumen de tu reparación':entry.status;
+    if(clientVisible&&!entry.detail&&!entry.workPerformed&&!entry.diagnosis){alert('Para publicar al cliente añade al menos un resumen, diagnóstico o trabajo realizado.');return}
+    const payload={order_id:order.id,note:entry.detail||entry.workPerformed||entry.diagnosis,visibility:entry.visibility,author_name:entry.author,note_type:entry.type,status_after:entry.status,attachments:entry.files||null,client_title:entry.clientTitle||null,diagnosis:entry.diagnosis||null,work_performed:entry.workPerformed||null,parts_used:entry.partsUsed||null,tests_performed:entry.testsPerformed||null,client_notes:entry.clientNotes||null};
+    const {error:noteError}=await supabaseClient.from('service_order_notes').insert(payload);if(noteError){alert('No se pudo guardar la bitácora: '+noteError.message);return}
+    const changes={status:entry.status};if(entry.status==='Entregado')changes.delivered_at=new Date().toISOString();
+    const {error:updateError}=await supabaseClient.from('service_orders').update(changes).eq('id',order.id);if(updateError){alert('La nota se guardó, pero no se actualizó el estado: '+updateError.message);return}
+    await audit('add_note',order.id,null,entry);await loadSupportData();
+    if(notifyClient&&order.email){try{await sendOrderEmail({...order,status:entry.status},true)}catch(err){console.warn('Correo al guardar bitácora:',err)}}
+    closeModals();await renderPanel('bitacora');toast(clientVisible?'Actualización guardada y visible para el cliente.':'Entrada interna guardada correctamente.');
   }
-
   function bitacoraPanel(){
-    const recent=bitacora.slice(0,50);
-    return `<div class="bitacora-header"><div><h3>Bitácora técnica</h3><p>Historial interno de diagnósticos, pruebas, presupuestos, repuestos y seguimiento de cada orden.</p></div><button onclick="TSService.openBitacora()">Nueva entrada</button></div>
-    <div class="cards bitacora-stats">
-      <div class="metric"><span>Entradas</span><b>${bitacora.length}</b></div>
-      <div class="metric"><span>Diagnósticos</span><b>${bitacora.filter(x=>x.type==='Diagnóstico').length}</b></div>
-      <div class="metric"><span>Presupuestos</span><b>${bitacora.filter(x=>x.type==='Presupuesto').length}</b></div>
-      <div class="metric"><span>Seguimientos</span><b>${bitacora.filter(x=>x.type==='Seguimiento').length}</b></div>
-    </div>
-    <div class="tablewrap">
-      <h3>Últimas entradas</h3>
-      ${recent.length?`<table><tr><th>Fecha</th><th>Orden</th><th>Tipo</th><th>Responsable</th><th>Estado</th><th>Detalle</th></tr>${recent.map(b=>`<tr><td>${b.created}</td><td><b>${b.orderCode}</b></td><td><span class="badge">${b.type}</span></td><td>${b.author}</td><td>${b.status}</td><td>${b.detail}${b.files?`<br><small>Archivos: ${b.files}</small>`:''}</td></tr>`).join('')}</table>`:'<p>Aún no hay entradas de bitácora.</p>'}
-    </div>`;
+    const recent=bitacora.slice(0,80),publicCount=bitacora.filter(x=>x.visibility==='client').length;
+    return `<div class="bitacora-header"><div><h3>Bitácora técnica</h3><p>Documenta el trabajo interno y publica al cliente únicamente la información que quieras mostrarle.</p></div><button onclick="TSService.openBitacora()">Nueva entrada</button></div>
+    <div class="cards bitacora-stats"><div class="metric"><span>Entradas</span><b>${bitacora.length}</b></div><div class="metric"><span>Visibles al cliente</span><b>${publicCount}</b></div><div class="metric"><span>Diagnósticos</span><b>${bitacora.filter(x=>x.type==='Diagnóstico').length}</b></div><div class="metric"><span>Reparaciones / pruebas</span><b>${bitacora.filter(x=>/Prueba|Repuesto|Entrega|Seguimiento|Reparación/i.test(x.type)).length}</b></div></div>
+    <div class="tablewrap"><h3>Últimas entradas</h3>${recent.length?`<table><tr><th>Fecha</th><th>Orden</th><th>Visibilidad</th><th>Tipo</th><th>Responsable</th><th>Estado</th><th>Detalle</th></tr>${recent.map(b=>`<tr><td>${b.created}</td><td><b>${b.orderCode}</b></td><td><span class="badge ${b.visibility==='client'?'client-visible-badge':''}">${b.visibility==='client'?'Cliente':'Interna'}</span></td><td><span class="badge">${b.type}</span></td><td>${b.author}</td><td>${b.status}</td><td>${b.clientTitle?`<b>${esc(b.clientTitle)}</b><br>`:''}${esc(b.detail)}${b.workPerformed?`<br><small><b>Trabajo:</b> ${esc(b.workPerformed)}</small>`:''}${b.files?`<br><small>Archivos: ${esc(b.files)}</small>`:''}</td></tr>`).join('')}</table>`:'<p>Aún no hay entradas de bitácora.</p>'}</div>`;
   }
-
   function partsPanel(){
     const low=serviceParts.filter(p=>p.active!==false&&Number(p.quantity)<=Number(p.minimum_stock));
     const rows=serviceParts.map(p=>`<tr><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}<br><small>${esc(p.compatible_models||'Compatibilidad no indicada')}</small></td><td>${esc(p.category||'General')}</td><td><b class="${Number(p.quantity)<=Number(p.minimum_stock)?'stock-low':''}">${Number(p.quantity||0)}</b><br><small>Mínimo ${Number(p.minimum_stock||0)}</small></td><td>${p.unit_cost!=null?'$'+Number(p.unit_cost).toFixed(2):'—'} / ${p.sale_price!=null?'$'+Number(p.sale_price).toFixed(2):'—'}</td><td>${esc(p.location||'—')}</td><td><button onclick="TSService.openPartMovement('${esc(p.id)}','in')">Entrada</button> <button class="secondary" onclick="TSService.openPartMovement('${esc(p.id)}','out')">Usar</button> <button class="secondary" onclick="TSService.openPartEditor('${esc(p.id)}')">Editar</button></td></tr>`).join('');
@@ -472,29 +581,101 @@ const TSService=(()=>{
     const modal=document.getElementById('orderManagerModal');
     document.getElementById('mOrderTitle').textContent=`${o.code} · ${o.device}`;
     document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
-    mQuoteAmount.value=o.quoteAmount||'';mQuoteStatus.value=o.quote;mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=o.technicalNotes||'';
-    await renderOrderFiles(o.id);modal.classList.add('open');
+    mQuoteAmount.value=o.quoteAmount||'';mQuoteStatus.value=o.quote;mQuoteRepairDetails.value=o.quoteRepairDetails||'';mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=o.technicalNotes||'';const qa=document.getElementById('mQuoteApprovalState');if(qa)qa.innerHTML=o.quoteApprovedAt?`<div class="notice success"><b>Cotización aprobada por el cliente</b><small>${dateText(o.quoteApprovedAt)}${o.quoteClientComment?` · Comentario: ${esc(o.quoteClientComment)}`:''}</small></div>`:o.quoteSentAt?`<div class="notice"><b>Cotización enviada</b><small>${dateText(o.quoteSentAt)} · En espera de aprobación.</small></div>`:'';
+    await renderOrderFiles(o.id);await renderOrderMessages(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');
   }
   async function renderOrderFiles(orderId){
-    const box=document.getElementById('mOrderFiles');if(!box)return;const files=servicePhotos.filter(p=>String(p.order_id)===String(orderId));
-    const rows=await Promise.all(files.map(async p=>{let url=p.file_url;if(p.storage_path){const {data}=await supabaseClient.storage.from('service-order-files').createSignedUrl(p.storage_path,3600);url=data?.signedUrl||url}return `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(p.label||'Archivo')} · ${dateText(p.created_at)}</a>`}));
+    const box=document.getElementById('mOrderFiles');if(!box)return;
+    const files=servicePhotos.filter(p=>String(p.order_id)===String(orderId));
+    const rows=await Promise.all(files.map(async p=>{
+      let url=p.file_url;
+      if(p.storage_path){const {data}=await supabaseClient.storage.from('service-order-files').createSignedUrl(p.storage_path,3600);url=data?.signedUrl||url}
+      const visible=(p.visibility||'internal')==='client';
+      const isImage=/\.(png|jpe?g|webp|gif|heic|heif)$/i.test(String(p.label||p.storage_path||''));
+      return `<article class="order-file-card"><a class="order-file-preview" href="${esc(url)}" target="_blank" rel="noopener">${isImage?`<img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen')}">`:'<span class="file-doc">ARCHIVO</span>'}</a><div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button></div></article>`;
+    }));
     box.innerHTML=rows.join('')||'<small>Sin fotografías o archivos.</small>';
-  }
-  async function saveOrderManager(e){
-    e.preventDefault();const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o)return;
-    const paymentStatus=mPaymentStatus.value||'Pendiente',quoteAmount=mQuoteAmount.value?Number(mQuoteAmount.value):0;let amountPaid=mAmountPaid.value===''?0:Number(mAmountPaid.value||0);if(paymentStatus==='Cobrado'&&quoteAmount>0&&amountPaid<quoteAmount)amountPaid=quoteAmount;const paidAt=paymentStatus==='Pendiente'?null:(o.paidAt||new Date().toISOString());
-    const changes={assigned_technician_email:mTechnician.value||null,quote_amount:quoteAmount||null,quote_status:mQuoteStatus.value,payment_status:paymentStatus,amount_paid:Math.max(0,amountPaid),payment_method:mPaymentMethod.value||null,payment_notes:mPaymentNotes.value.trim()||null,paid_at:paidAt,service_mode:mServiceMode.value||'Presencial',warranty_days:Number(mWarrantyDays.value||0),delivery_method:mDeliveryMethod.value.trim()||null,tracking_company:mTrackingCompany.value.trim()||null,tracking_code:mTrackingCode.value.trim()||null,technical_notes:mTechnicalNotes.value.trim()||null};
-    const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',o.id);if(error){toast('No se pudo guardar: '+error.message,'error');return}
-    await supabaseClient.from('service_order_notes').insert({order_id:o.id,note:`Datos operativos actualizados: técnico, presupuesto, cobranza (${paymentStatus}), garantía o entrega.`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Gestión de orden',status_after:o.status});await audit('update_order_details',o.id,o,changes);
-    await loadSupportData();closeModals();await renderPanel('orders');toast('Orden actualizada correctamente.');
   }
   async function uploadOrderFile(){
     const input=document.getElementById('mOrderFile'),file=input?.files?.[0],o=orders.find(x=>String(x.id)===String(activeOrderId));if(!file||!o)return toast('Selecciona una fotografía o archivo.','error');
     if(file.size>8*1024*1024)return toast('El archivo supera el límite de 8 MB.','error');
     const ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'');const path=`${o.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
     const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,{upsert:false});if(upError)return toast('No se pudo subir: '+upError.message,'error');
-    const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:'private',storage_path:path,label:file.name,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
-    await audit('upload_order_file',o.id,null,{label:file.name,storage_path:path});await loadSupportData();await renderOrderFiles(o.id);input.value='';toast('Archivo guardado de forma privada.');
+    const visibility=document.getElementById('mOrderFileVisible')?.checked?'client':'internal';
+    const caption=document.getElementById('mOrderFileCaption')?.value.trim()||file.name;
+    const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:'private',storage_path:path,label:file.name,client_caption:caption,visibility,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
+    await audit('upload_order_file',o.id,null,{label:file.name,storage_path:path,visibility,client_caption:caption});await loadSupportData();await renderOrderFiles(o.id);input.value='';if(document.getElementById('mOrderFileCaption'))document.getElementById('mOrderFileCaption').value='';toast(visibility==='client'?'Imagen publicada para el cliente.':'Archivo guardado de forma interna.');
+  }
+  async function toggleOrderFileVisibility(id,visibility){
+    const row=servicePhotos.find(p=>String(p.id)===String(id));if(!row)return;
+    const {error}=await supabaseClient.from('service_order_photos').update({visibility}).eq('id',id);if(error)return toast('No se pudo cambiar la visibilidad: '+error.message,'error');
+    await audit('update_file_visibility',row.order_id,{visibility:row.visibility},{visibility});await loadSupportData();await renderOrderFiles(row.order_id);toast(visibility==='client'?'Imagen publicada para el cliente.':'Imagen ocultada del portal.');
+  }
+  async function renderOrderMessages(orderId){
+    const box=document.getElementById('mOrderMessages');if(!box)return;
+    const {data,error}=await supabaseClient.from('service_order_messages').select('*').eq('order_id',orderId).order('created_at',{ascending:true});
+    if(error){box.innerHTML=`<small>No se pudieron cargar los mensajes: ${esc(error.message)}</small>`;return}
+    const rows=data||[];
+    box.innerHTML=rows.length?rows.map(m=>`<div class="staff-chat-bubble ${m.sender_type==='client'?'from-client':'from-staff'}"><div><b>${esc(m.sender_type==='client'?(m.sender_name||'Cliente'):(m.sender_name||'ThinkStore'))}</b><small>${dateText(m.created_at)}</small></div><p>${esc(m.message)}</p></div>`).join(''):'<small>Aún no hay mensajes con el cliente.</small>';
+    box.scrollTop=box.scrollHeight;
+  }
+  async function sendStaffOrderMessage(){
+    const o=orders.find(x=>String(x.id)===String(activeOrderId));const input=document.getElementById('mOrderMessage');const message=input?.value.trim();if(!o||!message)return toast('Escribe un mensaje para el cliente.','error');
+    if(message.length>2000)return toast('El mensaje no puede superar 2000 caracteres.','error');
+    const row={order_id:o.id,sender_type:'staff',sender_name:session?.name||'ThinkStore Soporte',message,created_by_email:session?.email||null};
+    const {error}=await supabaseClient.from('service_order_messages').insert(row);if(error)return toast('No se pudo enviar el mensaje: '+error.message,'error');
+    input.value='';await audit('staff_message',o.id,null,{message});await renderOrderMessages(o.id);toast('Mensaje publicado en el seguimiento del cliente.');
+  }
+  async function saveOrderManager(e){
+    e.preventDefault();const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o)return;
+    const paymentStatus=mPaymentStatus.value||'Pendiente',quoteAmount=mQuoteAmount.value?Number(mQuoteAmount.value):0;let amountPaid=mAmountPaid.value===''?0:Number(mAmountPaid.value||0);if(paymentStatus==='Cobrado'&&quoteAmount>0&&amountPaid<quoteAmount)amountPaid=quoteAmount;const paidAt=paymentStatus==='Pendiente'?null:(o.paidAt||new Date().toISOString());
+    const changes={assigned_technician_email:mTechnician.value||null,quote_amount:quoteAmount||null,quote_status:mQuoteStatus.value,quote_repair_details:mQuoteRepairDetails.value.trim()||null,payment_status:paymentStatus,amount_paid:Math.max(0,amountPaid),payment_method:mPaymentMethod.value||null,payment_notes:mPaymentNotes.value.trim()||null,paid_at:paidAt,service_mode:mServiceMode.value||'Presencial',warranty_days:Number(mWarrantyDays.value||0),delivery_method:mDeliveryMethod.value.trim()||null,tracking_company:mTrackingCompany.value.trim()||null,tracking_code:mTrackingCode.value.trim()||null,technical_notes:mTechnicalNotes.value.trim()||null};
+    const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',o.id);if(error){toast('No se pudo guardar: '+error.message,'error');return}
+    await supabaseClient.from('service_order_notes').insert({order_id:o.id,note:`Datos operativos actualizados: técnico, presupuesto, cobranza (${paymentStatus}), garantía o entrega.`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Gestión de orden',status_after:o.status});await audit('update_order_details',o.id,o,changes);
+    await loadSupportData();closeModals();await renderPanel('orders');toast('Orden actualizada correctamente.');
+  }
+
+  async function sendQuoteToClient(){
+    const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o)return;
+    const amount=Number(mQuoteAmount.value||0);
+    const details=mQuoteRepairDetails.value.trim();
+    if(!o.email)return toast('La orden no tiene correo del cliente.','error');
+    if(!(amount>0))return toast('Indica el monto de la cotización antes de enviarla.','error');
+    if(!details)return toast('Detalla la reparación propuesta antes de enviar la cotización.','error');
+    if(!confirm(`¿Enviar cotización de ${o.quoteCurrency||'USD'} ${amount.toFixed(2)} a ${o.email}?`))return;
+
+    const now=new Date().toISOString();
+    const changes={
+      assigned_technician_email:mTechnician.value||o.tech||null,
+      quote_amount:amount,
+      quote_status:'Enviado',
+      quote_repair_details:details,
+      quote_sent_at:now,
+      quote_approved_at:null,
+      quote_terms_accepted_at:null,
+      quote_terms_version:null,
+      quote_client_comment:null,
+      status:'Cotización enviada',
+      updated_at:now
+    };
+    const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',o.id);
+    if(error)return toast('No se pudo enviar la cotización: '+error.message,'error');
+
+    await supabaseClient.from('service_order_notes').insert({
+      order_id:o.id,
+      note:'Cotización enviada para revisión y aprobación del cliente.',
+      visibility:'client',
+      author_name:session?.name||'ThinkStore Soporte',
+      note_type:'Presupuesto',
+      status_after:'Cotización enviada',
+      client_title:'Cotización enviada'
+    });
+    await audit('quote_sent',o.id,{status:o.status,quote:o.quote,quoteAmount:o.quoteAmount},{...changes});
+    await loadSupportData();
+    const current=orders.find(x=>String(x.id)===String(o.id))||{...o,...changes,quoteAmount:amount,quoteRepairDetails:details};
+    await sendOrderEmail(current,false);
+    closeModals();await renderPanel('sales');
+    toast('Cotización enviada. El cliente puede revisarla y aprobarla desde su seguimiento.');
   }
   async function notifyOrderClient(){
     const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o?.email)return toast('La orden no tiene correo del cliente.','error');
@@ -1039,6 +1220,12 @@ const TSService=(()=>{
   }
   async function updateStatus(i,status){
     const order=orders[i];if(!order)return;
+    if(status==='Cotización enviada'){
+      await openOrderManager(order.id);
+      const qs=document.getElementById('mQuoteStatus');if(qs)qs.value='Enviado';
+      toast('Completa monto y detalle de la reparación, luego pulsa “Enviar cotización al cliente”.');
+      return;
+    }
     const previous=order.status;
     const changes={status};if(status==='Entregado')changes.delivered_at=new Date().toISOString();
     const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',order.id);
@@ -1047,10 +1234,10 @@ const TSService=(()=>{
     await audit('update_status',order.id,{status:previous},{status});await loadSupportData();await renderPanel('orders');toast('Estado actualizado y registrado en bitácora.');if(order.email)sendOrderEmail({...order,status},true).catch(error=>console.warn('Correo de soporte:',error));
   }
   function trackingUrl(order){
-    // El QR siempre apunta al portal público HTTPS, incluso cuando el panel se prueba en local.
-    // Así la hoja/etiqueta impresa nunca entrega una URL 127.0.0.1 al cliente.
     const base='https://soporte.thinkstore.com.ve/seguimiento.html';
-    return `${base}?orden=${encodeURIComponent(order.code)}`;
+    const q=new URLSearchParams({orden:String(order?.code||'')});
+    if(order?.publicToken)q.set('token',String(order.publicToken));
+    return `${base}?${q.toString()}`;
   }
   function cleanReceptionObservation(o){
     const raw=String(o?.technicalNotes||o?.visual||'').trim();
@@ -1074,7 +1261,7 @@ const TSService=(()=>{
   function openPrintWindow(title,html){
     const w=window.open('','_blank','width=900,height=1000'); if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
-      *{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#111;margin:0;padding:28px;background:#fff}.sheet{max-width:820px;margin:auto}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #111;padding-bottom:16px}.brand{display:flex;gap:12px;align-items:center}.brand-logo{width:48px;height:48px;object-fit:contain;display:block}.code{text-align:right}.code b{font-size:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}.box{border:1px solid #ccc;border-radius:12px;padding:14px}.box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em}.full{grid-column:1/-1}.qr{display:flex;align-items:center;gap:18px}.qr img{width:145px;height:145px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:48px}.sign{border-top:1px solid #111;padding-top:8px;text-align:center;font-size:12px}.policy p{margin:0;font-size:11px;line-height:1.45;color:#333}.foot{text-align:center;margin-top:30px;font-size:12px;color:#555}@media print{body{padding:0}.no-print{display:none!important}}
+      *{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#111;margin:0;padding:28px;background:#fff}.sheet{max-width:820px;margin:auto}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #111;padding-bottom:16px}.brand{display:flex;gap:12px;align-items:center}.brand-logo{width:48px;height:48px;object-fit:contain;display:block;filter:grayscale(1) brightness(0) contrast(1.3);-webkit-filter:grayscale(1) brightness(0) contrast(1.3)}.code{text-align:right}.code b{font-size:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}.box{border:1px solid #ccc;border-radius:12px;padding:14px}.box h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em}.full{grid-column:1/-1}.qr{display:flex;align-items:center;gap:18px}.qr img{width:145px;height:145px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:48px}.sign{border-top:1px solid #111;padding-top:8px;text-align:center;font-size:12px}.policy p{margin:0;font-size:11px;line-height:1.45;color:#333}.foot{text-align:center;margin-top:30px;font-size:12px;color:#555}@media print{body{padding:0}.no-print{display:none!important}}
     </style></head><body>${html}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);w.document.close();
   }
   function printReceptionSheetByOrder(o){
@@ -1087,15 +1274,44 @@ const TSService=(()=>{
     return `<div style="width:40mm;height:60mm;padding:3.2mm 3mm 2.8mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#fff;color:#111"><div style="width:100%;text-align:center;border-bottom:.35mm solid #111;padding-bottom:2mm"><b style="font-size:13pt;letter-spacing:-.25pt">ThinkStore</b><div style="font-size:6.8pt;margin-top:.6mm">Servicio Técnico</div></div><div style="width:100%;text-align:center;margin-top:2.2mm"><b style="display:block;font-size:10.5pt;line-height:1.05">${esc(o.code)}</b><div style="font-size:7.8pt;font-weight:700;line-height:1.15;margin-top:1.5mm;max-height:9mm;overflow:hidden">${esc(o.device)}</div>${o.color?`<div style="font-size:6.8pt;margin-top:.8mm">${esc(o.color)}</div>`:''}</div><img src="${qr}" style="width:24mm;height:24mm;margin-top:2.3mm" alt="QR"><div style="font-size:6.2pt;text-align:center;line-height:1.2;margin-top:1.5mm">Escanea para ver el estado</div></div>`;
   }
   function labelLegacyMarkup(o,qr){
-    return `<div style="width:76mm;height:50mm;border:1px solid #111;border-radius:4mm;padding:4mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:grid;grid-template-columns:1fr 28mm;gap:3mm;align-items:center"><div><b style="font-size:13pt">ThinkStore</b><div style="font-size:7pt;margin-bottom:3mm">Servicio Técnico</div><b style="font-size:11pt">${esc(o.code)}</b><div style="font-size:9pt;margin-top:2mm">${esc(o.device)}</div><div style="font-size:8pt">${esc(o.color||'')}</div><div style="font-size:6.5pt;margin-top:2mm">Escanea para ver el estado</div></div><img src="${qr}" style="width:28mm;height:28mm" alt="QR"></div>`;
+    return `<div style="width:40mm;height:60mm;padding:3mm 3mm 2.6mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;background:#fff;color:#111;overflow:hidden">
+      <div style="border:.35mm solid #111;border-radius:2.6mm;padding:2.5mm 2.5mm 2.2mm;display:flex;flex-direction:column;height:100%">
+        <div style="display:flex;justify-content:space-between;gap:2mm;align-items:flex-start;border-bottom:.3mm solid #111;padding-bottom:1.8mm">
+          <div>
+            <b style="display:block;font-size:12pt;line-height:1">ThinkStore</b>
+            <div style="font-size:6.4pt;margin-top:.6mm">Servicio Técnico</div>
+          </div>
+          <div style="font-size:5.8pt;text-align:right;line-height:1.2">ETIQUETA<br>DE SERVICIO</div>
+        </div>
+        <div style="margin-top:2.2mm">
+          <b style="display:block;font-size:10pt;line-height:1.05">${esc(o.code)}</b>
+          <div style="font-size:8pt;font-weight:700;line-height:1.15;margin-top:1.4mm;max-height:8mm;overflow:hidden">${esc(o.device)}</div>
+          ${o.color?`<div style="font-size:6.8pt;margin-top:.8mm">${esc(o.color)}</div>`:''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 20mm;gap:2mm;align-items:end;margin-top:auto">
+          <div style="font-size:6pt;line-height:1.3;padding-bottom:1mm">
+            <b>Seguimiento</b><br>
+            Escanea el QR para consultar el estado de la orden.
+          </div>
+          <img src="${qr}" style="width:20mm;height:20mm;justify-self:end" alt="QR">
+        </div>
+      </div>
+    </div>`;
   }
   function printDeviceLabelByOrder(o,format='legacy'){
-    if(!o)return; const url=trackingUrl(o); const qr=qrUrl(url,220);
-    if(format==='40x60'){
-      const w=window.open('','_blank','width=520,height=760'); if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
-      w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(`Etiqueta ${o.code}`)}</title><style>*{box-sizing:border-box}html,body{margin:0!important;padding:0!important;width:40mm;height:60mm;background:#fff;overflow:hidden}@page{size:40mm 60mm;margin:0}@media print{html,body{width:40mm!important;height:60mm!important;margin:0!important;padding:0!important}}</style></head><body>${label40x60Markup(o,qr)}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);w.document.close();return;
-    }
-    openPrintWindow(`Etiqueta ${o.code}`,labelLegacyMarkup(o,qr));
+    if(!o)return;
+    const url=trackingUrl(o);
+    const qr=qrUrl(url,260);
+    const markup=format==='40x60'?label40x60Markup(o,qr):labelLegacyMarkup(o,qr);
+    const w=window.open('','_blank','width=520,height=760');
+    if(!w){toast('El navegador bloqueó la ventana de impresión.','error');return}
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(`Etiqueta ${o.code}`)}</title><style>
+      *{box-sizing:border-box}
+      html,body{margin:0!important;padding:0!important;width:40mm;height:60mm;background:#fff;overflow:hidden}
+      @page{size:40mm 60mm;margin:0}
+      @media print{html,body{width:40mm!important;height:60mm!important;margin:0!important;padding:0!important}}
+    </style></head><body>${markup}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500));<\/script></body></html>`);
+    w.document.close();
   }
   function sanitizeLabelFileName(value){
     return String(value||'etiqueta').trim().replace(/[^a-z0-9._-]+/gi,'-').replace(/-+/g,'-').replace(/^-|-$/g,'')||'etiqueta';
@@ -1119,46 +1335,102 @@ const TSService=(()=>{
     if(!o) throw new Error('Orden no disponible');
     const jsPDF=window.jspdf?.jsPDF;
     if(!jsPDF) throw new Error('No se cargó el generador PDF');
+
     const url=trackingUrl(o);
     const qrData=createQrDataUrl(url,720);
-    const is40=format==='40x60';
-    const pageW=is40?40:76, pageH=is40?60:50;
-    const doc=new jsPDF({orientation:pageW>pageH?'landscape':'portrait',unit:'mm',format:[pageW,pageH],compress:true});
-    doc.setProperties({title:`Etiqueta ${o.code}`,subject:'Etiqueta de servicio técnico ThinkStore',author:'ThinkStore',creator:'ThinkStore Support'});
+    const isCurrent=format==='40x60';
+
+    // Ambos diseños usan la misma medida física de la Hanin M1.
+    const pageW=40, pageH=60;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:[pageW,pageH],compress:true});
+    doc.setProperties({
+      title:`Etiqueta ${o.code}`,
+      subject:'Etiqueta 40x60 mm de servicio técnico ThinkStore',
+      author:'ThinkStore',
+      creator:'ThinkStore Support'
+    });
     doc.setTextColor(17,17,17);
     doc.setDrawColor(17,17,17);
-    doc.setFont('helvetica','bold');
-    if(is40){
+
+    if(isCurrent){
+      // Diseño actual 40 x 60.
+      doc.setFont('helvetica','bold');
       doc.setFontSize(13);
       doc.text('ThinkStore',20,6.6,{align:'center'});
-      doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6.8);
       doc.text('Servicio Tecnico',20,9.9,{align:'center'});
-      doc.setLineWidth(.35); doc.line(3,12,37,12);
-      doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
+
+      doc.setLineWidth(.35);
+      doc.line(3,12,37,12);
+
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10.5);
       doc.text(String(o.code||''),20,17,{align:'center'});
+
       doc.setFontSize(7.5);
       const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),34).slice(0,2);
       doc.text(deviceLines,20,21,{align:'center',lineHeightFactor:1.05});
+
       let colorY=21+(deviceLines.length*3.3)+.4;
-      if(o.color){doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.text(doc.splitTextToSize(String(o.color),32).slice(0,1),20,colorY,{align:'center'});colorY+=3}
+      if(o.color){
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(6.5);
+        doc.text(doc.splitTextToSize(String(o.color),32).slice(0,1),20,colorY,{align:'center'});
+        colorY+=3;
+      }
+
       const qrY=Math.max(27,colorY+1.2);
       doc.addImage(qrData,'PNG',8,qrY,24,24,undefined,'FAST');
-      doc.setFont('helvetica','normal');doc.setFontSize(6.1);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6.1);
       doc.text('Escanea para ver el estado',20,Math.min(57.2,qrY+27.2),{align:'center'});
     }else{
-      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('ThinkStore',4,7);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.text('Servicio Tecnico',4,10.5);
-      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.text(String(o.code||''),4,17);
-      doc.setFontSize(8.5);
-      const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),38).slice(0,2);
-      doc.text(deviceLines,4,22,{lineHeightFactor:1.08});
-      if(o.color){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.text(doc.splitTextToSize(String(o.color),38).slice(0,1),4,30)}
-      doc.setFontSize(6.2);doc.text('Escanea para ver el estado',4,43);
-      doc.addImage(qrData,'PNG',46,10.5,26,26,undefined,'FAST');
-      doc.setLineWidth(.25);doc.roundedRect(1.5,1.5,73,47,2.8,2.8);
+      // "Formato anterior" adaptado a 40 x 60 para la M1.
+      doc.setLineWidth(.30);
+      doc.roundedRect(2,2,36,56,2.4,2.4);
+
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(12);
+      doc.text('ThinkStore',4.5,7.2);
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6.4);
+      doc.text('Servicio Tecnico',4.5,10.2);
+      doc.setFontSize(5.5);
+      doc.text(['ETIQUETA','DE SERVICIO'],35.3,6.3,{align:'right',lineHeightFactor:1.05});
+
+      doc.setLineWidth(.28);
+      doc.line(4.5,12.4,35.5,12.4);
+
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.text(String(o.code||''),4.5,17.2);
+
+      doc.setFontSize(7.8);
+      const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),31).slice(0,2);
+      doc.text(deviceLines,4.5,21.2,{lineHeightFactor:1.08});
+
+      let y=21.2+(deviceLines.length*3.3)+.5;
+      if(o.color){
+        doc.setFont('helvetica','normal');
+        doc.setFontSize(6.4);
+        doc.text(doc.splitTextToSize(String(o.color),30).slice(0,1),4.5,y);
+      }
+
+      doc.addImage(qrData,'PNG',17.5,34.5,18.5,18.5,undefined,'FAST');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.0);
+      doc.text('Seguimiento',4.5,39);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(5.4);
+      doc.text(doc.splitTextToSize('Escanea el QR para consultar el estado de la orden.',11.5),4.5,42,{lineHeightFactor:1.18});
     }
+
     const blob=doc.output('blob');
-    return new File([blob],`${sanitizeLabelFileName(o.code)}-${is40?'40x60':'anterior'}.pdf`,{type:'application/pdf'});
+    const suffix=isCurrent?'40x60':'anterior-40x60';
+    return new File([blob],`${sanitizeLabelFileName(o.code)}-${suffix}.pdf`,{type:'application/pdf'});
   }
   function downloadLabelFile(file){
     const url=URL.createObjectURL(file); const a=document.createElement('a');
@@ -1190,7 +1462,7 @@ const TSService=(()=>{
     document.getElementById('tsLabelFormatModal')?.remove();
     const saved=localStorage.getItem('ts_label_format')||'40x60';
     const modal=document.createElement('div'); modal.id='tsLabelFormatModal'; modal.className='modal open';
-    modal.innerHTML=`<div class="card" style="max-width:560px"><h2 style="margin-top:0">Etiqueta del equipo</h2><p style="color:var(--muted);margin-top:-6px">Selecciona el formato y envíalo directamente a HereLabel o usa la impresión del navegador.</p><div style="display:grid;gap:10px;margin:18px 0"><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="40x60" ${saved==='40x60'?'checked':''} style="width:auto;margin-top:3px"><span><b>40 × 60 mm</b><small style="display:block;color:var(--muted);margin-top:3px">Formato actual de la etiquetadora M1 · vertical</small></span></label><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="legacy" ${saved==='legacy'?'checked':''} style="width:auto;margin-top:3px"><span><b>Formato anterior</b><small style="display:block;color:var(--muted);margin-top:3px">Conserva la etiqueta anterior para otras impresoras o usos</small></span></label></div><div style="background:#f5f7fb;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.5"><b>HereLabel</b><br><span style="color:var(--muted)">ThinkStore genera un PDF con la medida real. En iPhone/iPad se abrirá el menú Compartir: toca <b>HereLabel</b> y la etiqueta llegará lista para imprimir, sin tener que diseñarla de nuevo.</span></div><div class="actions" style="flex-wrap:wrap"><button type="button" id="tsOpenHereLabel">Abrir en HereLabel</button><button type="button" class="secondary" id="tsPrintSelectedLabel">Imprimir desde navegador</button><button type="button" class="secondary" id="tsCancelLabelFormat">Cancelar</button></div></div>`;
+    modal.innerHTML=`<div class="card" style="max-width:560px"><h2 style="margin-top:0">Etiqueta del equipo</h2><p style="color:var(--muted);margin-top:-6px">Selecciona el formato y envíalo directamente a HereLabel o usa la impresión del navegador.</p><div style="display:grid;gap:10px;margin:18px 0"><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="40x60" ${saved==='40x60'?'checked':''} style="width:auto;margin-top:3px"><span><b>40 × 60 mm</b><small style="display:block;color:var(--muted);margin-top:3px">Formato actual de la etiquetadora M1 · vertical</small></span></label><label style="display:flex;align-items:flex-start;gap:12px;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer"><input type="radio" name="tsLabelFormat" value="legacy" ${saved==='legacy'?'checked':''} style="width:auto;margin-top:3px"><span><b>Formato anterior · 40 × 60 mm</b><small style="display:block;color:var(--muted);margin-top:3px">Diseño anterior adaptado a la etiquetadora Hanin M1</small></span></label></div><div style="background:#f5f7fb;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:1.5"><b>HereLabel</b><br><span style="color:var(--muted)">ThinkStore genera un PDF con la medida real. En iPhone/iPad se abrirá el menú Compartir: toca <b>HereLabel</b> y la etiqueta llegará lista para imprimir, sin tener que diseñarla de nuevo.</span></div><div class="actions" style="flex-wrap:wrap"><button type="button" id="tsOpenHereLabel">Abrir en HereLabel</button><button type="button" class="secondary" id="tsPrintSelectedLabel">Imprimir desde navegador</button><button type="button" class="secondary" id="tsCancelLabelFormat">Cancelar</button></div></div>`;
     document.body.appendChild(modal);
     const selectedFormat=()=>modal.querySelector('input[name="tsLabelFormat"]:checked')?.value||'40x60';
     modal.querySelector('#tsCancelLabelFormat').onclick=()=>modal.remove();
@@ -1257,5 +1529,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,sendQuoteToClient,openOrderManager,saveOrderManager,uploadOrderFile,toggleOrderFileVisibility,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();
