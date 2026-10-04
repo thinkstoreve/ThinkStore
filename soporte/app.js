@@ -34,6 +34,50 @@ const TSService=(()=>{
   let serviceUsers=[];
   let servicePhotos=[];
   let activeOrderId=null;
+  let orderMessagePollTimer=null;
+  const orderMessageLastKey=new Map();
+  const orderMessageLastHash=new Map();
+  let chatAudioContext=null;
+
+  function ensureChatAudio(){
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC)return null;
+      if(!chatAudioContext)chatAudioContext=new AC();
+      if(chatAudioContext.state==='suspended')chatAudioContext.resume().catch(()=>{});
+      return chatAudioContext;
+    }catch{return null}
+  }
+  function playChatSound(kind='incoming'){
+    const ctx=ensureChatAudio();if(!ctx)return;
+    const now=ctx.currentTime+0.01;
+    const master=ctx.createGain();
+    master.gain.setValueAtTime(0.0001,now);
+    master.gain.exponentialRampToValueAtTime(kind==='incoming'?0.16:0.11,now+0.012);
+    master.gain.exponentialRampToValueAtTime(0.0001,now+0.34);
+    master.connect(ctx.destination);
+    const notes=kind==='incoming'?[[880,0,.12],[1175,.075,.16]]:[[660,0,.09],[990,.055,.13]];
+    notes.forEach(([freq,delay,duration])=>{
+      const osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.type='sine';osc.frequency.setValueAtTime(freq,now+delay);
+      gain.gain.setValueAtTime(0.0001,now+delay);
+      gain.gain.exponentialRampToValueAtTime(0.85,now+delay+.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+delay+duration);
+      osc.connect(gain);gain.connect(master);osc.start(now+delay);osc.stop(now+delay+duration+.03);
+    });
+  }
+  function chatMessageKey(m={}){return String(m.id??`${m.created_at||''}|${m.sender_type||''}|${m.message||''}`)}
+  function stopOrderMessagePolling(){if(orderMessagePollTimer){clearInterval(orderMessagePollTimer);orderMessagePollTimer=null}}
+  function startOrderMessagePolling(orderId){
+    stopOrderMessagePolling();
+    orderMessagePollTimer=setInterval(()=>{
+      const modal=document.getElementById('orderManagerModal');
+      if(!modal?.classList.contains('open')||String(activeOrderId)!==String(orderId)){stopOrderMessagePolling();return}
+      renderOrderMessages(orderId,{notifyIncoming:true,preserveScroll:true}).catch(()=>{});
+    },3500);
+  }
+  document.addEventListener('pointerdown',()=>ensureChatAudio(),{once:true,capture:true});
+  document.addEventListener('keydown',()=>ensureChatAudio(),{once:true,capture:true});
   let activeReceptionOrderId=null;
   let pendingAppointmentId=null;
   let serviceParts=[];
@@ -79,14 +123,16 @@ const TSService=(()=>{
     const meta=(row&&row.metadata&&typeof row.metadata==='object')?row.metadata:{};
     const rawTitle=String(row.title||'Actualización').trim();
     const rawMessage=String(row.message||'').trim();
+    const linkedOrder=row.order_id?orders.find(o=>String(o.id)===String(row.order_id)):null;
+    const linkedAppointment=row.appointment_id?serviceAppointments.find(a=>String(a.id)===String(row.appointment_id)):null;
     const orderFromTitle=(rawTitle.match(/TS-SVC-\d{4}-\d+/i)||[])[0]||'';
-    const orderCode=String(meta.order_code||orderFromTitle||'').trim();
-    const clientName=String(meta.client_name||meta.customer_name||'').trim();
-    const deviceModel=String(meta.device_model||meta.device||'').trim();
+    const orderCode=String(meta.order_code||orderFromTitle||linkedOrder?.code||'').trim();
+    const clientName=String(meta.client_name||meta.customer_name||linkedOrder?.client||linkedAppointment?.client_name||'').trim();
+    const deviceModel=String(meta.device_model||meta.device||linkedOrder?.device||linkedAppointment?.device_model||'').trim();
     let title=rawTitle;
     let message=rawMessage;
     if(orderCode){
-      title=title.replace(new RegExp('\\s*[·|-]\\s*'+orderCode.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')+'\\s*$','i'),'').trim();
+      title=title.replace(new RegExp('\\s*[·|-]\\s*'+orderCode.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&')+'\\s*$','i'),'').trim();
     }
     if(clientName&&deviceModel&&message){
       const prefix=`${clientName} · ${deviceModel} · `;
@@ -154,23 +200,91 @@ const TSService=(()=>{
     return true;
   }
   async function setNotificationFilter(value){notificationFilter=value||'all';await renderPanel('notifications')}
+  let notificationClientGroups=new Map();
+  function notificationClientInitials(name='Cliente'){
+    return String(name||'Cliente').trim().split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]?.toUpperCase()||'').join('')||'CL';
+  }
+  function notificationGroupKey(row){
+    const p=notificationPresentation(row);
+    if(row.order_id)return `order:${row.order_id}`;
+    if(row.appointment_id)return `appointment:${row.appointment_id}`;
+    if(p.clientName)return `client:${p.clientName.toLowerCase()}`;
+    return `event:${row.id}`;
+  }
+  function notificationGroupDomId(key=''){
+    let hash=0;for(let i=0;i<key.length;i++)hash=((hash<<5)-hash)+key.charCodeAt(i)|0;
+    return 'ng-'+Math.abs(hash);
+  }
+  function buildNotificationClientGroups(rows=[]){
+    const groups=new Map();
+    rows.forEach(row=>{
+      const key=notificationGroupKey(row),p=notificationPresentation(row);
+      if(!groups.has(key))groups.set(key,{key,rows:[],orderId:row.order_id||'',appointmentId:row.appointment_id||'',clientName:p.clientName||'Cliente',deviceModel:p.deviceModel||'',orderCode:p.orderCode||'',lastAt:row.created_at||'',unread:0});
+      const g=groups.get(key);g.rows.push(row);
+      if(!g.orderId&&row.order_id)g.orderId=row.order_id;
+      if(!g.appointmentId&&row.appointment_id)g.appointmentId=row.appointment_id;
+      if((!g.clientName||g.clientName==='Cliente')&&p.clientName)g.clientName=p.clientName;
+      if(!g.deviceModel&&p.deviceModel)g.deviceModel=p.deviceModel;
+      if(!g.orderCode&&p.orderCode)g.orderCode=p.orderCode;
+      if(!g.lastAt||new Date(row.created_at||0)>new Date(g.lastAt||0))g.lastAt=row.created_at||g.lastAt;
+      if(!row.read_at)g.unread++;
+    });
+    const list=[...groups.values()];
+    list.forEach(g=>g.rows.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)));
+    list.sort((a,b)=>new Date(b.lastAt||0)-new Date(a.lastAt||0));
+    notificationClientGroups=new Map(list.map(g=>[g.key,g]));
+    return list;
+  }
+  function notificationGroupPreview(group){
+    const latest=group.rows[0]||{},p=notificationPresentation(latest);
+    if(latest.event_type==='client_message')return p.message||p.title||'Nuevo mensaje del cliente';
+    return p.message||p.title||'Actividad reciente';
+  }
+  async function markNotificationGroupRead(group){
+    const unreadIds=(group?.rows||[]).filter(x=>!x.read_at).map(x=>x.id);
+    if(!unreadIds.length)return;
+    const now=new Date().toISOString();
+    const {error}=await supabaseClient.from('support_notifications').update({read_at:now}).in('id',unreadIds);
+    if(error){console.warn('No se pudo marcar la conversación como leída:',error.message);return}
+    group.rows.forEach(x=>{if(unreadIds.some(id=>String(id)===String(x.id)))x.read_at=now});group.unread=0;
+    supportAlerts=supportAlerts.filter(a=>!unreadIds.some(id=>String(id)===String(a.id)));renderSupportAlerts();
+  }
+  function notificationActivityHtml(group){
+    return `<div class="notification-group-activity"><div class="notification-thread-subhead"><b>Actividad de la orden</b><small>${group.rows.length} evento${group.rows.length===1?'':'s'}</small></div>${group.rows.slice(0,12).map(row=>{const m=notificationMeta(row.event_type),p=notificationPresentation(row);return `<div class="notification-activity-row"><span class="notification-activity-icon">${m.icon}</span><div><b>${esc(m.label)}</b><p>${esc(p.message||p.title||'Actualización')}</p><small>${dateText(row.created_at)}</small></div></div>`}).join('')}</div>`;
+  }
+  async function toggleNotificationClientGroup(encodedKey){
+    const key=decodeURIComponent(encodedKey||''),group=notificationClientGroups.get(key);if(!group)return;
+    const domId=notificationGroupDomId(key),card=document.getElementById(`notificationGroup-${domId}`),thread=document.getElementById(`notificationThread-${domId}`);if(!card||!thread)return;
+    const alreadyOpen=card.classList.contains('open');
+    document.querySelectorAll('.notification-client-card.open').forEach(el=>{if(el!==card){el.classList.remove('open');const t=el.querySelector('.notification-client-thread');if(t)t.hidden=true}});
+    if(alreadyOpen){card.classList.remove('open');thread.hidden=true;return}
+    card.classList.add('open');thread.hidden=false;thread.innerHTML='<div class="notification-thread-loading">Cargando conversación…</div>';
+    await markNotificationGroupRead(group);
+    const badge=card.querySelector('.notification-client-unread');if(badge)badge.remove();
+    if(group.orderId){
+      const {data,error}=await supabaseClient.from('service_order_messages').select('*').eq('order_id',group.orderId).order('created_at',{ascending:true});
+      if(error){thread.innerHTML=`<div class="notification-thread-error">No se pudo cargar el chat: ${esc(error.message)}</div>${notificationActivityHtml(group)}`;return}
+      const messages=data||[];
+      const chat=messages.length?`<div class="notification-thread-chat">${messages.map(m=>{const client=m.sender_type==='client';return `<div class="notification-thread-row ${client?'client':'staff'}"><div class="notification-thread-bubble">${esc(m.message)}</div><small>${esc(client?(m.sender_name||group.clientName||'Cliente'):(m.sender_name||'ThinkStore'))} · ${dateText(m.created_at)}</small></div>`}).join('')}</div>`:'<div class="notification-thread-empty">Todavía no hay mensajes en el chat de esta orden.</div>';
+      thread.innerHTML=`<div class="notification-thread-head"><div><span>CONVERSACIÓN</span><b>${esc(group.clientName||'Cliente')}</b><small>${group.orderCode?esc(group.orderCode)+' · ':''}${esc(group.deviceModel||'Equipo')}</small></div><button type="button" onclick="event.stopPropagation();TSService.openNotificationOrder('${esc(group.orderId)}')">Abrir orden</button></div>${chat}${notificationActivityHtml(group)}`;
+      requestAnimationFrame(()=>{const c=thread.querySelector('.notification-thread-chat');if(c)c.scrollTop=c.scrollHeight});
+    }else{
+      thread.innerHTML=`<div class="notification-thread-head"><div><span>ACTIVIDAD DEL CLIENTE</span><b>${esc(group.clientName||'Cliente')}</b><small>${esc(group.deviceModel||'Cita / solicitud')}</small></div></div><div class="notification-thread-empty">Esta actividad todavía no tiene una orden con chat asociado.</div>${notificationActivityHtml(group)}`;
+    }
+  }
+  async function openNotificationOrder(orderId){if(orderId)await openOrderManager(orderId)}
   async function renderNotifications(box){
     box.innerHTML='<div class="tablewrap"><h3>Centro de notificaciones</h3><p>Cargando actividad…</p></div>';
-    const {data,error}=await supabaseClient.from('support_notifications').select('*').order('created_at',{ascending:false}).limit(180);
+    const {data,error}=await supabaseClient.from('support_notifications').select('*').order('created_at',{ascending:false}).limit(220);
     if(error){box.innerHTML=`<div class="tablewrap"><h3>Notificaciones</h3><div class="appointment-error"><b>No se pudieron cargar.</b><p>${esc(error.message)}</p></div></div>`;return}
     const rows=relevantSupportAlerts(data||[]),visible=rows.filter(notificationMatchesFilter),unread=rows.filter(x=>!x.read_at).length;
-    const counts={
-      appointments:rows.filter(x=>String(x.event_type||'').startsWith('appointment_')).length,
-      messages:rows.filter(x=>x.event_type==='client_message').length,
-      reviews:rows.filter(x=>x.event_type==='client_review').length,
-      quotes:rows.filter(x=>x.event_type==='quote_approved').length,
-      status:rows.filter(x=>['order_status','order_ready'].includes(x.event_type)).length
-    };
+    const counts={appointments:rows.filter(x=>String(x.event_type||'').startsWith('appointment_')).length,messages:rows.filter(x=>x.event_type==='client_message').length,reviews:rows.filter(x=>x.event_type==='client_review').length,quotes:rows.filter(x=>x.event_type==='quote_approved').length,status:rows.filter(x=>['order_status','order_ready'].includes(x.event_type)).length};
     const chips=[['all','Todas',rows.length],['appointments','Citas',counts.appointments],['messages','Mensajes',counts.messages],['quotes','Cotizaciones',counts.quotes],['reviews','Reseñas',counts.reviews],['status','Estados',counts.status]];
-    box.innerHTML=`<div class="notifications-premium"><section class="notifications-hero"><div><span class="eyebrow">CENTRO DE ACTIVIDAD</span><h2>Notificaciones de Servicio Técnico</h2><p>Citas web, mensajes, preguntas, reseñas, aprobaciones y cambios de estado en un solo lugar.</p></div><div class="notifications-mail"><span>CORREO DE RESPALDO</span><b>soporte@thinkstore.com.ve</b><small>Resumen automático de novedades pendientes cada 5 minutos.</small></div></section>
+    const groups=buildNotificationClientGroups(visible);
+    box.innerHTML=`<div class="notifications-premium notifications-by-client"><section class="notifications-hero"><div><span class="eyebrow">BANDEJA POR CLIENTE</span><h2>Conversaciones y actividad</h2><p>Cada cliente queda agrupado en una sola conversación. Abre una burbuja para revisar su chat completo y la actividad de la orden.</p></div><div class="notifications-mail"><span>CORREO DE RESPALDO</span><b>soporte@thinkstore.com.ve</b><small>Las citas nuevas se notifican de forma instantánea.</small></div></section>
     <div class="notifications-toolbar"><div class="notification-chips">${chips.map(([v,l,c])=>`<button class="${notificationFilter===v?'active':''}" onclick="TSService.setNotificationFilter('${v}')">${l}<span>${c}</span></button>`).join('')}</div><div><button class="secondary" onclick="TSService.loadSupportAlerts(false).then(()=>TSService.renderPanel('notifications'))">Actualizar</button><button onclick="TSService.markAllNotificationsRead()" ${unread?'':'disabled'}>Marcar todo leído</button></div></div>
-    <div class="notifications-summary"><div><span>Sin leer</span><b>${unread}</b></div><div><span>Citas</span><b>${counts.appointments}</b></div><div><span>Mensajes</span><b>${counts.messages}</b></div><div><span>Reseñas</span><b>${counts.reviews}</b></div></div>
-    <div class="notification-feed">${visible.length?visible.map(n=>{const m=notificationMeta(n.event_type),p=notificationPresentation(n);return `<article class="notification-row ${n.read_at?'read':'unread'} ${m.className}"><div class="notification-icon">${m.icon}</div><div class="notification-copy"><div class="notification-kicker"><span>${m.label}</span>${n.email_sent_at?'<em>Correo enviado</em>':'<em class="pending-mail">Correo pendiente</em>'}${p.orderCode?`<strong class="notification-order">${esc(p.orderCode)}</strong>`:''}</div><h3>${esc(p.title)}</h3>${(p.clientName||p.deviceModel)?`<div class="notification-person">${p.clientName?`<span><b>Cliente</b>${esc(p.clientName)}</span>`:''}${p.deviceModel?`<span><b>Equipo</b>${esc(p.deviceModel)}</span>`:''}</div>`:''}<p class="notification-message">${esc(p.message||'')}</p><small class="notification-date">${dateText(n.created_at)}</small></div><div class="notification-actions">${!n.read_at?`<button class="secondary" onclick="TSService.markNotificationRead('${esc(n.id)}').then(()=>TSService.renderPanel('notifications'))">Leída</button>`:''}<button onclick="TSService.openSupportNotification('${esc(n.id)}','${esc(n.entity_type||'')}','${esc(n.entity_id||'')}','${esc(n.order_id||'')}','${esc(n.appointment_id||'')}')">Abrir</button></div></article>`}).join(''):'<div class="notifications-empty">No hay notificaciones en este filtro.</div>'}</div></div>`;
+    <div class="notifications-summary"><div><span>Sin leer</span><b>${unread}</b></div><div><span>Clientes</span><b>${groups.length}</b></div><div><span>Mensajes</span><b>${counts.messages}</b></div><div><span>Citas</span><b>${counts.appointments}</b></div></div>
+    <div class="notification-client-list">${groups.length?groups.map(group=>{const latest=group.rows[0]||{},m=notificationMeta(latest.event_type),domId=notificationGroupDomId(group.key),encoded=encodeURIComponent(group.key);return `<article id="notificationGroup-${domId}" class="notification-client-card ${group.unread?'has-unread':''}" onclick="TSService.toggleNotificationClientGroup('${encoded}')"><div class="notification-client-avatar">${esc(notificationClientInitials(group.clientName))}</div><div class="notification-client-main"><div class="notification-client-top"><div><h3>${esc(group.clientName||'Cliente')}</h3><div class="notification-client-meta">${group.orderCode?`<strong>${esc(group.orderCode)}</strong>`:''}${group.deviceModel?`<span>${esc(group.deviceModel)}</span>`:''}</div></div><div class="notification-client-side">${group.unread?`<b class="notification-client-unread">${group.unread}</b>`:''}<small>${dateText(group.lastAt)}</small></div></div><div class="notification-client-preview"><span>${m.icon}</span><p>${esc(notificationGroupPreview(group))}</p></div><div class="notification-client-foot"><span>${group.rows.length} actividad${group.rows.length===1?'':'es'}</span><button type="button" onclick="event.stopPropagation();TSService.toggleNotificationClientGroup('${encoded}')">Ver conversación</button></div></div><div id="notificationThread-${domId}" class="notification-client-thread" hidden onclick="event.stopPropagation()"></div></article>`}).join(''):'<div class="notifications-empty">No hay conversaciones en este filtro.</div>'}</div></div>`;
   }
   function startSupportAlertPolling(){
     clearInterval(supportAlertTimer);
@@ -201,7 +315,7 @@ const TSService=(()=>{
   function openLogin(){document.getElementById('loginModal').classList.add('open')}
   function openClientLookup(){document.getElementById('clientLookupModal').classList.add('open')}
   function openPasswordSetup(){document.getElementById('passwordSetupModal').classList.add('open')}
-  function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'))}
+  function closeModals(){stopOrderMessagePolling();document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'))}
 
   async function getServiceProfile(email){
     const {data,error}=await supabaseClient
@@ -397,6 +511,9 @@ const TSService=(()=>{
     });
     const title=document.getElementById('panelTitle');
     const box=document.getElementById('panelContent');
+    box?.classList.remove('dashboard-high-contrast','notifications-client-view');
+    if(view==='dashboard')box?.classList.add('dashboard-high-contrast');
+    if(view==='notifications')box?.classList.add('notifications-client-view');
     const s=stats();
     const titles={dashboard:'Dashboard',notifications:'Notificaciones',appointments:'Citas web',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',parts:'Inventario de repuestos',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
     title.textContent=titles[view]||'Panel';
@@ -622,7 +739,7 @@ const TSService=(()=>{
     document.getElementById('mOrderTitle').textContent=`${o.code} · ${o.device}`;
     document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
     mQuoteAmount.value=o.quoteAmount||'';mQuoteStatus.value=o.quote;mQuoteRepairDetails.value=o.quoteRepairDetails||'';mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=sanitizeTechnicalNotes(o.technicalNotes||'');const qa=document.getElementById('mQuoteApprovalState');if(qa)qa.innerHTML=o.quoteApprovedAt?`<div class="notice success"><b>Cotización aprobada por el cliente</b><small>${dateText(o.quoteApprovedAt)}${o.quoteClientComment?` · Comentario: ${esc(o.quoteClientComment)}`:''}</small></div>`:o.quoteSentAt?`<div class="notice"><b>Cotización enviada</b><small>${dateText(o.quoteSentAt)} · En espera de aprobación.</small></div>`:'';
-    await renderOrderFiles(o.id);await renderOrderMessages(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');
+    await renderOrderFiles(o.id);await renderOrderMessages(o.id,{initial:true});startOrderMessagePolling(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');
   }
   async function renderOrderFiles(orderId){
     const box=document.getElementById('mOrderFiles');if(!box)return;
@@ -651,20 +768,43 @@ const TSService=(()=>{
     const {error}=await supabaseClient.from('service_order_photos').update({visibility}).eq('id',id);if(error)return toast('No se pudo cambiar la visibilidad: '+error.message,'error');
     await audit('update_file_visibility',row.order_id,{visibility:row.visibility},{visibility});await loadSupportData();await renderOrderFiles(row.order_id);toast(visibility==='client'?'Imagen publicada para el cliente.':'Imagen ocultada del portal.');
   }
-  async function renderOrderMessages(orderId){
+  async function renderOrderMessages(orderId,options={}){
     const box=document.getElementById('mOrderMessages');if(!box)return;
     const {data,error}=await supabaseClient.from('service_order_messages').select('*').eq('order_id',orderId).order('created_at',{ascending:true});
-    if(error){box.innerHTML=`<small>No se pudieron cargar los mensajes: ${esc(error.message)}</small>`;return}
+    if(error){box.innerHTML=`<div class="chat-empty-state"><span>!</span><small>No se pudieron cargar los mensajes: ${esc(error.message)}</small></div>`;return}
     const rows=data||[];
-    box.innerHTML=rows.length?rows.map(m=>`<div class="staff-chat-bubble ${m.sender_type==='client'?'from-client':'from-staff'}"><div><b>${esc(m.sender_type==='client'?(m.sender_name||'Cliente'):(m.sender_name||'ThinkStore'))}</b><small>${dateText(m.created_at)}</small></div><p>${esc(m.message)}</p></div>`).join(''):'<small>Aún no hay mensajes con el cliente.</small>';
-    box.scrollTop=box.scrollHeight;
+    const newHash=rows.map(chatMessageKey).join('|');
+    const oldHash=orderMessageLastHash.get(String(orderId));
+    if(options.preserveScroll&&oldHash===newHash)return;
+    const previousKey=orderMessageLastKey.get(String(orderId));
+    const newest=rows[rows.length-1]||null;
+    const newestKey=newest?chatMessageKey(newest):'';
+    const hasNew=Boolean(previousKey&&newestKey&&previousKey!==newestKey);
+    const shouldNotify=Boolean(options.notifyIncoming&&hasNew&&newest?.sender_type==='client');
+    const wasNearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<80;
+    box.innerHTML=rows.length?rows.map((m,index)=>{
+      const isClient=m.sender_type==='client';
+      const isLast=index===rows.length-1;
+      const animateIncoming=Boolean(hasNew&&isLast&&isClient);
+      const animateOutgoing=Boolean(options.animateLast&&isLast&&!isClient);
+      return `<div class="staff-chat-row ${isClient?'client-row':'staff-row'} ${animateIncoming?'chat-arrive-in':''} ${animateOutgoing?'chat-send-pop':''}"><div class="staff-chat-bubble ${isClient?'from-client':'from-staff'}"><p>${esc(m.message)}</p></div><div class="staff-chat-meta ${isClient?'client-meta':'staff-meta'}"><b>${esc(isClient?(m.sender_name||'Cliente'):(m.sender_name||'ThinkStore'))}</b><span>·</span><small>${dateText(m.created_at)}</small></div></div>`
+    }).join(''):'<div class="chat-empty-state"><span>•••</span><b>Sin mensajes todavía</b><small>Cuando el cliente escriba desde su seguimiento, aparecerá aquí.</small></div>';
+    if(options.initial||wasNearBottom||options.animateLast||hasNew)box.scrollTop=box.scrollHeight;
+    orderMessageLastHash.set(String(orderId),newHash);
+    orderMessageLastKey.set(String(orderId),newestKey);
+    if(shouldNotify){playChatSound('incoming');box.classList.remove('chat-pulse');void box.offsetWidth;box.classList.add('chat-pulse')}
   }
   async function sendStaffOrderMessage(){
     const o=orders.find(x=>String(x.id)===String(activeOrderId));const input=document.getElementById('mOrderMessage');const message=input?.value.trim();if(!o||!message)return toast('Escribe un mensaje para el cliente.','error');
     if(message.length>2000)return toast('El mensaje no puede superar 2000 caracteres.','error');
+    ensureChatAudio();
+    const sendButton=input?.parentElement?.querySelector('button');if(sendButton){sendButton.disabled=true;sendButton.classList.add('is-sending')}
     const row={order_id:o.id,sender_type:'staff',sender_name:session?.name||'ThinkStore Soporte',message,created_by_email:session?.email||null};
-    const {error}=await supabaseClient.from('service_order_messages').insert(row);if(error)return toast('No se pudo enviar el mensaje: '+error.message,'error');
-    input.value='';await audit('staff_message',o.id,null,{message});await renderOrderMessages(o.id);toast('Mensaje publicado en el seguimiento del cliente.');
+    const {error}=await supabaseClient.from('service_order_messages').insert(row);
+    if(error){if(sendButton){sendButton.disabled=false;sendButton.classList.remove('is-sending')}return toast('No se pudo enviar el mensaje: '+error.message,'error')}
+    input.value='';playChatSound('outgoing');await audit('staff_message',o.id,null,{message});await renderOrderMessages(o.id,{animateLast:true});
+    if(sendButton){sendButton.disabled=false;sendButton.classList.remove('is-sending');sendButton.classList.add('sent-ok');setTimeout(()=>sendButton.classList.remove('sent-ok'),520)}
+    toast('Mensaje enviado al cliente.');
   }
   async function saveOrderManager(e){
     e.preventDefault();const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o)return;
@@ -1573,5 +1713,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,sendQuoteToClient,openOrderManager,saveOrderManager,uploadOrderFile,toggleOrderFileVisibility,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,uploadOrderFile,toggleOrderFileVisibility,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

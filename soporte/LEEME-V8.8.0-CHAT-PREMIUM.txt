@@ -1,0 +1,20 @@
+ThinkStore Soporte V8.8.0
+Chat premium + encabezados Apple Black
+
+CAMBIOS
+- Encabezados de Gestionar orden en negro profundo estilo Apple.
+- Tarjetas de Cobranza / Área técnica con encabezado negro.
+- Chat administrativo con burbujas inspiradas en iMessage:
+  * Cliente: gris claro.
+  * ThinkStore: azul.
+- Animación suave al recibir y enviar.
+- Tono original tipo mensajería al recibir un mensaje nuevo del cliente.
+- Tono original distinto al enviar un mensaje.
+- Polling del chat cada 3.5 s mientras la ventana de la orden está abierta.
+- No reproduce sonido al abrir mensajes antiguos.
+
+NOTA
+Los sonidos son originales generados con Web Audio. No se incluye ni copia audio de Apple.
+El navegador requiere al menos una interacción del usuario antes de permitir sonido.
+
+NO REQUIERE SQL.
