@@ -11,3 +11,7 @@ La carpeta `soporte/` incluye el portal operativo de servicio técnico y su inve
 - permisos RLS y consulta pública protegida del estado de reparación.
 
 El bloque “Servicio técnico Apple” de la tienda abre una solicitud guiada por WhatsApp y “Consultar reparación” dirige al portal real de Soporte. Enterprise consulta órdenes, auditoría, repuestos y movimientos mediante su función segura servidor a servidor.
+
+
+## V14.72
+Invitaciones internas compatibles con profiles_role_check y trigger Auth.

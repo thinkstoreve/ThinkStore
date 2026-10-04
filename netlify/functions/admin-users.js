@@ -69,7 +69,12 @@ exports.handler=async(event)=>{
     if(existing&&isInternalProfile(existing))return out(409,{ok:false,error:'Ese correo ya pertenece a un usuario interno'});
     if(existing&&!isInternalProfile(existing))return out(409,{ok:false,error:'Ese correo ya está registrado como cliente. Usa otro correo interno o cambia su acceso manualmente.'});
 
-    const linkResp=await fetch(`${url}/auth/v1/admin/generate_link`,{method:'POST',headers:{...svc(service)},body:JSON.stringify({type:'invite',email,redirect_to:redirectTo,data:{full_name:fullName,thinkstore_internal:true,role:uiRole}})});
+    // No enviamos `role` en user_metadata durante generate_link. El trigger histórico
+    // handle_new_user() copia ese valor directamente a profiles.role y distintas
+    // generaciones de ThinkStore usan CHECKs incompatibles (super_admin vs superadmin,
+    // recepcion vs soporte). El trigger crea un perfil base seguro y, a continuación,
+    // createInternalProfile() aplica el rol solicitado usando el esquema real detectado.
+    const linkResp=await fetch(`${url}/auth/v1/admin/generate_link`,{method:'POST',headers:{...svc(service)},body:JSON.stringify({type:'invite',email,redirect_to:redirectTo,data:{full_name:fullName,thinkstore_internal:true}})});
     const linkBody=await linkResp.json().catch(()=>({}));
     const userId=linkBody?.id,actionLink=linkBody?.action_link;
     if(!linkResp.ok||!userId||!actionLink)return out(linkResp.status||400,{ok:false,error:linkBody?.msg||linkBody?.message||'No se pudo crear la invitación'});
@@ -77,7 +82,7 @@ exports.handler=async(event)=>{
     try{
       const authUpdate=await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,{method:'PUT',headers:svc(service),body:JSON.stringify({user_metadata:{full_name:fullName,thinkstore_internal:true},app_metadata:{thinkstore_role:dbRole,thinkstore_internal:true,thinkstore_platforms:enabledPlatformKeys(platformAccess),inventory_role:(uiRole==='superadmin'||uiRole==='admin')?'super_admin':(platformAccess.inventory?.enabled?(platformAccess.inventory.role||'viewer'):null)}})});
       if(!authUpdate.ok)throw detailError('No se pudo preparar la cuenta',await authUpdate.text());
-      const createdProfile=await createInternalProfile(url,service,{id:userId,email,fullName,dbRole,custom,invitedBy:viewer.user_id,permissionOverrides});
+      const createdProfile=await createInternalProfile(url,service,{id:userId,email,fullName,dbRole,custom,invitedBy:viewer.user_id,permissionOverrides,schemaHint:viewer.profile});
       const sync=await syncPlatformProfiles({url,service,userId,email,fullName,uiRole,permissionOverrides});
       await sendInternalInvitation({resend,to:email,fullName,roleLabel:customRole?.name||roleLabel(uiRole),actionLink,site,staffAccess:effectiveStaffAccess(uiRole,permissionOverrides),platforms:platformAccess});
       await auditServer(url,service,viewer,'usuario_interno_invitado',`${fullName} · ${email} · ${customRole?.name||roleLabel(uiRole)} · ${enabledPlatformKeys(platformAccess).join(', ')}`);
@@ -157,12 +162,26 @@ function normalizeUiRole(v){let r=String(v||'cliente').toLowerCase().replace(/[ 
 function cleanPerms(v){return [...new Set((Array.isArray(v)?v:[]).map(x=>String(x||'').trim()).filter(Boolean))].slice(0,150)}
 function cleanOverrides(v){const o=v&&typeof v==='object'?v:{};return{allow:cleanPerms(o.allow),deny:cleanPerms(o.deny)}}
 function hasOwn(o,k){return Boolean(o)&&Object.prototype.hasOwnProperty.call(o,k)}
+function dbRoleForProfileColumn(uiRole,column='role'){
+  const r=normalizeUiRole(uiRole);
+  // Esquema Growth/Enterprise: profiles.role usa super_admin y no posee soporte.
+  // Soporte comparte base técnica con recepción; el rol específico de la plataforma
+  // sigue guardándose en platform_access / metadata SSO.
+  if(column==='role'){
+    if(r==='superadmin')return 'super_admin';
+    if(r==='soporte')return 'recepcion';
+    return r;
+  }
+  // Esquema histórico ThinkStore V64: profiles.rol usa superadmin y sí admite soporte.
+  if(r==='superadmin')return 'superadmin';
+  return r;
+}
 function profileUpdatePatch(target,{dbRole,active,custom,overrides}){
   const patch={};
-  // Rol: escribe ambos únicamente si ambos existen; si existe uno, usa ese.
-  if(hasOwn(target,'role'))patch.role=dbRole;
-  if(hasOwn(target,'rol'))patch.rol=dbRole;
-  if(!hasOwn(target,'role')&&!hasOwn(target,'rol'))patch.role=dbRole;
+  // Rol: adaptar al CHECK real según la columna existente.
+  if(hasOwn(target,'role'))patch.role=dbRoleForProfileColumn(dbRole,'role');
+  if(hasOwn(target,'rol'))patch.rol=dbRoleForProfileColumn(dbRole,'rol');
+  if(!hasOwn(target,'role')&&!hasOwn(target,'rol'))patch.role=dbRoleForProfileColumn(dbRole,'role');
 
   // Estado activo: mismo criterio para active/activo.
   if(hasOwn(target,'active'))patch.active=active;
@@ -308,32 +327,33 @@ async function syncPlatformProfiles({url,service,userId,email,fullName,uiRole,pe
 }
 async function updateAuthPlatformMetadata(url,service,userId,uiRole,platforms){try{await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,{method:'PUT',headers:svc(service),body:JSON.stringify({app_metadata:{thinkstore_role:uiRole,thinkstore_internal:true,thinkstore_platforms:enabledPlatformKeys(platforms),inventory_role:['admin','superadmin'].includes(normalizeUiRole(uiRole))?'super_admin':(platforms.inventory?.enabled?(platforms.inventory.role||'viewer'):null)}})})}catch{}}
 
-async function createInternalProfile(url,service,{id,email,fullName,dbRole,custom,invitedBy,permissionOverrides}){
+async function createInternalProfile(url,service,{id,email,fullName,dbRole,custom,invitedBy,permissionOverrides,schemaHint=null}){
   const invitedAt=new Date().toISOString();
   const marker={is_internal:true,internal_origin:'panel_invite',internal_invited_at:invitedAt,internal_invited_by:invitedBy||null};
+  const uiRole=normalizeUiRole(dbRole);
+  if(!INTERNAL_UI_ROLES.includes(uiRole))throw detailError('Rol interno no válido',String(dbRole||''));
 
-  // Canonical schema value is "superadmin". We still accept/normalize
-  // legacy "super_admin" on input, but never write it to profiles.
-  const canonicalRole=normalizeUiRole(dbRole)==='superadmin'?'superadmin':normalizeDbRole(dbRole);
-  if(!canonicalRole)throw detailError('Rol interno no válido',String(dbRole||''));
-
+  // La cuenta que ejecuta la invitación vive en la misma tabla profiles, así que su
+  // forma nos permite saber si este proyecto usa el esquema moderno role/active o el
+  // histórico rol/activo sin alterar constraints.
+  const modern=hasOwn(schemaHint,'role')||!hasOwn(schemaHint,'rol');
+  const roleColumn=modern?'role':'rol';
+  const activeColumn=modern?'active':'activo';
+  const storedRole=dbRoleForProfileColumn(uiRole,roleColumn);
   const extended={custom_role_key:custom||null,permission_overrides:permissionOverrides||{allow:[],deny:[]},...marker};
-  const baseProfiles=[
-    // Esquema moderno
-    {id,email,full_name:fullName,role:canonicalRole,active:true,...extended},
-    {id,email,nombre:fullName,role:canonicalRole,active:true,...extended},
-    // Esquema histórico V64 (rol/activo)
-    {id,email,nombre:fullName,rol:canonicalRole,activo:true,...extended},
-    {id,email,full_name:fullName,rol:canonicalRole,activo:true,...extended},
-    // Fallback mínimo: permite crear el acceso aun cuando las columnas opcionales
-    // de permisos todavía no estén presentes. Para Admin/Super Admin el acceso
-    // total se deriva directamente del rol base.
-    {id,email,full_name:fullName,role:canonicalRole,active:true},
-    {id,email,nombre:fullName,rol:canonicalRole,activo:true}
-  ];
+
+  const nameVariants=modern
+    ? [{full_name:fullName},{nombre:fullName}]
+    : [{nombre:fullName},{full_name:fullName}];
+  const candidates=[];
+  for(const namePart of nameVariants){
+    candidates.push({id,email,...namePart,[roleColumn]:storedRole,[activeColumn]:true,...extended});
+    // Fallback por si aún faltan columnas opcionales de V14.70/V14.71.
+    candidates.push({id,email,...namePart,[roleColumn]:storedRole,[activeColumn]:true});
+  }
 
   let last='';
-  for(const profile of baseProfiles){
+  for(const profile of candidates){
     const r=await fetch(`${url}/rest/v1/profiles?on_conflict=id`,{
       method:'POST',
       headers:{...svc(service),Prefer:'resolution=merge-duplicates,return=representation'},
