@@ -9,6 +9,9 @@ const titles = {
   staff:["Accesos de vendedores","Crea, administra y limita accesos del equipo como Shopify Staff."],
   marketing:["Marketing Center","Audiencias reales y acceso al remitente oficial de campañas."],
   finance:["Finanzas Pro","Ventas, ticket promedio, pagos pendientes y control financiero."],
+  treasury:["Tesorería & Socios","Gastos, compras, aportes de socios, devoluciones, cuentas por cobrar, abonos y comisiones técnicas."],
+  reconciliation:["Conciliación de caja","Compara los movimientos esperados por Zelle, Pago Móvil, efectivo, bancos y otros métodos con los saldos reales."],
+  weeklyAudit:["Auditoría semanal","Cierre financiero semanal, utilidad distribuible y reparto 50% empresa · 25% Freddy · 25% Nelson."],
   reports:["Inteligencia Comercial","BI, segmentos, top clientes, productos y reportes ejecutivos."],
   support:["Centro de Soporte","Control ejecutivo de soporte.thinkstore.com.ve: órdenes, diagnósticos, técnicos y entregas."],
   client360:["Cliente 360","Ficha consolidada de cliente con compras, soporte, garantías y alertas."],
@@ -18,6 +21,15 @@ const titles = {
   automations:["Automatizaciones","Flujos inteligentes para ventas, soporte y marketing."],
   settings:["Configuración","Permisos, roles, accesos y seguridad del panel."]
 };
+
+const PRIMARY_OWNER_EMAIL='thinkstore.ve@gmail.com';
+const PRIMARY_OWNER_NAME='Freddy Sedispa';
+function canonicalOwnerName(email,...values){
+  const normalized=String(email||'').trim().toLowerCase();
+  if(normalized===PRIMARY_OWNER_EMAIL)return PRIMARY_OWNER_NAME;
+  for(const value of values){const name=String(value||'').trim();if(name)return name;}
+  return normalized?normalized.split('@')[0]:'Administrador';
+}
 
 let currentProfile = null;
 let deferredPwaPrompt = null;
@@ -48,31 +60,47 @@ async function getAdminProfile(user){
   const client=getClient();
   const email=String(user?.email||'').trim();
   let legacy=null,profile=null;
-  const rolesRes=await client.from('roles_usuarios').select('id,email,nombre,rol,activo').ilike('email',email).maybeSingle();
-  if(!rolesRes.error&&rolesRes.data) legacy={id:rolesRes.data.id,email:rolesRes.data.email,full_name:rolesRes.data.nombre,role:rolesRes.data.rol,active:rolesRes.data.activo,source:'roles_usuarios'};
-  else if(rolesRes.error) console.warn('No se pudo consultar roles_usuarios:',rolesRes.error.message||rolesRes.error);
-  const profilesRes=await client.from('profiles').select('id,email,full_name,role,active,permission_overrides').eq('id',user.id).maybeSingle();
-  if(!profilesRes.error&&profilesRes.data) profile={...profilesRes.data,source:'profiles'};
-  else if(profilesRes.error) console.warn('No se pudo consultar profiles:',profilesRes.error.message||profilesRes.error);
+
+  // V10.4: leer esquemas modernos e históricos sin depender de que existan
+  // columnas concretas (role/active vs rol/activo, full_name vs nombre).
+  const rolesRes=await client.from('roles_usuarios').select('*').ilike('email',email).maybeSingle();
+  if(!rolesRes.error&&rolesRes.data){
+    legacy={...rolesRes.data,full_name:rolesRes.data.full_name||rolesRes.data.nombre,role:rolesRes.data.role||rolesRes.data.rol,active:rolesRes.data.active??rolesRes.data.activo,source:'roles_usuarios'};
+  }else if(rolesRes.error){
+    console.warn('No se pudo consultar roles_usuarios:',rolesRes.error.message||rolesRes.error);
+  }
+
+  const profilesRes=await client.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  if(!profilesRes.error&&profilesRes.data){
+    profile={...profilesRes.data,full_name:profilesRes.data.full_name||profilesRes.data.nombre,role:profilesRes.data.role||profilesRes.data.rol,active:profilesRes.data.active??profilesRes.data.activo,source:'profiles'};
+  }else if(profilesRes.error){
+    console.warn('No se pudo consultar profiles:',profilesRes.error.message||profilesRes.error);
+  }
+
   const chosen=profile||legacy;
   if(!chosen) throw new Error('Este usuario no tiene un perfil interno ThinkStore.');
-  const isActive=(chosen.active??true)!==false&&(chosen.active??true)!=='false';
+  const rawActive=chosen.active??chosen.activo??legacy?.active??true;
+  const isActive=rawActive!==false&&String(rawActive).toLowerCase()!=='false';
   if(!isActive) throw new Error('Este usuario está desactivado.');
-  const role=String(chosen.role||legacy?.role||'').toLowerCase().replace(/[ -]+/g,'_');
+
+  const role=String(chosen.role||chosen.rol||legacy?.role||legacy?.rol||'').toLowerCase().replace(/[ -]+/g,'_');
   const adminRoles=['admin','administrator','super_admin','superadmin','gerente'];
-  let over=chosen.permission_overrides||{};if(typeof over==='string'){try{over=JSON.parse(over)}catch{over={}}}
+  let over=chosen.permission_overrides||{};
+  if(typeof over==='string'){try{over=JSON.parse(over)}catch{over={}}}
   const allow=Array.isArray(over.allow)?over.allow:[],deny=Array.isArray(over.deny)?over.deny:[];
   const admin=adminRoles.includes(role);
   const allowed=admin||(!deny.includes('platform.enterprise')&&allow.includes('platform.enterprise'));
   if(!allowed) throw new Error('Tu cuenta no tiene acceso a Enterprise. Solicita el permiso desde el Panel ThinkStore.');
+
   const enterpriseRole=admin?'manager':(allow.includes('enterprise.role.manager')?'manager':'viewer');
-  currentProfile={...chosen,role:chosen.role||legacy?.role,enterprise_role:enterpriseRole,is_full_admin:admin};
+  const canonicalName=canonicalOwnerName(email,chosen.full_name,chosen.nombre,legacy?.full_name,user?.user_metadata?.full_name,user?.user_metadata?.name);
+  currentProfile={...chosen,email:chosen.email||email,full_name:canonicalName,nombre:canonicalName,role:chosen.role||chosen.rol||legacy?.role||legacy?.rol,active:isActive,enterprise_role:enterpriseRole,is_full_admin:admin};
   try{localStorage.setItem('ts_enterprise_profile',JSON.stringify(currentProfile))}catch{}
   return currentProfile;
 }
 function applyAdminIdentity(user, profile={}){
   const email = profile.email || user.email || 'admin@thinkstore.com.ve';
-  const name = profile.full_name || email.split('@')[0] || 'Administrador';
+  const name = canonicalOwnerName(email,profile.full_name,profile.nombre,user?.user_metadata?.full_name,user?.user_metadata?.name);
   if(qs('welcomeName')) qs('welcomeName').textContent = name;
   if(qs('adminName')) qs('adminName').textContent = name;
   if(qs('adminEmailLabel')) qs('adminEmailLabel').textContent = email;
@@ -124,34 +152,72 @@ async function sendPasswordRecovery(){
 
 async function logout(){ await window.supabaseClient?.auth?.signOut(); location.reload(); }
 async function bootAuth(){
-  try{
-    const client=getClient();
-    const sessionResult=await Promise.race([
-      client.auth.getSession(),
-      new Promise(resolve=>setTimeout(()=>resolve({data:{session:null}}),4000))
-    ]);
-    const session=sessionResult?.data?.session;
+  const client=getClient();
+  let opening=false,opened=false;
 
-    if(!session?.user){
-      setLoginMessage('Inicia sesión para abrir Enterprise.','');
-      return;
+  // V10.6: recibe el token SSO directamente desde ThinkStore Main.
+  // No usa redirect_to ni Site URL de Supabase, evitando redirecciones externas.
+  const ssoParams=new URLSearchParams(location.search);
+  const ssoTokenHash=ssoParams.get('sso_token_hash');
+  const ssoType=ssoParams.get('sso_type')||'magiclink';
+  if(ssoTokenHash){
+    try{
+      setLoginMessage('Completando acceso unificado…','');
+      const {error}=await client.auth.verifyOtp({token_hash:ssoTokenHash,type:ssoType==='magiclink'?'magiclink':ssoType});
+      if(error)throw error;
+      ssoParams.delete('sso_token_hash'); ssoParams.delete('sso_type'); ssoParams.delete('sso_v');
+      const cleanQuery=ssoParams.toString();
+      history.replaceState(null,'',location.pathname+(cleanQuery?'?'+cleanQuery:'')+location.hash);
+    }catch(error){
+      console.warn('Enterprise SSO token:',error.message||error);
+      setLoginMessage('No se pudo completar el acceso unificado: '+(error.message||error),'error');
     }
+  }
 
+  async function openSession(session){
+    if(opened||opening||!session?.user)return false;
+    opening=true;
     try{
       const profile=await getAdminProfile(session.user);
       applyAdminIdentity(session.user,profile);
       showApp();
+      opened=true;
+      // Limpia los tokens/códigos del callback SSO sin perder la ruta actual.
+      if(location.hash&&/(access_token|refresh_token|type=)/i.test(location.hash)){
+        history.replaceState(null,'',location.pathname+location.search);
+      }
+      return true;
     }catch(error){
       const cached=JSON.parse(localStorage.getItem('ts_enterprise_profile')||'null');
       if(cached){
-        currentProfile=cached;
-        applyAdminIdentity(session.user,cached);
+        const cachedEmail=cached.email||session.user.email||'';
+        const cachedName=canonicalOwnerName(cachedEmail,cached.full_name,cached.nombre,session.user?.user_metadata?.full_name,session.user?.user_metadata?.name);
+        currentProfile={...cached,email:cachedEmail,full_name:cachedName,nombre:cachedName};
+        try{localStorage.setItem('ts_enterprise_profile',JSON.stringify(currentProfile))}catch{}
+        applyAdminIdentity(session.user,currentProfile);
         showApp();
+        opened=true;
         setLoginMessage('Enterprise abrió con el último perfil autorizado mientras actualiza permisos.','');
-        return;
+        return true;
       }
       throw error;
-    }
+    }finally{opening=false}
+  }
+
+  // Supabase procesa automáticamente los callbacks de magic-link/SSO. Escuchamos
+  // el evento para no perder la sesión si llega unos milisegundos después de DOMContentLoaded.
+  client.auth.onAuthStateChange((_event,session)=>{
+    if(session?.user&&!opened){setTimeout(()=>openSession(session).catch(error=>{
+      console.warn('Enterprise SSO:',error.message||error);
+      setLoginMessage(error.message||'No se pudo validar el acceso unificado.','error');
+    }),0)}
+  });
+
+  try{
+    const {data}=await client.auth.getSession();
+    if(await openSession(data?.session))return;
+    const isCallback=/(#.*access_token=|[?&]code=)/i.test(location.href);
+    setLoginMessage(isCallback?'Completando acceso unificado…':'Inicia sesión para abrir Enterprise.','');
   }catch(error){
     console.warn('Enterprise:',error.message||error);
     setLoginMessage(error.message||'No se pudo conectar con Supabase. Reintenta.','error');
@@ -2476,23 +2542,11 @@ function renderV9RealMarketing(data){
     setTimeout(showPwaBanner, 1200);
     if(isStandalone()) document.body.classList.add('pwa-standalone');
   });
+  // V10.6: PWA/offline deshabilitado hasta nuevo aviso. Enterprise es online-first.
   if('serviceWorker' in navigator){
-    window.addEventListener('load', async ()=>{
-      try{
-        const reg = await navigator.serviceWorker.register('sw.js');
-        reg.addEventListener('updatefound', ()=>{
-          const worker = reg.installing;
-          if(!worker) return;
-          worker.addEventListener('statechange', ()=>{
-            if(worker.state === 'installed' && navigator.serviceWorker.controller){
-              const toast = document.createElement('div');
-              toast.className = 'pwa-update-toast';
-              toast.innerHTML = '<b>Nueva versión disponible</b><span>Actualiza para usar la última versión de ThinkStore Enterprise.</span><button onclick="location.reload()">Actualizar ahora</button>';
-              document.body.appendChild(toast);
-            }
-          });
-        });
-      }catch(error){ console.warn('PWA V9.5:', error.message || error); }
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.getRegistrations().then(regs=>Promise.all(regs.map(r=>r.unregister().catch(()=>false)))).catch(()=>{});
+      if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('thinkstore-enterprise-')).map(k=>caches.delete(k)))).catch(()=>{});
     });
   }
 })();
@@ -2947,8 +3001,8 @@ function renderV9RealMarketing(data){
         <article><span>Por entregar</span><b>${wNum(p.to_deliver)}</b><small>Órdenes abiertas</small></article>
       </div>
       <div class="ent-split">
-        <div><span>DISTRIBUCIÓN DE LO COBRADO</span><h3>${wMoney(g.collected_amount)}</h3><p>No incluye ventas ni servicios pendientes por cobrar.</p></div>
-        <div class="ent-split-values"><article><span>Empresa · 50%</span><b>${wMoney(g.company_50)}</b></article><article><span>Socio A · 25%</span><b>${wMoney(g.partner_a_25)}</b></article><article><span>Socio B · 25%</span><b>${wMoney(g.partner_b_25)}</b></article></div>
+        <div><span>DISTRIBUCIÓN DE UTILIDAD</span><h3>${wMoney(g.distributable_profit)}</h3><p>Cobrado ${wMoney(g.collected_amount)} − COGS tienda ${wMoney(g.store_cogs)} − repuestos soporte ${wMoney(g.support_parts_cost)} − gastos operativos ${wMoney(g.operating_outflows)} − comisión técnica ${wMoney(g.technician_commissions)}. No incluye pendientes por cobrar.</p></div>
+        <div class="ent-split-values"><article><span>Empresa · ${Number(g.company_pct||50)}%</span><b>${wMoney(g.company_50)}</b></article><article><span>Freddy · ${Number(g.partner_a_pct||25)}%</span><b>${wMoney(g.partner_a_25)}</b></article><article><span>Nelson · ${Number(g.partner_b_pct||25)}%</span><b>${wMoney(g.partner_b_25)}</b></article></div>
       </div>
       ${compact?'':`<article class="panel ent-week-table"><div class="panel-head"><h3>Detalle diario</h3><span class="tag">Datos reales</span></div><div>${weeklyDailyRows(data)}</div></article>`}
       ${data.data_quality?.errors?.length?`<div class="ent-data-warning">${data.data_quality.errors.map(safe).join(' · ')}</div>`:''}`;
@@ -2982,4 +3036,134 @@ function renderV9RealMarketing(data){
   window.switchView=switchView=function(id){oldSwitch(id);if(id==='weekly')setTimeout(()=>loadEnterpriseWeeklySummary(false),40)};
 
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&weeklyCache)loadEnterpriseWeeklySummary(true)});
+})();
+
+/* ==========================================================
+   Enterprise V10.9 · Finanzas + Inventory + conciliación
+   ========================================================== */
+(function(){
+  let financeCache=null;
+  const fm=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fn=n=>Number(n||0).toLocaleString('es-VE');
+  const fd=v=>{try{return new Date(v).toLocaleString('es-VE',{timeZone:'America/Caracas',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch{return v||'—'}};
+  const partnerLabel=k=>k==='freddy'?'Freddy Sedispa':k==='nelson'?'Nelson Garzon':'Empresa';
+  const typeLabel=t=>({expense:'Gasto',purchase:'Compra',refund:'Reembolso / devolución a cliente',fee:'Comisión bancaria',warranty_cost:'Costo de garantía',other_income:'Otro ingreso',receivable:'Cuenta por cobrar',receivable_collection:'Abono recibido',partner_advance:'Dinero prestado por socio',partner_repayment:'Devolución a socio',technician_commission:'Comisión técnico',technician_payment:'Pago a técnico',cash_adjustment:'Ajuste de caja'}[t]||t||'Movimiento');
+  async function finHeaders(){const h={'Content-Type':'application/json'};const {data}=await window.supabaseClient.auth.getSession();if(data?.session?.access_token)h.Authorization=`Bearer ${data.session.access_token}`;return h}
+  function quality(d){const q=d?.quality||{};const a=[];a.push(q.finance_tables_ready?'Finanzas centrales activas':'Pendiente migración de Finanzas');a.push(q.inventory_connected?`Inventory conectado · cobertura de costo ${Number(q.inventory_cost_coverage_pct||0).toFixed(1)}%`:'Inventory pendiente de conectar');a.push(q.support_parts_connected?'Repuestos de Soporte conectados':'Repuestos de Soporte sin movimientos');a.push(q.support_payment_events?'Abonos de Soporte con historial':'Historial de abonos de Soporte pendiente');return a.join(' · ')}
+  function financeActions(){return `<div class="fin-actionbar"><button data-fin-new="expense">+ Gasto</button><button data-fin-new="partner_advance">+ Aporte socio</button><button data-fin-new="partner_repayment">↩ Devolver a socio</button><button data-fin-new="receivable">+ Por cobrar</button><button data-fin-new="technician_commission">🔧 Comisión técnico</button></div><p class="fin-quality">Las compras de mercancía se registran en Inventory y llegan aquí automáticamente con proveedor, costo, pagos y deuda.</p>`}
+  function paymentRows(d){return (d.payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div><b>${safe(x.method)}</b><br><small>${Object.entries(x.sources||{}).map(([k,v])=>`${safe(k)}: ${fn(v)}`).join(' · ')}</small></div><span>${fm(x.amount)}</span><i class="tag">${fn(x.count)} mov.</i></div>`).join('')||'<div class="fin-empty">Todavía no hay cobros clasificados por método en esta semana.</div>'}
+  function entryRows(d){return (d.entries||[]).slice(0,25).map(e=>`<div class="table-row fin-table-row" data-fin-entry="${safe(e.id)}"><div><b>${safe(typeLabel(e.entry_type))} · ${safe(e.description)}</b><br><small>${safe(e.category||'Sin categoría')} · ${fd(e.occurred_at)}${e.counterparty?` · ${safe(e.counterparty)}`:''}${e.funded_by&&e.funded_by!=='company'?` · pagó ${safe(partnerLabel(e.funded_by))}`:''}</small></div><span>${fm(e.amount_usd)}</span><i class="tag">${safe(e.payment_method||e.status||'Registrado')}</i></div>`).join('')||'<div class="fin-empty">Sin movimientos manuales esta semana.</div>'}
+  function receivableRows(d){return (d.receivables?.manual_rows||[]).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||'Cliente')} · ${safe(e.description)}</b><br><small>Total ${fm(e.amount_usd)} · cobrado ${fm(e.collected_usd)}</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-collect="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Registrar abono</button></div>`).join('')||'<div class="fin-empty">Sin cuentas por cobrar manuales pendientes.</div>'}
+  function commissionRows(d){return (d.technicians?.commissions||[]).filter(x=>Number(x.pending_usd||0)>0).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||e.metadata?.technician_name||e.metadata?.technician_email||'Técnico')}</b><br><small>${safe(e.source_code||e.description)} · base neta ${fm(e.metadata?.commission_base)} · ${Number(e.metadata?.rate_pct||0)}%</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-pay-tech="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Pagar</button></div>`).join('')||'<div class="fin-empty">No hay comisiones técnicas pendientes.</div>'}
+  function purchaseRows(d){return (d.inventory?.payables||[]).slice(0,20).map(p=>`<div class="table-row fin-table-row"><div><b>${safe(p.supplier_name||'Proveedor')} · ${safe(p.product_name||'Compra')}</b><br><small>${safe(p.purchase_date||'Sin fecha')} · total ${fm(p.total_usd)} · pagado ${fm(p.paid_usd)}${p.reference?` · ${safe(p.reference)}`:''}</small></div><span>${fm(p.pending_usd)}</span><i class="tag">Por pagar</i></div>`).join('')||'<div class="fin-empty">No hay compras pendientes con proveedores.</div>'}
+  function purchaseMethodRows(d){return (d.purchase_payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div><b>${safe(x.method)}</b><br><small>Compras Inventory</small></div><span>${fm(x.amount)}</span><i class="tag">${fn(x.count)} pago(s)</i></div>`).join('')||'<div class="fin-empty">Sin pagos de compras esta semana.</div>'}
+  function partnerCard(p,label){return `<article class="fin-partner-card"><span>Empresa debe a ${safe(label)}</span><b>${fm(p?.balance)}</b><small>Aportes: ${fm(p?.advances)} · gastos: ${fm(p?.company_expenses_paid)} · compras Inventory: ${fm(p?.inventory_purchases_paid)} · devuelto: ${fm(p?.repaid)}</small></article>`}
+  function renderTreasury(d){
+    const el=qs('treasury');if(!el)return;
+    el.innerHTML=`${financeActions()}
+      <div class="fin-kpis">
+        <article><span>Cobrado semana</span><b>${fm(d.collections?.gross)}</b><small>Tienda + Servicio Técnico + otros ingresos</small></article>
+        <article><span>Costo vendido tienda</span><b>${fm(d.outflows?.store_cogs)}</b><small>COGS desde Inventory · no es la compra de esta semana</small></article>
+        <article><span>Utilidad bruta tienda</span><b>${fm(d.inventory?.gross_margin_week)}</b><small>Margen ${Number(d.inventory?.gross_margin_pct||0).toFixed(1)}%</small></article>
+        <article><span>Gastos operativos</span><b>${fm(d.outflows?.operating_expenses)}</b><small>Sin duplicar compras de inventario</small></article>
+        <article><span>Utilidad distribuible</span><b>${fm(d.result?.distributable)}</b><small>${d.result?.loss_carry>0?`Pérdida por compensar ${fm(d.result.loss_carry)}`:'Después de costos reales y comisión técnica'}</small></article>
+        <article><span>Flujo de caja semana</span><b>${fm(d.cash?.net)}</b><small>Entradas ${fm(d.cash?.in)} · salidas ${fm(d.cash?.out)}</small></article>
+      </div>
+      <div class="fin-split-card"><div><span>UTILIDAD DISTRIBUIBLE</span><h2>${fm(d.result?.distributable)}</h2><p>Ventas cobradas − costo de mercancía vendida − repuestos consumidos − costos directos − gastos operativos − comisión técnica. Las compras de stock afectan caja/activo y se reconocen como costo cuando se vende la mercancía.</p></div><div class="fin-split-grid"><article><span>Empresa · ${Number(d.settings?.company_pct||50)}%</span><b>${fm(d.result?.company)}</b></article><article><span>Freddy · ${Number(d.settings?.freddy_pct||25)}%</span><b>${fm(d.result?.freddy)}</b></article><article><span>Nelson · ${Number(d.settings?.nelson_pct||25)}%</span><b>${fm(d.result?.nelson)}</b></article></div></div>
+      <div class="fin-kpis">
+        <article><span>Inventario a costo</span><b>${fm(d.inventory?.value)}</b><small>${fn(d.inventory?.products_count)} productos conectados</small></article>
+        <article><span>Compras registradas semana</span><b>${fm(d.inventory?.purchase_value_week)}</b><small>Mercancía / activo adquirido</small></article>
+        <article><span>Pagado a proveedores semana</span><b>${fm(d.inventory?.purchase_cash_week)}</b><small>Afecta caja, no se duplica como gasto</small></article>
+        <article><span>Por pagar a proveedores</span><b>${fm(d.inventory?.supplier_payable)}</b><small>${fn(d.inventory?.supplier_count)} proveedores en Inventory</small></article>
+        <article><span>Pendiente por cobrar</span><b>${fm(d.receivables?.total)}</b><small>Tienda ${fm(d.receivables?.store)} · Soporte ${fm(d.receivables?.support)}</small></article>
+        <article><span>Comisiones técnicos pendientes</span><b>${fm(d.technicians?.pending_total)}</b><small>Servicios elegibles sobre mano de obra neta</small></article>
+      </div>
+      <div class="fin-partner-grid">${partnerCard(d.partners?.freddy,'Freddy')}${partnerCard(d.partners?.nelson,'Nelson')}</div>
+      <div class="main-grid fin-main-grid">
+        <article class="panel"><div class="panel-head"><h3>Métodos de cobro · semana</h3><span class="tag">Entradas</span></div><div class="table">${paymentRows(d)}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Pagos de compras · semana</h3><span class="tag">Inventory</span></div><div class="table">${purchaseMethodRows(d)}</div></article>
+      </div>
+      <div class="main-grid fin-main-grid">
+        <article class="panel"><div class="panel-head"><h3>Proveedores por pagar</h3><span class="tag">${fm(d.inventory?.supplier_payable)}</span></div><div class="table">${purchaseRows(d)}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Cuentas por cobrar</h3><span class="tag">${fm(d.receivables?.total)}</span></div><div class="table">${receivableRows(d)}</div></article>
+      </div>
+      <div class="main-grid fin-main-grid">
+        <article class="panel"><div class="panel-head"><h3>Comisiones técnicas</h3><span class="tag">${Number(d.settings?.technician_pct||50)}% neto por defecto</span></div><div class="table">${commissionRows(d)}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Movimientos financieros</h3><span class="tag">Trazabilidad</span></div><div class="table">${entryRows(d)}</div></article>
+      </div>
+      <p class="fin-quality">${safe(quality(d))}</p>`;
+  }
+  function reconciliationHistory(d){return (d.reconciliation?.history||[]).map(r=>`<div class="table-row fin-table-row"><div><b>${safe(r.period_start)} → ${safe(r.period_end)}</b><br><small>${safe(r.status)} · diferencia ${fm(r.total_difference)}</small></div><span>${fm(r.total_actual)}</span><i class="tag ${Math.abs(Number(r.total_difference||0))>.01?'warn':''}">${safe(r.status)}</i></div>`).join('')||'<div class="fin-empty">Aún no hay conciliaciones guardadas.</div>'}
+  function reconRows(d){return (d.reconciliation?.lines||[]).map(x=>{const key=encodeURIComponent(x.method||'Sin definir');const diff=x.difference===null?'—':fm(x.difference);return `<div class="recon-row" data-recon-key="${safe(key)}"><div class="recon-method"><b>${safe(x.method)}</b><small>Entradas ${fm(x.inflow)} · Salidas ${fm(x.outflow)} · ${Number(x.in_count||0)+Number(x.out_count||0)} mov.</small></div><label>Saldo inicial<input data-recon-opening type="number" step="0.01" value="${Number(x.opening_balance||0).toFixed(2)}"></label><div class="recon-expected"><span>Esperado</span><b>${fm(x.expected_closing)}</b></div><label>Saldo real<input data-recon-actual type="number" step="0.01" value="${x.actual_closing===null?'':Number(x.actual_closing).toFixed(2)}" placeholder="0.00"></label><div class="recon-diff ${x.difference!==null&&Math.abs(Number(x.difference))>.01?'bad':'ok'}"><span>Diferencia</span><b data-recon-difference>${diff}</b></div><label class="recon-note">Nota<input data-recon-notes value="${safe(x.notes||'')}" placeholder="Referencia / observación"></label></div>`}).join('')||'<div class="fin-empty">No hay movimientos por método para conciliar en esta semana.</div>'}
+  function renderReconciliation(d){
+    const el=qs('reconciliation');if(!el)return;const r=d.reconciliation||{},t=r.totals||{},current=r.current||{};const closed=current.status==='closed';
+    el.innerHTML=`<article class="panel fin-audit-hero"><div><span>CONCILIACIÓN · ${safe(d.period?.start)} → ${safe(d.period?.end)}</span><h2>${t.difference===null?'Pendiente':fm(t.difference)}</h2><p>Saldo esperado = saldo inicial + entradas − salidas. Registra el saldo real de Zelle, Pago Móvil, efectivo, bancos y demás métodos. Los pagos hechos directamente por Freddy o Nelson no reducen la caja de la empresa hasta que se les reembolsa.</p></div><div class="recon-actions"><button data-fin-save-recon ${closed?'disabled':''}>Guardar revisión</button><button data-fin-close-recon ${closed?'disabled':''}>✓ Cerrar conciliación</button></div></article>
+      <div class="fin-kpis"><article><span>Saldos esperados</span><b>${fm(t.expected)}</b><small>Incluye saldo inicial y movimiento semanal</small></article><article><span>Saldos reales cargados</span><b>${t.completed?fm(t.actual):'Pendiente'}</b><small>${t.completed?'Todos los métodos completados':'Faltan saldos reales'}</small></article><article><span>Diferencia global</span><b class="${t.difference!==null&&Math.abs(Number(t.difference))>.01?'recon-bad':'recon-ok'}">${t.difference===null?'—':fm(t.difference)}</b><small>${closed?'Conciliación cerrada':current.status==='review'?'Borrador/revisión guardado':'Sin guardar'}</small></article></div>
+      <article class="panel"><div class="panel-head"><h3>Conciliar por método</h3><span class="tag">USD equivalente</span></div><div class="recon-table">${reconRows(d)}</div><label class="recon-general-note">Observación general<input id="reconGeneralNotes" value="${safe(current.notes||'')}" placeholder="Ej. diferencia en efectivo pendiente de justificar"></label></article>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Historial de conciliaciones</h3><button data-fin-refresh>Actualizar</button></div><div class="table">${reconciliationHistory(d)}</div></article>`;
+    el.querySelectorAll('[data-recon-actual],[data-recon-opening]').forEach(inp=>inp.addEventListener('input',()=>{const row=inp.closest('.recon-row'),opening=Number(row.querySelector('[data-recon-opening]')?.value||0),actualRaw=row.querySelector('[data-recon-actual]')?.value,actual=actualRaw===''?null:Number(actualRaw),method=decodeURIComponent(row.dataset.reconKey||''),base=(d.reconciliation?.lines||[]).find(x=>String(x.method)===method)||{},expected=opening+Number(base.inflow||0)-Number(base.outflow||0),diff=actual===null?null:actual-expected;const out=row.querySelector('[data-recon-difference]');if(out)out.textContent=diff===null?'—':fm(diff);const box=row.querySelector('.recon-diff');if(box){box.classList.toggle('bad',diff!==null&&Math.abs(diff)>.01);box.classList.toggle('ok',diff===null||Math.abs(diff)<=.01)}}));
+  }
+  function collectReconciliationLines(){return [...document.querySelectorAll('#reconciliation .recon-row')].map(row=>({method:decodeURIComponent(row.dataset.reconKey||''),opening_balance:Number(row.querySelector('[data-recon-opening]')?.value||0),actual_closing:row.querySelector('[data-recon-actual]')?.value===''?null:Number(row.querySelector('[data-recon-actual]')?.value||0),notes:row.querySelector('[data-recon-notes]')?.value||''}))}
+  async function saveReconciliation(close=false){if(!financeCache)return;const lines=collectReconciliationLines();if(close&&lines.some(x=>x.actual_closing===null)){alert('Completa el saldo real de todos los métodos antes de cerrar la conciliación.');return}const notes=document.getElementById('reconGeneralNotes')?.value||'';if(close&&!confirm('¿Cerrar la conciliación de esta semana? Quedará guardada como control de caja previo al cierre semanal.'))return;try{await finPost({action:'save_reconciliation',lines,notes,close});alert(close?'Conciliación cerrada.':'Conciliación guardada para revisión.')}catch(e){alert(e.message||e)}}
+  function auditHistory(d){return (d.audits||[]).map(a=>`<div class="table-row fin-table-row"><div><b>${safe(a.week_start)} → ${safe(a.week_end)}</b><br><small>${safe(a.status)} · cerrado ${a.closed_at?fd(a.closed_at):'—'}</small></div><span>${fm(a.distributable_profit)}</span><i class="tag">${safe(a.status)}</i></div>`).join('')||'<div class="fin-empty">Aún no hay semanas cerradas.</div>'}
+  function renderWeeklyAudit(d){
+    const el=qs('weeklyAudit');if(!el)return;
+    el.innerHTML=`<article class="panel fin-audit-hero"><div><span>AUDITORÍA FINANCIERA · ${safe(d.period?.start)} → ${safe(d.period?.end)}</span><h2>${fm(d.result?.distributable)}</h2><p>Utilidad provisional con costos reales de Inventory y consumo real de repuestos de Servicio Técnico.</p></div><button data-fin-close-week>✓ Cerrar semana</button></article>
+      <div class="fin-audit-grid">
+        <article><span>Ventas cobradas</span><b>${fm(d.collections?.shop)}</b></article>
+        <article><span>COGS tienda</span><b>${fm(d.outflows?.store_cogs)}</b></article>
+        <article><span>Servicio Técnico cobrado</span><b>${fm(d.collections?.support)}</b></article>
+        <article><span>Repuestos consumidos</span><b>${fm(d.outflows?.support_parts)}</b></article>
+        <article><span>Costos directos soporte</span><b>${fm(d.outflows?.support_direct)}</b></article>
+        <article><span>Otros ingresos / abonos</span><b>${fm(d.collections?.other)}</b></article>
+        <article><span>Gastos operativos</span><b>${fm(d.outflows?.operating_expenses)}</b></article>
+        <article><span>Comisión técnica devengada</span><b>${fm(d.outflows?.technician_commissions)}</b></article>
+        <article><span>Compras pagadas (caja)</span><b>${fm(d.outflows?.inventory_purchase_cash)}</b><small>No reduce utilidad otra vez</small></article>
+        <article><span>Resultado neto</span><b>${fm(d.result?.net)}</b></article>
+      </div>
+      <div class="fin-split-card"><div><span>REPARTO SEMANAL</span><h2>${fm(d.result?.distributable)}</h2><p>${d.result?.loss_carry>0?'Esta semana no genera reparto porque el resultado neto es negativo.':'El cierre guarda una fotografía inmutable con costos, cobros, gastos y reparto.'}</p></div><div class="fin-split-grid"><article><span>Empresa</span><b>${fm(d.result?.company)}</b></article><article><span>Freddy</span><b>${fm(d.result?.freddy)}</b></article><article><span>Nelson</span><b>${fm(d.result?.nelson)}</b></article></div></div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Historial de cierres</h3><button data-fin-refresh>Actualizar</button></div><div class="table">${auditHistory(d)}</div></article>`;
+  }
+  async function loadFinanceCenter(force=false){
+    if(!force&&financeCache){renderTreasury(financeCache);renderReconciliation(financeCache);renderWeeklyAudit(financeCache);return financeCache}
+    for(const id of ['treasury','reconciliation','weeklyAudit']){const el=qs(id);if(el&&!el.innerHTML.trim())el.innerHTML='<article class="panel"><p>Cargando control financiero real…</p></article>'}
+    try{
+      const r=await fetch('/.netlify/functions/enterprise-finance',{headers:await finHeaders(),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo cargar Finanzas Centrales');
+      financeCache=d;window.enterpriseFinanceData=d;renderTreasury(d);renderReconciliation(d);renderWeeklyAudit(d);return d;
+    }catch(e){const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(e.message||e)}</p><small>Si es la primera vez, ejecuta SQL-01-SUPABASE-PRINCIPAL-FINAL.sql en el Supabase principal.</small></article>`;['treasury','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});return null}
+  }
+  async function finPost(body){const r=await fetch('/.netlify/functions/enterprise-finance',{method:'POST',headers:await finHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar');financeCache=d.summary||null;await loadFinanceCenter(true);return d}
+  function closeFinModal(){document.querySelector('.fin-modal')?.remove()}
+  function modalShell(title,subtitle,fields,submitLabel,handler){
+    closeFinModal();const wrap=document.createElement('div');wrap.className='fin-modal';wrap.innerHTML=`<div class="fin-modal-backdrop"></div><div class="fin-modal-card"><button class="fin-modal-x">×</button><div class="fin-modal-head"><span>ENTERPRISE FINANZAS</span><h3>${safe(title)}</h3><p>${safe(subtitle)}</p></div><form class="fin-form">${fields}<div class="fin-form-status"></div><div class="fin-form-actions"><button type="button" class="fin-cancel">Cancelar</button><button class="fin-submit">${safe(submitLabel)}</button></div></form></div>`;document.body.appendChild(wrap);wrap.querySelector('.fin-modal-backdrop').onclick=closeFinModal;wrap.querySelector('.fin-modal-x').onclick=closeFinModal;wrap.querySelector('.fin-cancel').onclick=closeFinModal;const form=wrap.querySelector('form');form.onsubmit=async e=>{e.preventDefault();const status=wrap.querySelector('.fin-form-status'),btn=wrap.querySelector('.fin-submit');btn.disabled=true;status.textContent='Guardando…';try{await handler(Object.fromEntries(new FormData(form)));closeFinModal()}catch(err){status.textContent=err.message||String(err);btn.disabled=false}};
+  }
+  const field=(name,label,type='text',extra='')=>`<label>${safe(label)}<input name="${safe(name)}" type="${safe(type)}" ${extra}></label>`;
+  const select=(name,label,opts)=>`<label>${safe(label)}<select name="${safe(name)}">${opts.map(([v,l])=>`<option value="${safe(v)}">${safe(l)}</option>`).join('')}</select></label>`;
+  const methodOptions=[['Efectivo USD','Efectivo USD'],['Pago Móvil','Pago Móvil'],['Zelle','Zelle'],['Transferencia','Transferencia'],['Punto de Venta','Punto de Venta'],['Efectivo Bs','Efectivo Bs'],['EUR','EUR'],['USDT','USDT'],['Otro','Otro']];
+  function openEntryForm(type){
+    if(type==='partner_advance'||type==='partner_repayment'){
+      const repay=type==='partner_repayment';modalShell(repay?'Devolución a socio':'Dinero colocado por socio',repay?'Registra dinero que la empresa devuelve. No se contabiliza como gasto dos veces.':'Registra capital/préstamo temporal colocado por Freddy o Nelson; queda pendiente hasta ser devuelto.',`${select('partner_key','Socio',[['freddy','Freddy Sedispa'],['nelson','Nelson Garzon']])}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${field('description',repay?'Detalle de devolución':'Motivo / uso del dinero','text','required')}${select('payment_method','Método de pago',methodOptions)}${field('reference','Referencia')}${field('occurred_at','Fecha y hora','datetime-local')}`,repay?'Registrar devolución':'Registrar aporte',async f=>finPost({action:'create_entry',entry_type:type,...f,amount_usd:Number(f.amount_usd),funded_by:repay?'company':f.partner_key,status:'posted',occurred_at:f.occurred_at?new Date(f.occurred_at).toISOString():undefined}));return;
+    }
+    if(type==='receivable'){
+      modalShell('Nueva cuenta por cobrar','Para clientes, empresas, garantías, adelantos o cualquier saldo que ThinkStore deba recuperar.',`${field('counterparty','Cliente / empresa','text','required')}${field('description','Concepto','text','required')}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${field('due_date','Fecha de vencimiento','date')}${field('reference','Referencia / orden')}`, 'Guardar por cobrar',async f=>finPost({action:'create_entry',entry_type:'receivable',...f,amount_usd:Number(f.amount_usd),status:'pending',metadata:{due_date:f.due_date}}));return;
+    }
+    if(type==='technician_commission'){openTechCommission();return}
+    const labels={expense:['Nuevo gasto','Registra para qué fue el gasto, quién lo pagó y por qué método.'],purchase:['Nueva compra','Compra de mercancía, repuestos, activos o insumos.']};const [title,sub]=labels[type]||['Nuevo movimiento','Registra el movimiento financiero.'];
+    modalShell(title,sub,`${select('entry_type','Tipo',[[type,typeLabel(type)],['fee','Comisión bancaria'],['warranty_cost','Costo de garantía'],['refund','Devolución a cliente']])}${select('category','Categoría',[['Operación','Operación'],['Inventario','Inventario / mercancía'],['Servicio Técnico','Servicio Técnico'],['Marketing','Marketing'],['Delivery','Delivery / logística'],['Alquiler','Alquiler'],['Servicios','Servicios / suscripciones'],['Mobiliario','Mobiliario / activos'],['Garantía','Garantía'],['Bancario','Bancario'],['Otro','Otro']])}${field('description','Detalle del gasto','text','required')}${field('counterparty','Proveedor / beneficiario')}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${select('funded_by','Quién lo pagó',[['company','Empresa'],['freddy','Freddy'],['nelson','Nelson']])}${select('payment_method','Método de pago',methodOptions)}${field('reference','Factura / referencia')}${field('occurred_at','Fecha y hora','datetime-local')}${field('notes','Observaciones')}`, 'Guardar movimiento',async f=>finPost({action:'create_entry',...f,amount_usd:Number(f.amount_usd),occurred_at:f.occurred_at?new Date(f.occurred_at).toISOString():undefined,status:'posted'}));
+  }
+  function openTechCommission(){
+    const orders=financeCache?.support_orders||[];const opts=orders.slice(0,120).map(o=>[String(o.id),`${o.code||'Orden'} · ${o.device_model||o.client_name||''} · ${fm(o.amount_paid||o.quote_amount)}`]);
+    if(!opts.length){alert('No hay órdenes de Servicio Técnico visibles todavía.');return}
+    const options=opts.map(([v,l])=>`<option value="${safe(v)}">${safe(l)}</option>`).join('');
+    modalShell('Comisión de técnico','Para microsoldadura u otros servicios elegibles: 50% sobre el valor NETO de mano de obra, después de repuestos y costos directos.',`<label>Orden de Servicio Técnico<select name="service_order_id" class="fin-service-order">${options}</select></label>${field('technician_name','Técnico')}${field('gross_service_amount','Valor cobrado del servicio USD','number','min="0.01" step="0.01" required')}${field('parts_cost','Costo de repuestos USD','number','min="0" step="0.01" value="0"')}${field('direct_cost','Otros costos directos USD','number','min="0" step="0.01" value="0"')}${field('rate_pct','Porcentaje técnico','number','min="0" max="100" step="0.01" value="50"')}${field('description','Detalle / microsoldadura')}`, 'Calcular y registrar',async f=>{const o=(financeCache.support_orders||[]).find(x=>String(x.id)===String(f.service_order_id))||{};return finPost({action:'create_technician_commission',...f,gross_service_amount:Number(f.gross_service_amount),parts_cost:Number(f.parts_cost||0),direct_cost:Number(f.direct_cost||0),rate_pct:Number(f.rate_pct||50),source_code:o.code,technician_email:o.assigned_technician_email,service_type:o.service_type,description:f.description||`Servicio ${o.code||''}`})});
+    setTimeout(()=>{const modal=document.querySelector('.fin-modal'),sel=modal?.querySelector('.fin-service-order'),gross=modal?.querySelector('[name="gross_service_amount"]'),parts=modal?.querySelector('[name="parts_cost"]'),tech=modal?.querySelector('[name="technician_name"]'),rate=modal?.querySelector('[name="rate_pct"]');const sync=()=>{const o=(financeCache.support_orders||[]).find(x=>String(x.id)===String(sel?.value));if(o){if(gross)gross.value=Number(o.amount_paid||o.quote_amount||0).toFixed(2);if(parts)parts.value=Number(o.parts_cost||0).toFixed(2);if(tech)tech.value=o.assigned_technician_email||'';if(rate)rate.value=Number(financeCache?.settings?.technician_pct||50).toFixed(2)}};sel?.addEventListener('change',sync);sync()},10);
+  }
+  async function collectReceivable(id,due){const amount=prompt(`Monto del abono (pendiente ${fm(due)}):`,Number(due||0).toFixed(2));if(amount===null)return;const method=prompt('Método de pago (Zelle, Pago Móvil, efectivo, transferencia…):','Zelle');if(method===null)return;try{await finPost({action:'collect_receivable',receivable_id:id,amount_usd:Number(amount),payment_method:method});}catch(e){alert(e.message||e)}}
+  async function payTech(id,due){const amount=prompt(`Monto a pagar al técnico (pendiente ${fm(due)}):`,Number(due||0).toFixed(2));if(amount===null)return;const method=prompt('Método de pago:','Pago Móvil');if(method===null)return;try{await finPost({action:'settle_technician_commission',commission_id:id,amount_usd:Number(amount),payment_method:method});}catch(e){alert(e.message||e)}}
+  async function closeWeek(){if(!financeCache)return;const rc=financeCache.reconciliation?.current,rd=financeCache.reconciliation?.totals?.difference;if(!rc||rc.status!=='closed'||(rd!==null&&Math.abs(Number(rd))>.01)){if(!confirm('La conciliación de caja no está cerrada o tiene una diferencia pendiente. ¿Deseas continuar de todos modos con el cierre semanal?'))return}if(!confirm(`Cerrar auditoría ${financeCache.period.start} → ${financeCache.period.end}?\n\nUtilidad distribuible: ${fm(financeCache.result.distributable)}\nEmpresa: ${fm(financeCache.result.company)}\nFreddy: ${fm(financeCache.result.freddy)}\nNelson: ${fm(financeCache.result.nelson)}\n\nUna semana cerrada queda guardada como fotografía de auditoría.`))return;const notes=prompt('Observación del cierre (opcional):','');try{await finPost({action:'close_week',notes:notes||''});alert('Semana cerrada y guardada en auditoría.')}catch(e){alert(e.message||e)}}
+
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-fin-new]');if(b)openEntryForm(b.dataset.finNew);const c=e.target.closest('[data-fin-collect]');if(c)collectReceivable(c.dataset.finCollect,c.dataset.finDue);const t=e.target.closest('[data-fin-pay-tech]');if(t)payTech(t.dataset.finPayTech,t.dataset.finDue);if(e.target.closest('[data-fin-save-recon]'))saveReconciliation(false);if(e.target.closest('[data-fin-close-recon]'))saveReconciliation(true);if(e.target.closest('[data-fin-close-week]'))closeWeek();if(e.target.closest('[data-fin-refresh]'))loadFinanceCenter(true)},true);
+  const prevSwitch=window.switchView||switchView;window.switchView=switchView=function(id){prevSwitch(id);if(id==='treasury'||id==='reconciliation'||id==='weeklyAudit')setTimeout(()=>loadFinanceCenter(false),30)};
+  const oldShow=showApp;showApp=function(){oldShow();setTimeout(()=>loadFinanceCenter(true),480)};
+  window.loadFinanceCenter=loadFinanceCenter;
 })();

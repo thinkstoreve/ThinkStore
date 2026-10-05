@@ -1,26 +1,22 @@
-/panel.html
-  Cache-Control: no-cache, no-store, must-revalidate
+/*
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
-/panel-login.html
-  Cache-Control: no-cache, no-store, must-revalidate
+/index.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
-/logo-thinkstore.png
-  Cache-Control: public, max-age=3600
+/app.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
-/supabase-config.js
-  Cache-Control: no-cache, must-revalidate
+/supabase.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
-/data.js
-  Cache-Control: no-cache, must-revalidate
+/sw.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Service-Worker-Allowed: /
 
-/ts-fx.js
-  Cache-Control: no-cache, must-revalidate
+/offline.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
-/growth-enterprise/index.html
-  Cache-Control: no-cache, no-store, must-revalidate
-
-/growth-enterprise/sw.js
-  Cache-Control: no-cache, no-store, must-revalidate
-
-/growth-enterprise/app.js
-  Cache-Control: no-cache, must-revalidate
+/recovery-v106.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Clear-Site-Data: "cache", "storage"

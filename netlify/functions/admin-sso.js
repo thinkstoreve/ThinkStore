@@ -5,7 +5,7 @@ const norm=v=>clean(v).toLowerCase().replace(/[ -]+/g,'_');
 const svc=k=>({apikey:k,Authorization:`Bearer ${k}`,'Content-Type':'application/json'});
 const out=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
 const ADMIN_ROLES=['admin','superadmin','super_admin','administrator','gerente'];
-const STATIC_PLATFORM_URLS={support:'https://soporte.thinkstore.com.ve/panel.html',inventory:'https://inventory.thinkstore.com.ve/',enterprise:'https://enterprise.thinkstore.com.ve/'};
+const STATIC_PLATFORM_URLS={support:'https://soporte.thinkstore.com.ve/panel.html',inventory:'https://inventory.thinkstore.com.ve/'};
 function trustedMainOrigin(event){
   const fallback=clean(process.env.THINKSTORE_MAIN_URL||'https://thinkstore.com.ve').replace(/\/+$/,'');
   const raw=clean(event.headers.origin||event.headers.Origin||event.headers.referer||event.headers.Referer);
@@ -18,7 +18,7 @@ function trustedMainOrigin(event){
 }
 function platformUrls(event){
   const base=trustedMainOrigin(event);
-  return {staff:`${base}/staff/`,support:STATIC_PLATFORM_URLS.support,inventory:STATIC_PLATFORM_URLS.inventory,enterprise:STATIC_PLATFORM_URLS.enterprise,marketing:`${base}/panel.html#marketing`,admin:`${base}/panel.html`};
+  return {staff:`${base}/staff/`,support:STATIC_PLATFORM_URLS.support,inventory:STATIC_PLATFORM_URLS.inventory,enterprise:`${base}/growth-enterprise/`,marketing:`${base}/panel.html#marketing`,admin:`${base}/panel.html`};
 }
 function normalizeRole(v){const r=norm(v);return r==='super_admin'?'superadmin':(r==='administrator'||r==='gerente'?'admin':r)}
 function overrides(p){const o=p?.permission_overrides&&typeof p.permission_overrides==='object'?p.permission_overrides:{};return{allow:Array.isArray(o.allow)?o.allow:[],deny:Array.isArray(o.deny)?o.deny:[]}}
@@ -47,7 +47,7 @@ async function magicLink(base,key,email,redirectTo){
 }
 
 async function directOtpUrl(base,key,email,targetUrl){
-  // SSO Enterprise V14.73: no depende del redirect_to/Site URL de Supabase.
+  // SSO Enterprise V14.77: abre growth-enterprise en el MISMO origen de Main.
   // Genera un token hash de un solo uso y Enterprise lo verifica en su propio origen.
   const r=await fetch(`${base}/auth/v1/admin/generate_link`,{
     method:'POST',headers:svc(key),body:JSON.stringify({type:'magiclink',email})
@@ -57,7 +57,7 @@ async function directOtpUrl(base,key,email,targetUrl){
   const u=new URL(targetUrl);
   u.searchParams.set('sso_token_hash',d.hashed_token);
   u.searchParams.set('sso_type',d.verification_type||'magiclink');
-  u.searchParams.set('sso_v','1473');
+  u.searchParams.set('sso_v','1477');
   return u.toString();
 }
 

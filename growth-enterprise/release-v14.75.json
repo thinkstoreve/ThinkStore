@@ -1,9 +1,0 @@
-{
-  "name": "ThinkStore Main",
-  "version": "14.75",
-  "base": "14.74",
-  "enterprise_version": "10.9",
-  "inventory_version": "3.2.30",
-  "support_version": "8.8.5",
-  "type": "final-ecosystem-finance-reconciliation"
-}

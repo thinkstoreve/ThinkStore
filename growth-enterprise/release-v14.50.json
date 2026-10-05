@@ -1,9 +1,0 @@
-{
-  "name": "ThinkStore Main",
-  "version": "14.50",
-  "base": "14.49",
-  "changes": [
-    "inventory-real-editor-opens-inventory-central",
-    "variant-deep-link"
-  ]
-}

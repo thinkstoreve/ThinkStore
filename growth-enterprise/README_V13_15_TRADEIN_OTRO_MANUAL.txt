@@ -1,1 +1,0 @@
-ThinkStore V13.15\n- La categoría Otro abre una pantalla de Evaluación manual dentro del cotizador.\n- Incluye opciones Usar en parte de pago y Vender mi equipo.\n- Flujo adaptado a ThinkStore Altamira, Caracas; sin direcciones de la referencia externa.\n
