@@ -1,0 +1,122 @@
+
+/* ThinkStore V13.72 · Hero limpio. SOLO portada; header/nav queda intacto. */
+.ts-v2-hero.ts-v2-hero18{
+  height:auto!important;min-height:620px!important;aspect-ratio:auto!important;
+  padding:72px max(30px,6.5vw) 84px!important;
+  display:flex!important;align-items:center!important;
+  background:
+    radial-gradient(circle at 73% 38%,rgba(83,126,194,.22),transparent 27%),
+    radial-gradient(circle at 86% 58%,rgba(142,36,75,.16),transparent 25%),
+    linear-gradient(105deg,#020711 0%,#071321 54%,#050a13 100%)!important;
+  overflow:hidden!important;
+}
+.ts-v2-hero18 .ts-v2-hero-bg{
+  background:
+    linear-gradient(90deg,rgba(2,7,17,.98) 0%,rgba(3,10,20,.92) 35%,rgba(4,12,23,.30) 58%,rgba(3,8,16,.08) 100%)!important;
+  z-index:2!important;pointer-events:none!important;
+}
+.ts-v2-hero18 .ts18-slides{z-index:1!important;inset:0!important}
+.ts-v2-hero18 .ts18-slide{
+  inset:0 0 0 auto!important;
+  width:61%!important;height:100%!important;
+  background-image:var(--ts18-img)!important;
+  background-size:contain!important;
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+  opacity:0!important;transform:translateX(18px) scale(.985)!important;
+  transition:opacity .9s ease,transform 1.15s cubic-bezier(.2,.7,.2,1)!important;
+}
+.ts-v2-hero18 .ts18-slide.active{opacity:1!important;transform:translateX(0) scale(1)!important}
+.ts-v2-hero18 .ts18-slide.ts18-lineup{
+  width:62%!important;
+  background-size:contain!important;
+  background-position:center right!important;
+}
+.ts-v2-hero18 .ts18-slide.ts18-color-slide{
+  width:48%!important;right:6%!important;
+  background-size:auto 88%!important;
+  background-position:center center!important;
+}
+.ts-v2-hero18 .ts-v2-hero-content.ts18-copy{
+  position:relative!important;z-index:5!important;
+  width:min(610px,46vw)!important;max-width:610px!important;
+  padding:0!important;margin:0!important;text-align:left!important;
+}
+.ts-v2-hero18 .ts-v2-kicker{
+  margin:0 0 16px!important;color:#dfe3e9!important;
+  font-size:12px!important;letter-spacing:.34em!important;font-weight:900!important
+}
+.ts-v2-hero18 h1{
+  margin:0 0 12px!important;color:#fff!important;
+  font-size:clamp(52px,5.8vw,82px)!important;line-height:.94!important;
+  letter-spacing:-.06em!important;max-width:610px!important;text-align:left!important
+}
+.ts-v2-hero18 p{
+  max-width:570px!important;margin:0 0 24px!important;
+  color:#d7dbe2!important;font-size:clamp(17px,1.45vw,22px)!important;
+  line-height:1.42!important;text-align:left!important
+}
+.ts-v2-hero18 .ts18-features{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  max-width:520px!important;gap:8px!important;margin:0 0 24px!important
+}
+.ts-v2-hero18 .ts18-features span{
+  padding:9px 11px!important;border-radius:12px!important;
+  background:rgba(255,255,255,.055)!important;
+  border:1px solid rgba(255,255,255,.11)!important;
+  backdrop-filter:blur(12px)!important
+}
+.ts-v2-hero18 .ts18-features b{font-size:11px!important}
+.ts-v2-hero18 .ts18-features small{font-size:9px!important}
+.ts-v2-hero18 .ts-v2-hero-actions{
+  display:flex!important;flex-direction:row!important;justify-content:flex-start!important;
+  gap:10px!important;margin:0!important
+}
+.ts-v2-hero18 .ts-v2-hero-actions .btn{
+  width:auto!important;min-height:46px!important;height:46px!important;
+  padding:0 20px!important;border-radius:999px!important;font-size:12px!important
+}
+.ts-v2-hero18 .ts18-colors{
+  margin-top:20px!important;gap:13px!important;font-size:10px!important
+}
+.ts-v2-hero18 .ts18-controls{
+  z-index:8!important;bottom:24px!important;left:max(20px,6.5vw)!important;right:max(20px,6.5vw)!important
+}
+.ts-v2-hero18 .ts18-dots button{background:rgba(255,255,255,.38)!important}
+.ts-v2-hero18 .ts18-dots button.active{background:#fff!important}
+@media(max-width:980px){
+  .ts-v2-hero.ts-v2-hero18{min-height:650px!important;padding:64px 28px 86px!important}
+  .ts-v2-hero18 .ts-v2-hero-content.ts18-copy{width:51vw!important}
+  .ts-v2-hero18 .ts18-slide{width:56%!important}
+  .ts-v2-hero18 .ts18-slide.ts18-color-slide{width:43%!important;right:3%!important}
+}
+@media(max-width:720px){
+  .ts-v2-hero.ts-v2-hero18{
+    min-height:790px!important;padding:54px 20px 80px!important;align-items:flex-start!important
+  }
+  .ts-v2-hero18 .ts-v2-hero-bg{
+    background:linear-gradient(180deg,rgba(2,7,17,.98) 0%,rgba(2,7,17,.90) 44%,rgba(2,7,17,.20) 69%,rgba(2,7,17,.48) 100%)!important
+  }
+  .ts-v2-hero18 .ts-v2-hero-content.ts18-copy{width:100%!important;max-width:100%!important}
+  .ts-v2-hero18 h1{font-size:clamp(46px,13vw,68px)!important}
+  .ts-v2-hero18 .ts18-slide,.ts-v2-hero18 .ts18-slide.ts18-lineup{
+    width:100%!important;height:48%!important;top:auto!important;bottom:42px!important;
+    background-position:center bottom!important;background-size:contain!important
+  }
+  .ts-v2-hero18 .ts18-slide.ts18-color-slide{
+    width:100%!important;right:0!important;height:46%!important;top:auto!important;bottom:42px!important;
+    background-size:auto 100%!important
+  }
+  .ts-v2-hero18 .ts18-features{max-width:100%!important}
+  .ts-v2-hero18 .ts-v2-hero-actions{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important}
+  .ts-v2-hero18 .ts-v2-hero-actions .btn{width:100%!important;padding:0 12px!important}
+  .ts-v2-hero18 .ts18-colors{display:none!important}
+}
+@media(max-width:480px){
+  .ts-v2-hero.ts-v2-hero18{min-height:820px!important}
+  .ts-v2-hero18 .ts18-features{grid-template-columns:1fr 1fr!important}
+  .ts-v2-hero18 .ts-v2-hero-actions{grid-template-columns:1fr!important;width:min(100%,360px)!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .ts-v2-hero18 .ts18-slide{transition:opacity .25s linear!important;transform:none!important}
+}

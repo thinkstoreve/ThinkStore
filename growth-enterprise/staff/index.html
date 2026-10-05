@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0f0f10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ThinkStore Staff">
+<meta name="robots" content="noindex,nofollow">
+<title>ThinkStore Staff</title>
+<link rel="stylesheet" href="app.css?v=14.3.0">
+</head>
+<body>
+<div id="boot" class="boot"><div class="boot-logo"><img src="../logo-thinkstore.png" alt="ThinkStore"></div><span>Cargando ThinkStore Staff…</span></div>
+
+<section id="loginScreen" class="login-screen hidden" aria-label="Inicio de sesión ThinkStore Staff">
+  <div class="login-card">
+    <div class="login-brand"><img src="../logo-thinkstore.png" alt="ThinkStore"><div><b>ThinkStore</b><span>Staff</span></div></div>
+    <div class="eyebrow">APP INTERNA</div>
+    <h1>Tu tienda, en tu mano.</h1>
+    <p class="login-copy">Inicia sesión con la cuenta interna que te asignó ThinkStore. Tu rol y permisos se cargarán automáticamente.</p>
+    <form id="loginForm" class="login-form">
+      <label>Correo<input id="loginEmail" type="email" autocomplete="username" placeholder="nombre@thinkstore.com.ve" required></label>
+      <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
+      <button id="loginButton" class="primary wide" type="submit">Iniciar sesión</button>
+    </form>
+    <button id="forgotButton" class="link-button" type="button">¿Olvidaste tu contraseña?</button>
+    <div id="loginMessage" class="form-message" hidden></div>
+    <div class="private-note">Acceso exclusivo para empleados, administradores y socios autorizados de ThinkStore.</div>
+  </div>
+</section>
+
+<div id="appShell" class="app-shell hidden">
+  <aside class="sidebar">
+    <a class="side-brand" href="/staff/" aria-label="ThinkStore Staff"><img src="../logo-thinkstore.png" alt=""><div><b>ThinkStore</b><span>Staff</span></div></a>
+    <nav class="side-nav">
+      <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><span>Inicio</span></button>
+      <button class="nav-item" data-view="sell" id="sellNav"><span class="nav-icon">▣</span><span>Vender</span></button>
+      <button class="nav-item" data-view="sales"><span class="nav-icon">↗</span><span>Ventas</span></button>
+      <button class="nav-item" data-view="account"><span class="nav-icon">◎</span><span>Cuenta</span></button>
+    </nav>
+    <div class="side-footer"><a href="../panel.html">Abrir panel completo</a><small>ThinkStore · uso interno</small></div>
+  </aside>
+
+  <main class="app-main">
+    <header class="app-header">
+      <div class="header-copy"><span id="headerContext">Inicio</span><b id="headerTitle">ThinkStore Staff</b></div>
+      <button class="identity" id="identityButton" data-view="account" type="button"><span id="topAvatar" class="avatar">TS</span><span class="identity-copy"><b id="topName">Usuario</b><small id="topRole">Rol</small></span></button>
+    </header>
+
+    <section id="view-home" class="view active">
+      <div class="home-hero">
+        <div><span class="eyebrow">THINKSTORE STAFF</span><h1 id="welcomeTitle">Hola.</h1><p id="welcomeText">Tu operación diaria, organizada en un solo lugar.</p></div>
+        <button id="heroSellButton" class="hero-action" data-view="sell" type="button">Nueva venta <span>→</span></button>
+      </div>
+      <div class="metric-grid">
+        <article class="metric-card"><span>Ventas hoy</span><b id="metricSales">0</b><small>operaciones registradas</small></article>
+        <article class="metric-card"><span>Total vendido</span><b id="metricTotal">$0.00</b><small>ventas presenciales</small></article>
+        <article class="metric-card"><span>Por verificar</span><b id="metricPending">0</b><small>pagos pendientes</small></article>
+      </div>
+      <div class="home-grid">
+        <article class="panel-card quick-sale">
+          <div class="panel-heading"><div><span class="eyebrow">ACCESO RÁPIDO</span><h2>Vender en tienda</h2></div><span class="soft-icon">▣</span></div>
+          <p>Busca un producto, selecciona la variante disponible y registra el pago sin salir de la app.</p>
+          <button class="primary" data-view="sell" type="button">Abrir tienda interna</button>
+        </article>
+        <article class="panel-card">
+          <div class="panel-heading"><div><span class="eyebrow">SESIÓN</span><h2 id="roleCardTitle">Tu rol</h2></div><span id="roleBadge" class="role-badge">—</span></div>
+          <p id="roleCardText">Tus módulos se muestran según los permisos asignados por el administrador.</p>
+          <a href="../panel.html" class="secondary-link">Ir al panel administrativo →</a>
+        </article>
+      </div>
+      <article class="panel-card recent-block"><div class="section-head"><div><span class="eyebrow">ACTIVIDAD</span><h2>Ventas recientes</h2></div><button class="text-action" data-view="sales" type="button">Ver todas</button></div><div id="homeRecentSales" class="sales-list"></div></article>
+    </section>
+
+    <section id="view-sell" class="view">
+      <div class="section-head sell-heading"><div><span class="eyebrow">PUNTO DE VENTA</span><h1>Tienda interna</h1><p>Catálogo y stock real de ThinkStore.</p></div><button id="cartButton" class="cart-button" type="button"><span>Carrito</span><b id="cartCount">0</b></button></div>
+      <div id="sellDenied" class="permission-card hidden"><div class="soft-icon">⌁</div><h2>Tu rol no tiene permiso de ventas</h2><p>Pide a un Administrador o Socio Administrador que agregue el permiso <b>Ventas</b> a tu cuenta.</p></div>
+      <div id="storeArea">
+        <div class="store-toolbar"><div class="search-box"><span>⌕</span><input id="productSearch" type="search" placeholder="Buscar productos, color, capacidad…"></div><button id="refreshStore" class="icon-button" type="button" title="Actualizar">↻</button></div>
+        <div class="barcode-sale-box" id="barcodeSaleBox">
+          <div class="barcode-sale-icon">▥</div>
+          <div class="barcode-sale-copy"><b>Escanear para añadir</b><small>Lee una etiqueta TSP, TSU, SKU, serial o IMEI. Un lector USB/Bluetooth puede escribir aquí y enviar Enter.</small></div>
+          <form id="barcodeScanForm" class="barcode-scan-form"><input id="barcodeScanInput" autocomplete="off" inputmode="none" placeholder="Escanea el código…"><button class="primary" type="submit">Añadir</button></form>
+        </div>
+        <div id="categoryChips" class="category-chips"></div>
+        <div id="productGrid" class="product-grid"></div>
+      </div>
+    </section>
+
+    <section id="view-sales" class="view">
+      <div class="section-head"><div><span class="eyebrow">HISTORIAL</span><h1>Ventas</h1><p id="salesScopeText">Tus ventas presenciales recientes.</p></div><button id="refreshSales" class="icon-button" type="button">↻</button></div>
+      <div id="salesList" class="sales-list full"></div>
+    </section>
+
+    <section id="view-account" class="view">
+      <div class="account-card">
+        <span id="accountAvatar" class="account-avatar">TS</span>
+        <h1 id="accountName">Usuario</h1><p id="accountEmail">correo</p><span id="accountRole" class="role-badge">Rol</span>
+      </div>
+      <div class="account-grid">
+        <article class="panel-card"><div class="section-head"><div><span class="eyebrow">ACCESO</span><h2>Permisos activos</h2></div></div><div id="permissions" class="permission-list"></div></article>
+        <article class="panel-card"><div class="section-head"><div><span class="eyebrow">APP</span><h2>ThinkStore Staff</h2></div></div><p>Instálala en tu pantalla de inicio para usarla como una app independiente.</p><button id="installButton" class="secondary" type="button">Instalar app</button><a class="account-link" href="../panel.html">Abrir panel completo <span>→</span></a><button id="logoutButton" class="danger-link" type="button">Cerrar sesión</button></article>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navegación">
+    <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><small>Inicio</small></button>
+    <button class="nav-item" data-view="sell" id="sellBottomNav"><span class="nav-icon">▣</span><small>Vender</small></button>
+    <button class="nav-item" data-view="sales"><span class="nav-icon">↗</span><small>Ventas</small></button>
+    <button class="nav-item" data-view="account"><span class="nav-icon">◎</span><small>Cuenta</small></button>
+  </nav>
+</div>
+
+<div id="productModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="productModal"></div><div class="sheet product-sheet"><button class="sheet-close" data-close="productModal" type="button">×</button><div id="productModalBody"></div></div></div>
+<div id="cartDrawer" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="cartDrawer"></div><div class="sheet cart-sheet"><div class="sheet-head"><div><span class="eyebrow">VENTA ACTUAL</span><h2>Carrito</h2></div><button class="sheet-close static" data-close="cartDrawer" type="button">×</button></div><div id="cartItems" class="cart-items"></div><div class="cart-total"><span>Total</span><b id="cartTotal">$0.00</b></div><button id="checkoutButton" class="primary wide" type="button">Continuar al cobro</button></div></div>
+<div id="checkoutModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="checkoutModal"></div><div class="sheet checkout-sheet"><div class="sheet-head"><div><span class="eyebrow">CHECKOUT</span><h2>Completar venta</h2></div><button class="sheet-close static" data-close="checkoutModal" type="button">×</button></div><form id="checkoutForm"><div class="form-section"><h3>Cliente</h3><div class="form-grid"><label>Nombre y apellido<input id="customerName" required></label><label>Correo<input id="customerEmail" type="email" required></label><label>Cédula / RIF<input id="customerDocument" required></label><label>Teléfono<input id="customerPhone" required></label><label class="span2">Dirección<input id="customerAddress" required value="Retiro en tienda ThinkStore"></label><label>Ciudad<input id="customerCity" value="Caracas"></label><label>Estado<input id="customerState" value="Distrito Capital"></label></div></div><div class="form-section"><h3>Pago</h3><div id="paymentChoices" class="choice-grid"><button type="button" class="choice active" data-payment="Efectivo USD">Efectivo USD</button><button type="button" class="choice" data-payment="Pago Móvil">Pago Móvil</button><button type="button" class="choice" data-payment="Zelle">Zelle</button></div><label id="paymentRefWrap" class="hidden">Referencia de pago<input id="paymentRef"></label><div id="paymentFx" class="fx-box hidden"></div></div><div class="form-section"><h3>Entrega</h3><div class="form-grid"><label>Forma de entrega<select id="deliveryMethod"><option>Retiro en tienda</option><option>Delivery</option><option>Envío nacional</option></select></label><label id="shippingWrap" class="hidden">Empresa<select id="shippingCompany"><option>MRW</option><option>Zoom</option><option>TEALCA</option></select></label><label>Descuento<select id="discountType"><option value="usd">Monto USD</option><option value="percent">Porcentaje %</option></select></label><label>Valor<input id="discountValue" type="number" min="0" step="0.01" value="0"></label><label class="span2">Motivo del descuento<input id="discountReason" placeholder="Opcional"></label><label class="span2">Nota de venta<textarea id="saleNote" placeholder="Observación interna opcional"></textarea></label></div></div><div class="checkout-summary"><div><span>Subtotal</span><b id="checkoutSubtotal">$0.00</b></div><div><span>Descuento</span><b id="checkoutDiscount">-$0.00</b></div><div class="grand"><span>Total</span><b id="checkoutTotal">$0.00</b></div></div><div class="checkout-actions"><button id="holdSaleButton" class="secondary" type="button">Guardar en espera</button><button id="confirmSaleButton" class="primary" type="submit">Cobrar y confirmar</button></div></form></div></div>
+<div id="successModal" class="success-modal hidden"><div class="success-card"><div class="success-check">✓</div><span class="eyebrow">VENTA REGISTRADA</span><h2>Todo listo.</h2><p id="successMessage">La venta fue registrada correctamente.</p><div class="success-actions"><button id="newSaleButton" class="primary" type="button">Nueva venta</button><button class="secondary" data-view="sales" type="button">Ver ventas</button></div></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../data.js"></script>
+<script src="../ts-fx.js?v=13.64"></script>
+<script src="app.js?v=14.3.0"></script>
+</body>
+</html>

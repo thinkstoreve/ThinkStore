@@ -1,0 +1,11 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.64",
+  "base": "14.63",
+  "type": "legacy-admin-access-fix",
+  "fixes": [
+    "legacy-admin-is-internal-compatibility",
+    "legacy-staff-listing",
+    "superadmin-invite-access"
+  ]
+}

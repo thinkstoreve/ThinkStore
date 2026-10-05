@@ -1,0 +1,1 @@
+Se reemplazaron los iconos de Compra por categoría por SVG lineales estilo Apple Store, sin usar archivos oficiales de Apple.

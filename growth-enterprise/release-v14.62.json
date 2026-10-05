@@ -1,0 +1,14 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.62",
+  "base": "14.61",
+  "type": "staff-access-management",
+  "changes": [
+    "equipo-y-accesos-module",
+    "app-ventas-explicit-access-toggle",
+    "staff-access-permission",
+    "invite-with-app-ventas-access",
+    "staff-login-enforcement",
+    "password-flow-explained"
+  ]
+}

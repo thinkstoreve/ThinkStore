@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0f0f10">
+  <title>Panel ThinkStore | Iniciar sesión</title>
+  <style>
+    :root{--ink:#111113;--muted:#6e6e73;--line:#d9d9de;--soft:#f5f5f7;--blue:#1d1d1f}
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;background:#fff;color:var(--ink)}
+    body{min-height:100vh;display:flex;flex-direction:column;animation:pageIn .45s cubic-bezier(.22,.7,.2,1) both}
+    .top{height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(22px,5vw,72px);border-bottom:1px solid #f0f0f2;background:rgba(255,255,255,.94);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+    .brand{display:inline-flex;align-items:center;gap:11px;text-decoration:none;color:inherit}.brand img{width:40px;height:40px;object-fit:contain;border-radius:11px}.brand strong{font-size:19px;letter-spacing:-.4px}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+    .private-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #e4e4e8;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:720;color:#4a4a50;background:#fafafa}
+    main{flex:1;display:grid;place-items:center;padding:48px 22px 64px}.shell{width:min(470px,100%)}
+    .logo-wrap{display:grid;place-items:center;margin-bottom:50px}.logo-wrap img{width:84px;height:84px;object-fit:contain;border-radius:24px;box-shadow:0 12px 34px rgba(0,0,0,.07)}
+    .eyebrow{margin:0 0 12px;color:#8a8a91;font-size:12px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
+    h1{font-size:34px;line-height:1.07;letter-spacing:-1.25px;margin:0 0 10px;font-weight:780}.sub{font-size:15px;line-height:1.55;color:var(--muted);margin:0 0 28px}
+    .panel{display:none}.panel.active{display:block;animation:panelIn .25s ease-out both}
+    .field{position:relative;margin-bottom:14px}.field input{width:100%;height:58px;border:1.5px solid var(--line);border-radius:14px;padding:0 48px 0 16px;font-size:16px;outline:none;background:#fff;transition:border-color .18s,box-shadow .18s}.field input:focus{border-color:#77777f;box-shadow:0 0 0 4px rgba(0,0,0,.055)}.field .arrow{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:24px;color:#2d2d32;pointer-events:none}
+    .primary{width:100%;height:56px;border:0;border-radius:14px;background:#111113;color:#fff;font-size:16px;font-weight:760;cursor:pointer;transition:transform .16s,filter .16s}.primary:hover{filter:brightness(1.13)}.primary:active{transform:scale(.992)}.primary:disabled{opacity:.56;cursor:wait}
+    .secondary{width:100%;height:52px;border:1.5px solid #d9d9df;border-radius:14px;background:#fff;color:#222226;font-size:15px;font-weight:690;cursor:pointer}.secondary:hover{background:#fafafa}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px}.link{border:0;background:none;padding:0;color:#333339;text-decoration:underline;text-underline-offset:3px;font-size:14px;cursor:pointer}
+    .divider{display:flex;align-items:center;gap:12px;margin:24px 0;color:#929298;font-size:12px}.divider:before,.divider:after{content:"";height:1px;background:#ececf0;flex:1}
+    .status{display:none;margin:14px 0 0;padding:12px 14px;border-radius:12px;font-size:13px;line-height:1.45}.status.show{display:block}.status.ok{background:#effaf3;color:#176b37}.status.err{background:#fff1f1;color:#a52828}
+    .security{margin-top:24px;padding:14px 16px;border:1px solid #ececf0;border-radius:14px;background:#fafafa;color:#6f6f76;font-size:12px;line-height:1.55}.security b{color:#2e2e33}
+    .foot{padding:18px 20px 28px;text-align:center;font-size:12px;color:#7b7b81}.foot a{color:inherit;text-underline-offset:3px}
+    .back{display:inline-flex;align-items:center;gap:7px;color:#333;text-decoration:none;font-size:13px;font-weight:650}.back:before{content:'←';font-size:16px}
+    @keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@keyframes panelIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+    @media(max-width:640px){.top{height:66px;padding:0 18px}.brand small,.private-pill span{display:none}.logo-wrap{margin-bottom:40px}.logo-wrap img{width:74px;height:74px}.private-pill{padding:8px}.shell{width:100%}main{padding-top:34px}h1{font-size:31px}}
+    @media(prefers-reduced-motion:reduce){body,.panel.active{animation:none!important}}
+  </style>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="index.html" aria-label="ThinkStore"><img src="assets/logo-thinkstore.png" onerror="this.src='logo-thinkstore.png'" alt="ThinkStore"><div><strong>ThinkStore</strong><small>Panel privado</small></div></a>
+    <div class="private-pill" aria-label="Acceso privado">🔒 <span>Acceso privado</span></div>
+  </header>
+  <main>
+    <section class="shell">
+      <div class="logo-wrap"><img src="assets/logo-thinkstore.png" onerror="this.src='logo-thinkstore.png'" alt="ThinkStore"></div>
+
+      <section id="loginPanel" class="panel active">
+        <p class="eyebrow">Panel ThinkStore</p>
+        <h1>Iniciar sesión</h1>
+        <p class="sub">Accede a tu espacio de administración con tu cuenta autorizada de ThinkStore.</p>
+        <form id="loginForm">
+          <div class="field"><input id="email" type="email" autocomplete="email" placeholder="Correo electrónico" required><span class="arrow">→</span></div>
+          <div class="field"><input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required></div>
+          <button id="loginBtn" class="primary" type="submit">Continuar al panel</button>
+        </form>
+        <div id="loginStatus" class="status" aria-live="polite"></div>
+        <div class="row"><button class="link" type="button" data-view="forgot">¿Olvidaste tu contraseña?</button><a class="back" href="index.html">Volver a la tienda</a></div>
+        <div class="security"><b>Acceso protegido.</b> El panel valida tu sesión y permisos en Supabase antes de mostrar los módulos habilitados para tu rol.</div>
+      </section>
+
+      <section id="forgotPanel" class="panel">
+        <p class="eyebrow">Recuperación segura</p>
+        <h1>Recuperar contraseña</h1>
+        <p class="sub">Te enviaremos un enlace seguro al correo asociado a tu cuenta del panel.</p>
+        <form id="forgotForm">
+          <div class="field"><input id="forgotEmail" type="email" autocomplete="email" placeholder="Correo electrónico" required><span class="arrow">→</span></div>
+          <button id="forgotBtn" class="primary" type="submit">Enviar enlace</button>
+        </form>
+        <div id="forgotStatus" class="status" aria-live="polite"></div>
+        <div class="divider">o</div>
+        <button class="secondary" type="button" data-view="login">Volver a iniciar sesión</button>
+      </section>
+
+      <section id="recoveryPanel" class="panel">
+        <p class="eyebrow">Nueva contraseña</p>
+        <h1>Crea tu contraseña</h1>
+        <p class="sub">Define una contraseña segura y personal para acceder al panel interno de ThinkStore.</p>
+        <form id="recoveryForm">
+          <div class="field"><input id="newPassword" type="password" minlength="8" autocomplete="new-password" placeholder="Nueva contraseña" required></div>
+          <button id="recoveryBtn" class="primary" type="submit">Guardar y entrar</button>
+        </form>
+        <div id="recoveryStatus" class="status" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+  <footer class="foot">ThinkStore.com.ve · Acceso interno seguro</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script>
+  (()=>{
+    const $=id=>document.getElementById(id);
+    const cfg=window.THINKSTORE_SUPABASE||{};
+    const sb=(window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY)?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
+    const LS_USER='ts_current_user';
+    const params=new URLSearchParams(location.search);
+    const invite=String(params.get('invite')||'').trim().toLowerCase();
+    const requestedNext=String(params.get('next')||'panel.html');
+    const forceReauth=params.get('reauth')==='1';
+    const normalizeRole=v=>{const raw=String(v||'cliente').trim().toLowerCase().replace(/\s+/g,'_').replace(/-/g,'_');return ({super_admin:'superadmin',superadministrator:'superadmin',super_administrator:'superadmin',administrator:'admin',gerente:'admin',tech:'tecnico',technical:'tecnico',seller:'vendedor',sales:'vendedor',ventas:'vendedor'}[raw]||raw)};
+    function safeNext(){try{const u=new URL(requestedNext,location.href);if(u.origin!==location.origin)return 'panel.html';if(!/(?:\/panel\.html|\/sso-entry\.html)$/i.test(u.pathname))return 'panel.html';return u.pathname.split('/').pop()+(u.search||'')+(u.hash||'')}catch(e){return 'panel.html'}}
+    function show(view){['login','forgot','recovery'].forEach(v=>$(v+'Panel')?.classList.toggle('active',v===view));const q=new URLSearchParams();if(view!=='login')q.set('view',view);if(requestedNext!=='panel.html')q.set('next',requestedNext);if(invite)q.set('invite',invite);if(forceReauth)q.set('reauth','1');history.replaceState(null,'','panel-login.html'+(q.toString()?'?'+q.toString():''));}
+    function status(id,msg,type='err'){const el=$(id);if(!el)return;el.textContent=msg;el.className='status show '+type;}
+    async function profileFor(authUser){if(!authUser?.id)return null;let r=await sb.from('profiles').select('*').eq('id',authUser.id).maybeSingle();if(r.error)throw r.error;if(r.data)return r.data;const email=String(authUser.email||'').trim().toLowerCase();if(!email)return null;r=await sb.from('profiles').select('*').eq('email',email).maybeSingle();if(!r.error&&r.data)return r.data;r=await sb.from('profiles').select('*').eq('correo',email).maybeSingle();if(r.error)throw r.error;return r.data||null;}
+    async function cachePanelUser(authUser){const p=await profileFor(authUser);if(!p)return {ok:false,reason:'Tu cuenta no tiene un perfil interno autorizado.'};const active=(p.active??p.activo??true)!==false;if(!active)return {ok:false,reason:'Esta cuenta está desactivada. Contacta a un Super Admin.'};const role=normalizeRole(p.role||p.rol||'cliente');const u={id:authUser.id,email:p.email||p.correo||authUser.email||'',name:p.full_name||p.nombre||p.name||authUser.user_metadata?.name||String(authUser.email||'Usuario').split('@')[0],role,rol:role,source:'supabase'};localStorage.setItem(LS_USER,JSON.stringify(u));return {ok:true,user:u};}
+    document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.view)));
+    if(invite){$('email').value=invite;status('loginStatus','Invitación detectada. Ingresa la contraseña de tu cuenta para continuar.','ok');}
+    const initial=params.get('view');if(initial&&['forgot','recovery'].includes(initial))show(initial);
+    if(!sb){status('loginStatus','No se pudo cargar la conexión segura con Supabase.','err');return;}
+    if(forceReauth){
+      status('loginStatus','Por seguridad, vuelve a ingresar tu contraseña para autorizar cambios de usuarios.','ok');
+      localStorage.removeItem(LS_USER);
+      sb.auth.signOut({scope:'local'}).catch(()=>{});
+    }
+
+    $('loginForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('loginBtn');btn.disabled=true;status('loginStatus','Verificando acceso…','ok');try{const email=$('email').value.trim().toLowerCase();const {data,error}=await sb.auth.signInWithPassword({email,password:$('password').value});if(error)throw error;const cached=await cachePanelUser(data.user);if(!cached.ok){await sb.auth.signOut();localStorage.removeItem(LS_USER);throw new Error(cached.reason)}status('loginStatus','Acceso autorizado. Abriendo tu panel…','ok');setTimeout(()=>location.replace(safeNext()),220);}catch(err){const msg=String(err?.message||err||'');status('loginStatus',/invalid login credentials/i.test(msg)?'Correo o contraseña incorrectos.':msg||'No se pudo iniciar sesión.','err');btn.disabled=false;}});
+
+    $('forgotForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('forgotBtn');btn.disabled=true;try{const site=(cfg.SITE_URL||location.origin).replace(/\/$/,'');const {error}=await sb.auth.resetPasswordForEmail($('forgotEmail').value.trim().toLowerCase(),{redirectTo:site+'/panel-login.html?view=recovery'});if(error)throw error;status('forgotStatus','Listo. Revisa tu correo para continuar.','ok');}catch(err){status('forgotStatus',err.message||'No se pudo enviar el enlace.','err');}finally{btn.disabled=false;}});
+
+    $('recoveryForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('recoveryBtn');btn.disabled=true;try{const {error}=await sb.auth.updateUser({password:$('newPassword').value});if(error)throw error;status('recoveryStatus','Contraseña actualizada. Abriendo tu panel…','ok');const {data}=await sb.auth.getUser();if(data?.user){const cached=await cachePanelUser(data.user);if(cached.ok){setTimeout(()=>location.replace(safeNext()),500);return;}}setTimeout(()=>show('login'),850);}catch(err){status('recoveryStatus',err.message||'No se pudo actualizar la contraseña.','err');btn.disabled=false;}});
+
+    sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')show('recovery');});
+    sb.auth.getSession().then(async({data})=>{if(params.get('view')||forceReauth)return;const authUser=data?.session?.user;if(!authUser)return;try{const cached=await cachePanelUser(authUser);if(cached.ok)location.replace(safeNext());}catch(e){console.warn('Panel login session:',e)}});
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.55",
+  "base": "14.54",
+  "type": "hotfix-full",
+  "fixes": [
+    "admin-panel-boot-syntax-error",
+    "service-worker-registration-moved-to-real-document-body",
+    "all-inline-panel-scripts-validated",
+    "panel-boot-watchdog"
+  ]
+}

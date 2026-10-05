@@ -1,0 +1,1 @@
+Corrección: se aplicó la V2 visual a los selectores reales de Productos Destacados, incluyendo #v2FeaturedProducts y grids reales.

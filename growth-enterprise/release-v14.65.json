@@ -1,0 +1,12 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.65",
+  "base": "14.64",
+  "type": "profiles-role-check-fix",
+  "fixes": [
+    "canonical-superadmin-db-role",
+    "profiles-role-check-compatible",
+    "legacy-super_admin-read-compatible",
+    "internal-invite-superadmin-fix"
+  ]
+}

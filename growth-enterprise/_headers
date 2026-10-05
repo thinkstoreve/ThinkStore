@@ -1,11 +1,26 @@
-/index.html
+/panel.html
   Cache-Control: no-cache, no-store, must-revalidate
 
-/sw.js
+/panel-login.html
   Cache-Control: no-cache, no-store, must-revalidate
 
-/app.js
+/logo-thinkstore.png
+  Cache-Control: public, max-age=3600
+
+/supabase-config.js
   Cache-Control: no-cache, must-revalidate
 
-/supabase.js
+/data.js
+  Cache-Control: no-cache, must-revalidate
+
+/ts-fx.js
+  Cache-Control: no-cache, must-revalidate
+
+/growth-enterprise/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/growth-enterprise/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/growth-enterprise/app.js
   Cache-Control: no-cache, must-revalidate

@@ -1,0 +1,15 @@
+{
+  "name": "ThinkStore Main",
+  "version": "14.58",
+  "base": "14.57",
+  "type": "hotfix-full",
+  "fixes": [
+    "embedded-official-logo",
+    "non-blocking-panel-boot",
+    "bounded-session-restore",
+    "bounded-permissions",
+    "watchdog-8s",
+    "netlify-no-cache",
+    "pwa-cache-v14-58"
+  ]
+}
