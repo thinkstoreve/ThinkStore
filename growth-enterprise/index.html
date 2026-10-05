@@ -9,8 +9,8 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <!-- V10.6: PWA deshabilitado para evitar caché offline -->
 <meta name="theme-color" content="#0f0f10">
-  <title>ThinkStore Growth Enterprise</title>
-  <meta name="thinkstore-enterprise-build" content="10.11-finanzas-visibles" />
+  <title>ThinkStore Enterprise</title>
+  <meta name="thinkstore-enterprise-build" content="10.12-libro-financiero" />
   <meta name="thinkstore-build" content="10.9-finanzas-conciliacion">
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -25,7 +25,7 @@
 .ts-clean-nav .ts-nav-icon{margin-left:0!important;margin-right:0!important;}
 @media (max-width:900px){.ts-clean-nav{column-gap:14px!important;}}
 </style>
-<script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.11-finanzas-visibles";</script>
+<script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.12-libro-financiero";</script>
 </head>
 <body>
 
@@ -42,7 +42,7 @@
     <div class="lock-card">
       <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" class="lock-logo" />
       <span class="pill">Acceso privado · Supabase Auth</span>
-      <h1>Growth Enterprise</h1>
+      <h1>Enterprise</h1>
       <p>Panel ejecutivo para ventas, inventario, clientes, marketing, finanzas, reportes, integraciones y automatizaciones de ThinkStore.</p>
       <a class="enterprise-sso-btn" href="/sso-entry.html?platform=enterprise">Ingresar con ThinkStore</a>
       <div class="enterprise-login-divider"><span>o acceso directo</span></div>
@@ -60,43 +60,17 @@
     <aside class="sidebar">
       <div class="brand">
         <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
-        <span>Growth Enterprise</span>
+        <span>Enterprise</span>
       </div>
 
-      <nav class="nav-list" aria-label="Módulos Growth Enterprise">
-        <button class="nav active" data-view="executive"><i>▦</i>Panel Ejecutivo</button>
-        <button class="nav" data-view="weekly"><i>▥</i>Resumen semanal</button>
-        <button class="nav" data-view="operations"><i>🌎</i>Centro Operaciones</button>
-        <button class="nav" data-view="mobile"><i>📱</i>Mobile/PWA</button>
-        <button class="nav" data-view="commercial"><i>🏪</i>Control Comercial</button>
-        <button class="nav" data-view="sales"><i>🛒</i>Ventas</button>
-        <button class="nav" data-view="products"><i>⬡</i>Productos</button>
-        <button class="nav" data-view="inventory"><i>▣</i>Inventario Pro</button>
-        <button class="nav" data-view="clients"><i>♙</i>CRM Clientes</button>
-        <button class="nav" data-view="staff"><i>👥</i>Accesos</button>
-        <button class="nav" data-view="marketing"><i>📣</i>Marketing Center</button>
-        <div class="nav-section-label">FINANZAS CENTRALES</div>
-        <button class="nav" data-view="finance"><i>$</i>Finanzas Pro</button>
-        <button class="nav" data-view="financeAdvanced"><i>💰</i>Finanzas Avanzadas</button>
-        <button class="nav" data-view="treasury"><i>🏦</i>Tesorería & Socios</button>
-        <button class="nav" data-view="reconciliation"><i>≋</i>Conciliación de caja</button>
-        <button class="nav" data-view="weeklyAudit"><i>✓</i>Auditoría semanal</button>
-        <button class="nav" data-view="reports"><i>▥</i>Inteligencia Comercial</button>
-        <button class="nav" data-view="ai"><i>🤖</i>ThinkStore AI</button>
-        <button class="nav" data-view="support"><i>🔧</i>Centro de Soporte</button>
-        <button class="nav" data-view="client360"><i>👤</i>Cliente 360</button>
-        <button class="nav" data-view="warranties"><i>🛡</i>Garantías</button>
-        <button class="nav" data-view="alerts"><i>⚠️</i>Alertas</button>
-        <button class="nav" data-view="integrations"><i>✣</i>Integraciones</button>
-        <button class="nav" data-view="automations"><i>⚙</i>Automatizaciones</button>
-        <button class="nav" data-view="settings"><i>⚙</i>Configuración</button>
+      <nav class="nav-list" aria-label="Enterprise ThinkStore">
+        <div class="nav-group-title">CONTROL</div>
+        <button class="nav active" data-view="executive"><span class="nav-mark"></span><span><b>Resumen</b><small>Estado financiero</small></span></button>
+        <button class="nav" data-view="treasury"><span class="nav-mark"></span><span><b>Tesorería & Socios</b><small>Dinero, gastos y deudas</small></span></button>
+        <button class="nav" data-view="operations"><span class="nav-mark"></span><span><b>Operación</b><small>Ventas, stock y soporte</small></span></button>
+        <button class="nav" data-view="reconciliation"><span class="nav-mark"></span><span><b>Conciliación</b><small>Caja y métodos de pago</small></span></button>
+        <button class="nav" data-view="weeklyAudit"><span class="nav-mark"></span><span><b>Auditoría semanal</b><small>Cierre y reparto</small></span></button>
       </nav>
-
-      <div class="plan-card">
-        <div class="crown">♛</div>
-        <div><b>Plan Enterprise</b><span><em></em> Activo</span></div>
-        <strong>›</strong>
-      </div>
 
       <div class="admin-card">
         <div class="avatar">A</div>
@@ -109,66 +83,27 @@
       <header class="topbar">
         <div class="title-block">
           <p>Bienvenido, <span id="welcomeName">Administrador</span></p>
-          <h1 id="pageTitle">Panel Ejecutivo</h1>
-          <small id="pageSubtitle">Resumen general de tu negocio en tiempo real.</small>
+          <h1 id="pageTitle">Resumen</h1>
+          <small id="pageSubtitle">Libro financiero central de ThinkStore.</small>
         </div>
 
         <div class="top-actions">
-          <label class="search"><i>⌕</i><input id="searchInput" type="search" placeholder="Buscar en ThinkStore..." /></label>
-          <button class="icon-btn" title="Notificaciones">♧<b>3</b></button>
-          <button class="icon-btn" title="Ayuda">?</button>
-          <button class="logout" id="logoutBtn">⇥ Salir</button>
-          <button class="date-btn">▣ 22 May - 22 Jun, 2025⌄</button>
+          <span class="live-badge"><i></i> Datos reales</span>
+          <button class="refresh-btn" id="refreshEnterpriseBtn" type="button">Actualizar</button>
+          <button class="logout" id="logoutBtn">Salir</button>
         </div>
       </header>
 
       <section id="executive" class="view active">
-        <div class="metric-grid">
-          <article class="metric"><div class="icon purple">$</div><span>Ventas del mes</span><strong id="metricSalesMonth">Cargando...</strong><small class="up" id="metricSalesNote">Lectura segura desde Supabase</small><button>⋮</button></article>
-          <article class="metric"><div class="icon green">▢</div><span>Pedidos totales</span><strong id="metricOrdersTotal">Cargando...</strong><small class="up" id="metricOrdersNote">Pedidos reales</small><button>⋮</button></article>
-          <article class="metric"><div class="icon orange">♟</div><span>Clientes registrados</span><strong id="metricCustomersTotal">Cargando...</strong><small class="up" id="metricCustomersNote">Clientes reales</small><button>⋮</button></article>
-          <article class="metric"><div class="icon blue">⌁</div><span>Pagos por revisar</span><strong id="metricPendingPayments">Cargando...</strong><small class="up" id="metricPendingNote">Validación pendiente</small><button>⋮</button></article>
-        </div>
-
-        <section id="enterpriseWeeklySummary" class="enterprise-weekly-home"></section>
+        <article class="finance-hero panel">
+          <div>
+            <span class="finance-kicker">LIBRO FINANCIERO CENTRAL</span>
+            <h2>Una sola lectura de ThinkStore</h2>
+            <p>Ventas, costos, Servicio Técnico, gastos, socios, caja y utilidad real de la semana.</p>
+          </div>
+          <div class="finance-hero-status"><span>Actualización</span><b id="enterpriseLastSync">En vivo</b></div>
+        </article>
         <section id="enterpriseFinanceQuick" class="enterprise-finance-home"></section>
-
-        <div class="main-grid">
-          <article class="panel chart-panel">
-            <div class="panel-head"><h3>Crecimiento de Ventas</h3><button>Mensual⌄</button></div>
-            <div class="sales-chart">
-              <div class="y-axis"><span>$150K</span><span>$120K</span><span>$90K</span><span>$60K</span><span>$30K</span><span>$0</span></div>
-              <svg viewBox="0 0 760 290" preserveAspectRatio="none" aria-label="Gráfico de crecimiento">
-                <defs><linearGradient id="lineFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2f7cff" stop-opacity=".78"/><stop offset="1" stop-color="#2f7cff" stop-opacity=".08"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="4" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-                <path class="gridline" d="M0 35H760M0 85H760M0 135H760M0 185H760M0 235H760"/>
-                <path class="area" d="M0 250 C60 248 75 230 120 228 S200 225 240 202 S320 170 380 186 S450 154 505 145 S575 120 620 72 S700 46 760 22 L760 290 L0 290Z"/>
-                <path class="line" d="M0 250 C60 248 75 230 120 228 S200 225 240 202 S320 170 380 186 S450 154 505 145 S575 120 620 72 S700 46 760 22"/>
-                <circle cx="760" cy="22" r="7" class="dot"/>
-              </svg>
-              <div class="months"><span>Ene</span><span>Feb</span><span>Mar</span><span>Abr</span><span>May</span><span>Jun</span></div>
-              <div class="tooltip">Enterprise V1<br><b id="chartTooltipValue">Leyendo datos reales</b></div>
-            </div>
-          </article>
-
-          <article class="panel activity">
-            <div class="panel-head"><h3>Resumen de Actividades</h3><a href="#">Ver todas</a></div>
-            <div class="activity-list" id="activityList"></div>
-          </article>
-        </div>
-
-        <div class="bottom-grid">
-          <article class="panel top-products"><div class="panel-head"><h3>Top Productos</h3><a>Ver todos</a></div><div id="topProducts"></div></article>
-          <article class="panel channels"><h3>Canales de Venta</h3><div class="donut-wrap"><div class="donut"><b>62%</b><span>Tienda Online</span></div><ul id="channelList"></ul></div><a>Ver reporte</a></article>
-          <article class="panel store-status"><div class="panel-head"><h3>Estado de la Tienda</h3><span class="status-pill">● Todo en orden</span></div><div id="statusList"></div></article>
-        </div>
-
-        <div class="strip-grid">
-          <article><div class="icon purple">$</div><span>Ingresos registrados</span><b id="stripRevenue">Cargando...</b><small class="up">Solo lectura</small></article>
-          <article><div class="icon indigo">📣</div><span>Correos / Resend</span><b>Intacto</b><small class="up">No se modifica</small></article>
-          <article><div class="icon teal">⌁</div><span>Clientes</span><b id="stripCustomers">Cargando...</b><small class="up">Registro real</small></article>
-          <article><div class="icon violet">🛒</div><span>Pedidos</span><b id="stripOrders">Cargando...</b><small class="up">Supabase</small></article>
-          <article><div class="icon purple">◇</div><span>Comprobantes</span><b id="stripPayments">Cargando...</b><small class="up">Sin alterar validación</small></article>
-        </div>
       </section>
 
       <section id="weekly" class="view module-view"></section>

@@ -1,5 +1,5 @@
 const titles = {
-  executive:["Panel Ejecutivo","Resumen general de tu negocio en tiempo real."],
+  executive:["Resumen","Libro financiero central de ThinkStore con datos reales."],
   weekly:["Resumen semanal","Ventas online y presenciales, Servicio Técnico, citas, cobros, entregas y reparto 50/25/25."],
   commercial:["Control Comercial ThinkStore","Ventas, clientes, inventario, pagos, notas de entrega y correos con datos reales."],
   sales:["Ventas","Pedidos, ingresos, canales y rendimiento comercial."],
@@ -2267,30 +2267,26 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
   }
 
   function renderV9Operations(data){
-    const el = qs('operations'); if(!el) return;
-    const profiles = v9BuildCustomerProfiles(data);
-    const topCustomers = profiles.slice(0,6).map(c=>`<div class="table-row v9-row"><div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')} · ${c.last ? c.last.toLocaleDateString('es-VE') : 'Sin fecha'}</small></div><span>${formatUSD(c.total)}</span><i class="tag">${v9SegmentCustomer(c)}</i></div>`).join('');
-    const alerts = [
-      ['Pagos pendientes', `${data.pendingPayments}`, 'Comprobantes o pedidos por revisar', data.pendingPayments ? 'warn':'ok', 'finance'],
-      ['Pedidos pendientes', `${data.pendingOrders}`, 'Órdenes sin cierre operativo', data.pendingOrders ? 'warn':'ok', 'sales'],
-      ['Stock crítico', `${data.lowStock}`, 'Productos con 2 unidades o menos', data.lowStock ? 'bad':'ok', 'inventory'],
-      ['Soporte abierto', `${data.supportOpen}`, 'Equipos en proceso técnico', data.supportOpen ? 'warn':'ok', 'support'],
-      ['Equipos listos', `${data.supportReady}`, 'Oportunidad de entrega', data.supportReady ? 'info':'ok', 'support'],
-      ['Preórdenes abiertas', `${data.preordersOpen}`, 'Control de entregas futuras', data.preordersOpen ? 'info':'ok', 'commercial']
-    ].map(([t,v,d,k,view])=>`<div class="table-row v9-row"><div><b>${safe(t)}</b><br><small>${safe(d)}</small></div><span class="status-dot ${k}">${safe(v)}</span><button class="mini-action" onclick="switchView('${view}')">Abrir</button></div>`).join('');
-    const recentOrders = data.orders.slice(0,8).map(o=>`<div class="table-row v9-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span class="status-dot ${v9StatusKind(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
-    el.innerHTML = `
-      <article class="panel v9-hero"><div class="panel-head"><h3>Centro de Operaciones ThinkStore</h3><span class="tag safe-tag">V9 · ecosistema conectado</span></div><p class="staff-help">Vista única con datos reales. Pedidos, clientes y soporte permiten acciones autorizadas; pagos, inventario y Resend conservan sus flujos oficiales.</p><div class="v2-toolbar"><button onclick="loadEnterpriseV9()">Actualizar ecosistema</button>${v9ActionButton('Abrir CRM','clients')}${v9ActionButton('Abrir Soporte','support')}</div></article>
-      <div class="module-grid control-cards">
-        <article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(data.salesMonth)}</strong><p>${formatNumber(data.orders.length)} pedidos visibles.</p></article>
-        <article class="module-card"><h3>Clientes 360</h3><strong>${formatNumber(profiles.length)}</strong><p>Clientes cruzados con pedidos y soporte.</p></article>
-        <article class="module-card"><h3>Soporte abierto</h3><strong>${formatNumber(data.supportOpen)}</strong><p>Fuente: ${safe(data.tables.support || 'pendiente')}</p></article>
-        <article class="module-card"><h3>Alertas críticas</h3><strong>${formatNumber(data.pendingPayments + data.lowStock + data.supportDelayed)}</strong><p>Pagos, stock y soporte.</p></article>
-        <article class="module-card"><h3>Preórdenes</h3><strong>${formatNumber(data.preordersOpen)}</strong><p>Seguimiento ejecutivo.</p></article>
-        <article class="module-card"><h3>PWA móvil</h3><strong>Lista</strong><p>Instalable en iPhone, iPad y Android.</p></article>
+    const el=qs('operations'); if(!el) return;
+    const profiles=v9BuildCustomerProfiles(data);
+    const recentOrders=data.orders.slice(0,8).map(o=>`<div class="ops-row"><div><b>${safe(v2OrderCode(o))}</b><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span>${safe(v2OrderStatus(o))}</span><strong>${formatUSD(orderTotal(o))}</strong></div>`).join('')||'<div class="fin-empty">Sin pedidos visibles.</div>';
+    el.innerHTML=`<article class="ops-hero panel"><div><span>OPERACIÓN</span><h2>Lo que está pasando hoy</h2><p>Una vista única de ventas, inventario, clientes y Servicio Técnico. Sin duplicar módulos.</p></div><button onclick="loadEnterpriseV9()">Actualizar</button></article>
+      <div class="ops-kpis">
+        <article><span>Ventas del mes</span><b>${formatUSD(data.salesMonth)}</b><small>${formatNumber(data.orders.length)} pedidos visibles</small></article>
+        <article><span>Stock crítico</span><b>${formatNumber(data.lowStock+data.outOfStock)}</b><small>${formatNumber(data.outOfStock)} agotados</small></article>
+        <article><span>Soporte abierto</span><b>${formatNumber(data.supportOpen)}</b><small>${formatNumber(data.supportReady)} listos para entregar</small></article>
+        <article><span>Clientes</span><b>${formatNumber(profiles.length)}</b><small>Compras + soporte conectados</small></article>
       </div>
-      <div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Alertas prioritarias</h3><span class="tag">V9</span></div><div class="table">${alerts}</div></article><article class="panel"><div class="panel-head"><h3>Top clientes 360</h3></div><div class="table">${v9AsRows([topCustomers].filter(Boolean),'Sin clientes para cruzar')}</div></article></div>
-      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Pedidos recientes del ecosistema</h3><span class="tag">Datos reales</span></div><div class="table">${v9AsRows([recentOrders].filter(Boolean),'Sin pedidos visibles')}</div></article>`;
+      <div class="book-two-col ops-grid">
+        <article class="panel"><div class="section-head"><div><span>VENTAS</span><h3>Pedidos recientes</h3></div></div><div class="ops-table">${recentOrders}</div></article>
+        <article class="panel"><div class="section-head"><div><span>PRIORIDADES</span><h3>Atención operativa</h3></div></div><div class="priority-list">
+          <div><span>Pagos por revisar</span><b>${formatNumber(data.pendingPayments)}</b></div>
+          <div><span>Pedidos pendientes</span><b>${formatNumber(data.pendingOrders)}</b></div>
+          <div><span>Stock crítico</span><b>${formatNumber(data.lowStock)}</b></div>
+          <div><span>Soporte retrasado</span><b>${formatNumber(data.supportDelayed)}</b></div>
+          <div><span>Preórdenes abiertas</span><b>${formatNumber(data.preordersOpen)}</b></div>
+        </div></article>
+      </div>`;
   }
 
   function renderV9Mobile(data){
@@ -3062,20 +3058,44 @@ function renderV9RealMarketing(data){
     const el=qs('enterpriseFinanceQuick');if(!el)return;
     const recon=d.reconciliation?.current||{};
     const reconDiff=d.reconciliation?.totals?.difference;
-    const reconLabel=recon.status==='closed'?(reconDiff!==null&&Math.abs(Number(reconDiff))>.01?'Cerrada con diferencia':'Conciliada'):(recon.status==='review'?'En revisión':'Pendiente');
-    el.innerHTML=`<article class="panel fin-home-shell">
-      <div class="panel-head"><div><span class="fin-home-kicker">CONTROL FINANCIERO · ${safe(d.period?.start)} → ${safe(d.period?.end)}</span><h3>Tesorería, socios y cierre semanal</h3></div><button onclick="switchView('treasury')">Abrir Tesorería</button></div>
-      <div class="fin-home-grid">
-        <button class="fin-home-card" onclick="switchView('treasury')"><span>Empresa debe a Freddy</span><b>${fm(d.partners?.freddy?.balance)}</b><small>Aportes + gastos + compras pagadas por Freddy</small></button>
-        <button class="fin-home-card" onclick="switchView('treasury')"><span>Empresa debe a Nelson</span><b>${fm(d.partners?.nelson?.balance)}</b><small>Aportes + gastos + compras pagadas por Nelson</small></button>
-        <button class="fin-home-card" onclick="switchView('treasury')"><span>Pendiente por cobrar</span><b>${fm(d.receivables?.total)}</b><small>Tienda + Servicio Técnico + cuentas manuales</small></button>
-        <button class="fin-home-card" onclick="switchView('treasury')"><span>Técnicos por pagar</span><b>${fm(d.technicians?.pending_total)}</b><small>Comisiones pendientes de servicios elegibles</small></button>
-        <button class="fin-home-card accent" onclick="switchView('weeklyAudit')"><span>Utilidad distribuible</span><b>${fm(d.result?.distributable)}</b><small>50% empresa · 25% Freddy · 25% Nelson</small></button>
-        <button class="fin-home-card" onclick="switchView('reconciliation')"><span>Conciliación de caja</span><b>${safe(reconLabel)}</b><small>${reconDiff===null?'Carga saldos reales por método':`Diferencia ${fm(reconDiff)}`}</small></button>
+    const reconLabel=recon.status==='closed'?(reconDiff!==null&&Math.abs(Number(reconDiff))>.01?'Con diferencia':'Conciliada'):(recon.status==='review'?'En revisión':'Pendiente');
+    const outflows=Number(d.outflows?.store_cogs||0)+Number(d.outflows?.support_parts||0)+Number(d.outflows?.support_direct||0)+Number(d.outflows?.operating_expenses||0)+Number(d.outflows?.technician_commissions||0);
+    const sync=qs('enterpriseLastSync');if(sync)sync.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});
+    el.innerHTML=`<section class="book-summary">
+      <div class="book-kpis">
+        <article class="book-kpi"><span>Cobrado esta semana</span><b>${fm(d.collections?.gross)}</b><small>Tienda + Servicio Técnico + otros ingresos</small></article>
+        <article class="book-kpi"><span>Costos y salidas de utilidad</span><b>${fm(outflows)}</b><small>COGS + soporte + gastos + comisión técnica</small></article>
+        <article class="book-kpi primary"><span>Utilidad distribuible</span><b>${fm(d.result?.distributable)}</b><small>${d.result?.loss_carry>0?`Pérdida por compensar ${fm(d.result.loss_carry)}`:'Después de costos reales'}</small></article>
+        <article class="book-kpi"><span>Conciliación</span><b>${safe(reconLabel)}</b><small>${reconDiff===null?'Aún sin cierre de caja':`Diferencia ${fm(reconDiff)}`}</small></article>
       </div>
-      <div class="fin-home-actions"><button onclick="switchView('treasury')">Tesorería & Socios</button><button onclick="switchView('reconciliation')">Conciliar caja</button><button onclick="switchView('weeklyAudit')">Auditoría semanal</button></div>
-      <p class="fin-quality">${safe(quality(d))}</p>
-    </article>`;
+      <article class="book-formula panel">
+        <div class="formula-head"><div><span>RESULTADO SEMANAL</span><h3>Cómo se obtiene la utilidad</h3></div><button onclick="switchView('weeklyAudit')">Ver auditoría</button></div>
+        <div class="formula-grid">
+          <div><span>Ventas cobradas</span><b>${fm(d.collections?.shop)}</b></div><i>+</i>
+          <div><span>Servicio Técnico</span><b>${fm(d.collections?.support)}</b></div><i>+</i>
+          <div><span>Otros ingresos</span><b>${fm(d.collections?.other)}</b></div><i>−</i>
+          <div><span>COGS tienda</span><b>${fm(d.outflows?.store_cogs)}</b></div><i>−</i>
+          <div><span>Repuestos + directos</span><b>${fm(Number(d.outflows?.support_parts||0)+Number(d.outflows?.support_direct||0))}</b></div><i>−</i>
+          <div><span>Gastos + técnico</span><b>${fm(Number(d.outflows?.operating_expenses||0)+Number(d.outflows?.technician_commissions||0))}</b></div><i>=</i>
+          <div class="formula-total"><span>Distribuible</span><b>${fm(d.result?.distributable)}</b></div>
+        </div>
+      </article>
+      <div class="book-two-col">
+        <article class="panel book-partners"><div class="section-head"><div><span>SOCIOS</span><h3>Deuda de la empresa</h3></div><button onclick="switchView('treasury')">Gestionar</button></div>
+          <div class="partner-lines"><div><span>ThinkStore debe a Freddy</span><b>${fm(d.partners?.freddy?.balance)}</b></div><div><span>ThinkStore debe a Nelson</span><b>${fm(d.partners?.nelson?.balance)}</b></div></div>
+        </article>
+        <article class="panel book-split"><div class="section-head"><div><span>REPARTO</span><h3>Solo sobre utilidad distribuible</h3></div></div>
+          <div class="split-lines"><div><span>ThinkStore · ${Number(d.settings?.company_pct||50)}%</span><b>${fm(d.result?.company)}</b></div><div><span>Freddy · ${Number(d.settings?.freddy_pct||25)}%</span><b>${fm(d.result?.freddy)}</b></div><div><span>Nelson · ${Number(d.settings?.nelson_pct||25)}%</span><b>${fm(d.result?.nelson)}</b></div></div>
+        </article>
+      </div>
+      <div class="book-status-row">
+        <button onclick="switchView('treasury')"><span>Pendiente por cobrar</span><b>${fm(d.receivables?.total)}</b></button>
+        <button onclick="switchView('treasury')"><span>Técnicos por pagar</span><b>${fm(d.technicians?.pending_total)}</b></button>
+        <button onclick="switchView('operations')"><span>Inventario a costo</span><b>${fm(d.inventory?.stock_value_cost)}</b></button>
+        <button onclick="switchView('reconciliation')"><span>Caja</span><b>${safe(reconLabel)}</b></button>
+      </div>
+      <p class="book-quality">${safe(quality(d))}</p>
+    </section>`;
   }
   function renderTreasury(d){
     const el=qs('treasury');if(!el)return;
@@ -3186,4 +3206,10 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
   const prevSwitch=window.switchView||switchView;window.switchView=switchView=function(id){prevSwitch(id);if(id==='treasury'||id==='reconciliation'||id==='weeklyAudit')setTimeout(()=>loadFinanceCenter(false),30)};
   const oldShow=showApp;showApp=function(){oldShow();setTimeout(()=>loadFinanceCenter(true),480)};
   window.loadFinanceCenter=loadFinanceCenter;
+})();
+
+/* V10.12 · navegación limpia y actualización única */
+(function(){
+  const btn=document.getElementById('refreshEnterpriseBtn');
+  if(btn){btn.addEventListener('click',async()=>{btn.disabled=true;btn.textContent='Actualizando…';try{await Promise.allSettled([window.loadFinanceCenter?.(true),window.loadEnterpriseV9?.(),window.loadEnterpriseWeeklySummary?.(true)]);const s=document.getElementById('enterpriseLastSync');if(s)s.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});}finally{btn.disabled=false;btn.textContent='Actualizar';}})}
 })();
