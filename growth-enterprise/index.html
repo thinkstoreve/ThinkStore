@@ -10,7 +10,7 @@
 <!-- V10.6: PWA deshabilitado para evitar caché offline -->
 <meta name="theme-color" content="#0f0f10">
   <title>ThinkStore Growth Enterprise</title>
-  <meta name="thinkstore-enterprise-build" content="10.10-integrated" />
+  <meta name="thinkstore-enterprise-build" content="10.11-finanzas-visibles" />
   <meta name="thinkstore-build" content="10.9-finanzas-conciliacion">
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -25,7 +25,7 @@
 .ts-clean-nav .ts-nav-icon{margin-left:0!important;margin-right:0!important;}
 @media (max-width:900px){.ts-clean-nav{column-gap:14px!important;}}
 </style>
-<script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.10-integrated";</script>
+<script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.11-finanzas-visibles";</script>
 </head>
 <body>
 
@@ -44,7 +44,7 @@
       <span class="pill">Acceso privado · Supabase Auth</span>
       <h1>Growth Enterprise</h1>
       <p>Panel ejecutivo para ventas, inventario, clientes, marketing, finanzas, reportes, integraciones y automatizaciones de ThinkStore.</p>
-      <a class="enterprise-sso-btn" href="https://thinkstore.com.ve/sso-entry.html?platform=enterprise">Ingresar con ThinkStore</a>
+      <a class="enterprise-sso-btn" href="/sso-entry.html?platform=enterprise">Ingresar con ThinkStore</a>
       <div class="enterprise-login-divider"><span>o acceso directo</span></div>
       <form id="loginForm" class="login-form">
         <input id="adminEmail" type="email" placeholder="Correo ThinkStore" autocomplete="email" required />
@@ -75,6 +75,7 @@
         <button class="nav" data-view="clients"><i>♙</i>CRM Clientes</button>
         <button class="nav" data-view="staff"><i>👥</i>Accesos</button>
         <button class="nav" data-view="marketing"><i>📣</i>Marketing Center</button>
+        <div class="nav-section-label">FINANZAS CENTRALES</div>
         <button class="nav" data-view="finance"><i>$</i>Finanzas Pro</button>
         <button class="nav" data-view="financeAdvanced"><i>💰</i>Finanzas Avanzadas</button>
         <button class="nav" data-view="treasury"><i>🏦</i>Tesorería & Socios</button>
@@ -130,6 +131,7 @@
         </div>
 
         <section id="enterpriseWeeklySummary" class="enterprise-weekly-home"></section>
+        <section id="enterpriseFinanceQuick" class="enterprise-finance-home"></section>
 
         <div class="main-grid">
           <article class="panel chart-panel">

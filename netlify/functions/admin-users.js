@@ -58,16 +58,49 @@ exports.handler=async(event)=>{
     }
     const uiRole=normalizeUiRole(dbRole);
     if(!INTERNAL_UI_ROLES.includes(uiRole))return out(400,{ok:false,error:'Selecciona un rol interno válido'});
+    if(viewer.role!=='superadmin'&&['admin','superadmin'].includes(uiRole))return out(403,{ok:false,error:'Solo Super Admin puede invitar Administradores o Super Admin'});
     const platformAccess=cleanPlatformAccess(body.platform_access,uiRole);
     permissionOverrides=applyPlatformAccessToOverrides(permissionOverrides,platformAccess,uiRole);
     const resend=process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY;
     if(!resend)return out(503,{ok:false,error:'Falta configurar RESEND_API_KEY en Netlify'});
-    const site=(process.env.THINKSTORE_SITE_URL||'https://thinkstore.com.ve').replace(/\/$/,'');
+    const requestOrigin=clean(event.headers.origin||event.headers.Origin||'',500);
+    const site=((/^https?:\/\//i.test(requestOrigin)?requestOrigin:'')||process.env.THINKSTORE_SITE_URL||process.env.URL||'https://thinkstore.com.ve').replace(/\/$/,'');
     const redirectTo=`${site}/panel-login.html?view=recovery`;
 
     const existing=await findProfileByEmail(url,service,email);
-    if(existing&&isInternalProfile(existing))return out(409,{ok:false,error:'Ese correo ya pertenece a un usuario interno'});
-    if(existing&&!isInternalProfile(existing))return out(409,{ok:false,error:'Ese correo ya está registrado como cliente. Usa otro correo interno o cambia su acceso manualmente.'});
+    if(existing&&isInternalProfile(existing))return out(409,{ok:false,code:'INTERNAL_USER_EXISTS',error:'Ese correo ya pertenece a un usuario interno'});
+    if(existing&&!isInternalProfile(existing)&&body.promote_existing!==true){
+      return out(409,{
+        ok:false,
+        code:'CLIENT_EXISTS_PROMOTABLE',
+        error:'Ese correo ya está registrado como cliente. Puedes conservar su misma cuenta y promoverlo a usuario interno.',
+        existing_client:true,
+        client:{id:existing.id,email:existing.email||existing.correo||email,name:existing.full_name||existing.nombre||fullName}
+      });
+    }
+
+    // Cliente ya existente: conservar la misma cuenta Auth, pedidos e historial y
+    // convertir únicamente su perfil en usuario interno autorizado.
+    if(existing&&!isInternalProfile(existing)&&body.promote_existing===true){
+      const userId=existing.id;
+      if(!userId)return out(409,{ok:false,error:'El cliente existe pero su perfil no tiene un identificador válido'});
+      const promotedName=fullName||existing.full_name||existing.nombre||email.split('@')[0];
+      try{
+        const authUpdate=await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,{method:'PUT',headers:svc(service),body:JSON.stringify({user_metadata:{full_name:promotedName,thinkstore_internal:true},app_metadata:{thinkstore_role:dbRole,thinkstore_internal:true,thinkstore_platforms:enabledPlatformKeys(platformAccess),inventory_role:(uiRole==='superadmin'||uiRole==='admin')?'super_admin':(platformAccess.inventory?.enabled?(platformAccess.inventory.role||'viewer'):null)}})});
+        if(!authUpdate.ok)throw detailError('No se pudo habilitar la cuenta existente',await authUpdate.text());
+        const promotedProfile=await createInternalProfile(url,service,{id:userId,email,fullName:promotedName,dbRole,custom,invitedBy:viewer.user_id,permissionOverrides,schemaHint:viewer.profile,origin:'client_promoted'});
+        const sync=await syncPlatformProfiles({url,service,userId,email,fullName:promotedName,uiRole,permissionOverrides});
+        const actionLink=`${site}/panel-login.html?invite=${encodeURIComponent(email)}&promoted=1`;
+        let inviteSent=true,inviteWarning='';
+        try{
+          await sendInternalInvitation({resend,to:email,fullName:promotedName,roleLabel:customRole?.name||roleLabel(uiRole),actionLink,site,staffAccess:effectiveStaffAccess(uiRole,permissionOverrides),platforms:platformAccess,existingAccount:true});
+        }catch(mailErr){inviteSent=false;inviteWarning=mailErr?.message||'No se pudo enviar el correo';}
+        await auditServer(url,service,viewer,'cliente_promovido_usuario_interno',`${promotedName} · ${email} · ${customRole?.name||roleLabel(uiRole)} · ${enabledPlatformKeys(platformAccess).join(', ')}`);
+        return out(200,{ok:true,profile:promotedProfile,promoted_existing:true,invite_sent:inviteSent,invite_warning:inviteWarning,platforms:platformAccess,platform_sync:sync});
+      }catch(err){
+        return out(502,{ok:false,error:err?.message||'No se pudo promover la cuenta existente',details:err?.detail||''});
+      }
+    }
 
     // No enviamos `role` en user_metadata durante generate_link. El trigger histórico
     // handle_new_user() copia ese valor directamente a profiles.role y distintas
@@ -253,17 +286,21 @@ async function effectiveAccess(profile,url,service){
   return{user_id:profile.id,base_role:base,custom_role_key:customKey,role_name:roleName,permissions,permission_overrides:over,platforms:platformsFromProfile(profile)};
 }
 function platformEmailLabel(key){return({staff:'App Ventas',support:'Servicio Técnico',inventory:'Inventory',enterprise:'Enterprise',marketing:'Marketing',admin:'Panel Admin'})[key]||key}
-function invitationHtml({fullName,roleLabelText,actionLink,site,staffAccess=false,platforms={}}){
+function invitationHtml({fullName,roleLabelText,actionLink,site,staffAccess=false,platforms={},existingAccount=false}){
   const logo=`${site}/assets/thinkstore-email-logo.jpg`;
   const enabled=enabledPlatformKeys(platforms);
   const chips=enabled.map(k=>`<span style="display:inline-block;margin:0 7px 8px 0;padding:8px 12px;border-radius:999px;background:#f2f2f4;color:#111114;font-size:12px;font-weight:800">${esc(platformEmailLabel(k))}</span>`).join('');
-  return `<!doctype html><html lang="es"><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111114"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f7;padding:34px 16px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border:1px solid #e5e5e7;border-radius:30px;overflow:hidden"><tr><td style="background:#0b0b0d;padding:30px 42px"><img src="${esc(logo)}" alt="ThinkStore" style="display:block;width:165px;max-width:60%;height:auto;filter:brightness(0) invert(1)"><div style="margin-top:20px;font-size:11px;letter-spacing:2.3px;text-transform:uppercase;color:#9da0a8;font-weight:800">ThinkStore Admin · Acceso unificado</div></td></tr><tr><td style="padding:40px 42px"><h1 style="font-size:34px;line-height:1.1;margin:0 0 12px;color:#111114">Tu acceso a ThinkStore</h1><p style="font-size:17px;line-height:1.6;color:#606068;margin:0 0 20px">Hola <b style="color:#111114">${esc(fullName)}</b>. Has sido invitado al equipo interno con el rol <b style="color:#111114">${esc(roleLabelText)}</b>.</p><div style="background:#f7f7f8;border-radius:20px;padding:20px;margin:22px 0"><div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#7b7b83;font-weight:800;margin-bottom:12px">Plataformas asignadas</div>${chips||'<span style="color:#777">Acceso interno según permisos asignados.</span>'}<p style="font-size:14px;color:#5f5f67;line-height:1.6;margin:12px 0 0">Usarás <b>un solo correo y una sola contraseña</b> para tus accesos ThinkStore. Desde el Panel podrás abrir las plataformas que tengas autorizadas.</p></div><div style="background:#eef6ff;border:1px solid #d7e9ff;border-radius:18px;padding:17px;margin:20px 0"><b style="display:block;margin-bottom:6px">Seguridad</b><span style="font-size:13px;line-height:1.55;color:#4b5d73">No se creó una contraseña temporal. Tú definirás tu contraseña privada y el administrador nunca podrá verla.</span></div><a href="${esc(actionLink)}" style="display:inline-block;background:#111114;color:#fff;text-decoration:none;padding:15px 25px;border-radius:999px;font-weight:800">Crear mi contraseña</a><p style="font-size:13px;line-height:1.6;color:#8a8a92;margin:28px 0 0">Correo enviado por ThinkStore Admin. Si no esperabas esta invitación, puedes ignorarlo.</p></td></tr></table></td></tr></table></body></html>`
+  const security=existingAccount
+    ? 'Tu cuenta de cliente existente fue habilitada también como cuenta interna. Conservas tu historial, pedidos y la contraseña que ya utilizas.'
+    : 'No se creó una contraseña temporal. Tú definirás tu contraseña privada y el administrador nunca podrá verla.';
+  const button=existingAccount?'Entrar a ThinkStore':'Crear mi contraseña';
+  return `<!doctype html><html lang="es"><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111114"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f7;padding:34px 16px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border:1px solid #e5e5e7;border-radius:30px;overflow:hidden"><tr><td style="background:#0b0b0d;padding:30px 42px"><img src="${esc(logo)}" alt="ThinkStore" style="display:block;width:165px;max-width:60%;height:auto;filter:brightness(0) invert(1)"><div style="margin-top:20px;font-size:11px;letter-spacing:2.3px;text-transform:uppercase;color:#9da0a8;font-weight:800">ThinkStore Admin · Acceso unificado</div></td></tr><tr><td style="padding:40px 42px"><h1 style="font-size:34px;line-height:1.1;margin:0 0 12px;color:#111114">Tu acceso a ThinkStore</h1><p style="font-size:17px;line-height:1.6;color:#606068;margin:0 0 20px">Hola <b style="color:#111114">${esc(fullName)}</b>. ${existingAccount?'Tu cuenta existente ahora tiene acceso al equipo interno':'Has sido invitado al equipo interno'} con el rol <b style="color:#111114">${esc(roleLabelText)}</b>.</p><div style="background:#f7f7f8;border-radius:20px;padding:20px;margin:22px 0"><div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#7b7b83;font-weight:800;margin-bottom:12px">Plataformas asignadas</div>${chips||'<span style="color:#777">Acceso interno según permisos asignados.</span>'}<p style="font-size:14px;color:#5f5f67;line-height:1.6;margin:12px 0 0">Usarás <b>un solo correo y una sola contraseña</b> para tus accesos ThinkStore. Desde el Panel podrás abrir las plataformas que tengas autorizadas.</p></div><div style="background:#eef6ff;border:1px solid #d7e9ff;border-radius:18px;padding:17px;margin:20px 0"><b style="display:block;margin-bottom:6px">Seguridad</b><span style="font-size:13px;line-height:1.55;color:#4b5d73">${esc(security)}</span></div><a href="${esc(actionLink)}" style="display:inline-block;background:#111114;color:#fff;text-decoration:none;padding:15px 25px;border-radius:999px;font-weight:800">${button}</a><p style="font-size:13px;line-height:1.6;color:#8a8a92;margin:28px 0 0">Correo enviado por ThinkStore Admin. Si no esperabas esta invitación, puedes ignorarlo.</p></td></tr></table></td></tr></table></body></html>`
 }
-async function sendInternalInvitation({resend,to,fullName,roleLabel:roleLabelText,actionLink,site,staffAccess=false,platforms={}}){
+async function sendInternalInvitation({resend,to,fullName,roleLabel:roleLabelText,actionLink,site,staffAccess=false,platforms={},existingAccount=false}){
   const from=process.env.FROM_ADMIN_EMAIL||process.env.FROM_ACCESS_EMAIL||'ThinkStore Admin <admin@thinkstore.com.ve>';
   const replyTo=process.env.REPLY_TO_ADMIN||process.env.REPLY_TO_ACCESS||'admin@thinkstore.com.ve';
   const enabled=enabledPlatformKeys(platforms).map(platformEmailLabel).join(' · ');
-  const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[to],reply_to:replyTo,subject:`Tu acceso ThinkStore · ${enabled||roleLabelText}`,html:invitationHtml({fullName,roleLabelText,actionLink,site,staffAccess,platforms})})});
+  const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[to],reply_to:replyTo,subject:`Tu acceso ThinkStore · ${enabled||roleLabelText}`,html:invitationHtml({fullName,roleLabelText,actionLink,site,staffAccess,platforms,existingAccount})})});
   const d=await r.json().catch(()=>({}));if(!r.ok)throw detailError(d?.message||'No se pudo enviar el correo de invitación',JSON.stringify(d));return d
 }
 
@@ -327,9 +364,9 @@ async function syncPlatformProfiles({url,service,userId,email,fullName,uiRole,pe
 }
 async function updateAuthPlatformMetadata(url,service,userId,uiRole,platforms){try{await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`,{method:'PUT',headers:svc(service),body:JSON.stringify({app_metadata:{thinkstore_role:uiRole,thinkstore_internal:true,thinkstore_platforms:enabledPlatformKeys(platforms),inventory_role:['admin','superadmin'].includes(normalizeUiRole(uiRole))?'super_admin':(platforms.inventory?.enabled?(platforms.inventory.role||'viewer'):null)}})})}catch{}}
 
-async function createInternalProfile(url,service,{id,email,fullName,dbRole,custom,invitedBy,permissionOverrides,schemaHint=null}){
+async function createInternalProfile(url,service,{id,email,fullName,dbRole,custom,invitedBy,permissionOverrides,schemaHint=null,origin='panel_invite'}){
   const invitedAt=new Date().toISOString();
-  const marker={is_internal:true,internal_origin:'panel_invite',internal_invited_at:invitedAt,internal_invited_by:invitedBy||null};
+  const marker={is_internal:true,internal_origin:origin||'panel_invite',internal_invited_at:invitedAt,internal_invited_by:invitedBy||null};
   const uiRole=normalizeUiRole(dbRole);
   if(!INTERNAL_UI_ROLES.includes(uiRole))throw detailError('Rol interno no válido',String(dbRole||''));
 

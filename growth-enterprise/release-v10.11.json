@@ -1,0 +1,11 @@
+{
+  "version": "10.11",
+  "name": "Finanzas visibles + dashboard unificado",
+  "date": "2026-10-05",
+  "notes": [
+    "dashboard.html redirige al Enterprise completo",
+    "Tesorería & Socios visible desde Panel Ejecutivo",
+    "Conciliación y Auditoría semanal accesibles",
+    "SSO relativo al mismo origen"
+  ]
+}
