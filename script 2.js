@@ -2415,7 +2415,9 @@ async function saveOrderToSupabase(order){
       color: i.color,
       capacidad: i.config,
       cantidad: Number(i.qty || 1),
-      precio_usd: Number(i.price || 0)
+      precio_usd: Number(i.price || 0),
+      inventory_variant_id: i.variant_id || i.inventory_variant_id || null,
+      sku: i.sku || null
     })));
     if(itemError) throw itemError;
   }

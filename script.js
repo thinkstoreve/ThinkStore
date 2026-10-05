@@ -2997,6 +2997,8 @@ async function saveOrderToSupabase(order){
       capacidad: i.config,
       cantidad: Number(i.qty || 1),
       precio_usd: Number(i.price || 0),
+      inventory_variant_id: i.variant_id || i.inventory_variant_id || null,
+      sku: i.sku || null,
       condicion: i.condition || null,
       numero_serie: i.serialNumber || i.numero_serie || null,
       garantia_dias: Number(i.warrantyDays || i.garantia_dias || 0) || null,

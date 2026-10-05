@@ -138,6 +138,7 @@ exports.handler=async function(event){
     try{
       const itemRows=variants.map(({item,v})=>({
         pedido_id:pedido.id,producto:v?.product_name||item.product_name,color:v?.color||item.color||null,capacidad:v?.capacity||item.capacity||null,cantidad:1,precio_usd:item.price,
+        inventory_variant_id:v?.id||item.variant_id||null,sku:v?.sku||item.sku||null,
         condicion:item.is_preorder?'Pre-Order':(item.condition||v?.condition||'Nuevo'),numero_serie:item.serial||null,garantia_dias:item.warranty||null,
         chip:v?.chip||item.chip||null,ram:v?.ram||item.ram||null,model_code:item.model_code||item.model||v?.model||null,features:item.features||null,
         item_note:item.note||null,image_url:item.image_url||null
