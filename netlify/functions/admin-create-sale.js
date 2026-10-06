@@ -105,7 +105,7 @@ exports.handler=async function(event){
     const total=Math.round((subtotal-discountUsd)*100)/100;
     if(total<0)throw new Error('El descuento no puede superar el subtotal.');
     let fxQuote=null;
-    if(/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta/i.test(payment)){
+    if(/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta|efectivo\s*bs|transferencia\s*bs|bol[ií]var|\bves\b/i.test(payment)){
       const q=await getRate(true); fxQuote={...q,total_usd:total,total_ves:Math.round(total*q.rate*100)/100};
     }
 

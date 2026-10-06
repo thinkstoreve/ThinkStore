@@ -242,7 +242,7 @@ function switchView(id){
   if(titles[id]){ qs('pageTitle').textContent = titles[id][0]; qs('pageSubtitle').textContent = titles[id][1]; }
   if(id === 'staff') loadStaffAccess();
   if(id === 'commercial') loadEnterpriseV1Real();
-  if(['support','client360','warranties','alerts'].includes(id)) loadEnterpriseV6Support();
+  if(['client360','warranties','alerts'].includes(id)) loadEnterpriseV6Support();
 }
 function exportCSV(id='executive'){
   const source = modules[id] || [];
@@ -2489,7 +2489,6 @@ function renderV9RealMarketing(data){
       if(id === 'operations') renderV9Operations(v9Cache);
       if(id === 'mobile') renderV9Mobile(v9Cache);
       if(id === 'clients') renderV9RealClients(v9Cache);
-      if(id === 'sales') renderV9RealSales(v9Cache);
       if(id === 'inventory') renderV9RealInventory(v9Cache);
       if(id === 'marketing') renderV9RealMarketing(v9Cache);
       if(id === 'finance') renderV9RealFinance(v9Cache);
@@ -3169,7 +3168,7 @@ function renderV9RealMarketing(data){
     try{
       const r=await fetch('/.netlify/functions/enterprise-finance',{headers:await finHeaders(),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo cargar Finanzas Centrales');
       financeCache=d;window.enterpriseFinanceData=d;renderTreasury(d);renderReconciliation(d);renderWeeklyAudit(d);renderFinanceQuick(d);return d;
-    }catch(e){const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(e.message||e)}</p><small>Si es la primera vez, ejecuta SQL-01-SUPABASE-PRINCIPAL-FINAL.sql en el Supabase principal.</small></article>`;['treasury','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});const home=qs('enterpriseFinanceQuick');if(home)home.innerHTML=html;return null}
+    }catch(e){const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(e.message||e)}</p><small>Revisa la función enterprise-finance y las variables de entorno de Supabase en Netlify. Las migraciones ya existentes no deben repetirse.</small></article>`;['treasury','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});const home=qs('enterpriseFinanceQuick');if(home)home.innerHTML=html;return null}
   }
   async function finPost(body){const r=await fetch('/.netlify/functions/enterprise-finance',{method:'POST',headers:await finHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar');financeCache=d.summary||null;await loadFinanceCenter(true);return d}
   function closeFinModal(){document.querySelector('.fin-modal')?.remove()}

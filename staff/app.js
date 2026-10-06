@@ -2,6 +2,7 @@
 'use strict';
 const cfg=window.THINKSTORE_SUPABASE||{};
 const sb=window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
+window.__THINKSTORE_STAFF_SUPABASE__=sb;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const money=v=>'$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -48,10 +49,10 @@ async function refreshData(silent=false){
 }
 
 function navigate(view,push=true){
-  const allowed=['home','sell','sales','account'];if(!allowed.includes(view))view='home';
+  const allowed=['home','sell','sales','service','account'];if(!allowed.includes(view))view='home';
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+view));
   document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
-  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],account:['Perfil','Mi cuenta']};
+  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],service:['Servicio Técnico','Cobros y abonos'],account:['Perfil','Mi cuenta']};
   $('headerContext').textContent=titles[view][0];$('headerTitle').textContent=titles[view][1];
   if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell)setTimeout(()=>$('barcodeScanInput')?.focus(),80);
 }
@@ -135,7 +136,7 @@ function renderCart(){$('cartCount').textContent=state.cart.length;$('cartItems'
 function cartSubtotal(){return state.cart.reduce((n,x)=>n+Number(x.price||0),0)}
 function discountSnapshot(){const subtotal=cartSubtotal(),type=$('discountType')?.value||'usd',value=Math.max(0,Number($('discountValue')?.value||0));const raw=type==='percent'?subtotal*Math.min(value,100)/100:Math.min(value,subtotal),discount=Math.round(raw*100)/100;return{subtotal,discount,total:Math.round((subtotal-discount)*100)/100,type,value}}
 function updateCheckoutTotals(){if(!$('checkoutSubtotal'))return;const d=discountSnapshot();$('checkoutSubtotal').textContent=money(d.subtotal);$('checkoutDiscount').textContent='-'+money(d.discount);$('checkoutTotal').textContent=money(d.total);updateFxQuote(d.total)}
-async function updateFxQuote(total){const box=$('paymentFx');if(!box)return;if(state.payment!=='Pago Móvil'){show(box,false);return}show(box,true);box.textContent='Consultando tasa oficial…';try{if(!window.ThinkStoreFX)throw Error('Tasa no disponible');await window.ThinkStoreFX.refresh();const q=window.ThinkStoreFX.snapshot(total);box.textContent=q?`${money(total)} × ${q.rate} = ${window.ThinkStoreFX.ves(q.total_ves)} · ${q.source}`:'Tasa no disponible';}catch{box.textContent='No se pudo consultar la tasa oficial en este momento.'}}
+async function updateFxQuote(total){const box=$('paymentFx');if(!box)return;const ves=/Pago Móvil|Punto de Venta|Efectivo Bs|Transferencia Bs/i.test(state.payment);if(!ves){show(box,false);return}show(box,true);box.textContent='Consultando tasa oficial…';try{if(!window.ThinkStoreFX)throw Error('Tasa no disponible');await window.ThinkStoreFX.refresh();const q=window.ThinkStoreFX.snapshot(total);box.textContent=q?`${money(total)} × ${q.rate} = ${window.ThinkStoreFX.ves(q.total_ves)} · ${q.source}`:'Tasa no disponible';}catch{box.textContent='No se pudo consultar la tasa oficial en este momento.'}}
 function checkoutPayload(){const d=discountSnapshot();return{customer_name:$('customerName').value.trim(),customer_email:$('customerEmail').value.trim(),customer_document:$('customerDocument').value.trim(),customer_phone:$('customerPhone').value.trim(),customer_address:$('customerAddress').value.trim(),customer_city:$('customerCity').value.trim(),customer_state:$('customerState').value.trim(),items:state.cart,payment_method:state.payment,payment_ref:$('paymentRef').value.trim(),delivery_method:$('deliveryMethod').value,shipping_company:$('shippingCompany').value,sale_note:$('saleNote').value.trim(),discount_type:d.type,discount_value:d.value,discount_usd:d.discount,discount_reason:$('discountReason').value.trim(),subtotal_usd:d.subtotal,total_final_usd:d.total,pos_source:'staff_app'}}
 function validateCheckout(){const p=checkoutPayload();if(!p.customer_name||!p.customer_email.includes('@')||!p.customer_document||!p.customer_phone||!p.customer_address)throw Error('Completa nombre, correo, cédula/RIF, teléfono y dirección del cliente.');if(!state.cart.length)throw Error('El carrito está vacío.');if(!/efectivo/i.test(state.payment)&&!p.payment_ref)throw Error('Indica la referencia del pago.');return p}
 async function createSale(){if(state.savedCode)return state.savedCode;const payload=validateCheckout();setBusy(true);try{const r=await fetch('/.netlify/functions/admin-create-sale',{method:'POST',headers:await tokenHeaders(true),body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo registrar la venta');state.savedCode=d.pedido?.codigo||'';return state.savedCode}finally{setBusy(false)}}
