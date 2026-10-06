@@ -61,7 +61,7 @@ exports.handler=async event=>{
   if(!auth.ok)return out(401,{ok:false,error:'Inicia sesión con una cuenta interna de ThinkStore'});
   if(!isInternalProfile(auth.profile,auth.auth_user))return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente y no tiene acceso a caja.'});
   const access=await effectiveAccess(auth.profile,mainUrl,mainKey);
-  const canOpen=access.permissions.includes('*')||access.permissions.includes('staff.access');
+  const canOpen=access.permissions.includes('*')||access.permissions.includes('staff.access')||access.permissions.includes('platform.staff')||access.permissions.includes('ventas')||access.permissions.includes('pagos');
   const canCharge=access.permissions.includes('*')||access.permissions.includes('ventas')||access.permissions.includes('pagos');
   if(!canOpen)return out(403,{ok:false,error:'Tu cuenta no tiene acceso a App Ventas.'});
 
@@ -132,9 +132,14 @@ exports.handler=async event=>{
     payment_status:paid?'Cobrado':'Abono parcial',
     payment_method:method,
     payment_notes:meta,
-    paid_at:new Date().toISOString()
+    paid_at:paid?new Date().toISOString():(order.paid_at||null)
   };
-  const updated=await patchSupportOrder(supportUrl,supportKey,order.id,patch);
+  let inventorySync={ok:true,lines:0,units:0,total_cost:0,items:[]};
+  let updated=null;
+  try{
+    const paymentResult=await applyServicePaymentAndInventory(supportUrl,supportKey,order.id,patch,auth.email||auth.profile?.email||auth.profile?.correo||'App Ventas');
+    updated=paymentResult?.order||null;inventorySync=paymentResult?.inventory||inventorySync;
+  }catch(error){return out(409,{ok:false,error:`No se pudo completar el cobro: ${error.message||error}`,inventory_sync:false})}
   if(!updated)return out(500,{ok:false,error:'No se pudo actualizar el cobro en Servicio Técnico.'});
 
   await attachPaymentReference(supportUrl,supportKey,order.id,reference,meta);
@@ -143,7 +148,11 @@ exports.handler=async event=>{
     `${paid?'Pago total':'Abono'} registrado desde App Ventas: $${delta.toFixed(2)} · ${method} · ${currency}${reference?` · Ref. ${reference}`:''}`,
     paid?'Pago':'Abono'
   );
-  await auditSupport(supportUrl,supportKey,auth,updated.id,'cashier_payment',{amount_paid:before,payment_status:order.payment_status||'Pendiente'},{amount_paid:next,payment_status:patch.payment_status,payment_method:method,currency,reference});
+  await auditSupport(supportUrl,supportKey,auth,updated.id,'cashier_payment',{amount_paid:before,payment_status:order.payment_status||'Pendiente'},{amount_paid:next,payment_status:patch.payment_status,payment_method:method,currency,reference,inventory_sync:inventorySync});
+  if(paid&&Number(inventorySync?.units||0)>0){
+    const partText=(inventorySync.items||[]).map(x=>`${x.quantity}× ${x.name||x.sku||'Repuesto'}`).join(', ');
+    await logSupportNote(supportUrl,supportKey,updated,auth,`Inventario descontado automáticamente al completar el cobro: ${partText}${Number(inventorySync.total_cost||0)>0?` · Costo directo $${Number(inventorySync.total_cost).toFixed(2)}`:''}`,'Repuesto');
+  }
 
   let deliveryNoteEmail={skipped:true,reason:'La nota se envía automáticamente al completar el pago.'};
   let html=null;
@@ -165,6 +174,7 @@ exports.handler=async event=>{
     ok:true,
     order:publicOrder(updated),
     payment:{delta_usd:delta,balance_before:balance,balance_after:Math.max(0,quote-next),paid,method,currency,reference},
+    inventory_sync:inventorySync,
     delivery_note_email:deliveryNoteEmail,
     note_html:html,
     metrics:refreshed.metrics,
@@ -173,7 +183,7 @@ exports.handler=async event=>{
 };
 
 async function authenticate(event,url,service){
-  const token=clean(event.headers.authorization||event.headers.Authorization).replace(/^Bearer\s+/i,'');
+  const token=String(event.headers.authorization||event.headers.Authorization||'').trim().replace(/^Bearer\s+/i,'');
   if(!token)return{ok:false};
   const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}});
   const u=await ur.json().catch(()=>({}));
@@ -297,6 +307,18 @@ async function auditSupport(url,key,auth,entityId,action,before,after){
     })});
   }catch(error){console.warn('service audit',error?.message||error)}
 }
+async function applyServicePaymentAndInventory(url,key,orderId,patch,actorEmail){
+  const data=await rest(url,key,'rpc/apply_service_payment_and_inventory',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({
+    p_order_id:Number(orderId),
+    p_amount_paid:Number(patch.amount_paid||0),
+    p_payment_status:patch.payment_status||'Pendiente',
+    p_payment_method:patch.payment_method||'',
+    p_payment_notes:patch.payment_notes||'',
+    p_paid_at:patch.paid_at||null,
+    p_actor_email:actorEmail||'App Ventas'
+  })});
+  return data&&typeof data==='object'?data:null;
+}
 async function partsForOrder(url,key,code){
   try{
     const [moves,parts]=await Promise.all([
@@ -313,7 +335,8 @@ async function buildServiceNote(order,url,key){
   const client=checklist.__client||{};
   const partText=parts.length?parts.map(p=>`${p.qty}× ${p.name||p.sku||'Repuesto'}`).join(', '):'Sin repuestos registrados en la orden';
   const details=[order.quote_repair_details,`Falla reportada: ${order.reported_issue||'No indicada'}`,`Repuestos utilizados: ${partText}`].filter(Boolean).join(' · ');
-  const trackingBase=clean(process.env.SUPPORT_PUBLIC_URL||process.env.SOPORTE_PUBLIC_URL||'https://soporte.thinkstore.com.ve').replace(/\/$/,'');
+  const siteBase=clean(process.env.URL||process.env.DEPLOY_PRIME_URL||'https://thinkstore.com.ve').replace(/\/$/,'');
+  const trackingBase=clean(process.env.SUPPORT_PUBLIC_URL||process.env.SOPORTE_PUBLIC_URL||`${siteBase}/soporte`).replace(/\/$/,'');
   const payload={
     documentKind:'service',
     trackingUrl:`${trackingBase}/seguimiento.html?orden=${encodeURIComponent(order.code)}`,

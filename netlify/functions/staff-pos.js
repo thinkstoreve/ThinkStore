@@ -53,7 +53,7 @@ exports.handler=async(event)=>{
   if(!isInternalProfile(auth.profile,auth.auth_user))return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente. ThinkStore Staff es exclusivo para personal interno autorizado.'});
   if(!INTERNAL.includes(auth.role)&&!auth.profile?.custom_role_key)return out(403,{ok:false,error:'Esta app es exclusiva para el equipo interno de ThinkStore'});
   const access=await effectiveAccess(auth.profile,url,service);
-  const canOpenStaff=access.permissions.includes('*')||access.permissions.includes('staff.access');
+  const canOpenStaff=access.permissions.includes('*')||access.permissions.includes('staff.access')||access.permissions.includes('platform.staff')||access.permissions.includes('ventas')||access.permissions.includes('pagos');
   if(!canOpenStaff)return out(403,{ok:false,error:'Tu cuenta interna no tiene habilitado el acceso a App Ventas. Pide a un Administrador que lo active en Equipo y accesos.'});
   const canSell=access.permissions.includes('*')||access.permissions.includes('ventas');
   const action=clean(event.queryStringParameters?.action||'bootstrap').toLowerCase();
@@ -82,7 +82,7 @@ exports.handler=async(event)=>{
 };
 
 async function authenticate(event,url,service){
-  const token=clean(event.headers.authorization||event.headers.Authorization).replace(/^Bearer\s+/i,'');
+  const token=String(event.headers.authorization||event.headers.Authorization||'').trim().replace(/^Bearer\s+/i,'');
   if(!token)return{ok:false};
   const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}});
   const u=await ur.json().catch(()=>({}));

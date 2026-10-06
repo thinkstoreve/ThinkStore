@@ -13,7 +13,7 @@ const titles = {
   reconciliation:["Conciliación de caja","Compara los movimientos esperados por Zelle, Pago Móvil, efectivo, bancos y otros métodos con los saldos reales."],
   weeklyAudit:["Auditoría semanal","Cierre financiero semanal, utilidad distribuible y reparto 50% empresa · 25% Freddy · 25% Nelson."],
   reports:["Inteligencia Comercial","BI, segmentos, top clientes, productos y reportes ejecutivos."],
-  support:["Centro de Soporte","Control ejecutivo de soporte.thinkstore.com.ve: órdenes, diagnósticos, técnicos y entregas."],
+  support:["Centro de Soporte","Control ejecutivo de thinkstore.com.ve/soporte: órdenes, diagnósticos, técnicos y entregas."],
   client360:["Cliente 360","Ficha consolidada de cliente con compras, soporte, garantías y alertas."],
   warranties:["Garantías","Garantías activas, vencidas y próximas a vencer por cliente/equipo."],
   alerts:["Centro de Alertas","Alertas comerciales, soporte, pagos, inventario y seguimiento ejecutivo."],
@@ -1429,7 +1429,7 @@ function renderV2Reports(data){
 
 /* ==========================================================
    Enterprise V6 · Centro de Soporte + Cliente 360
-   - Conecta Enterprise con soporte.thinkstore.com.ve en modo seguro
+   - Conecta Enterprise con thinkstore.com.ve/soporte en modo seguro
    - Solo lectura sobre service_orders / service_order_notes / service_users
    - No modifica Resend, pedidos, comprobantes, notas de entrega ni estados
    ========================================================== */
@@ -1631,7 +1631,7 @@ function renderV6Support(data){
     <article class="panel v6-hero">
       <div class="panel-head"><h3>Centro de Soporte integrado</h3><span class="tag safe-tag">Datos reales · Supabase Soporte</span></div>
       <p class="staff-help">Consulta órdenes reales, actualiza estados y registra entradas de bitácora sin mezclar la base de soporte con la tienda.</p>
-      <div class="v2-toolbar"><button onclick="window.open('https://soporte.thinkstore.com.ve','_blank','noopener')">Abrir Soporte Técnico</button><button onclick="loadEnterpriseV6Support()">Actualizar</button></div>
+      <div class="v2-toolbar"><button onclick="window.open('/soporte','_blank','noopener')">Abrir Soporte Técnico</button><button onclick="loadEnterpriseV6Support()">Actualizar</button></div>
     </article>
     <div class="module-grid control-cards">
       <article class="module-card"><h3>Órdenes soporte</h3><strong>${formatNumber(orders.length)}</strong><p>Fuente: ${safe(data.serviceTable || 'service_orders no disponible')}</p></article>
@@ -2754,7 +2754,7 @@ function renderV9RealMarketing(data){
    ========================================================== */
 (function(){
   const BACKUP_PANEL_URL = 'https://thinkstore.com.ve/?admin=1';
-  const SUPPORT_URL = 'https://soporte.thinkstore.com.ve';
+  const SUPPORT_URL = '/soporte';
 
   function activeView(){ return document.querySelector('.view.active')?.id || 'executive'; }
   function clean(value){ return String(value || '').replace(/\s+/g,' ').trim(); }

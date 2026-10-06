@@ -30,9 +30,9 @@
   <main class="ts-service-app">
     <section class="hero">
       <img class="hero-logo" src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
-      <p class="eyebrow">soporte.thinkstore.com.ve</p>
+      <p class="eyebrow">thinkstore.com.ve/soporte</p>
       <h1>ThinkStore Service Center</h1>
-      <p>Extensión independiente para soporte técnico: recepción, diagnóstico, bitácora, presupuestos, archivos, correos y seguimiento por QR.</p>
+      <p>Centro integrado de soporte técnico: recepción, diagnóstico, bitácora, presupuestos, archivos, correos y seguimiento por QR.</p>
       <div class="hero-actions">
         <button onclick="TSService.openLogin()">Ingresar al panel</button>
         <button class="secondary" onclick="TSService.openClientLookup()">Consultar reparación</button>
@@ -351,7 +351,7 @@
         <label class="span2">Detalle de la reparación propuesta<textarea id="mQuoteRepairDetails" placeholder="Describe claramente lo que se realizará si el cliente aprueba: reparación, piezas, mano de obra y alcance incluido."></textarea><small>Este texto será visible para el cliente antes de aprobar la cotización.</small></label>
         <label>Estado de cobro<select id="mPaymentStatus" disabled><option>Pendiente</option><option>Abono parcial</option><option>Cobrado</option></select></label>
         <label>Monto cobrado USD<input id="mAmountPaid" type="number" disabled min="0" step="0.01" placeholder="0.00"></label>
-        <label>Método de pago<select id="mPaymentMethod" disabled><option value="">Sin definir</option><option>Efectivo USD</option><option>Zelle</option><option>Pago Móvil</option><option>Transferencia</option><option>Punto de Venta</option><option>Efectivo Bs</option><option>Otro</option></select></label>
+        <label>Método de pago<select id="mPaymentMethod" disabled><option value="">Sin definir</option><option>Efectivo USD</option><option>Zelle</option><option>Pago Móvil</option><option>Transferencia</option><option>Punto de Venta</option><option>Efectivo Bs</option><option>Otro</option></select></label><div id="mPaymentAutoState" class="payment-auto-state is-pending"><b>Pendiente</b><small>La cobranza se sincroniza automáticamente desde App Ventas.</small></div>
         <label>Modalidad del servicio<select id="mServiceMode"><option>Presencial</option><option>A domicilio</option><option>Envío nacional</option></select></label>
         <label>Garantía de reparación (días)<input id="mWarrantyDays" type="number" min="0" step="1" value="0"></label>
         <label>Método de entrega<input id="mDeliveryMethod" placeholder="Retiro, MRW, Zoom, Tealca..."></label>
@@ -374,7 +374,7 @@
       </div>
       <section class="order-box repair-inventory-panel">
         <div class="bitacora-header repair-inventory-head">
-          <div><h3>Inventario de la reparación</h3><p>Busca productos de Servicio Técnico, selecciona cantidades y descuéntalos directamente de esta orden.</p></div>
+          <div><h3>Repuestos de la reparación</h3><p>Busca el repuesto, asigna la cantidad y guárdalo en la orden. El stock se descontará automáticamente cuando App Ventas marque la reparación como Cobrado/Pagado.</p></div>
           <span id="mPartOrderBadge" class="badge">Orden</span>
         </div>
         <div class="repair-part-search">
@@ -383,7 +383,7 @@
         </div>
         <div id="mPartResults" class="repair-part-results"></div>
         <div class="repair-part-cart">
-          <div class="repair-part-cart-head"><div><b>Productos seleccionados</b><small>El stock se descuenta solo al confirmar.</small></div><button id="mConsumePartsButton" type="button" onclick="TSService.commitRepairParts()" disabled>Descontar del inventario</button></div>
+          <div class="repair-part-cart-head"><div><b>Repuestos seleccionados</b><small>Quedan reservados para esta reparación; el descuento ocurre al completar el cobro.</small></div><button id="mConsumePartsButton" type="button" onclick="TSService.commitRepairParts()" disabled>Guardar repuestos</button></div>
           <div id="mPartSelection" class="repair-part-selection"></div>
         </div>
         <div id="mOrderPartHistory" class="repair-part-history"></div>

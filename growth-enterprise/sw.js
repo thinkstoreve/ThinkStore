@@ -1,1 +1,18 @@
-const OLD_PREFIX='thinkstore-enterprise-';self.addEventListener('install',e=>{self.skipWaiting()});self.addEventListener('activate',e=>{e.waitUntil((async()=>{try{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith(OLD_PREFIX)).map(k=>caches.delete(k)))}catch{}try{await self.registration.unregister()}catch{}try{const cs=await self.clients.matchAll({type:'window',includeUncontrolled:true});for(const c of cs){if(c.url.includes(self.location.origin))c.navigate('/recovery-v106.html?from=sw&ts='+Date.now())}}catch{}})())});
+const OLD_PREFIX='thinkstore-enterprise-';
+self.addEventListener('install',()=>self.skipWaiting());
+self.addEventListener('activate',event=>{
+  event.waitUntil((async()=>{
+    try{
+      const keys=await caches.keys();
+      await Promise.all(keys.filter(k=>k.startsWith(OLD_PREFIX)).map(k=>caches.delete(k)));
+    }catch(e){}
+    try{await self.registration.unregister();}catch(e){}
+    try{
+      const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+      for(const client of clients){
+        try{client.navigate('/recovery-v1013.html?from=sw&ts='+Date.now());}catch(e){}
+      }
+    }catch(e){}
+  })());
+});
+self.addEventListener('fetch',()=>{});

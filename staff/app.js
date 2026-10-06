@@ -145,7 +145,7 @@ async function submitServicePayment(action){
     closeModal('servicePaymentModal');await refreshServiceData(true);renderHome();renderRepairs();
     if(d.payment?.paid){
       const email=d.delivery_note_email||{};
-      toast(email.sent?'Reparación pagada. Nota enviada al correo del cliente.':'Reparación pagada. Nota generada; revisa el estado del correo.',4800);
+      const inv=d.inventory_sync||{};const invText=Number(inv.units||0)>0?` · ${inv.units} unidad${Number(inv.units)===1?'':'es'} descontada${Number(inv.units)===1?'':'s'} del inventario`:'';toast((email.sent?'Reparación pagada. Nota enviada al correo del cliente.':'Reparación pagada. Nota generada; revisa el estado del correo.')+invText,5200);
       if(d.note_html)openServiceNote(payload.code,d.note_html);
     }else toast(`Abono registrado. Saldo pendiente ${money(d.payment?.balance_after||0)}.`);
   }catch(e){toast(e.message||'No se pudo registrar el cobro',5200)}

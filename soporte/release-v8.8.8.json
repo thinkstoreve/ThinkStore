@@ -1,0 +1,15 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.8.8",
+  "base": "8.8.7",
+  "type": "paid-status-and-inventory-auto-sync",
+  "requires_sql": true,
+  "changes": [
+    "repuestos se reservan en Gestionar reparación sin descontar stock",
+    "al completar el pago en App Ventas el estado de cobro cambia automáticamente a Cobrado",
+    "los repuestos reservados se descuentan del inventario automáticamente al completar el cobro",
+    "protección idempotente para evitar descuentos duplicados",
+    "reserva de stock entre reparaciones para evitar sobreasignación",
+    "sincronización visible del pago dentro de la orden de Soporte"
+  ]
+}
