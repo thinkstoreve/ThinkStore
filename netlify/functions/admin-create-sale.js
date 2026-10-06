@@ -20,6 +20,11 @@ exports.handler=async function(event){
     let pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh}); const rows=await pr.json().catch(()=>[]),p=rows[0],role=norm(p?.role||p?.rol);
     if(!p||(p.active??p.activo??true)===false)return{ok:false};
     const uiRole=role==='super_admin'?'superadmin':(['administrator','gerente'].includes(role)?'admin':role);
+    const ovRaw=p.permission_overrides&&typeof p.permission_overrides==='object'?p.permission_overrides:{};
+    const ovAllow=Array.isArray(ovRaw.allow)?ovRaw.allow.map(String):[];
+    const internalMeta=u?.app_metadata?.thinkstore_internal===true||u?.user_metadata?.thinkstore_internal===true;
+    const internal=internalMeta||p.is_internal===true||Boolean(p.internal_origin||p.internal_invited_at||p.internal_invited_by||p.custom_role_key)||ovAllow.includes('staff.access')||ovAllow.includes('platform.staff')||['admin','superadmin'].includes(uiRole)||(p.is_internal!==false&&['vendedor','recepcion','soporte','tecnico','logistica'].includes(uiRole));
+    if(!internal)return{ok:false};
     const defaultPerms={vendedor:['ventas'],admin:['*'],superadmin:['*']};
     let perms=[...(defaultPerms[uiRole]||[])];
     if(p.custom_role_key){

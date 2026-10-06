@@ -18,6 +18,19 @@ const DEFAULT_PERMS={
 };
 const clean=(v,max=1200)=>String(v??'').trim().slice(0,max);
 const normRole=v=>{let r=clean(v).toLowerCase().replace(/[ -]+/g,'_');if(r==='super_admin')r='superadmin';if(r==='administrator'||r==='gerente')r='admin';return r||'cliente'};
+const INTERNAL=['vendedor','recepcion','soporte','tecnico','logistica','admin','superadmin'];
+const cleanOverrides=v=>{const o=v&&typeof v==='object'?v:{};return{allow:Array.isArray(o.allow)?o.allow.map(String):[],deny:Array.isArray(o.deny)?o.deny.map(String):[]}};
+const isInternalProfile=(p,u=null)=>{
+  if(!p)return false;
+  if(u?.app_metadata?.thinkstore_internal===true||u?.user_metadata?.thinkstore_internal===true)return true;
+  if(p.is_internal===true)return true;
+  if(p.internal_origin||p.internal_invited_at||p.internal_invited_by||p.custom_role_key)return true;
+  const role=normRole(p.role||p.rol),ov=cleanOverrides(p.permission_overrides);
+  if(ov.allow.includes('staff.access')||ov.allow.includes('platform.staff'))return true;
+  if(['admin','superadmin'].includes(role))return true;
+  if(p.is_internal===false)return false;
+  return INTERNAL.includes(role);
+};
 const out=(statusCode,body,headers={})=>({statusCode,headers:{...H,...headers},body:typeof body==='string'?body:JSON.stringify(body)});
 const svc=k=>({apikey:k,Authorization:`Bearer ${k}`,'Content-Type':'application/json'});
 const paymentCurrency=method=>{
@@ -46,7 +59,7 @@ exports.handler=async event=>{
 
   const auth=await authenticate(event,mainUrl,mainKey);
   if(!auth.ok)return out(401,{ok:false,error:'Inicia sesión con una cuenta interna de ThinkStore'});
-  if(auth.profile?.is_internal!==true)return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente y no tiene acceso a caja.'});
+  if(!isInternalProfile(auth.profile,auth.auth_user))return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente y no tiene acceso a caja.'});
   const access=await effectiveAccess(auth.profile,mainUrl,mainKey);
   const canOpen=access.permissions.includes('*')||access.permissions.includes('staff.access');
   const canCharge=access.permissions.includes('*')||access.permissions.includes('ventas')||access.permissions.includes('pagos');
@@ -173,7 +186,7 @@ async function authenticate(event,url,service){
   let p=null;
   for(const path of paths){const rr=await fetch(`${url}/rest/v1/${path}`,{headers:svc(service)});if(!rr.ok)continue;const rows=await rr.json().catch(()=>[]);if(rows?.[0]){p=rows[0];break}}
   if(!p||(p.active??p.activo??true)===false)return{ok:false};
-  return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',profile:p,role:normRole(p.role||p.rol)};
+  return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',profile:p,role:normRole(p.role||p.rol),auth_user:u};
 }
 async function effectiveAccess(profile,url,service){
   const base=normRole(profile?.role||profile?.rol);

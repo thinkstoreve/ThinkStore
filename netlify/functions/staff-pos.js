@@ -25,6 +25,20 @@ const clean=(v,max=400)=>String(v??'').trim().slice(0,max);
 const normRole=v=>{let r=clean(v).toLowerCase().replace(/[ -]+/g,'_');if(r==='super_admin')r='superadmin';if(r==='administrator'||r==='gerente')r='admin';return r||'cliente'};
 const cleanPerms=v=>[...new Set((Array.isArray(v)?v:[]).map(x=>clean(x,100)).filter(Boolean))].slice(0,200);
 const cleanOverrides=v=>{const o=v&&typeof v==='object'?v:{};return{allow:cleanPerms(o.allow),deny:cleanPerms(o.deny)}};
+const isInternalProfile=(p,u=null)=>{
+  if(!p)return false;
+  const metaInternal=u?.app_metadata?.thinkstore_internal===true||u?.user_metadata?.thinkstore_internal===true;
+  if(metaInternal)return true;
+  if(p.is_internal===true)return true;
+  if(p.internal_origin||p.internal_invited_at||p.internal_invited_by||p.custom_role_key)return true;
+  const role=normRole(p.role||p.rol);
+  const ov=cleanOverrides(p.permission_overrides);
+  if(ov.allow.includes('staff.access')||ov.allow.includes('platform.staff'))return true;
+  if(['admin','superadmin'].includes(role))return true;
+  if(p.is_internal===false)return false;
+  // Compatibilidad con perfiles internos creados antes de existir is_internal.
+  return INTERNAL.includes(role);
+};
 const svc=k=>({apikey:k,Authorization:`Bearer ${k}`,'Content-Type':'application/json'});
 const out=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
 
@@ -36,7 +50,7 @@ exports.handler=async(event)=>{
   if(!url||!service)return out(500,{ok:false,error:'Supabase no está configurado'});
   const auth=await authenticate(event,url,service);
   if(!auth.ok)return out(401,{ok:false,error:'Inicia sesión con una cuenta interna de ThinkStore'});
-  if(auth.profile?.is_internal!==true)return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente. ThinkStore Staff es exclusivo para personal invitado por un administrador.'});
+  if(!isInternalProfile(auth.profile,auth.auth_user))return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente. ThinkStore Staff es exclusivo para personal interno autorizado.'});
   if(!INTERNAL.includes(auth.role)&&!auth.profile?.custom_role_key)return out(403,{ok:false,error:'Esta app es exclusiva para el equipo interno de ThinkStore'});
   const access=await effectiveAccess(auth.profile,url,service);
   const canOpenStaff=access.permissions.includes('*')||access.permissions.includes('staff.access');
