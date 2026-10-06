@@ -2,7 +2,6 @@
 'use strict';
 const cfg=window.THINKSTORE_SUPABASE||{};
 const sb=window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
-window.__THINKSTORE_STAFF_SUPABASE__=sb;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 const money=v=>'$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -10,14 +9,14 @@ const normalize=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
 const slug=v=>normalize(v).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto';
 const ROLE_LABELS={vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Socio Administrador'};
 const PERM_LABELS={dashboard:'Dashboard',ventas:'Ventas',cotizaciones:'Cotizaciones',clientes:'Clientes / CRM',pagos:'Pagos',preordenes:'Preórdenes',crm:'CRM',recomendaciones:'Recomendaciones',comisiones:'Comisiones',recepcion:'Recepción',tickets:'Tickets',garantias:'Garantías',citas:'Citas',tecnico:'Técnico',diagnostico:'Diagnóstico',repuestos:'Repuestos',pruebas:'Pruebas',logistica:'Logística',guias:'Guías',entregas:'Entregas',pedidos:'Pedidos'};
-const state={user:null,canSell:false,variants:[],catalog:[],images:[],categories:[],recent:[],metrics:{},cart:[],category:'',query:'',selectedProduct:'',selectedVariantKey:'',payment:'Efectivo USD',savedCode:'',loading:false,scanBusy:false};
+const state={user:null,canSell:false,variants:[],catalog:[],images:[],categories:[],recent:[],metrics:{},cart:[],category:'',query:'',selectedProduct:'',selectedVariantKey:'',payment:'Efectivo USD',savedCode:'',loading:false,scanBusy:false,service:{orders:[],metrics:{},methods:[],events:[],canCharge:false,error:''},serviceNoteHtml:'',serviceNoteCode:''};
 let installPrompt=null;
 
 function initials(name){const parts=String(name||'TS').trim().split(/\s+/).filter(Boolean);return(parts.slice(0,2).map(x=>x[0]).join('')||'TS').toUpperCase()}
 function firstName(name){return String(name||'').trim().split(/\s+/)[0]||'Usuario'}
 function show(el,on=true){if(typeof el==='string')el=$(el);if(el)el.classList.toggle('hidden',!on)}
 function toast(msg,ms=2800){const el=$('toast');if(!el)return;el.textContent=msg;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,ms)}
-function setBusy(on){state.loading=on;['loginButton','holdSaleButton','confirmSaleButton','checkoutButton'].forEach(id=>{const el=$(id);if(el)el.disabled=on})}
+function setBusy(on){state.loading=on;['loginButton','holdSaleButton','confirmSaleButton','checkoutButton','servicePartialButton','servicePaidButton'].forEach(id=>{const el=$(id);if(el)el.disabled=on})}
 async function tokenHeaders(json=false){const h={};const {data}=await sb.auth.getSession();const t=data?.session?.access_token;if(t)h.Authorization='Bearer '+t;if(json)h['Content-Type']='application/json';return h}
 function openModal(id){const el=$(id);if(!el)return;el.classList.add('open');el.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
 function closeModal(id){const el=$(id);if(!el)return;el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!document.querySelector('.modal.open'))document.body.style.overflow=''}
@@ -38,23 +37,26 @@ async function bootstrap(){
     if(r.status===403){await sb.auth.signOut();throw Error(d.error||'Esta cuenta no tiene acceso a ThinkStore Staff.');}
     if(!r.ok||!d.ok)throw Error(d.error||'No se pudo abrir ThinkStore Staff.');
     state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};
-    show('loginScreen',false);show('appShell',true);show('boot',false);renderIdentity();renderHome();renderStore();renderSales();renderAccount();navigate(location.hash.replace('#','')||'home',false);
+    await refreshServiceData(true);
+    show('loginScreen',false);show('appShell',true);show('boot',false);renderIdentity();renderHome();renderStore();renderSales();renderRepairs();renderAccount();
+    const startView=location.hash.replace('#','')||'home';navigate(startView,false);
+    const serviceOrder=new URL(location.href).searchParams.get('service_order');if(serviceOrder&&serviceAccessAllowed()){const q=$('repairSearch');if(q)q.value=serviceOrder;renderRepairs();setTimeout(()=>openServicePayment(serviceOrder),250)}
   }catch(e){show('boot',false);show('appShell',false);show('loginScreen',true);messageLogin(e.message||String(e));}
 }
 
 async function refreshData(silent=false){
   const {data:{session}}=await sb.auth.getSession();if(!session)return logout();
   if(!silent)toast('Actualizando…',1200);
-  try{const r=await fetch('/.netlify/functions/staff-pos',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo actualizar');state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};renderIdentity();renderHome();renderStore();renderSales();renderAccount();if(!silent)toast('Datos actualizados');}catch(e){if(!silent)toast(e.message||'No se pudo actualizar')}
+  try{const r=await fetch('/.netlify/functions/staff-pos',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo actualizar');state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};await refreshServiceData(true);renderIdentity();renderHome();renderStore();renderSales();renderRepairs();renderAccount();if(!silent)toast('Datos actualizados');}catch(e){if(!silent)toast(e.message||'No se pudo actualizar')}
 }
 
 function navigate(view,push=true){
-  const allowed=['home','sell','sales','service','account'];if(!allowed.includes(view))view='home';
+  const allowed=['home','sell','repairs','sales','account'];if(!allowed.includes(view))view='home';if(view==='repairs'&&!serviceAccessAllowed())view='home';
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+view));
   document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
-  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],service:['Servicio Técnico','Cobros y abonos'],account:['Perfil','Mi cuenta']};
+  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],repairs:['Caja','Reparaciones'],sales:['Historial','Ventas'],account:['Perfil','Mi cuenta']};
   $('headerContext').textContent=titles[view][0];$('headerTitle').textContent=titles[view][1];
-  if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell)setTimeout(()=>$('barcodeScanInput')?.focus(),80);
+  if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell)setTimeout(()=>$('barcodeScanInput')?.focus(),80);if(view==='repairs'){renderRepairs();setTimeout(()=>$('repairSearch')?.focus(),80)};
 }
 
 function renderIdentity(){
@@ -63,13 +65,110 @@ function renderIdentity(){
   if(u.avatar_url){[$('topAvatar'),$('accountAvatar')].forEach(el=>{el.style.backgroundImage=`url("${String(u.avatar_url).replace(/"/g,'%22')}")`;el.textContent=''})}
   $('welcomeTitle').textContent=`Hola, ${firstName(name)}.`;$('welcomeText').textContent=state.canSell?'Todo listo para vender y atender clientes desde tu cuenta.':'Tu sesión interna está activa. Verás únicamente las funciones autorizadas para tu rol.';$('roleBadge').textContent=role;$('roleCardTitle').textContent=role;
   const isManager=['admin','superadmin'].includes(u.role)||u.permissions?.includes('*');$('salesScopeText').textContent=isManager?'Ventas presenciales recientes del equipo.':'Tus ventas presenciales recientes.';
-  $('sellNav').classList.toggle('hidden',!state.canSell);$('sellBottomNav').classList.toggle('hidden',!state.canSell);$('heroSellButton').classList.toggle('hidden',!state.canSell);document.querySelectorAll('[data-view="sales"]').forEach(el=>el.classList.toggle('hidden',!state.canSell));
+  $('sellNav').classList.toggle('hidden',!state.canSell);$('sellBottomNav').classList.toggle('hidden',!state.canSell);$('heroSellButton').classList.toggle('hidden',!state.canSell);document.querySelectorAll('[data-view="sales"]').forEach(el=>el.classList.toggle('hidden',!state.canSell));document.querySelectorAll('[data-view="repairs"]').forEach(el=>el.classList.toggle('hidden',!serviceAccessAllowed()));
 }
-function renderHome(){const m=state.metrics||{};$('metricSales').textContent=Number(m.today_sales||0);$('metricTotal').textContent=money(m.today_total||0);$('metricPending').textContent=Number(m.pending||0);$('roleCardText').textContent=state.canSell?(m.attribution_ready===false?'Tu permiso de ventas está activo. Ejecuta supabase_v14_0_staff_pos.sql para activar la atribución individual de ventas.':'Tu cuenta tiene acceso a Venta presencial. Las operaciones quedan registradas a tu nombre.'):'Tu rol no tiene permiso de Venta presencial. Puedes seguir usando los módulos habilitados desde el panel completo.';renderSaleRows('homeRecentSales',(state.recent||[]).slice(0,5));}
+function renderHome(){const m=state.metrics||{},s=state.service?.metrics||{};const unified=Number(s.combined_total_today);$('metricSales').textContent=Number(s.combined_operations_today??m.today_sales??0);if($('metricStoreTotal'))$('metricStoreTotal').textContent=money(s.product_collected_today??m.today_total??0);if($('metricServiceTotal'))$('metricServiceTotal').textContent=money(s.service_collected_today||0);$('metricTotal').textContent=money(Number.isFinite(unified)?unified:(m.today_total||0));$('roleCardText').textContent=state.canSell?(m.attribution_ready===false?'Tu permiso de ventas está activo. Ejecuta supabase_v14_0_staff_pos.sql para activar la atribución individual de ventas.':'Tu cuenta tiene acceso a Venta presencial. Las operaciones quedan registradas a tu nombre.'):'Tu rol no tiene permiso de Venta presencial. Puedes seguir usando los módulos habilitados desde el panel completo.';renderSaleRows('homeRecentSales',(state.recent||[]).slice(0,5));}
 function renderSales(){renderSaleRows('salesList',state.recent||[])}
 function renderSaleRows(id,rows){const box=$(id);if(!box)return;if(!rows.length){box.innerHTML='<div class="empty-state">Todavía no hay ventas presenciales para mostrar.</div>';return}box.innerHTML=rows.map(s=>`<article class="sale-row"><div class="sale-main"><b>${esc(s.codigo||'Pedido')}</b><span>${esc(s.guest_name||s.guest_email||'Cliente')} · ${formatDate(s.created_at)}</span></div><div class="sale-detail"><b>${esc(s.metodo_pago||'Pago')}</b><span>${esc(s.salesperson_name||s.salesperson_email||'ThinkStore')}</span></div><div class="sale-total">${money(s.total_usd)}<span class="sale-status">${esc(s.estado||'Pedido')}</span></div></article>`).join('')}
 function formatDate(v){try{return new Intl.DateTimeFormat('es-VE',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(v))}catch{return''}}
 function renderAccount(){const p=state.user?.permissions||[];const box=$('permissions');if(!box)return;box.innerHTML=(p.includes('*')?['Acceso completo']:p.map(k=>PERM_LABELS[k]||k)).map(x=>`<span class="permission-pill">${esc(x)}</span>`).join('')||'<span class="permission-pill">Sin permisos adicionales</span>';}
+
+function serviceAccessAllowed(){const p=state.user?.permissions||[];return !!state.canSell||p.includes('*')||p.includes('pagos')}
+async function refreshServiceData(silent=false){
+  if(!serviceAccessAllowed()||!sb){state.service={orders:[],metrics:{},methods:[],events:[],canCharge:false,error:''};return}
+  try{
+    const h=await tokenHeaders();
+    const r=await fetch('/.netlify/functions/service-sales?action=bootstrap',{headers:h,cache:'no-store'}),d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok)throw Error(d.error||'No se pudo cargar Servicio Técnico');
+    state.service={orders:d.orders||[],metrics:d.metrics||{},methods:d.methods||[],events:d.events_today||[],canCharge:!!d.can_charge,error:''};
+  }catch(e){
+    state.service={...state.service,error:e.message||'Servicio Técnico no disponible'};
+    if(!silent)toast(state.service.error,4500);
+  }
+}
+function repairRows(){
+  const q=normalize($('repairSearch')?.value||''),filter=$('repairFilter')?.value||'pending';
+  return (state.service?.orders||[]).filter(o=>{
+    if(filter==='pending'&&!(Number(o.balance||0)>0))return false;
+    if(filter==='paid'&&!o.paid)return false;
+    if(q&&!normalize([o.code,o.client_name,o.client_email,o.client_phone,o.device_model,o.device_type,o.serial_imei,o.status,o.payment_method].join(' ')).includes(q))return false;
+    return true;
+  });
+}
+function renderRepairs(){
+  const box=$('repairList');if(!box)return;
+  const s=state.service||{},m=s.metrics||{};
+  if($('repairTodayTotal'))$('repairTodayTotal').textContent=money(m.service_collected_today||0);
+  if($('repairTodayCount'))$('repairTodayCount').textContent=`${Number(m.service_payments_today||0)} movimiento${Number(m.service_payments_today||0)===1?'':'s'}`;
+  if($('repairPendingTotal'))$('repairPendingTotal').textContent=money(m.service_pending_usd||0);
+  if($('repairPendingCount'))$('repairPendingCount').textContent=`${Number(m.service_pending_count||0)} reparación${Number(m.service_pending_count||0)===1?'':'es'}`;
+  if($('combinedTodayTotal'))$('combinedTodayTotal').textContent=money(m.combined_total_today||0);
+  renderRepairMethods();
+  if(s.error){box.innerHTML=`<div class="empty-state service-error"><b>No pude conectar la caja con Servicio Técnico.</b><br>${esc(s.error)}</div>`;return}
+  const rows=repairRows();
+  box.innerHTML=rows.length?rows.map(o=>{
+    const pct=o.quote_amount>0?Math.min(100,Math.max(0,Math.round(Number(o.amount_paid||0)/Number(o.quote_amount)*100))):0;
+    const status=o.paid?'Pagado':Number(o.amount_paid||0)>0?'Abono parcial':'Pendiente';
+    return `<article class="repair-row ${o.paid?'is-paid':''}"><div class="repair-order-main"><div class="repair-code"><b>${esc(o.code)}</b><span class="repair-status ${o.paid?'paid':''}">${esc(status)}</span></div><h3>${esc(o.device_model||o.device_type||'Equipo')}</h3><p>${esc(o.client_name||'Cliente')} · ${esc(o.client_phone||o.client_email||'Sin contacto')}</p><small>${esc(o.status||'Servicio')} · ${esc(o.serial_imei||'Serial no indicado')}</small></div><div class="repair-money"><span>Total</span><b>${money(o.quote_amount)}</b><small>Abonado ${money(o.amount_paid)}</small><div class="repair-progress"><i style="width:${pct}%"></i></div><strong>${o.paid?'Saldo pagado':`Pendiente ${money(o.balance)}`}</strong>${o.payment_method?`<em>${esc(o.payment_method)}</em>`:''}</div><div class="repair-actions">${o.paid?`<button class="secondary compact-button" data-note="${esc(o.code)}" type="button">Nota / imprimir</button><button class="text-action compact-button" data-resend="${esc(o.code)}" type="button">Reenviar correo</button>`:`<button class="primary compact-button" data-charge="${esc(o.code)}" type="button">Cobrar</button>`}</div></article>`;
+  }).join(''):'<div class="empty-state">No hay reparaciones que coincidan con este filtro.</div>';
+  box.querySelectorAll('[data-charge]').forEach(b=>b.addEventListener('click',()=>openServicePayment(b.dataset.charge)));
+  box.querySelectorAll('[data-note]').forEach(b=>b.addEventListener('click',()=>openServiceNote(b.dataset.note)));
+  box.querySelectorAll('[data-resend]').forEach(b=>b.addEventListener('click',()=>resendServiceNote(b.dataset.resend)));
+}
+function renderRepairMethods(){
+  const box=$('repairMethodSummary');if(!box)return;const rows=state.service?.methods||[],total=Number(state.service?.metrics?.combined_total_today||0);
+  box.innerHTML=rows.length?rows.map(x=>{const pct=total>0?Math.round(Number(x.total_usd||0)/total*100):0;return`<div class="method-row"><div><b>${esc(x.method)}</b><small>${esc(x.currency||'USD')} · ${Number(x.count||0)} mov.</small></div><div class="method-bar"><i style="width:${pct}%"></i></div><strong>${pct}% · ${money(x.total_usd)}</strong></div>`}).join(''):'<div class="empty-state compact-empty">Sin cobros confirmados hoy.</div>';
+}
+function currentRepair(code){return(state.service?.orders||[]).find(o=>String(o.code).toUpperCase()===String(code||'').toUpperCase())}
+function inferredCurrency(method){
+  const m=normalize(method);if(/pago movil|punto de venta|\bpos\b|efectivo bs|transferencia bs|bolivar/.test(m))return'VES';if(/eur|euro/.test(m))return'EUR';if(/usdt|binance|tether/.test(m))return'USDT';return'USD';
+}
+function syncServiceCurrency(){const cur=inferredCurrency($('servicePaymentMethod')?.value||'');if($('serviceCurrency'))$('serviceCurrency').value=cur}
+function openServicePayment(code){
+  const o=currentRepair(code);if(!o){toast('No encontré esa reparación.');return}
+  if(!state.service?.canCharge){toast('Tu rol no tiene permiso para cobrar reparaciones.');return}
+  $('servicePayCode').value=o.code;$('servicePayTitle').textContent=o.code;$('servicePaySubtitle').textContent=`${o.client_name||'Cliente'} · ${o.device_model||o.device_type||'Equipo'}`;$('serviceQuote').textContent=money(o.quote_amount);$('servicePaid').textContent=money(o.amount_paid);$('serviceBalance').textContent=money(o.balance);
+  $('serviceAmountUsd').value=Number(o.balance||0)>0?Number(o.balance).toFixed(2):'';$('servicePaymentMethod').value=o.payment_method||'Efectivo USD';syncServiceCurrency();$('serviceOriginalAmount').value='';$('servicePaymentRef').value='';$('servicePaymentNote').value='';
+  $('servicePaidButton').disabled=!(Number(o.balance||0)>0);openModal('servicePaymentModal');
+}
+function servicePaymentPayload(action){
+  const method=$('servicePaymentMethod').value,currency=$('serviceCurrency').value,code=$('servicePayCode').value;
+  return{action,code,payment_method:method,currency,amount_usd:Number($('serviceAmountUsd').value||0),original_amount:$('serviceOriginalAmount').value.trim(),reference:$('servicePaymentRef').value.trim(),notes:$('servicePaymentNote').value.trim()};
+}
+async function submitServicePayment(action){
+  const payload=servicePaymentPayload(action);if(action==='payment'&&!(payload.amount_usd>0))return toast('Indica el monto del abono.');
+  if(!/efectivo/i.test(payload.payment_method)&&!payload.reference)return toast('Indica la referencia o número de transacción.');
+  setBusy(true);
+  try{
+    const r=await fetch('/.netlify/functions/service-sales',{method:'POST',headers:await tokenHeaders(true),body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok)throw Error(d.error||'No se pudo registrar el pago');
+    closeModal('servicePaymentModal');await refreshServiceData(true);renderHome();renderRepairs();
+    if(d.payment?.paid){
+      const email=d.delivery_note_email||{};
+      toast(email.sent?'Reparación pagada. Nota enviada al correo del cliente.':'Reparación pagada. Nota generada; revisa el estado del correo.',4800);
+      if(d.note_html)openServiceNote(payload.code,d.note_html);
+    }else toast(`Abono registrado. Saldo pendiente ${money(d.payment?.balance_after||0)}.`);
+  }catch(e){toast(e.message||'No se pudo registrar el cobro',5200)}
+  finally{setBusy(false)}
+}
+async function openServiceNote(code,html){
+  try{
+    let noteHtml=html;
+    if(!noteHtml){const r=await fetch('/.netlify/functions/service-sales?action=note&code='+encodeURIComponent(code),{headers:await tokenHeaders(),cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo generar la nota');noteHtml=d.html}
+    state.serviceNoteHtml=noteHtml||'';state.serviceNoteCode=code;$('serviceNoteTitle').textContent=code;$('serviceNoteBody').innerHTML=state.serviceNoteHtml;openModal('serviceNoteModal');
+  }catch(e){toast(e.message||'No se pudo abrir la Nota de Entrega',4800)}
+}
+function printCurrentServiceNote(){
+  if(!state.serviceNoteHtml)return;const w=window.open('','_blank');if(!w)return toast('Permite ventanas emergentes para imprimir la nota.');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Nota de entrega ${esc(state.serviceNoteCode)}</title></head><body>${state.serviceNoteHtml}<script>setTimeout(function(){window.print()},250)<\/script></body></html>`);w.document.close();
+}
+async function resendServiceNote(code){
+  try{
+    const r=await fetch('/.netlify/functions/service-sales',{method:'POST',headers:await tokenHeaders(true),body:JSON.stringify({action:'resend_note',code})}),d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok)throw Error(d.error||d.email?.error||'No se pudo reenviar');
+    toast(`Nota reenviada a ${d.email?.to||'correo del cliente'}.`,4000);
+  }catch(e){toast(e.message||'No se pudo reenviar la nota',4800)}
+}
 
 function catFor(name){const cp=state.catalog.find(c=>normalize(c.product_name)===normalize(name));if(cp?.category)return cp.category;return /iphone/i.test(name)?'iPhone':/ipad/i.test(name)?'iPad':/airpod|audio/i.test(name)?'Audio':/watch/i.test(name)?'Apple Watch':/macbook/i.test(name)?'MacBook':/\bmac\b|mac mini|mac pro|imac/i.test(name)?'Mac':/acces|cable|pencil|mouse|keyboard|airtag|case|vidrio|cargador/i.test(name)?'Accesorios Apple':'Otro'}
 function staticProduct(name){try{return typeof PRODUCTS!=='undefined'&&Array.isArray(PRODUCTS)?PRODUCTS.find(p=>normalize(p.name||p.model)===normalize(name))||null:null}catch{return null}}
@@ -136,7 +235,7 @@ function renderCart(){$('cartCount').textContent=state.cart.length;$('cartItems'
 function cartSubtotal(){return state.cart.reduce((n,x)=>n+Number(x.price||0),0)}
 function discountSnapshot(){const subtotal=cartSubtotal(),type=$('discountType')?.value||'usd',value=Math.max(0,Number($('discountValue')?.value||0));const raw=type==='percent'?subtotal*Math.min(value,100)/100:Math.min(value,subtotal),discount=Math.round(raw*100)/100;return{subtotal,discount,total:Math.round((subtotal-discount)*100)/100,type,value}}
 function updateCheckoutTotals(){if(!$('checkoutSubtotal'))return;const d=discountSnapshot();$('checkoutSubtotal').textContent=money(d.subtotal);$('checkoutDiscount').textContent='-'+money(d.discount);$('checkoutTotal').textContent=money(d.total);updateFxQuote(d.total)}
-async function updateFxQuote(total){const box=$('paymentFx');if(!box)return;const ves=/Pago Móvil|Punto de Venta|Efectivo Bs|Transferencia Bs/i.test(state.payment);if(!ves){show(box,false);return}show(box,true);box.textContent='Consultando tasa oficial…';try{if(!window.ThinkStoreFX)throw Error('Tasa no disponible');await window.ThinkStoreFX.refresh();const q=window.ThinkStoreFX.snapshot(total);box.textContent=q?`${money(total)} × ${q.rate} = ${window.ThinkStoreFX.ves(q.total_ves)} · ${q.source}`:'Tasa no disponible';}catch{box.textContent='No se pudo consultar la tasa oficial en este momento.'}}
+async function updateFxQuote(total){const box=$('paymentFx');if(!box)return;if(state.payment!=='Pago Móvil'){show(box,false);return}show(box,true);box.textContent='Consultando tasa oficial…';try{if(!window.ThinkStoreFX)throw Error('Tasa no disponible');await window.ThinkStoreFX.refresh();const q=window.ThinkStoreFX.snapshot(total);box.textContent=q?`${money(total)} × ${q.rate} = ${window.ThinkStoreFX.ves(q.total_ves)} · ${q.source}`:'Tasa no disponible';}catch{box.textContent='No se pudo consultar la tasa oficial en este momento.'}}
 function checkoutPayload(){const d=discountSnapshot();return{customer_name:$('customerName').value.trim(),customer_email:$('customerEmail').value.trim(),customer_document:$('customerDocument').value.trim(),customer_phone:$('customerPhone').value.trim(),customer_address:$('customerAddress').value.trim(),customer_city:$('customerCity').value.trim(),customer_state:$('customerState').value.trim(),items:state.cart,payment_method:state.payment,payment_ref:$('paymentRef').value.trim(),delivery_method:$('deliveryMethod').value,shipping_company:$('shippingCompany').value,sale_note:$('saleNote').value.trim(),discount_type:d.type,discount_value:d.value,discount_usd:d.discount,discount_reason:$('discountReason').value.trim(),subtotal_usd:d.subtotal,total_final_usd:d.total,pos_source:'staff_app'}}
 function validateCheckout(){const p=checkoutPayload();if(!p.customer_name||!p.customer_email.includes('@')||!p.customer_document||!p.customer_phone||!p.customer_address)throw Error('Completa nombre, correo, cédula/RIF, teléfono y dirección del cliente.');if(!state.cart.length)throw Error('El carrito está vacío.');if(!/efectivo/i.test(state.payment)&&!p.payment_ref)throw Error('Indica la referencia del pago.');return p}
 async function createSale(){if(state.savedCode)return state.savedCode;const payload=validateCheckout();setBusy(true);try{const r=await fetch('/.netlify/functions/admin-create-sale',{method:'POST',headers:await tokenHeaders(true),body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo registrar la venta');state.savedCode=d.pedido?.codigo||'';return state.savedCode}finally{setBusy(false)}}
@@ -147,10 +246,11 @@ function resetSale(){show('successModal',false);state.cart=[];state.savedCode=''
 function wire(){
   $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginMessage').hidden=true;setBusy(true);try{await login($('loginEmail').value.trim(),$('loginPassword').value)}catch(err){messageLogin(err.message||'No se pudo iniciar sesión')}finally{setBusy(false)}});
   $('forgotButton').addEventListener('click',resetPassword);$('logoutButton').addEventListener('click',logout);
-  document.addEventListener('click',e=>{const nav=e.target.closest('[data-view]');if(nav){e.preventDefault();const v=nav.dataset.view;if(v==='sell'&&!state.canSell)return toast('Tu rol no tiene permiso de ventas');show('successModal',false);navigate(v)}const close=e.target.closest('[data-close]');if(close)closeModal(close.dataset.close)});
-  $('productSearch').addEventListener('input',e=>{state.query=e.target.value;renderStore()});$('refreshStore').addEventListener('click',()=>refreshData());$('refreshSales').addEventListener('click',()=>refreshData());$('cartButton').addEventListener('click',()=>{renderCart();openModal('cartDrawer')});$('checkoutButton').addEventListener('click',()=>{if(!state.cart.length)return;closeModal('cartDrawer');updateCheckoutTotals();openModal('checkoutModal')});$('barcodeScanForm')?.addEventListener('submit',e=>{e.preventDefault();scanToCart($('barcodeScanInput')?.value)});wireHardwareScanner();
+  document.addEventListener('click',e=>{const nav=e.target.closest('[data-view]');if(nav){e.preventDefault();const v=nav.dataset.view;if(v==='sell'&&!state.canSell)return toast('Tu rol no tiene permiso de ventas');if(v==='repairs'&&!serviceAccessAllowed())return toast('Tu rol no tiene permiso de cobros');show('successModal',false);navigate(v)}const close=e.target.closest('[data-close]');if(close)closeModal(close.dataset.close)});
+  $('productSearch').addEventListener('input',e=>{state.query=e.target.value;renderStore()});$('refreshStore').addEventListener('click',()=>refreshData());$('refreshSales').addEventListener('click',()=>refreshData());$('refreshRepairs')?.addEventListener('click',async()=>{await refreshServiceData();renderHome();renderRepairs()});$('repairSearch')?.addEventListener('input',renderRepairs);$('repairFilter')?.addEventListener('change',renderRepairs);$('cartButton').addEventListener('click',()=>{renderCart();openModal('cartDrawer')});$('checkoutButton').addEventListener('click',()=>{if(!state.cart.length)return;closeModal('cartDrawer');updateCheckoutTotals();openModal('checkoutModal')});$('barcodeScanForm')?.addEventListener('submit',e=>{e.preventDefault();scanToCart($('barcodeScanInput')?.value)});wireHardwareScanner();
   $('paymentChoices').addEventListener('click',e=>{const b=e.target.closest('[data-payment]');if(!b)return;state.payment=b.dataset.payment;document.querySelectorAll('[data-payment]').forEach(x=>x.classList.toggle('active',x===b));show('paymentRefWrap',!/efectivo/i.test(state.payment));if(/efectivo/i.test(state.payment))$('paymentRef').value='';updateCheckoutTotals()});
   $('deliveryMethod').addEventListener('change',()=>show('shippingWrap',$('deliveryMethod').value==='Envío nacional'));$('discountType').addEventListener('change',updateCheckoutTotals);$('discountValue').addEventListener('input',updateCheckoutTotals);$('checkoutForm').addEventListener('submit',confirmSale);$('holdSaleButton').addEventListener('click',holdSale);$('newSaleButton').addEventListener('click',resetSale);
+  $('servicePaymentMethod')?.addEventListener('change',syncServiceCurrency);$('servicePaymentForm')?.addEventListener('submit',e=>{e.preventDefault();submitServicePayment('payment')});$('servicePaidButton')?.addEventListener('click',()=>submitServicePayment('mark_paid'));$('printServiceNote')?.addEventListener('click',printCurrentServiceNote);
   $('installButton').addEventListener('click',async()=>{if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('installButton').textContent='App instalada / disponible';return}if(/iphone|ipad|ipod/i.test(navigator.userAgent))toast('En iPhone/iPad: Compartir → Añadir a pantalla de inicio',5000);else toast('Usa el menú del navegador → Instalar aplicación',4500)});
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e});
 }

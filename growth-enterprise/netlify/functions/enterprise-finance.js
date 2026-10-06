@@ -56,7 +56,7 @@ async function authManager(event,base,key){
   const r=await fetch(`${base}/auth/v1/user`,{headers:{apikey:key,Authorization:`Bearer ${token}`}});
   const user=await r.json().catch(()=>({}));if(!r.ok||!user?.id)return{ok:false,error:'Sesión Enterprise inválida'};
   let profile=null;
-  for(const path of [`profiles?select=*&id=eq.${encodeURIComponent(user.id)}&limit=1`,user.email?`profiles?select=*&email=ilike.${encodeURIComponent(user.email)}&limit=1`:null,user.email?`profiles?select=*&correo=ilike.${encodeURIComponent(user.email)}&limit=1`:null,user.email?`roles_usuarios?select=*&email=ilike.${encodeURIComponent(user.email)}&limit=1`:null].filter(Boolean)){
+  for(const path of [`profiles?select=*&id=eq.${encodeURIComponent(user.id)}&limit=1`,user.email?`roles_usuarios?select=*&email=ilike.${encodeURIComponent(user.email)}&limit=1`:null].filter(Boolean)){
     try{const rows=await req(base,key,path);if(rows?.[0]){profile=rows[0];break}}catch{}
   }
   const access=enterpriseAccess(profile);
@@ -64,22 +64,8 @@ async function authManager(event,base,key){
   return{ok:true,user,profile,access};
 }
 function actorName(auth){return clean(auth?.profile?.full_name||auth?.profile?.nombre||auth?.user?.user_metadata?.full_name||auth?.user?.user_metadata?.name||auth?.user?.email||'Administrador')}
-function normalizeMethod(v){const s=clean(v)||'Sin definir';return s.replace(/pago movil/i,'Pago Móvil').replace(/^zelle$/i,'Zelle').replace(/efectivo usd/i,'Efectivo USD').replace(/efectivo bs/i,'Efectivo Bs').replace(/punto de venta|\bpos\b/i,'Punto de Venta').replace(/^eur(os?)?$/i,'EUR').replace(/^usdt$/i,'USDT')}
-function currencyForMethod(v){
-  const s=norm(v);
-  if(/pago movil|punto de venta|efectivo bs|transferencia bs|bolivar|\bves\b/.test(s))return 'VES';
-  if(/\beur\b|euro/.test(s))return 'EUR';
-  if(/usdt|tether/.test(s))return 'USDT';
-  if(/otro|sin definir/.test(s))return 'N/D';
-  return 'USD';
-}
-function addMethod(map,method,amount,source){
-  const key=normalizeMethod(method),src=clean(source)||'Sin fuente',value=money(amount);
-  if(!map[key])map[key]={method:key,currency:currencyForMethod(key),amount:0,count:0,sources:{},source_amounts:{}};
-  map[key].amount=money(map[key].amount+value);map[key].count+=1;
-  map[key].sources[src]=(map[key].sources[src]||0)+1;
-  map[key].source_amounts[src]=money((map[key].source_amounts[src]||0)+value);
-}
+function normalizeMethod(v){const s=clean(v)||'Sin definir';return s.replace(/pago movil/i,'Pago Móvil').replace(/^zelle$/i,'Zelle').replace(/efectivo usd/i,'Efectivo USD').replace(/efectivo bs/i,'Efectivo Bs')}
+function addMethod(map,method,amount,source){const key=normalizeMethod(method);if(!map[key])map[key]={method:key,amount:0,count:0,sources:{}};map[key].amount=money(map[key].amount+num(amount));map[key].count+=1;map[key].sources[source]=(map[key].sources[source]||0)+1}
 function entryDate(e){return e.occurred_at||e.created_at}
 function entryActive(e){return norm(e.status)!=='void'}
 function sum(rows,fn){return money((rows||[]).reduce((n,r)=>n+num(fn(r)),0))}
@@ -225,11 +211,6 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   else{supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>addMethod(methodMap,o.payment_method,o.amount_paid,'Servicio Técnico'))}
   weekEntries.filter(e=>['other_income','receivable_collection'].includes(e.entry_type)).forEach(e=>addMethod(methodMap,e.payment_method,e.amount_usd,'Enterprise'));
   const paymentMethods=Object.values(methodMap).sort((a,b)=>b.amount-a.amount);
-  const paymentTotal=money(paymentMethods.reduce((n,x)=>n+num(x.amount),0));
-  paymentMethods.forEach(x=>x.percentage=paymentTotal>0?money(num(x.amount)/paymentTotal*100):0);
-  const currencyMap={};
-  paymentMethods.forEach(x=>{const c=x.currency||'USD';if(!currencyMap[c])currencyMap[c]={currency:c,amount_usd_equiv:0,count:0,methods:[]};currencyMap[c].amount_usd_equiv=money(currencyMap[c].amount_usd_equiv+num(x.amount));currencyMap[c].count+=num(x.count);currencyMap[c].methods.push(x.method)});
-  const currencies=Object.values(currencyMap).sort((a,b)=>b.amount_usd_equiv-a.amount_usd_equiv).map(x=>({...x,percentage:paymentTotal>0?money(x.amount_usd_equiv/paymentTotal*100):0}));
   const purchaseMethodMap={};weekPurchasePayments.forEach(p=>addMethod(purchaseMethodMap,p.payment_method,p.amount_usd,'Compras Inventory'));
   const purchasePaymentMethods=Object.values(purchaseMethodMap).sort((a,b)=>b.amount-a.amount);
 
@@ -275,12 +256,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const techPaid=sum(weekEntries.filter(e=>e.entry_type==='technician_payment'),e=>e.amount_usd);
   const cashOut=money(companyManualCash+companyInventoryCash+repayments+techPaid);
 
-  const enrichedSupport=supportOrders.slice(0,250).map(o=>({id:o.id,code:o.code,client_name:o.client_name,client_email:o.client_email,device_model:o.device_model,service_type:o.service_type,quote_amount:num(o.quote_amount),quote_currency:o.quote_currency||'USD',amount_paid:num(o.amount_paid),pending_amount:servicePendingAmount(o),payment_status:o.payment_status||'Pendiente',payment_method:o.payment_method||'',assigned_technician_email:o.assigned_technician_email,status:o.status,paid_at:o.paid_at||null,created_at:o.created_at,updated_at:o.updated_at,parts_cost:money(realPartsByOrder.get(String(o.id))||realPartsByOrder.get(String(o.code))||0)}));
-  const enrichedSales=orders.slice(0,300).map(o=>{
-    const method=normalizeMethod(o.metodo_pago||o.payment_method);
-    const channel=norm(o.order_channel||o.channel)==='presencial'?'Presencial':'Online';
-    return{id:o.id,code:o.codigo||o.code||String(o.id||''),client_name:o.guest_name||o.client_name||o.cliente_nombre||o.guest_email||'Cliente',channel,total_usd:money(o.total_usd),total_bs:num(o.total_bs),payment_method:method,currency:currencyForMethod(method),status:o.estado||o.status||'Pedido',payment_approved:paymentApproved(o),created_at:o.created_at,paid_at:orderPaidDate(o)};
-  });
+  const enrichedSupport=supportOrders.slice(0,250).map(o=>({id:o.id,code:o.code,client_name:o.client_name,device_model:o.device_model,service_type:o.service_type,quote_amount:num(o.quote_amount),amount_paid:num(o.amount_paid),payment_method:o.payment_method,assigned_technician_email:o.assigned_technician_email,status:o.status,created_at:o.created_at,updated_at:o.updated_at,parts_cost:money(realPartsByOrder.get(String(o.id))||realPartsByOrder.get(String(o.code))||0)}));
   const pnlCosts=money(storeCogs+supportPartsCost+supportDirectCosts+operatingExpenses+techAccrued);
   const costCoverage=paidItems.length?money(costedLines/paidItems.length*100):100;
 
@@ -302,7 +278,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
       purchase_value_week:purchaseValueWeek,purchase_cash_week:purchaseCashWeek,supplier_payable:supplierPayable,products_count:invProducts.length,supplier_count:invSuppliers.length,
       cost_coverage_pct:costCoverage,costed_lines:costedLines,missing_cost_lines:missingCostLines,purchases:activePurchases.slice(0,100),payables:payablePurchases.slice(0,100),suppliers:invSuppliers.slice(0,100)
     },
-    payment_methods:paymentMethods,currencies,purchase_payment_methods:purchasePaymentMethods,sales_orders:enrichedSales,
+    payment_methods:paymentMethods,purchase_payment_methods:purchasePaymentMethods,
     reconciliation:{
       current:currentRecon,previous:previousRecon,lines:reconciliationLines,
       totals:{expected:reconExpectedTotal,actual:reconActualTotal,difference:reconDifferenceTotal,completed:reconActualKnown.length===reconciliationLines.length&&reconciliationLines.length>0},
