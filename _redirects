@@ -1,5 +1,16 @@
-/growth-enterprise/dashboard.html /growth-enterprise/index.html 301
-/enterprise /growth-enterprise/index.html 302
+# Single Netlify site: Enterprise, Soporte, Ventas, Inventory are subdirectories.
+# Only after enterprise.thinkstore.com.ve is moved to THIS Main as a domain alias:
+https://enterprise.thinkstore.com.ve/ /growth-enterprise/ 302!
+https://enterprise.thinkstore.com.ve/recovery-v1013.html /growth-enterprise/recovery-v1013.html 302!
+/growth-enterprise/dashboard.html /growth-enterprise/index.html 302
+/enterprise /growth-enterprise/ 302
+/ventas /staff/ 302
+/servicio-interno /soporte/ 302
+/inventario-interno /inventory/ 302
 /staff /staff/ 301
 /reset-password /index.html 200
+/api/admin-users /.netlify/functions/inventory-admin-users 200!
+/api/workshop /.netlify/functions/inventory-workshop 200!
+/api/r2-upload /.netlify/functions/inventory-r2-upload 200!
+/api/r2-upload-url /.netlify/functions/inventory-r2-upload-url 200!
 /* /index.html 200

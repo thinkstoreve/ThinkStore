@@ -10,7 +10,7 @@ self.addEventListener('activate',event=>{
     try{
       const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
       for(const client of clients){
-        try{client.navigate('/recovery-v1013.html?from=sw&ts='+Date.now());}catch(e){}
+        try{client.navigate('/growth-enterprise/recovery-v1013.html?from=sw&ts='+Date.now());}catch(e){}
       }
     }catch(e){}
   })());

@@ -10,8 +10,8 @@
 <!-- V10.6: PWA deshabilitado para evitar caché offline -->
 <meta name="theme-color" content="#0f0f10">
   <title>ThinkStore Enterprise</title>
-  <meta name="thinkstore-build" content="10.13-enterprise-completo-restaurado">
-  <meta name="thinkstore-enterprise-build" content="10.13-enterprise-completo-restaurado">
+  <meta name="thinkstore-build" content="10.14-main-unificado">
+  <meta name="thinkstore-enterprise-build" content="10.14-main-unificado">
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ThinkStore Enterprise" />
@@ -202,7 +202,7 @@
 (function(){
   // V10.6 · limpieza permanente de cualquier PWA/Service Worker anterior.
   try{
-    if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(list=>Promise.all(list.map(r=>r.unregister().catch(()=>false)))).catch(()=>{});}
+    if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(list=>Promise.all(list.filter(r=>r.scope.includes('/growth-enterprise/')||(location.hostname.startsWith('enterprise.')&&new URL(r.scope).pathname==='/')).map(r=>r.unregister().catch(()=>false)))).catch(()=>{});}
     if('caches' in window){caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('thinkstore-enterprise-')).map(k=>caches.delete(k)))).catch(()=>{});}
   }catch(e){}
 })();

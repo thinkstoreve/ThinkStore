@@ -1,6 +1,8 @@
 (() => {
 'use strict';
 const cfg=window.THINKSTORE_SUPABASE||{};
+const projectRef=(()=>{try{return new URL(cfg.SUPABASE_URL).hostname.split('.')[0]}catch{return''}})();
+const authHeaders=(token)=>({Authorization:'Bearer '+token,'X-ThinkStore-Project-Ref':projectRef});
 const sb=window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
@@ -17,7 +19,7 @@ function firstName(name){return String(name||'').trim().split(/\s+/)[0]||'Usuari
 function show(el,on=true){if(typeof el==='string')el=$(el);if(el)el.classList.toggle('hidden',!on)}
 function toast(msg,ms=2800){const el=$('toast');if(!el)return;el.textContent=msg;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,ms)}
 function setBusy(on){state.loading=on;['loginButton','holdSaleButton','confirmSaleButton','checkoutButton','servicePartialButton','servicePaidButton'].forEach(id=>{const el=$(id);if(el)el.disabled=on})}
-async function tokenHeaders(json=false){const h={};const {data}=await sb.auth.getSession();const t=data?.session?.access_token;if(t)h.Authorization='Bearer '+t;if(json)h['Content-Type']='application/json';return h}
+async function tokenHeaders(json=false){const h={'X-ThinkStore-Project-Ref':projectRef};const {data}=await sb.auth.getSession();const t=data?.session?.access_token;if(t)h.Authorization='Bearer '+t;if(json)h['Content-Type']='application/json';return h}
 function openModal(id){const el=$(id);if(!el)return;el.classList.add('open');el.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
 function closeModal(id){const el=$(id);if(!el)return;el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!document.querySelector('.modal.open'))document.body.style.overflow=''}
 
@@ -31,10 +33,10 @@ async function bootstrap(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){show('boot',false);show('appShell',false);show('loginScreen',true);return;}
   try{
-    const r=await fetch('/.netlify/functions/staff-pos',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'});
+    const r=await fetch('/.netlify/functions/staff-pos',{headers:authHeaders(session.access_token),cache:'no-store'});
     const d=await r.json().catch(()=>({}));
-    if(r.status===401){await sb.auth.signOut();throw Error(d.error||'Tu sesión venció. Inicia sesión nuevamente.');}
-    if(r.status===403){await sb.auth.signOut();throw Error(d.error||'Esta cuenta no tiene acceso a ThinkStore Staff.');}
+    if(r.status===401){throw Error(d.error||'No pude validar tu sesión. Revisa la configuración de Supabase Main.');}
+    if(r.status===403){throw Error(d.error||'Esta cuenta no tiene acceso a App Ventas.');}
     if(!r.ok||!d.ok)throw Error(d.error||'No se pudo abrir ThinkStore Staff.');
     state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};
     await refreshServiceData(true);
@@ -47,7 +49,7 @@ async function bootstrap(){
 async function refreshData(silent=false){
   const {data:{session}}=await sb.auth.getSession();if(!session)return logout();
   if(!silent)toast('Actualizando…',1200);
-  try{const r=await fetch('/.netlify/functions/staff-pos',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo actualizar');state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};await refreshServiceData(true);renderIdentity();renderHome();renderStore();renderSales();renderRepairs();renderAccount();if(!silent)toast('Datos actualizados');}catch(e){if(!silent)toast(e.message||'No se pudo actualizar')}
+  try{const r=await fetch('/.netlify/functions/staff-pos',{headers:authHeaders(session.access_token),cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo actualizar');state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};await refreshServiceData(true);renderIdentity();renderHome();renderStore();renderSales();renderRepairs();renderAccount();if(!silent)toast('Datos actualizados');}catch(e){if(!silent)toast(e.message||'No se pudo actualizar')}
 }
 
 function navigate(view,push=true){
@@ -199,7 +201,7 @@ async function scanToCart(raw){
   state.scanBusy=true;const input=$('barcodeScanInput');if(input)input.disabled=true;
   try{
     const {data:{session}}=await sb.auth.getSession();if(!session)throw Error('Tu sesión venció.');
-    const r=await fetch('/.netlify/functions/staff-pos?action=scan&code='+encodeURIComponent(code),{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),d=await r.json().catch(()=>({}));
+    const r=await fetch('/.netlify/functions/staff-pos?action=scan&code='+encodeURIComponent(code),{headers:authHeaders(session.access_token),cache:'no-store'}),d=await r.json().catch(()=>({}));
     if(!r.ok||!d.ok)throw Error(d.error||`No encontré ${code}`);
     const v=d.variant;if(!v)throw Error('El código existe, pero todavía no está enlazado al inventario de venta.');
     if(d.kind==='unit'){

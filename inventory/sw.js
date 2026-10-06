@@ -1,9 +1,9 @@
-const CACHE="thinkstore-support-v8-8-8-main-1491";
-const CORE=["./panel.html", "./index.html", "./styles.css", "./app.js", "./offline-runtime.js", "./manifest.webmanifest", "./offline.html", "./favicon-192.png", "./favicon-512.png", "./assets/thinkstore-logo-white.png"];
-const OFFLINE="./offline.html";
+const CACHE="thinkstore-inventory-v3-2-32-main-1491";
+const CORE=["./", "./index.html", "./setup-password.html", "./styles.css", "./app.js?v=3.2.32", "./workshop/finance.js?v=3.2.32", "./workshop/workshop.js?v=3.2.32", "./workshop/workshop.css?v=3.2.32", "./boot.js?v=3.2.32", "./config.js?v=3.2.32", "./manifest.webmanifest", "./version.json", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-192.png", "./icons/maskable-512.png", "./icons/thinkstore-logo.png"];
+const OFFLINE="./index.html";
 const NAV_ONLY=null;
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(async c=>{for(const u of CORE){try{const r=await fetch(u,{cache:'reload'});if(r.ok||r.type==='opaque')await c.put(u,r.clone())}catch{}}}).then(()=>self.skipWaiting()))});
-self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE&&k.startsWith('thinkstore-support-')).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
+self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE&&k.startsWith('thinkstore-inventory-')).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('message',e=>{if(e.data?.type==='SKIP_WAITING')self.skipWaiting()});
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET')return;

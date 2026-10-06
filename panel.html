@@ -1288,7 +1288,7 @@ const views={
      <div class="inventory-real-tabs">
        <button class="inventory-real-tab active">📱 Equipos y accesorios</button>
        <button class="inventory-real-tab" onclick="openModule('productos')">🗂️ Catálogo de productos</button>
-       <a class="inventory-real-tab link" href="https://inventory.thinkstore.com.ve" target="_blank" rel="noopener">🧩 Repuestos técnicos ↗</a>
+       <a class="inventory-real-tab link" href="/inventory/" target="_blank" rel="noopener">🧩 Repuestos técnicos ↗</a>
      </div>
      <div class="module-head inventory-real-head">
        <div><b>Inventario real · Equipos y accesorios</b><small>Inventario Real vuelve a usar el editor avanzado: ficha, variantes, stock, precio, condición Pre-Owned, salud de batería, imágenes por color, publicación e historial.</small></div>
@@ -1827,7 +1827,7 @@ function openRealInventoryEditor(id){
   const v=(tsCatalogInventoryRows||[]).find(x=>String(x.id)===String(id));
   if(!v)return alert('Variante no encontrada.');
   const q=new URLSearchParams({variant:String(v.id),product:v.product_name||''});
-  const url='https://inventory.thinkstore.com.ve/?'+q.toString();
+  const url='/inventory//?'+q.toString();
   const w=window.open(url,'_blank','noopener');
   if(!w)alert('El navegador bloqueó Inventory. Permite ventanas emergentes para ThinkStore.');
 }

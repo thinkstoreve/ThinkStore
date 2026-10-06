@@ -1,0 +1,4 @@
+-- ThinkStore Inventory V3.1
+-- Este archivo queda solo como marcador dentro de /app.
+-- Para configurar la base online, ejecuta ../supabase-online.sql en el Supabase ACTUAL de ThinkStore.
+-- No ejecutes esquemas locales antiguos.

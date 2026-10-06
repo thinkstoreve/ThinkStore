@@ -2541,7 +2541,7 @@ function renderV9RealMarketing(data){
   // V10.6: PWA/offline deshabilitado hasta nuevo aviso. Enterprise es online-first.
   if('serviceWorker' in navigator){
     window.addEventListener('load',()=>{
-      navigator.serviceWorker.getRegistrations().then(regs=>Promise.all(regs.map(r=>r.unregister().catch(()=>false)))).catch(()=>{});
+      navigator.serviceWorker.getRegistrations().then(regs=>Promise.all(regs.filter(r=>r.scope.includes('/growth-enterprise/')||(location.hostname.startsWith('enterprise.')&&new URL(r.scope).pathname==='/')).map(r=>r.unregister().catch(()=>false)))).catch(()=>{});
       if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('thinkstore-enterprise-')).map(k=>caches.delete(k)))).catch(()=>{});
     });
   }
