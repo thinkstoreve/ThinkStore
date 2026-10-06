@@ -1,0 +1,12 @@
+ThinkStore Soporte V8.7.8 · Notificaciones Premium
+
+CAMBIOS
+- El número de orden se muestra siempre en una píldora oscura de alto contraste.
+- Cada alerta muestra nombre del cliente cuando está disponible.
+- También muestra el modelo/equipo relacionado.
+- Se mejora el contraste de títulos, mensajes, fechas y contadores.
+- Tarjetas más limpias, con fondo blanco y sombra suave.
+- Notificaciones sin leer tienen indicador azul lateral.
+- El popup de actividad reciente también muestra cliente y orden.
+
+No requiere SQL. Usa metadata que ya guardan las notificaciones actuales.

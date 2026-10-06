@@ -55,7 +55,9 @@
   <div id="loginModal" class="modal">
     <form class="card" onsubmit="TSService.login(event)">
       <h2>Acceso privado</h2>
-      <p>Solo personal autorizado. Los clientes consultan por código o QR.</p>
+      <p>Solo personal autorizado. Usa tu misma cuenta ThinkStore para entrar a Soporte.</p>
+      <a class="unified-access-btn" href="https://thinkstore.com.ve/sso-entry.html?platform=support">Ingresar con ThinkStore</a>
+      <div class="unified-access-divider"><span>o acceso local</span></div>
       <label>Correo electrónico</label><input id="loginUser" type="email" required placeholder="soporte@thinkstore.com.ve" autocomplete="email" />
       <label>Contraseña</label><input id="loginPass" type="password" required placeholder="Contraseña" autocomplete="current-password" />
       <button>Ingresar</button>
@@ -271,7 +273,12 @@
         <label>Empresa de envío<input id="mTrackingCompany" placeholder="Empresa de envío"></label>
       </div>
       <label>Número de guía<input id="mTrackingCode" placeholder="Número de guía"></label>
-      <label>Diagnóstico y observaciones técnicas<textarea id="mTechnicalNotes" placeholder="Diagnóstico, piezas, pruebas y observaciones..."></textarea></label>
+      <div class="manager-writing-grid single">
+        <section class="manager-note-card manager-note-card-lg">
+          <div class="manager-card-head"><span>ÁREA TÉCNICA</span><h3>Diagnóstico y observaciones</h3><p>Espacio interno para registrar el diagnóstico técnico y el seguimiento del trabajo. Los códigos de cita web ya no se mostrarán aquí.</p></div>
+          <label class="premium-field">Detalle técnico<textarea id="mTechnicalNotes" placeholder="Ej. Se detecta daño en pantalla, batería degradada y equipo pendiente de pruebas finales después del cambio de pieza."></textarea><small>Usa este espacio para notas internas del técnico.</small></label>
+        </section>
+      </div>
       <div class="order-box"><h3>Fotografías y archivos privados</h3><div class="file-actions"><input id="mOrderFile" type="file" accept="image/*,.pdf"><button type="button" onclick="TSService.uploadOrderFile()">Subir archivo</button></div><div id="mOrderFiles" class="order-files"></div></div>
       <div class="actions"><button>Guardar cambios</button><button type="button" class="secondary" onclick="TSService.notifyOrderClient()">Enviar actualización al cliente</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
     </form>
