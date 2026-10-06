@@ -1,0 +1,13 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.7.5",
+  "base": "8.7.4",
+  "type": "quote-ui-premium",
+  "changes": [
+    "premium styling for quote approval card",
+    "improved buttons and comment area",
+    "cleaner quick replies layout",
+    "premium modal for terms and approval",
+    "no SQL changes required"
+  ]
+}

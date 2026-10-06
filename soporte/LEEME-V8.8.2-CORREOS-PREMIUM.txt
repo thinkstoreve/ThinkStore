@@ -1,0 +1,13 @@
+ThinkStore Soporte V8.8.2
+
+CORREOS DE SOPORTE PREMIUM
+- Cita web: instantánea, con cliente, equipo, fecha/hora, servicio y motivo.
+- Mensaje del cliente: instantáneo, con cliente, orden, equipo y mensaje completo.
+- Cotización aprobada: instantánea, con cliente, orden, equipo, monto, reparación propuesta y comentario.
+- Reseña: instantánea, con cliente, equipo, estrellas y comentario.
+- Todos incluyen logo oficial y botón al panel.
+- El resumen cada 5 minutos queda como respaldo de eventos no confirmados.
+- Remitente automático: ThinkStore Alertas <info@thinkstore.com.ve>.
+- Destinatario: soporte@thinkstore.com.ve.
+
+NO REQUIERE SQL NUEVO.

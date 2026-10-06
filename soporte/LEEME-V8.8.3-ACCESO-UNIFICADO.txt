@@ -1,0 +1,6 @@
+ThinkStore Soporte V8.8.3 · Acceso Unificado
+
+- Botón “Ingresar con ThinkStore”.
+- El acceso central se inicia desde thinkstore.com.ve y abre Soporte mediante un enlace seguro de una sola vez.
+- El login local queda como respaldo.
+- No requiere SQL nuevo en Soporte.

@@ -1,0 +1,14 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.7.8",
+  "base": "8.7.7",
+  "type": "notifications-premium-ui",
+  "changes": [
+    "visible order code badge",
+    "client name and device in each notification",
+    "higher contrast typography",
+    "premium card/background styling",
+    "improved unread state",
+    "richer compact alert popup"
+  ]
+}

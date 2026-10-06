@@ -5,3 +5,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[functions."support-notification-digest"]
+  schedule = "*/5 * * * *"
