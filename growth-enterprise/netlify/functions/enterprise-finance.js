@@ -69,10 +69,17 @@ function addMethod(map,method,amount,source){const key=normalizeMethod(method);i
 function entryDate(e){return e.occurred_at||e.created_at}
 function entryActive(e){return norm(e.status)!=='void'}
 function sum(rows,fn){return money((rows||[]).reduce((n,r)=>n+num(fn(r)),0))}
+function staffMovementUsd(m){
+  if(hasNum(m?.usd_equivalent))return Math.max(0,num(m.usd_equivalent));
+  if(clean(m?.currency).toUpperCase()==='USD')return Math.max(0,num(m.amount));
+  return 0;
+}
+function pettyMethod(m){return clean(m?.currency).toUpperCase()==='VES'?'Caja Chica Bs':'Caja Chica USD'}
+function movementSigned(row,valueFn=m=>m.amount){return (clean(row?.direction)==='out'?-1:1)*Math.max(0,num(valueFn(row)))}
 
 async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const errors=[];
-  let orders=[],orderItems=[],receipts=[],entries=[],settings=[],audits=[],reconciliations=[];
+  let orders=[],orderItems=[],receipts=[],entries=[],settings=[],audits=[],reconciliations=[],orderPayments=[],staffCashSessions=[],staffCashMovements=[],pettyAccounts=[],pettyMovements=[],pettyAudits=[];
   let invProductsRaw=[],invSuppliersRaw=[],invPurchasesRaw=[],invStockRaw=[],invUnitsRaw=[],invBridge=[];
   let supportOrders=[],supportEvents=[],supportParts=[],supportPartMoves=[];
   try{orders=await req(mainUrl,mainKey,'pedidos?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('ventas: '+e.message)}
@@ -82,6 +89,12 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   try{settings=await optionalReq(mainUrl,mainKey,'enterprise_finance_settings?select=*&id=eq.default&limit=1')}catch(e){errors.push('configuración financiera: '+e.message)}
   try{audits=await optionalReq(mainUrl,mainKey,'enterprise_weekly_audits?select=*&order=week_start.desc&limit=20')}catch(e){errors.push('auditorías: '+e.message)}
   try{reconciliations=await optionalReq(mainUrl,mainKey,'enterprise_reconciliations?select=*&order=period_start.desc&limit=30')}catch(e){errors.push('conciliaciones: '+e.message)}
+  try{orderPayments=await optionalReq(mainUrl,mainKey,'ts_order_payments?select=*&status=eq.confirmed&order=confirmed_at.desc&limit=10000')}catch(e){errors.push('pagos mixtos: '+e.message)}
+  try{staffCashSessions=await optionalReq(mainUrl,mainKey,'ts_staff_cash_sessions?select=*&order=opened_at.desc&limit=1500')}catch(e){errors.push('caja Staff: '+e.message)}
+  try{staffCashMovements=await optionalReq(mainUrl,mainKey,'ts_staff_cash_movements?select=*&order=created_at.desc&limit=10000')}catch(e){errors.push('movimientos Caja Staff: '+e.message)}
+  try{pettyAccounts=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_accounts?select=*&active=eq.true&order=created_at.asc&limit=20')}catch(e){errors.push('Caja Chica: '+e.message)}
+  try{pettyMovements=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_movements?select=*&order=occurred_at.desc&limit=10000')}catch(e){errors.push('movimientos Caja Chica: '+e.message)}
+  try{pettyAudits=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_audit?select=*&order=created_at.desc&limit=100')}catch(e){errors.push('auditoría Caja Chica: '+e.message)}
 
   // Inventory Central: misma fuente operativa del stock; Enterprise solo lee para contabilidad y auditoría.
   try{invProductsRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_products?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory productos: '+e.message)}
@@ -112,6 +125,29 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const paidOrderIds=new Set(paidSales.map(o=>String(o.id)));
   const paidItems=orderItems.filter(i=>paidOrderIds.has(String(i.pedido_id)));
   const shopCollected=sum(paidSales,o=>o.total_usd);
+
+  // Pagos mixtos: Enterprise usa cada abono real para métodos/conciliación,
+  // pero conserva el total del pedido para ingresos y evita duplicar ventas.
+  const weekOrderPayments=orderPayments.filter(p=>norm(p.status)==='confirmed'&&paidOrderIds.has(String(p.pedido_id))&&inRange(p.confirmed_at||p.created_at,range));
+  const paymentsByOrder=new Map();
+  weekOrderPayments.forEach(p=>{const k=String(p.pedido_id);if(!paymentsByOrder.has(k))paymentsByOrder.set(k,[]);paymentsByOrder.get(k).push(p)});
+
+  // Caja Staff: movimientos no derivados de una venta (gastos, ingresos, retiros, ajustes).
+  const activeStaffMovements=staffCashMovements.filter(m=>norm(m.status)!=='void');
+  const weekStaffMovements=activeStaffMovements.filter(m=>inRange(m.created_at,range));
+  const unconvertedStaffVes=weekStaffMovements.filter(m=>clean(m.currency).toUpperCase()==='VES'&&!hasNum(m.usd_equivalent));
+  if(unconvertedStaffVes.length)errors.push(`Caja Staff: ${unconvertedStaffVes.length} movimiento(s) VES histórico(s) sin equivalencia USD; se muestran pero no alteran la utilidad hasta registrar tasa histórica.`);
+  const staffOtherIncome=sum(weekStaffMovements.filter(m=>m.type==='ingreso'&&m.direction==='in'),staffMovementUsd);
+  const staffOperatingExpenses=sum(weekStaffMovements.filter(m=>['gasto','devolucion'].includes(m.type)&&m.direction==='out'),staffMovementUsd);
+
+  // Caja Chica: movimientos propios, sin convertir una reposición de fondos en gasto.
+  const activePetty=pettyMovements.filter(m=>norm(m.status)!=='void');
+  const weekPetty=activePetty.filter(m=>inRange(m.occurred_at||m.created_at,range));
+  const pettyExpense=sum(weekPetty.filter(m=>m.movement_type==='expense'&&m.direction==='out'),m=>m.usd_equivalent);
+  const pettyRefund=sum(weekPetty.filter(m=>m.movement_type==='refund'&&m.direction==='in'),m=>m.usd_equivalent);
+  const pettyOperatingNet=money(pettyExpense-pettyRefund);
+  const pettyFundedByPartner=partner=>sum(activePetty.filter(m=>m.movement_type==='fund'&&m.funded_by===partner),m=>m.usd_equivalent);
+  const pettyFundedByPartnerWeek=sum(weekPetty.filter(m=>m.movement_type==='fund'&&['freddy','nelson'].includes(clean(m.funded_by))),m=>m.usd_equivalent);
 
   // Costo de mercancía vendida. Prioridad: snapshot histórico de la línea; fallback al costo actual de Inventory.
   let costedLines=0,missingCostLines=0;
@@ -163,8 +199,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const weekConsumedMoves=supportPartMoves.filter(m=>consumedMove(m)&&inRange(m.created_at,range));
   const supportPartsActual=sum(weekConsumedMoves,m=>Math.abs(num(m.quantity))*Math.max(0,num(supportPartMap.get(String(m.part_id))?.unit_cost)));
 
-  const otherIncome=sum(weekEntries.filter(e=>e.entry_type==='other_income'||e.entry_type==='receivable_collection'),e=>e.amount_usd);
-  const operatingExpenses=sum(weekEntries.filter(e=>isOperatingExpenseType(e.entry_type)),e=>e.amount_usd);
+  const otherIncome=money(sum(weekEntries.filter(e=>e.entry_type==='other_income'||e.entry_type==='receivable_collection'),e=>e.amount_usd)+staffOtherIncome);
+  const operatingExpenses=money(sum(weekEntries.filter(e=>isOperatingExpenseType(e.entry_type)),e=>e.amount_usd)+staffOperatingExpenses+pettyOperatingNet);
   const manualPurchaseCash=sum(weekEntries.filter(e=>e.entry_type==='purchase'),e=>e.amount_usd);
   const techAccrued=sum(weekEntries.filter(e=>e.entry_type==='technician_commission'),e=>e.amount_usd);
   const commissionEntries=weekEntries.filter(e=>e.entry_type==='technician_commission');
@@ -187,8 +223,9 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     const lent=sum(activeEntries.filter(e=>e.entry_type==='partner_advance'&&e.partner_key===partner),e=>e.amount_usd);
     const fundedManual=sum(activeEntries.filter(e=>isCashExpenseType(e.entry_type)&&e.funded_by===partner),e=>e.amount_usd);
     const fundedPurchases=purchaseFundedAll(partner);
+    const fundedPetty=pettyFundedByPartner(partner);
     const repaid=sum(activeEntries.filter(e=>e.entry_type==='partner_repayment'&&e.partner_key===partner),e=>e.amount_usd);
-    return{partner,advances:lent,company_expenses_paid:fundedManual,inventory_purchases_paid:fundedPurchases,repaid,balance:money(lent+fundedManual+fundedPurchases-repaid)};
+    return{partner,advances:lent,company_expenses_paid:fundedManual,inventory_purchases_paid:fundedPurchases,petty_cash_funded:fundedPetty,repaid,balance:money(lent+fundedManual+fundedPurchases+fundedPetty-repaid)};
   };
   const partners={freddy:partnerBalance('freddy'),nelson:partnerBalance('nelson')};
 
@@ -206,10 +243,15 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const techPending=sum(commissionRows,e=>e.pending_usd);
 
   const methodMap={};
-  paidSales.forEach(o=>addMethod(methodMap,o.metodo_pago||o.payment_method,o.total_usd,'Tienda'));
+  paidSales.forEach(o=>{
+    const lines=paymentsByOrder.get(String(o.id))||[];
+    if(lines.length)lines.forEach(p=>addMethod(methodMap,p.method,num(p.usd_equivalent),'Tienda · pago mixto'));
+    else addMethod(methodMap,o.metodo_pago||o.payment_method,o.total_usd,'Tienda');
+  });
   if(weekSupportEvents.length){weekSupportEvents.filter(e=>num(e.amount_delta)!==0).forEach(e=>addMethod(methodMap,e.payment_method,e.amount_delta,'Servicio Técnico'))}
   else{supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>addMethod(methodMap,o.payment_method,o.amount_paid,'Servicio Técnico'))}
   weekEntries.filter(e=>['other_income','receivable_collection'].includes(e.entry_type)).forEach(e=>addMethod(methodMap,e.payment_method,e.amount_usd,'Enterprise'));
+  weekStaffMovements.filter(m=>m.type==='ingreso'&&m.direction==='in'&&staffMovementUsd(m)>0).forEach(m=>addMethod(methodMap,m.method,staffMovementUsd(m),'Caja Staff'));
   const paymentMethods=Object.values(methodMap).sort((a,b)=>b.amount-a.amount);
   const purchaseMethodMap={};weekPurchasePayments.forEach(p=>addMethod(purchaseMethodMap,p.payment_method,p.amount_usd,'Compras Inventory'));
   const purchasePaymentMethods=Object.values(purchaseMethodMap).sort((a,b)=>b.amount-a.amount);
@@ -221,7 +263,11 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const reconLine=method=>{const k=normalizeMethod(method);if(!reconMap[k])reconMap[k]={method:k,inflow:0,outflow:0,in_count:0,out_count:0,sources:{}};return reconMap[k]};
   const reconIn=(method,amount,source)=>{const x=reconLine(method);x.inflow=money(x.inflow+num(amount));x.in_count++;x.sources[source]=(x.sources[source]||0)+1};
   const reconOut=(method,amount,source)=>{const x=reconLine(method);x.outflow=money(x.outflow+num(amount));x.out_count++;x.sources[source]=(x.sources[source]||0)+1};
-  paidSales.forEach(o=>reconIn(o.metodo_pago||o.payment_method,o.total_usd,'Tienda'));
+  paidSales.forEach(o=>{
+    const lines=paymentsByOrder.get(String(o.id))||[];
+    if(lines.length)lines.forEach(p=>reconIn(p.method,num(p.usd_equivalent),'Tienda · pago mixto'));
+    else reconIn(o.metodo_pago||o.payment_method,o.total_usd,'Tienda');
+  });
   if(weekSupportEvents.length){weekSupportEvents.forEach(e=>{const a=num(e.amount_delta);if(a>0)reconIn(e.payment_method,a,'Servicio Técnico');else if(a<0)reconOut(e.payment_method,Math.abs(a),'Reverso Servicio Técnico')})}
   else{supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>reconIn(o.payment_method,o.amount_paid,'Servicio Técnico'))}
   weekEntries.filter(e=>e.entry_type==='other_income'||e.entry_type==='receivable_collection').forEach(e=>reconIn(e.payment_method,e.amount_usd,'Enterprise'));
@@ -230,6 +276,24 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company').forEach(p=>reconOut(p.payment_method,p.amount_usd,'Compras Inventory'));
   weekEntries.filter(e=>e.entry_type==='partner_repayment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Devolución socio'));
   weekEntries.filter(e=>e.entry_type==='technician_payment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Pago técnico'));
+
+  // Movimientos de Caja Staff ajenos a ventas: entradas/salidas reales por método.
+  weekStaffMovements.forEach(m=>{
+    const usd=staffMovementUsd(m);if(!(usd>0))return;
+    if(m.direction==='in')reconIn(m.method,usd,'Caja Staff');
+    else reconOut(m.method,usd,'Caja Staff');
+  });
+
+  // Caja Chica: la reposición es transferencia interna; el gasto sale desde la propia Caja Chica.
+  weekPetty.forEach(m=>{
+    const usd=num(m.usd_equivalent);if(!(usd>0))return;
+    const petty=pettyMethod(m);
+    if(m.movement_type==='fund'){
+      if(clean(m.funded_by||'company')==='company'&&m.source_payment_method)reconOut(m.source_payment_method,usd,'Fondeo Caja Chica');
+      reconIn(petty,usd,m.funded_by==='company'?'Caja Chica':'Aporte socio Caja Chica');
+    }else if(m.direction==='in')reconIn(petty,usd,'Caja Chica');
+    else reconOut(petty,usd,'Caja Chica');
+  });
 
   const previousRecon=[...reconciliations].filter(r=>r.status==='closed'&&String(r.period_end||'')<range.start).sort((a,b)=>String(b.period_end).localeCompare(String(a.period_end)))[0]||null;
   const previousActual=previousRecon?.actual&&typeof previousRecon.actual==='object'?previousRecon.actual:{};
@@ -249,12 +313,22 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const reconActualTotal=money(reconActualKnown.reduce((n,x)=>n+num(x.actual_closing),0));
   const reconDifferenceTotal=reconActualKnown.length===reconciliationLines.length&&reconciliationLines.length?money(reconActualTotal-reconExpectedTotal):null;
 
-  const cashIn=money(grossCollected+sum(weekEntries.filter(e=>e.entry_type==='partner_advance'),e=>e.amount_usd));
+  const staffAdjustmentIn=sum(weekStaffMovements.filter(m=>m.type==='ajuste'&&m.direction==='in'),staffMovementUsd);
+  const staffAdjustmentOut=sum(weekStaffMovements.filter(m=>m.type==='ajuste'&&m.direction==='out'),staffMovementUsd);
+  const pettyAdjustmentIn=sum(weekPetty.filter(m=>m.movement_type==='adjustment'&&m.direction==='in'),m=>m.usd_equivalent);
+  const pettyAdjustmentOut=sum(weekPetty.filter(m=>m.movement_type==='adjustment'&&m.direction==='out'),m=>m.usd_equivalent);
+  const cashIn=money(grossCollected+sum(weekEntries.filter(e=>e.entry_type==='partner_advance'),e=>e.amount_usd)+pettyFundedByPartnerWeek+pettyRefund+pettyAdjustmentIn+staffAdjustmentIn);
   const companyManualCash=sum(weekEntries.filter(e=>isCashExpenseType(e.entry_type)&&e.funded_by==='company'),e=>e.amount_usd);
   const companyInventoryCash=sum(weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company'),p=>p.amount_usd);
   const repayments=sum(weekEntries.filter(e=>e.entry_type==='partner_repayment'),e=>e.amount_usd);
   const techPaid=sum(weekEntries.filter(e=>e.entry_type==='technician_payment'),e=>e.amount_usd);
-  const cashOut=money(companyManualCash+companyInventoryCash+repayments+techPaid);
+  const cashOut=money(companyManualCash+companyInventoryCash+repayments+techPaid+staffOperatingExpenses+pettyExpense+pettyAdjustmentOut+staffAdjustmentOut);
+
+  const pettyBalanceUsd=money(activePetty.filter(m=>clean(m.currency).toUpperCase()==='USD').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
+  const pettyBalanceVes=money(activePetty.filter(m=>clean(m.currency).toUpperCase()==='VES').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
+  const pettyAccount=pettyAccounts.find(a=>a.slug==='main')||pettyAccounts[0]||null;
+  const staffOpenSessions=staffCashSessions.filter(x=>x.status==='open');
+  const staffClosedWeek=staffCashSessions.filter(x=>x.status==='closed'&&inRange(x.closed_at||x.updated_at||x.opened_at,range));
 
   const enrichedSupport=supportOrders.slice(0,250).map(o=>({id:o.id,code:o.code,client_name:o.client_name,device_model:o.device_model,service_type:o.service_type,quote_amount:num(o.quote_amount),amount_paid:num(o.amount_paid),payment_method:o.payment_method,assigned_technician_email:o.assigned_technician_email,status:o.status,created_at:o.created_at,updated_at:o.updated_at,parts_cost:money(realPartsByOrder.get(String(o.id))||realPartsByOrder.get(String(o.code))||0)}));
   const pnlCosts=money(storeCogs+supportPartsCost+supportDirectCosts+operatingExpenses+techAccrued);
@@ -279,13 +353,37 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
       cost_coverage_pct:costCoverage,costed_lines:costedLines,missing_cost_lines:missingCostLines,purchases:activePurchases.slice(0,100),payables:payablePurchases.slice(0,100),suppliers:invSuppliers.slice(0,100)
     },
     payment_methods:paymentMethods,purchase_payment_methods:purchasePaymentMethods,
+    mixed_payments:{connected:Array.isArray(orderPayments),lines_week:weekOrderPayments.slice(0,500),count_week:weekOrderPayments.length},
+    staff_cash:{
+      connected:Array.isArray(staffCashSessions)&&Array.isArray(staffCashMovements),
+      open_sessions:staffOpenSessions.length,closed_week:staffClosedWeek.length,
+      sessions:staffCashSessions.slice(0,100),movements_week:weekStaffMovements.slice(0,250),
+      other_income_week:staffOtherIncome,operating_expenses_week:staffOperatingExpenses,
+      unconverted_ves:unconvertedStaffVes.length
+    },
+    petty_cash:{
+      connected:Array.isArray(pettyAccounts)&&Array.isArray(pettyMovements),account:pettyAccount,
+      balance_usd:pettyBalanceUsd,balance_ves:pettyBalanceVes,
+      spent_week:pettyExpense,refunds_week:pettyRefund,net_expense_week:pettyOperatingNet,
+      funded_week:sum(weekPetty.filter(m=>m.movement_type==='fund'),m=>m.usd_equivalent),
+      movements:activePetty.slice(0,250),audits:pettyAudits.slice(0,50)
+    },
     reconciliation:{
       current:currentRecon,previous:previousRecon,lines:reconciliationLines,
       totals:{expected:reconExpectedTotal,actual:reconActualTotal,difference:reconDifferenceTotal,completed:reconActualKnown.length===reconciliationLines.length&&reconciliationLines.length>0},
       history:reconciliations.slice(0,20)
     },
     entries:weekEntries.slice(0,200),support_orders:enrichedSupport,audits:audits.slice(0,20),
-    quality:{finance_tables_ready:Array.isArray(settings)&&settings.length>0,support_payment_events:weekSupportEvents.length>0||supportEvents.length>0,inventory_connected:invProductsRaw.length>0||invBridge.length>0,inventory_purchases_table:Array.isArray(invPurchasesRaw),inventory_cost_coverage_pct:costCoverage,support_parts_connected:supportParts.length>0||supportPartMoves.length>0,reconciliation_table:Array.isArray(reconciliations),errors}
+    quality:{
+      finance_tables_ready:Array.isArray(settings)&&settings.length>0,
+      support_payment_events:weekSupportEvents.length>0||supportEvents.length>0,
+      inventory_connected:invProductsRaw.length>0||invBridge.length>0,
+      inventory_purchases_table:Array.isArray(invPurchasesRaw),inventory_cost_coverage_pct:costCoverage,
+      support_parts_connected:supportParts.length>0||supportPartMoves.length>0,
+      reconciliation_table:Array.isArray(reconciliations),
+      mixed_payments_table:Array.isArray(orderPayments),staff_cash_table:Array.isArray(staffCashSessions),
+      petty_cash_table:Array.isArray(pettyAccounts),staff_cash_unconverted_ves:unconvertedStaffVes.length,errors
+    }
   };
 }
 async function insertEntry(mainUrl,mainKey,auth,body){
@@ -324,6 +422,44 @@ exports.handler=async event=>{
     if(event.httpMethod!=='POST')return out(405,{ok:false,error:'Método no permitido'});
     let body={};try{body=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}
     const action=clean(body.action);
+
+    if(action==='petty_cash_movement'){
+      const payload={
+        account_id:clean(body.account_id)||null,
+        movement_type:clean(body.movement_type),
+        direction:clean(body.direction),
+        currency:clean(body.currency).toUpperCase(),
+        amount:money(body.amount),
+        usd_equivalent:money(body.usd_equivalent),
+        bcv_rate:body.bcv_rate?num(body.bcv_rate):null,
+        bcv_effective_date:clean(body.bcv_effective_date)||null,
+        bcv_source:clean(body.bcv_source)||null,
+        bcv_checked_at:clean(body.bcv_checked_at)||null,
+        category:clean(body.category)||null,
+        vendor:clean(body.vendor)||null,
+        description:clean(body.description),
+        source_payment_method:clean(body.source_payment_method)||null,
+        reference:clean(body.reference)||null,
+        receipt_url:clean(body.receipt_url)||null,
+        funded_by:['company','freddy','nelson'].includes(clean(body.funded_by))?clean(body.funded_by):'company',
+        occurred_at:clean(body.occurred_at)||null
+      };
+      if(!(payload.amount>0))return out(400,{ok:false,error:'Indica un monto de Caja Chica mayor que cero'});
+      if(payload.currency==='USD'){payload.usd_equivalent=payload.amount;payload.bcv_rate=null;payload.bcv_effective_date=null;payload.bcv_source=null;payload.bcv_checked_at=null}
+      if(payload.currency==='VES'&&(!(payload.bcv_rate>0)||!(payload.usd_equivalent>0)||!payload.bcv_effective_date))return out(400,{ok:false,error:'Caja Chica en bolívares requiere tasa BCV vigente e histórica'});
+      const data=await req(mainUrl,mainKey,'rpc/ts_enterprise_petty_cash_action',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_actor_email:auth.user.email||'',p_action:'movement',p_data:payload})});
+      return out(200,{ok:true,movement:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+    }
+    if(action==='petty_cash_void'){
+      const id=clean(body.id),reason=clean(body.reason);
+      if(!id||reason.length<5)return out(400,{ok:false,error:'Indica el movimiento y el motivo de anulación'});
+      const data=await req(mainUrl,mainKey,'rpc/ts_enterprise_petty_cash_action',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_actor_email:auth.user.email||'',p_action:'void',p_data:{id,reason}})});
+      return out(200,{ok:true,movement:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+    }
+    if(action==='petty_cash_account'){
+      const data=await req(mainUrl,mainKey,'rpc/ts_enterprise_petty_cash_action',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_actor_email:auth.user.email||'',p_action:'account',p_data:{account_id:clean(body.account_id)||null,custodian_name:clean(body.custodian_name),custodian_email:clean(body.custodian_email),target_usd:money(body.target_usd),target_ves:money(body.target_ves)}})});
+      return out(200,{ok:true,account:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+    }
 
     if(action==='create_entry'){
       const entry=await insertEntry(mainUrl,mainKey,auth,body);

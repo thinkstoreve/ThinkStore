@@ -1,0 +1,15 @@
+{
+  "version": "10.13",
+  "name": "Integración total + Caja Chica",
+  "build": "10.13-integracion-caja-chica",
+  "changes": [
+    "pagos mixtos desglosados por método real",
+    "Caja Staff conectada a utilidad y conciliación",
+    "Caja Chica con USD/VES y BCV histórico",
+    "gastos de Caja Chica contabilizados una sola vez",
+    "reposiciones de Caja Chica no tratadas como gasto",
+    "fondos de socios en Caja Chica sumados a deuda con el socio",
+    "SSO externo corregido al dominio Enterprise",
+    "PWA/caché antigua permanece deshabilitada"
+  ]
+}

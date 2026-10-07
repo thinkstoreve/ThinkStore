@@ -10,10 +10,11 @@ const titles = {
   marketing:["Marketing Center","Audiencias reales y acceso al remitente oficial de campañas."],
   finance:["Finanzas Pro","Ventas, ticket promedio, pagos pendientes y control financiero."],
   treasury:["Tesorería & Socios","Gastos, compras, aportes de socios, devoluciones, cuentas por cobrar, abonos y comisiones técnicas."],
+  pettyCash:["Caja Chica","Fondos menores, reposiciones, gastos, comprobantes y saldo disponible."],
   reconciliation:["Conciliación de caja","Compara los movimientos esperados por Zelle, Pago Móvil, efectivo, bancos y otros métodos con los saldos reales."],
   weeklyAudit:["Auditoría semanal","Cierre financiero semanal, utilidad distribuible y reparto 50% empresa · 25% Freddy · 25% Nelson."],
   reports:["Inteligencia Comercial","BI, segmentos, top clientes, productos y reportes ejecutivos."],
-  support:["Centro de Soporte","Control ejecutivo de thinkstore.com.ve/soporte: órdenes, diagnósticos, técnicos y entregas."],
+  support:["Centro de Soporte","Control ejecutivo de soporte.thinkstore.com.ve: órdenes, diagnósticos, técnicos y entregas."],
   client360:["Cliente 360","Ficha consolidada de cliente con compras, soporte, garantías y alertas."],
   warranties:["Garantías","Garantías activas, vencidas y próximas a vencer por cliente/equipo."],
   alerts:["Centro de Alertas","Alertas comerciales, soporte, pagos, inventario y seguimiento ejecutivo."],
@@ -1429,7 +1430,7 @@ function renderV2Reports(data){
 
 /* ==========================================================
    Enterprise V6 · Centro de Soporte + Cliente 360
-   - Conecta Enterprise con thinkstore.com.ve/soporte en modo seguro
+   - Conecta Enterprise con soporte.thinkstore.com.ve en modo seguro
    - Solo lectura sobre service_orders / service_order_notes / service_users
    - No modifica Resend, pedidos, comprobantes, notas de entrega ni estados
    ========================================================== */
@@ -1631,7 +1632,7 @@ function renderV6Support(data){
     <article class="panel v6-hero">
       <div class="panel-head"><h3>Centro de Soporte integrado</h3><span class="tag safe-tag">Datos reales · Supabase Soporte</span></div>
       <p class="staff-help">Consulta órdenes reales, actualiza estados y registra entradas de bitácora sin mezclar la base de soporte con la tienda.</p>
-      <div class="v2-toolbar"><button onclick="window.open('/soporte','_blank','noopener')">Abrir Soporte Técnico</button><button onclick="loadEnterpriseV6Support()">Actualizar</button></div>
+      <div class="v2-toolbar"><button onclick="window.open('https://soporte.thinkstore.com.ve','_blank','noopener')">Abrir Soporte Técnico</button><button onclick="loadEnterpriseV6Support()">Actualizar</button></div>
     </article>
     <div class="module-grid control-cards">
       <article class="module-card"><h3>Órdenes soporte</h3><strong>${formatNumber(orders.length)}</strong><p>Fuente: ${safe(data.serviceTable || 'service_orders no disponible')}</p></article>
@@ -2333,7 +2334,7 @@ window.loadEnterpriseV6Support = loadEnterpriseV6Support;
       </div>
       <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Checklist para instalar</h3><span class="tag">iOS / Android</span></div>
         <div class="mobile-checklist">
-          <div><b>1</b><span>Abre enterprise.thinkstore.com.ve en Safari o Chrome.</span></div>
+          <div><b>1</b><span>Abre enterprise.thinkstore.ve en Safari o Chrome.</span></div>
           <div><b>2</b><span>Inicia sesión con tu usuario autorizado.</span></div>
           <div><b>3</b><span>Usa Compartir → Añadir a pantalla de inicio o Instalar app.</span></div>
           <div><b>4</b><span>Entra desde el icono ThinkStore como app de trabajo.</span></div>
@@ -2541,7 +2542,7 @@ function renderV9RealMarketing(data){
   // V10.6: PWA/offline deshabilitado hasta nuevo aviso. Enterprise es online-first.
   if('serviceWorker' in navigator){
     window.addEventListener('load',()=>{
-      navigator.serviceWorker.getRegistrations().then(regs=>Promise.all(regs.filter(r=>r.scope.includes('/growth-enterprise/')||(location.hostname.startsWith('enterprise.')&&new URL(r.scope).pathname==='/')).map(r=>r.unregister().catch(()=>false)))).catch(()=>{});
+      navigator.serviceWorker.getRegistrations().then(regs=>Promise.all(regs.map(r=>r.unregister().catch(()=>false)))).catch(()=>{});
       if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('thinkstore-enterprise-')).map(k=>caches.delete(k)))).catch(()=>{});
     });
   }
@@ -2754,7 +2755,7 @@ function renderV9RealMarketing(data){
    ========================================================== */
 (function(){
   const BACKUP_PANEL_URL = 'https://thinkstore.com.ve/?admin=1';
-  const SUPPORT_URL = '/soporte';
+  const SUPPORT_URL = 'https://soporte.thinkstore.com.ve';
 
   function activeView(){ return document.querySelector('.view.active')?.id || 'executive'; }
   function clean(value){ return String(value || '').replace(/\s+/g,' ').trim(); }
@@ -3045,7 +3046,7 @@ function renderV9RealMarketing(data){
   const partnerLabel=k=>k==='freddy'?'Freddy Sedispa':k==='nelson'?'Nelson Garzon':'Empresa';
   const typeLabel=t=>({expense:'Gasto',purchase:'Compra',refund:'Reembolso / devolución a cliente',fee:'Comisión bancaria',warranty_cost:'Costo de garantía',other_income:'Otro ingreso',receivable:'Cuenta por cobrar',receivable_collection:'Abono recibido',partner_advance:'Dinero prestado por socio',partner_repayment:'Devolución a socio',technician_commission:'Comisión técnico',technician_payment:'Pago a técnico',cash_adjustment:'Ajuste de caja'}[t]||t||'Movimiento');
   async function finHeaders(){const h={'Content-Type':'application/json'};const {data}=await window.supabaseClient.auth.getSession();if(data?.session?.access_token)h.Authorization=`Bearer ${data.session.access_token}`;return h}
-  function quality(d){const q=d?.quality||{};const a=[];a.push(q.finance_tables_ready?'Finanzas centrales activas':'Pendiente migración de Finanzas');a.push(q.inventory_connected?`Inventory conectado · cobertura de costo ${Number(q.inventory_cost_coverage_pct||0).toFixed(1)}%`:'Inventory pendiente de conectar');a.push(q.support_parts_connected?'Repuestos de Soporte conectados':'Repuestos de Soporte sin movimientos');a.push(q.support_payment_events?'Abonos de Soporte con historial':'Historial de abonos de Soporte pendiente');return a.join(' · ')}
+  function quality(d){const q=d?.quality||{};const a=[];a.push(q.finance_tables_ready?'Finanzas centrales activas':'Pendiente migración de Finanzas');a.push(q.inventory_connected?`Inventory conectado · cobertura de costo ${Number(q.inventory_cost_coverage_pct||0).toFixed(1)}%`:'Inventory pendiente de conectar');a.push(q.support_parts_connected?'Repuestos de Soporte conectados':'Repuestos de Soporte sin movimientos');a.push(q.support_payment_events?'Abonos de Soporte con historial':'Historial de abonos de Soporte pendiente');a.push(q.mixed_payments_table?'Pagos mixtos conectados':'Pagos mixtos pendientes');a.push(q.staff_cash_table?'Caja Staff conectada':'Caja Staff pendiente');a.push(q.petty_cash_table?'Caja Chica activa':'Caja Chica pendiente');if(Number(q.staff_cash_unconverted_ves||0)>0)a.push(`${Number(q.staff_cash_unconverted_ves)} movimiento(s) VES históricos sin equivalencia USD`);return a.join(' · ')}
   function financeActions(){return `<div class="fin-actionbar"><button data-fin-new="expense">+ Gasto</button><button data-fin-new="partner_advance">+ Aporte socio</button><button data-fin-new="partner_repayment">↩ Devolver a socio</button><button data-fin-new="receivable">+ Por cobrar</button><button data-fin-new="technician_commission">🔧 Comisión técnico</button></div><p class="fin-quality">Las compras de mercancía se registran en Inventory y llegan aquí automáticamente con proveedor, costo, pagos y deuda.</p>`}
   function paymentRows(d){return (d.payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div><b>${safe(x.method)}</b><br><small>${Object.entries(x.sources||{}).map(([k,v])=>`${safe(k)}: ${fn(v)}`).join(' · ')}</small></div><span>${fm(x.amount)}</span><i class="tag">${fn(x.count)} mov.</i></div>`).join('')||'<div class="fin-empty">Todavía no hay cobros clasificados por método en esta semana.</div>'}
   function entryRows(d){return (d.entries||[]).slice(0,25).map(e=>`<div class="table-row fin-table-row" data-fin-entry="${safe(e.id)}"><div><b>${safe(typeLabel(e.entry_type))} · ${safe(e.description)}</b><br><small>${safe(e.category||'Sin categoría')} · ${fd(e.occurred_at)}${e.counterparty?` · ${safe(e.counterparty)}`:''}${e.funded_by&&e.funded_by!=='company'?` · pagó ${safe(partnerLabel(e.funded_by))}`:''}</small></div><span>${fm(e.amount_usd)}</span><button class="mini-action danger" data-fin-void="${safe(e.id)}">Anular</button></div>`).join('')||'<div class="fin-empty">Sin movimientos manuales esta semana.</div>'}
@@ -3053,7 +3054,7 @@ function renderV9RealMarketing(data){
   function commissionRows(d){return (d.technicians?.commissions||[]).filter(x=>Number(x.pending_usd||0)>0).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||e.metadata?.technician_name||e.metadata?.technician_email||'Técnico')}</b><br><small>${safe(e.source_code||e.description)} · base neta ${fm(e.metadata?.commission_base)} · ${Number(e.metadata?.rate_pct||0)}%</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-pay-tech="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Pagar</button></div>`).join('')||'<div class="fin-empty">No hay comisiones técnicas pendientes.</div>'}
   function purchaseRows(d){return (d.inventory?.payables||[]).slice(0,20).map(p=>`<div class="table-row fin-table-row"><div><b>${safe(p.supplier_name||'Proveedor')} · ${safe(p.product_name||'Compra')}</b><br><small>${safe(p.purchase_date||'Sin fecha')} · total ${fm(p.total_usd)} · pagado ${fm(p.paid_usd)}${p.reference?` · ${safe(p.reference)}`:''}</small></div><span>${fm(p.pending_usd)}</span><i class="tag">Por pagar</i></div>`).join('')||'<div class="fin-empty">No hay compras pendientes con proveedores.</div>'}
   function purchaseMethodRows(d){return (d.purchase_payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div><b>${safe(x.method)}</b><br><small>Compras Inventory</small></div><span>${fm(x.amount)}</span><i class="tag">${fn(x.count)} pago(s)</i></div>`).join('')||'<div class="fin-empty">Sin pagos de compras esta semana.</div>'}
-  function partnerCard(p,label){return `<article class="fin-partner-card"><span>Empresa debe a ${safe(label)}</span><b>${fm(p?.balance)}</b><small>Aportes: ${fm(p?.advances)} · gastos: ${fm(p?.company_expenses_paid)} · compras Inventory: ${fm(p?.inventory_purchases_paid)} · devuelto: ${fm(p?.repaid)}</small></article>`}
+  function partnerCard(p,label){return `<article class="fin-partner-card"><span>Empresa debe a ${safe(label)}</span><b>${fm(p?.balance)}</b><small>Aportes: ${fm(p?.advances)} · gastos: ${fm(p?.company_expenses_paid)} · compras Inventory: ${fm(p?.inventory_purchases_paid)} · Caja Chica: ${fm(p?.petty_cash_funded)} · devuelto: ${fm(p?.repaid)}</small></article>`}
   function renderFinanceQuick(d){
     const el=qs('enterpriseFinanceQuick');if(!el)return;
     const recon=d.reconciliation?.current||{};
@@ -3091,8 +3092,10 @@ function renderV9RealMarketing(data){
       <div class="book-status-row">
         <button onclick="switchView('treasury')"><span>Pendiente por cobrar</span><b>${fm(d.receivables?.total)}</b></button>
         <button onclick="switchView('treasury')"><span>Técnicos por pagar</span><b>${fm(d.technicians?.pending_total)}</b></button>
-        <button onclick="switchView('operations')"><span>Inventario a costo</span><b>${fm(d.inventory?.stock_value_cost)}</b></button>
-        <button onclick="switchView('reconciliation')"><span>Caja</span><b>${safe(reconLabel)}</b></button>
+        <button onclick="switchView('operations')"><span>Inventario a costo</span><b>${fm(d.inventory?.value)}</b></button>
+        <button onclick="switchView('operations')"><span>Cajas Staff abiertas</span><b>${fn(d.staff_cash?.open_sessions)}</b></button>
+        <button onclick="switchView('pettyCash')"><span>Caja Chica</span><b>${fm(d.petty_cash?.balance_usd)}</b><small>${fn(d.petty_cash?.balance_ves)} Bs</small></button>
+        <button onclick="switchView('reconciliation')"><span>Conciliación</span><b>${safe(reconLabel)}</b></button>
       </div>
       <p class="book-quality">${safe(quality(d))}</p>
     </section>`;
@@ -3116,6 +3119,8 @@ function renderV9RealMarketing(data){
         <article><span>Por pagar a proveedores</span><b>${fm(d.inventory?.supplier_payable)}</b><small>${fn(d.inventory?.supplier_count)} proveedores en Inventory</small></article>
         <article><span>Pendiente por cobrar</span><b>${fm(d.receivables?.total)}</b><small>Tienda ${fm(d.receivables?.store)} · Soporte ${fm(d.receivables?.support)}</small></article>
         <article><span>Comisiones técnicos pendientes</span><b>${fm(d.technicians?.pending_total)}</b><small>Servicios elegibles sobre mano de obra neta</small></article>
+        <article><span>Caja Chica disponible</span><b>${fm(d.petty_cash?.balance_usd)}</b><small>${fn(d.petty_cash?.balance_ves)} Bs · gasto semana ${fm(d.petty_cash?.net_expense_week)}</small></article>
+        <article><span>Caja Staff</span><b>${fn(d.staff_cash?.open_sessions)} abierta(s)</b><small>${fn(d.staff_cash?.closed_week)} cierre(s) esta semana</small></article>
       </div>
       <div class="fin-partner-grid">${partnerCard(d.partners?.freddy,'Freddy')}${partnerCard(d.partners?.nelson,'Nelson')}</div>
       <div class="main-grid fin-main-grid">
@@ -3131,6 +3136,50 @@ function renderV9RealMarketing(data){
         <article class="panel"><div class="panel-head"><h3>Movimientos financieros</h3><span class="tag">Trazabilidad</span></div><div class="table">${entryRows(d)}</div></article>
       </div>
       <p class="fin-quality">${safe(quality(d))}</p>`;
+  }
+  function pettyTypeLabel(t){return ({fund:'Reposición / fondo',expense:'Gasto menor',refund:'Reintegro',adjustment:'Ajuste'}[t]||t||'Movimiento')}
+  function pettyRows(d){
+    return (d.petty_cash?.movements||[]).slice(0,80).map(m=>{
+      const amount=String(m.currency)==='VES'?`${fn(m.amount)} Bs · ${fm(m.usd_equivalent)}`:fm(m.amount);
+      const sign=m.direction==='out'?'−':'+';
+      const meta=[m.category,m.vendor,m.reference?`Ref. ${m.reference}`:'',m.funded_by&&m.funded_by!=='company'?`aportó ${partnerLabel(m.funded_by)}`:''].filter(Boolean).map(safe).join(' · ');
+      return `<div class="table-row fin-table-row petty-row"><div><b>${safe(pettyTypeLabel(m.movement_type))} · ${safe(m.description)}</b><br><small>${fd(m.occurred_at)}${meta?` · ${meta}`:''}</small></div><span class="${m.direction==='out'?'cash-negative':''}">${sign}${safe(amount)}</span><button class="mini-action danger" data-petty-void="${safe(m.id)}">Anular</button></div>`;
+    }).join('')||'<div class="fin-empty">Caja Chica todavía no tiene movimientos.</div>';
+  }
+  function renderPettyCash(d){
+    const el=qs('pettyCash');if(!el)return;
+    const p=d.petty_cash||{},a=p.account||{};
+    el.innerHTML=`<article class="finance-hero panel petty-hero">
+      <div><span class="finance-kicker">CAJA CHICA</span><h2>Fondos menores bajo control</h2><p>Reposiciones, gastos, comprobantes y ajustes sin mezclar compras de inventario ni Caja Staff.</p></div>
+      <div class="petty-bcv" data-ts-bcv><span>BCV</span><b data-ts-fx-rate>Consultando…</b><small data-ts-fx-date></small></div>
+    </article>
+    <div class="book-kpis">
+      <article class="book-kpi primary"><span>Disponible USD</span><b>${fm(p.balance_usd)}</b><small>Saldo real de Caja Chica</small></article>
+      <article class="book-kpi"><span>Disponible Bs.</span><b>${fn(p.balance_ves)} Bs</b><small>Se conserva separado de USD</small></article>
+      <article class="book-kpi"><span>Gastado esta semana</span><b>${fm(p.spent_week)}</b><small>Reintegros ${fm(p.refunds_week)}</small></article>
+      <article class="book-kpi"><span>Responsable</span><b class="petty-custodian">${safe(a.custodian_name||'Sin asignar')}</b><small>${safe(a.custodian_email||'Configura el custodio')}</small></article>
+    </div>
+    <div class="fin-actionbar petty-actions">
+      <button data-petty-new="expense">+ Gasto</button>
+      <button data-petty-new="fund">+ Reponer fondo</button>
+      <button data-petty-new="refund">↩ Reintegro</button>
+      <button data-petty-new="adjustment">± Ajuste</button>
+      <button data-petty-account>Configurar</button>
+    </div>
+    <div class="main-grid fin-main-grid">
+      <article class="panel"><div class="panel-head"><h3>Movimientos recientes</h3><span class="tag">${fn((p.movements||[]).length)} registros</span></div><div class="table">${pettyRows(d)}</div></article>
+      <article class="panel petty-rules"><div class="panel-head"><h3>Reglas de Caja Chica</h3><span class="tag">Control</span></div>
+        <div class="priority-list">
+          <div><span>Gastos menores</span><b>Reducen utilidad una sola vez</b></div>
+          <div><span>Reposición de la empresa</span><b>Transferencia, no gasto</b></div>
+          <div><span>Dinero de un socio</span><b>Genera deuda con ese socio</b></div>
+          <div><span>Compras de mercancía</span><b>Se registran en Inventory</b></div>
+          <div><span>Bolívares</span><b>BCV histórico obligatorio</b></div>
+        </div>
+      </article>
+    </div>
+    ${Number(d.quality?.staff_cash_unconverted_ves||0)>0?`<article class="panel ent-data-warning"><b>Movimientos históricos de Caja Staff pendientes.</b><p>Hay ${Number(d.quality.staff_cash_unconverted_ves)} movimiento(s) en bolívares anteriores sin equivalencia USD histórica. Enterprise no los usa para utilidad hasta que se regularicen.</p></article>`:''}`;
+    window.ThinkStoreFX?.refresh?.().catch(()=>{});
   }
   function reconciliationHistory(d){return (d.reconciliation?.history||[]).map(r=>`<div class="table-row fin-table-row"><div><b>${safe(r.period_start)} → ${safe(r.period_end)}</b><br><small>${safe(r.status)} · diferencia ${fm(r.total_difference)}</small></div><span>${fm(r.total_actual)}</span><i class="tag ${Math.abs(Number(r.total_difference||0))>.01?'warn':''}">${safe(r.status)}</i></div>`).join('')||'<div class="fin-empty">Aún no hay conciliaciones guardadas.</div>'}
   function reconRows(d){return (d.reconciliation?.lines||[]).map(x=>{const key=encodeURIComponent(x.method||'Sin definir');const diff=x.difference===null?'—':fm(x.difference);return `<div class="recon-row" data-recon-key="${safe(key)}"><div class="recon-method"><b>${safe(x.method)}</b><small>Entradas ${fm(x.inflow)} · Salidas ${fm(x.outflow)} · ${Number(x.in_count||0)+Number(x.out_count||0)} mov.</small></div><label>Saldo inicial<input data-recon-opening type="number" step="0.01" value="${Number(x.opening_balance||0).toFixed(2)}"></label><div class="recon-expected"><span>Esperado</span><b>${fm(x.expected_closing)}</b></div><label>Saldo real<input data-recon-actual type="number" step="0.01" value="${x.actual_closing===null?'':Number(x.actual_closing).toFixed(2)}" placeholder="0.00"></label><div class="recon-diff ${x.difference!==null&&Math.abs(Number(x.difference))>.01?'bad':'ok'}"><span>Diferencia</span><b data-recon-difference>${diff}</b></div><label class="recon-note">Nota<input data-recon-notes value="${safe(x.notes||'')}" placeholder="Referencia / observación"></label></div>`}).join('')||'<div class="fin-empty">No hay movimientos por método para conciliar en esta semana.</div>'}
@@ -3164,12 +3213,12 @@ function renderV9RealMarketing(data){
       <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Historial de cierres</h3><button data-fin-refresh>Actualizar</button></div><div class="table">${auditHistory(d)}</div></article>`;
   }
   async function loadFinanceCenter(force=false){
-    if(!force&&financeCache){renderTreasury(financeCache);renderReconciliation(financeCache);renderWeeklyAudit(financeCache);renderFinanceQuick(financeCache);return financeCache}
-    for(const id of ['treasury','reconciliation','weeklyAudit']){const el=qs(id);if(el&&!el.innerHTML.trim())el.innerHTML='<article class="panel"><p>Cargando control financiero real…</p></article>'}
+    if(!force&&financeCache){renderTreasury(financeCache);renderPettyCash(financeCache);renderReconciliation(financeCache);renderWeeklyAudit(financeCache);renderFinanceQuick(financeCache);return financeCache}
+    for(const id of ['treasury','pettyCash','reconciliation','weeklyAudit']){const el=qs(id);if(el&&!el.innerHTML.trim())el.innerHTML='<article class="panel"><p>Cargando control financiero real…</p></article>'}
     try{
       const r=await fetch('/.netlify/functions/enterprise-finance',{headers:await finHeaders(),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo cargar Finanzas Centrales');
-      financeCache=d;window.enterpriseFinanceData=d;renderTreasury(d);renderReconciliation(d);renderWeeklyAudit(d);renderFinanceQuick(d);return d;
-    }catch(e){const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(e.message||e)}</p><small>Si es la primera vez, ejecuta SQL-01-SUPABASE-PRINCIPAL-FINAL.sql en el Supabase principal.</small></article>`;['treasury','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});const home=qs('enterpriseFinanceQuick');if(home)home.innerHTML=html;return null}
+      financeCache=d;window.enterpriseFinanceData=d;renderTreasury(d);renderPettyCash(d);renderReconciliation(d);renderWeeklyAudit(d);renderFinanceQuick(d);return d;
+    }catch(e){const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(e.message||e)}</p><small>Ejecuta SQL-01-SUPABASE-PRINCIPAL-FINAL.sql y luego MIGRACION-V14.81-ENTERPRISE-V10.13-INTEGRACION.sql en el Supabase principal.</small></article>`;['treasury','pettyCash','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});const home=qs('enterpriseFinanceQuick');if(home)home.innerHTML=html;return null}
   }
   async function finPost(body){const r=await fetch('/.netlify/functions/enterprise-finance',{method:'POST',headers:await finHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar');financeCache=d.summary||null;await loadFinanceCenter(true);return d}
   function closeFinModal(){document.querySelector('.fin-modal')?.remove()}
@@ -3197,18 +3246,76 @@ function renderV9RealMarketing(data){
     modalShell('Comisión de técnico','Para microsoldadura u otros servicios elegibles: 50% sobre el valor NETO de mano de obra, después de repuestos y costos directos.',`<label>Orden de Servicio Técnico<select name="service_order_id" class="fin-service-order">${options}</select></label>${field('technician_name','Técnico')}${field('gross_service_amount','Valor cobrado del servicio USD','number','min="0.01" step="0.01" required')}${field('parts_cost','Costo de repuestos USD','number','min="0" step="0.01" value="0"')}${field('direct_cost','Otros costos directos USD','number','min="0" step="0.01" value="0"')}${field('rate_pct','Porcentaje técnico','number','min="0" max="100" step="0.01" value="50"')}${field('description','Detalle / microsoldadura')}`, 'Calcular y registrar',async f=>{const o=(financeCache.support_orders||[]).find(x=>String(x.id)===String(f.service_order_id))||{};return finPost({action:'create_technician_commission',...f,gross_service_amount:Number(f.gross_service_amount),parts_cost:Number(f.parts_cost||0),direct_cost:Number(f.direct_cost||0),rate_pct:Number(f.rate_pct||50),source_code:o.code,technician_email:o.assigned_technician_email,service_type:o.service_type,description:f.description||`Servicio ${o.code||''}`})});
     setTimeout(()=>{const modal=document.querySelector('.fin-modal'),sel=modal?.querySelector('.fin-service-order'),gross=modal?.querySelector('[name="gross_service_amount"]'),parts=modal?.querySelector('[name="parts_cost"]'),tech=modal?.querySelector('[name="technician_name"]'),rate=modal?.querySelector('[name="rate_pct"]');const sync=()=>{const o=(financeCache.support_orders||[]).find(x=>String(x.id)===String(sel?.value));if(o){if(gross)gross.value=Number(o.amount_paid||o.quote_amount||0).toFixed(2);if(parts)parts.value=Number(o.parts_cost||0).toFixed(2);if(tech)tech.value=o.assigned_technician_email||'';if(rate)rate.value=Number(financeCache?.settings?.technician_pct||50).toFixed(2)}};sel?.addEventListener('change',sync);sync()},10);
   }
+  function openPettyForm(type){
+    const labels={
+      expense:['Nuevo gasto de Caja Chica','Registra gastos menores. No uses este módulo para comprar mercancía de inventario.','Guardar gasto'],
+      fund:['Reponer Caja Chica','La reposición de la empresa es una transferencia interna. Si la pone un socio, Enterprise la suma a la deuda con ese socio.','Registrar reposición'],
+      refund:['Registrar reintegro','Dinero que vuelve a Caja Chica por devolución, sobrante o reintegro de un gasto anterior.','Registrar reintegro'],
+      adjustment:['Ajustar Caja Chica','Usa ajustes solo para correcciones justificadas de saldo. Quedan auditadas.','Guardar ajuste']
+    };
+    const [title,sub,submit]=labels[type]||labels.expense;
+    const fundFields=type==='fund'?`${select('funded_by','Origen del dinero',[['company','Empresa'],['freddy','Freddy'],['nelson','Nelson']])}${select('source_payment_method','Método de origen',methodOptions)}`:'';
+    const adjustment=type==='adjustment'?select('direction','Dirección',[['in','Entrada'],['out','Salida']]):'';
+    modalShell(title,sub,
+      `${select('currency','Moneda',[['USD','USD'],['VES','Bolívares']])}`+
+      `${field('amount','Monto','number','min="0.01" step="0.01" required')}`+
+      `${adjustment}`+
+      `${select('category','Categoría',[['Operación','Operación'],['Delivery','Delivery / logística'],['Servicio Técnico','Servicio Técnico'],['Marketing','Marketing'],['Servicios','Servicios / suscripciones'],['Limpieza','Limpieza'],['Transporte','Transporte'],['Otro','Otro']])}`+
+      `${field('vendor','Proveedor / beneficiario')}`+
+      `${field('description','Concepto','text','required')}`+
+      `${fundFields}`+
+      `${field('reference','Factura / referencia')}`+
+      `${field('receipt_url','Enlace del comprobante')}`+
+      `${field('occurred_at','Fecha y hora','datetime-local')}`,
+      submit,
+      async f=>{
+        const amount=Number(f.amount||0);if(!(amount>0))throw Error('Indica un monto mayor que cero.');
+        let usdEquivalent=amount,fx={rate:null,effective_date:null,source:null,checked_at:null};
+        if(f.currency==='VES'){
+          if(!window.ThinkStoreFX)throw Error('La tasa BCV no está disponible.');
+          const q=await window.ThinkStoreFX.requireFresh();
+          usdEquivalent=Math.round((amount/Number(q.rate||0)+Number.EPSILON)*100)/100;
+          if(!(usdEquivalent>0))throw Error('No se pudo convertir el monto con la tasa BCV vigente.');
+          fx={rate:Number(q.rate),effective_date:q.effective_date,source:q.source,checked_at:q.checked_at};
+        }
+        return finPost({
+          action:'petty_cash_movement',movement_type:type,direction:type==='adjustment'?f.direction:(type==='expense'?'out':'in'),
+          currency:f.currency,amount,usd_equivalent:usdEquivalent,bcv_rate:fx.rate,bcv_effective_date:fx.effective_date,
+          bcv_source:fx.source,bcv_checked_at:fx.checked_at,category:f.category,vendor:f.vendor,description:f.description,
+          source_payment_method:type==='fund'?f.source_payment_method:null,reference:f.reference,receipt_url:f.receipt_url,
+          funded_by:type==='fund'?f.funded_by:'company',occurred_at:f.occurred_at?new Date(f.occurred_at).toISOString():undefined
+        });
+      });
+  }
+  function openPettyAccount(){
+    const a=financeCache?.petty_cash?.account||{};
+    modalShell('Configurar Caja Chica','Define quién custodia el fondo y los montos objetivo. Esto no cambia el saldo real.',
+      `${field('custodian_name','Responsable','text',`value="${safe(a.custodian_name||'')}"`)}`+
+      `${field('custodian_email','Correo del responsable','email',`value="${safe(a.custodian_email||'')}"`)}`+
+      `${field('target_usd','Fondo objetivo USD','number',`min="0" step="0.01" value="${Number(a.target_usd||0)}"`)}`+
+      `${field('target_ves','Fondo objetivo Bs','number',`min="0" step="0.01" value="${Number(a.target_ves||0)}"`)}`,
+      'Guardar configuración',
+      f=>finPost({action:'petty_cash_account',account_id:a.id||null,custodian_name:f.custodian_name,custodian_email:f.custodian_email,target_usd:Number(f.target_usd||0),target_ves:Number(f.target_ves||0)}));
+  }
+  async function voidPetty(id){
+    if(!id)return;
+    const reason=prompt('Motivo de anulación del movimiento de Caja Chica (mínimo 5 caracteres):','');
+    if(reason===null)return;
+    try{await finPost({action:'petty_cash_void',id,reason});}catch(e){alert(e.message||e)}
+  }
+
   async function collectReceivable(id,due){const amount=prompt(`Monto del abono (pendiente ${fm(due)}):`,Number(due||0).toFixed(2));if(amount===null)return;const method=prompt('Método de pago (Zelle, Pago Móvil, efectivo, transferencia…):','Zelle');if(method===null)return;try{await finPost({action:'collect_receivable',receivable_id:id,amount_usd:Number(amount),payment_method:method});}catch(e){alert(e.message||e)}}
   async function payTech(id,due){const amount=prompt(`Monto a pagar al técnico (pendiente ${fm(due)}):`,Number(due||0).toFixed(2));if(amount===null)return;const method=prompt('Método de pago:','Pago Móvil');if(method===null)return;try{await finPost({action:'settle_technician_commission',commission_id:id,amount_usd:Number(amount),payment_method:method});}catch(e){alert(e.message||e)}}
 async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este movimiento? No se eliminará: quedará marcado como anulado para conservar la trazabilidad.'))return;const notes=prompt('Motivo de la anulación (opcional):','');try{await finPost({action:'void_entry',id,notes:notes||'Anulado desde Enterprise'});}catch(e){alert(e.message||e)}}
   async function closeWeek(){if(!financeCache)return;const rc=financeCache.reconciliation?.current,rd=financeCache.reconciliation?.totals?.difference;if(!rc||rc.status!=='closed'||(rd!==null&&Math.abs(Number(rd))>.01)){if(!confirm('La conciliación de caja no está cerrada o tiene una diferencia pendiente. ¿Deseas continuar de todos modos con el cierre semanal?'))return}if(!confirm(`Cerrar auditoría ${financeCache.period.start} → ${financeCache.period.end}?\n\nUtilidad distribuible: ${fm(financeCache.result.distributable)}\nEmpresa: ${fm(financeCache.result.company)}\nFreddy: ${fm(financeCache.result.freddy)}\nNelson: ${fm(financeCache.result.nelson)}\n\nUna semana cerrada queda guardada como fotografía de auditoría.`))return;const notes=prompt('Observación del cierre (opcional):','');try{await finPost({action:'close_week',notes:notes||''});alert('Semana cerrada y guardada en auditoría.')}catch(e){alert(e.message||e)}}
 
-  document.addEventListener('click',e=>{const b=e.target.closest('[data-fin-new]');if(b)openEntryForm(b.dataset.finNew);const c=e.target.closest('[data-fin-collect]');if(c)collectReceivable(c.dataset.finCollect,c.dataset.finDue);const t=e.target.closest('[data-fin-pay-tech]');if(t)payTech(t.dataset.finPayTech,t.dataset.finDue);const v=e.target.closest('[data-fin-void]');if(v)voidFinanceEntry(v.dataset.finVoid);if(e.target.closest('[data-fin-save-recon]'))saveReconciliation(false);if(e.target.closest('[data-fin-close-recon]'))saveReconciliation(true);if(e.target.closest('[data-fin-close-week]'))closeWeek();if(e.target.closest('[data-fin-refresh]'))loadFinanceCenter(true)},true);
-  const prevSwitch=window.switchView||switchView;window.switchView=switchView=function(id){prevSwitch(id);if(id==='treasury'||id==='reconciliation'||id==='weeklyAudit')setTimeout(()=>loadFinanceCenter(false),30)};
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-fin-new]');if(b)openEntryForm(b.dataset.finNew);const pn=e.target.closest('[data-petty-new]');if(pn)openPettyForm(pn.dataset.pettyNew);if(e.target.closest('[data-petty-account]'))openPettyAccount();const pv=e.target.closest('[data-petty-void]');if(pv)voidPetty(pv.dataset.pettyVoid);const c=e.target.closest('[data-fin-collect]');if(c)collectReceivable(c.dataset.finCollect,c.dataset.finDue);const t=e.target.closest('[data-fin-pay-tech]');if(t)payTech(t.dataset.finPayTech,t.dataset.finDue);const v=e.target.closest('[data-fin-void]');if(v)voidFinanceEntry(v.dataset.finVoid);if(e.target.closest('[data-fin-save-recon]'))saveReconciliation(false);if(e.target.closest('[data-fin-close-recon]'))saveReconciliation(true);if(e.target.closest('[data-fin-close-week]'))closeWeek();if(e.target.closest('[data-fin-refresh]'))loadFinanceCenter(true)},true);
+  const prevSwitch=window.switchView||switchView;window.switchView=switchView=function(id){prevSwitch(id);if(id==='treasury'||id==='pettyCash'||id==='reconciliation'||id==='weeklyAudit')setTimeout(()=>loadFinanceCenter(false),30)};
   const oldShow=showApp;showApp=function(){oldShow();setTimeout(()=>loadFinanceCenter(true),480)};
   window.loadFinanceCenter=loadFinanceCenter;
 })();
 
-/* V10.12 · navegación limpia y actualización única */
+/* V10.13 · integración financiera + Caja Chica */
 (function(){
   const btn=document.getElementById('refreshEnterpriseBtn');
   if(btn){btn.addEventListener('click',async()=>{btn.disabled=true;btn.textContent='Actualizando…';try{await Promise.allSettled([window.loadFinanceCenter?.(true),window.loadEnterpriseV9?.(),window.loadEnterpriseWeeklySummary?.(true)]);const s=document.getElementById('enterpriseLastSync');if(s)s.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});}finally{btn.disabled=false;btn.textContent='Actualizar';}})}

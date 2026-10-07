@@ -20,7 +20,3 @@
 /recovery-v106.html
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Clear-Site-Data: "cache", "storage"
-
-/recovery-v1013.html
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-  Clear-Site-Data: "cache", "storage"
