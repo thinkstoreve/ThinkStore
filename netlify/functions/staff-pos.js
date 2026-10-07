@@ -25,44 +25,25 @@ const clean=(v,max=400)=>String(v??'').trim().slice(0,max);
 const normRole=v=>{let r=clean(v).toLowerCase().replace(/[ -]+/g,'_');if(r==='super_admin')r='superadmin';if(r==='administrator'||r==='gerente')r='admin';return r||'cliente'};
 const cleanPerms=v=>[...new Set((Array.isArray(v)?v:[]).map(x=>clean(x,100)).filter(Boolean))].slice(0,200);
 const cleanOverrides=v=>{const o=v&&typeof v==='object'?v:{};return{allow:cleanPerms(o.allow),deny:cleanPerms(o.deny)}};
-const isInternalProfile=(p,u=null)=>{
-  if(!p)return false;
-  const metaInternal=u?.app_metadata?.thinkstore_internal===true;
-  if(metaInternal)return true;
-  if(p.is_internal===true)return true;
-  if(p.internal_origin||p.internal_invited_at||p.internal_invited_by||p.custom_role_key)return true;
-  const role=normRole(p.role||p.rol);
-  const ov=cleanOverrides(p.permission_overrides);
-  if(ov.allow.includes('staff.access')||ov.allow.includes('platform.staff'))return true;
-  if(['admin','superadmin'].includes(role))return true;
-  if(p.is_internal===false)return false;
-  // Compatibilidad con perfiles internos creados antes de existir is_internal.
-  return INTERNAL.includes(role);
-};
-const svc=k=>({...(/^eyJ[A-Za-z0-9_-]+\./.test(k)?{Authorization:`Bearer ${k}`} : {}),apikey:k,'Content-Type':'application/json'});
+const svc=k=>({apikey:k,Authorization:`Bearer ${k}`,'Content-Type':'application/json'});
 const out=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
 
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS')return{statusCode:204,headers:H,body:''};
   if(event.httpMethod!=='GET')return out(405,{ok:false,error:'Método no permitido'});
   const url=clean(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL).replace(/\/$/,'');
-  const service=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||process.env.SUPABASE_SECRET_KEY||'').trim();
+  const service=clean(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY);
   if(!url||!service)return out(500,{ok:false,error:'Supabase no está configurado'});
-  // Diagnose a common multi-project setup error, without exposing credentials.
-  const browserProject=clean(event.headers?.['x-thinkstore-project-ref']||'',80);
-  const backendProject=(()=>{try{return new URL(url).hostname.split('.')[0]}catch{return''}})();
-  if(browserProject && backendProject && browserProject !== backendProject) return out(503,{ok:false,code:'SUPABASE_PROJECT_MISMATCH',error:'App Ventas y Netlify están apuntando a proyectos Supabase distintos. Revisa SUPABASE_URL en el Netlify del Main; debe coincidir con supabase-config.js.'});
   const auth=await authenticate(event,url,service);
-  if(!auth.ok) return out(auth.reason==='PROFILE_MISSING'?403:401,{ok:false,code:auth.reason||'AUTH_FAILED',error:auth.reason==='PROFILE_MISSING'?'La cuenta existe en Auth, pero no tiene perfil interno autorizado en el Supabase principal. Revisa Equipo y accesos.':'No fue posible validar la sesión en Supabase Main. Verifica SUPABASE_URL y la clave de servicio en Netlify, o vuelve a iniciar sesión.'});
-  if(!isInternalProfile(auth.profile,auth.auth_user))return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente. ThinkStore Staff es exclusivo para personal interno autorizado.'});
-  // A verified internal user may have a custom role or an explicit staff permission.
-
+  if(!auth.ok)return out(401,{ok:false,error:'Inicia sesión con una cuenta interna de ThinkStore'});
+  if(auth.profile?.is_internal!==true)return out(403,{ok:false,error:'Esta cuenta pertenece a un cliente. ThinkStore Staff es exclusivo para personal invitado por un administrador.'});
+  if(!INTERNAL.includes(auth.role)&&!auth.profile?.custom_role_key)return out(403,{ok:false,error:'Esta app es exclusiva para el equipo interno de ThinkStore'});
   const access=await effectiveAccess(auth.profile,url,service);
-  const canOpenStaff=access.permissions.includes('*')||access.permissions.includes('staff.access')||access.permissions.includes('platform.staff')||access.permissions.includes('ventas')||access.permissions.includes('pagos');
+  const canOpenStaff=access.permissions.includes('*')||access.permissions.includes('staff.access');
   if(!canOpenStaff)return out(403,{ok:false,error:'Tu cuenta interna no tiene habilitado el acceso a App Ventas. Pide a un Administrador que lo active en Equipo y accesos.'});
   const canSell=access.permissions.includes('*')||access.permissions.includes('ventas');
   const action=clean(event.queryStringParameters?.action||'bootstrap').toLowerCase();
-  if(action==='me')return out(200,{ok:true,user:userPayload(auth,access),can_sell:canSell});
+  if(action==='me')return out(200,{ok:true,user:await userPayload(auth,access,url,service),can_sell:canSell});
   if(action==='scan'){if(!canSell)return out(403,{ok:false,error:'Tu rol no tiene permiso de ventas'});const code=clean(event.queryStringParameters?.code||'',160);if(!code)return out(400,{ok:false,error:'Código requerido'});try{const found=await lookupBarcode(code,url,service);return found?out(200,{ok:true,code,...found}):out(404,{ok:false,error:`No encontré el código ${code}`})}catch(error){console.error('staff-pos scan',error);return out(500,{ok:false,error:error?.message||'No se pudo consultar el código'})}}
   if(action!=='bootstrap')return out(400,{ok:false,error:'Acción no soportada'});
 
@@ -73,7 +54,7 @@ exports.handler=async(event)=>{
     ]);
     return out(200,{
     ok:true,
-    user:userPayload(auth,access),
+    user:await userPayload(auth,access,url,service),
     can_sell:canSell,
     ...catalogBundle,
     recent_sales:salesBundle.recent,
@@ -87,11 +68,11 @@ exports.handler=async(event)=>{
 };
 
 async function authenticate(event,url,service){
-  const token=String(event.headers.authorization||event.headers.Authorization||'').trim().replace(/^Bearer\s+/i,'');
-  if(!token)return{ok:false,reason:'MISSING_TOKEN'};
+  const token=clean(event.headers.authorization||event.headers.Authorization).replace(/^Bearer\s+/i,'');
+  if(!token)return{ok:false};
   const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}});
   const u=await ur.json().catch(()=>({}));
-  if(!ur.ok||!u?.id)return{ok:false,reason:'TOKEN_REJECTED'};
+  if(!ur.ok||!u?.id)return{ok:false};
   const paths=[
     `profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,
     u.email?`profiles?select=*&email=eq.${encodeURIComponent(u.email)}&limit=1`:null,
@@ -101,16 +82,7 @@ async function authenticate(event,url,service){
   for(const path of paths){
     const pr=await fetch(`${url}/rest/v1/${path}`,{headers:svc(service)});if(!pr.ok)continue;const rows=await pr.json().catch(()=>[]);if(rows?.[0]){p=rows[0];break;}
   }
-  // Legacy internal users can exist in roles_usuarios before the profiles migration.
-  // Only honor server-managed legacy rows with a genuinely internal role.
-  if(!p&&u.email){
-    const lr=await fetch(`${url}/rest/v1/roles_usuarios?select=*&email=ilike.${encodeURIComponent(u.email)}&limit=1`,{headers:svc(service)});
-    if(lr.ok){const rows=await lr.json().catch(()=>[]);const legacy=rows?.[0];
-      if(legacy&&INTERNAL.includes(normRole(legacy.role||legacy.rol))){p={...legacy,role:legacy.role||legacy.rol,active:legacy.active??legacy.activo??true,is_internal:true,internal_origin:'legacy_roles_usuarios'};}
-    }
-  }
-  if(!p)return{ok:false,reason:'PROFILE_MISSING'};
-  if((p.active??p.activo??true)===false)return{ok:false,reason:'PROFILE_INACTIVE'};
+  if(!p||(p.active??p.activo??true)===false)return{ok:false};
   return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',role:normRole(p.role||p.rol),profile:p,auth_user:u};
 }
 
@@ -126,8 +98,9 @@ async function effectiveAccess(profile,url,service){
   return{base_role:base,role_name:roleName,custom_role_key:customKey,permissions,permission_overrides:over};
 }
 
-function userPayload(auth,access){
+async function userPayload(auth,access,url,service){
   const p=auth.profile||{};
+  const signed=(p.staff_avatar_path&&p.staff_avatar_path.startsWith(`${auth.user_id}/`))?await signAvatar(url,service,p.staff_avatar_path):'';
   return{
     id:auth.user_id,
     name:p.full_name||p.nombre||p.name||auth.auth_user?.user_metadata?.full_name||auth.email.split('@')[0]||'Usuario',
@@ -136,8 +109,22 @@ function userPayload(auth,access){
     role_name:access.role_name,
     custom_role_key:access.custom_role_key,
     permissions:access.permissions,
-    avatar_url:p.avatar_url||p.photo_url||p.foto_url||''
+    avatar_url:signed||p.avatar_url||p.photo_url||p.foto_url||'',
+    staff_avatar_path:p.staff_avatar_path||''
   };
+}
+
+async function signAvatar(url,service,path){
+  try{
+    const route=path.split('/').map(encodeURIComponent).join('/');
+    const res=await fetch(`${url}/storage/v1/object/sign/staff-profile-photos/${route}`,{
+      method:'POST',headers:svc(service),body:JSON.stringify({expiresIn:604800})
+    });
+    if(!res.ok)return '';
+    const data=await res.json();const signed=data.signedURL||data.signedUrl||'';
+    if(!signed)return '';
+    return signed.startsWith('http')?signed:`${url}/storage/v1${signed.startsWith('/')?'':'/'}${signed}`;
+  }catch(e){console.warn('No se pudo firmar la foto de Staff',e);return ''}
 }
 
 async function restRows(url,service,table,params={}){
@@ -242,3 +229,13 @@ async function loadSales(url,service,auth,access){
     }
   };
 }
+
+// Punto de autorización reutilizado por Caja Staff V14.80 (JWT de Supabase + permisos reales).
+exports.resolveCashAccess=async function(event,url,service){
+  const auth=await authenticate(event,url,service);
+  if(!auth.ok||auth.profile?.is_internal!==true||!INTERNAL.includes(auth.role)&&!auth.profile?.custom_role_key)return null;
+  const access=await effectiveAccess(auth.profile,url,service);
+  if(!(access.permissions.includes('*')||access.permissions.includes('staff.access')))return null;
+  if(!(access.permissions.includes('*')||access.permissions.includes('ventas')))return null;
+  return{user_id:auth.user_id,email:auth.email,role:access.base_role,is_manager:['admin','superadmin'].includes(access.base_role)||access.permissions.includes('*')};
+};

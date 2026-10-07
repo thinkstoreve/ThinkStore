@@ -1,5 +1,6 @@
 const crypto=require('crypto');
 const {getRate}=require('./fx-rate-core');
+const {prepare:prepareMixed}=require('./pos-mixed-payment');
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -88,6 +89,10 @@ exports.handler = async function(event) {
     if(loaded)out=loaded;
     if(!out.clientes&&out.cliente_id){const c=await first(`clientes?select=*&id=eq.${encodeURIComponent(out.cliente_id)}&limit=1`);if(c)out.clientes=c}
     if(!out.pedido_items&&out.id){try{out.pedido_items=await sb(`pedido_items?select=*&pedido_id=eq.${encodeURIComponent(out.id)}`)||[]}catch{out.pedido_items=[]}}
+    if(out.metodo_pago==='Pago mixto'&&out.id){
+      try{out.payment_lines=await sb(`ts_order_payments?select=method,currency,amount,usd_equivalent,reference,bcv_rate,bcv_effective_date&pedido_id=eq.${encodeURIComponent(out.id)}&status=eq.confirmed&order=line_no.asc`)||[]}
+      catch(e){console.warn('Desglose mixto no disponible en nota',e);out.payment_lines=[]}
+    }
     return out;
   }
   function normalized(p){
@@ -100,7 +105,7 @@ exports.handler = async function(event) {
       paymentMethod:p?.metodo_pago||p?.payment||'',paymentRef:p?.referencia_pago||p?.paymentRef||'',guide:p?.numero_guia||p?.guide||'',shippingCompany:p?.empresa_envio||'',
       subtotal:Number(p?.subtotal_usd||0),discountType:p?.discount_type||'',discountValue:Number(p?.discount_value||0),
       discountUsd:Number(p?.discount_usd||0),discountReason:p?.discount_reason||'',
-      total:Number(p?.total_usd||p?.total||0),items:Array.isArray(items)?items:[]
+      total:Number(p?.total_usd||p?.total||0),items:Array.isArray(items)?items:[],paymentLines:p?.payment_lines||[]
     };
   }
   async function normalizedWithUnits(raw){
@@ -173,7 +178,7 @@ exports.handler = async function(event) {
   }
   function deliveryNoteEmail(p){
     const html=require('./delivery-note-template').render(p);
-    const text=`NOTA DE ENTREGA THINKSTORE\nGracias por tu compra, ${p.customerName}.\nPedido: ${p.code}\nCliente: ${p.customerName}\nDocumento: ${p.customerDocument||'No indicado'}\nCorreo: ${p.customerEmail}\nTeléfono: ${p.customerPhone}\nPago: ${p.paymentMethod||'Por confirmar'}\nReferencia: ${p.paymentRef||'No aplica'}\nEstado: ${p.status}\n\n${p.items.map((i,n)=>{const units=Array.isArray(i.assigned_units)&&i.assigned_units.length?i.assigned_units.map((u,k)=>`Unidad ${k+1}: Serial ${u.serial_number||'—'}${u.imei?` | IMEI ${u.imei}`:''}${u.general_condition?` | ${u.general_condition}`:''}${u.battery_health_pct?` | Batería ${u.battery_health_pct}%`:''}`).join(' / '):`Serie: ${itemSerial(i)}`;return `${n+1}. ${itemName(i)} | ${[i.color,i.capacidad||i.capacity,i.chip,i.ram,i.model_code].filter(Boolean).join(' · ')} | ${itemCondition(i)} | ${units}${itemWarranty(i)?` | Garantía: ${itemWarranty(i)} días`:''} | ${itemQty(i)} x ${money(itemPrice(i))}`}).join('\n')}\n\n${p.subtotal>0?`Subtotal: ${money(p.subtotal)}\n`:''}${p.discountUsd>0?`Descuento: -${money(p.discountUsd)}${p.discountReason?` · ${p.discountReason}`:''}\n`:''}Total: ${p.total>0?money(p.total):'A confirmar'}\n\nPOLÍTICA DE GARANTÍA\nLa garantía cubre fallas de funcionamiento atribuibles al equipo durante el plazo indicado. No cubre golpes, humedad, manipulación externa, accesorios de terceros ni intervenciones no autorizadas. La evaluación técnica determina la procedencia.\nConserva esta Nota de Entrega y el serial del equipo como respaldo para cualquier solicitud de garantía.\n\nSeguimiento: ${trackingUrl(p)}`;
+    const text=`NOTA DE ENTREGA THINKSTORE\nGracias por tu compra, ${p.customerName}.\nPedido: ${p.code}\nCliente: ${p.customerName}\nDocumento: ${p.customerDocument||'No indicado'}\nCorreo: ${p.customerEmail}\nTeléfono: ${p.customerPhone}\nPago: ${p.paymentMethod||'Por confirmar'}\n${p.paymentLines?.length?`Abonos: ${p.paymentLines.map(l=>`${l.method}: ${l.currency==='VES'?'Bs.':'USD'} ${Number(l.amount).toFixed(2)}${l.reference?' (Ref. '+l.reference+')':''}`).join(' | ')}\n`:`Referencia: ${p.paymentRef||'No aplica'}\n`}Estado: ${p.status}\n\n${p.items.map((i,n)=>{const units=Array.isArray(i.assigned_units)&&i.assigned_units.length?i.assigned_units.map((u,k)=>`Unidad ${k+1}: Serial ${u.serial_number||'—'}${u.imei?` | IMEI ${u.imei}`:''}${u.general_condition?` | ${u.general_condition}`:''}${u.battery_health_pct?` | Batería ${u.battery_health_pct}%`:''}`).join(' / '):`Serie: ${itemSerial(i)}`;return `${n+1}. ${itemName(i)} | ${[i.color,i.capacidad||i.capacity,i.chip,i.ram,i.model_code].filter(Boolean).join(' · ')} | ${itemCondition(i)} | ${units}${itemWarranty(i)?` | Garantía: ${itemWarranty(i)} días`:''} | ${itemQty(i)} x ${money(itemPrice(i))}`}).join('\n')}\n\n${p.subtotal>0?`Subtotal: ${money(p.subtotal)}\n`:''}${p.discountUsd>0?`Descuento: -${money(p.discountUsd)}${p.discountReason?` · ${p.discountReason}`:''}\n`:''}Total: ${p.total>0?money(p.total):'A confirmar'}\n\nPOLÍTICA DE GARANTÍA\nLa garantía cubre fallas de funcionamiento atribuibles al equipo durante el plazo indicado. No cubre golpes, humedad, manipulación externa, accesorios de terceros ni intervenciones no autorizadas. La evaluación técnica determina la procedencia.\nConserva esta Nota de Entrega y el serial del equipo como respaldo para cualquier solicitud de garantía.\n\nSeguimiento: ${trackingUrl(p)}`;
     return{subject:`ThinkStore — Gracias por tu compra | ${p.code}`,text,html,department:'pedidos'};
   }
   function statusEmail(p){
@@ -309,7 +314,7 @@ exports.handler = async function(event) {
       const info=paymentLockInfo(found); if(!info.locked)return reply(409,{ok:false,error:'La decisión de pago ya está desbloqueada.'});
       const payload={payment_decision_locked:false,payment_unlocked_at:new Date().toISOString(),payment_unlocked_by:auth.email||auth.user_id||auth.mode||'gerencia',payment_unlock_reason:reason};
       let updated;
-      try{updated=await updatePedido(found,payload)}catch(e){
+      try{updated=mixedConfirmation?await sb(`pedidos?select=*&id=eq.${encodeURIComponent(found.id)}&limit=1`):await updatePedido(found,payload)}catch(e){
         if(/payment_decision_locked|payment_unlocked|schema cache|column/i.test(clean(e.message)))return reply(409,{ok:false,migration_required:true,error:'Falta aplicar supabase_v12_payment_lock.sql en Supabase antes de usar el desbloqueo.'});
         throw e;
       }
@@ -324,19 +329,60 @@ exports.handler = async function(event) {
       const decision=approved?'approved':'rejected'; const status=approved?'Pago verificado':'Pago rechazado';
       const now=new Date().toISOString();
       const payload={estado:status,payment_decision:decision,payment_decision_locked:true,payment_decision_at:now,payment_decision_by:auth.email||auth.user_id||auth.mode||'panel'};
+      let updatedFx=null, mixedConfirmation=null;
+      if(approved&&clean(found.metodo_pago)==='Pago mixto'){
+        try{
+          const needsBs=Array.isArray(body.payment_lines)&&body.payment_lines.some(x=>Number(x.amount)>0&&(x.currency==='VES'||/Pago Móvil|Efectivo Bs|Transferencia Bs|Punto de venta Bs/.test(x.method)));
+          const q=needsBs?await getRate(true):null;
+          if(needsBs&&(Number(body.client_bcv_rate)!==Number(q.rate)||String(body.client_bcv_date||'')!==String(q.effective_date)))
+            return reply(409,{ok:false,rate_changed:true,error:'La tasa BCV cambió. Revisa el importe en bolívares y vuelve a confirmar.'});
+          mixedConfirmation=prepareMixed(body.payment_lines,Number(found.total_usd),q,{requireFull:true});
+          const actor=auth.email||auth.user_id||auth.mode||'panel';
+          const result=await sb('rpc/ts_confirm_pos_mixed_payment',{method:'POST',body:JSON.stringify({
+            p_order_id:found.id,p_lines:mixedConfirmation.lines,p_actor:actor,
+            p_rate:mixedConfirmation.quote?.rate??null,
+            p_effective_date:mixedConfirmation.quote?.effective_date??null,
+            p_source:mixedConfirmation.quote?.source??null,
+            p_checked_at:mixedConfirmation.quote?.checked_at??null
+          })});
+          if(!result?.ok)throw Error('No se pudo confirmar el desglose de cobros.');
+          updatedFx=mixedConfirmation.quote?{...mixedConfirmation.quote,total_ves:mixedConfirmation.paid_ves,total_usd:Number(found.total_usd)}:null;
+        }catch(e){
+          if(/ts_confirm_pos_mixed_payment|ts_order_payments|schema cache|function public/i.test(clean(e.message)))
+            return reply(409,{ok:false,migration_required:true,error:'Ejecuta MIGRACION-V14.79-PAGOS-MIXTOS.sql en el Supabase principal.'});
+          return reply(409,{ok:false,error:e.message||'No se pudo validar el pago mixto.'});
+        }
+      }
+      if(approved&&/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta/i.test(clean(found.metodo_pago||''))){
+        const q=await getRate(true);
+        if(q.stale)return reply(503,{ok:false,error:'La tasa BCV no se pudo verificar. No se confirmó el cobro.'});
+        const total=Number(found.total_usd||0);
+        if(!Number.isFinite(total)||total<0)return reply(409,{ok:false,error:'Monto USD del pedido inválido.'});
+        const newBs=Math.round(total*q.rate*100)/100;
+        const oldBs=found.total_bs===null?null:Number(found.total_bs);
+        if(oldBs!==null&&Number.isFinite(oldBs)&&Math.abs(newBs-oldBs)>=0.01&&body.acknowledge_bcv_change!==true){
+          return reply(409,{ok:false,rate_changed:true,previous_total_bs:oldBs,current_total_bs:newBs,fx_quote:q,error:'Cambió la tasa BCV desde que se guardó el pedido. Verifica que el cliente pagó el monto vigente antes de aprobar.'});
+        }
+        Object.assign(payload,{total_bs:newBs,bcv_rate:q.rate,bcv_effective_date:q.effective_date,bcv_source:q.source,bcv_checked_at:q.checked_at});
+        updatedFx={...q,total_ves:newBs,total_usd:total};
+      }
       let updated;
       try{updated=await updatePedido(found,payload)}catch(e){
+        if(/bcv_rate|bcv_effective_date|bcv_source|bcv_checked_at/i.test(clean(e.message)))return reply(409,{ok:false,migration_required:true,error:'Ejecuta MIGRACION-V14.78-TASA-BCV.sql en Supabase principal.'});
         if(/payment_decision|schema cache|column/i.test(clean(e.message)))return reply(409,{ok:false,migration_required:true,error:'Falta aplicar supabase_v12_payment_lock.sql en Supabase antes de aprobar o rechazar pagos.'});
         throw e;
       }
+      if(!approved&&clean(found.metodo_pago)==='Pago mixto'){
+        try{await sb(`ts_order_payments?pedido_id=eq.${encodeURIComponent(found.id)}&status=eq.pending`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'rejected'})});}catch(e){console.error('Error al rechazar abonos provisionales',e)}
+      }
       try{await sb('order_status_history',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({pedido_id:found.id,estado:status,nota:approved?'Comprobante revisado y aprobado. Decisión bloqueada.':'Comprobante rechazado. Decisión bloqueada.'})})}catch(_){ }
-      await auditPayment(found,approved?'payment_approved_locked':'payment_rejected_locked',{estado:found.estado||'',decision:info.decision||null,locked:false},{estado:status,decision,locked:true});
+      await auditPayment(found,approved?'payment_approved_locked':'payment_rejected_locked',{estado:found.estado||'',decision:info.decision||null,locked:false,total_bs:found.total_bs??null},{estado:status,decision,locked:true,total_bs:updatedFx?.total_ves??found.total_bs??null,bcv_rate:updatedFx?.rate??null});
       const changed=Array.isArray(updated)?updated[0]:found;
       const p=normalized(await fullPedido(changed));
       const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
       const noteResult={skipped:true,reason:approved?'La nota se habilita cuando todas las unidades físicas estén asignadas.':'Pago no aprobado'};
       const inventory=await inventoryTransition(p,status);
-      return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true}});
+      return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true},fx_quote:updatedFx});
     }
 
     const notePaymentReady=()=>{
@@ -346,6 +392,7 @@ exports.handler = async function(event) {
     };
 
     if(action==='update_discount'){
+      if(clean(found.metodo_pago)==='Pago mixto')return reply(409,{ok:false,error:'Esta venta tiene abonos desglosados. Para modificar su total, anula y registra una nueva venta antes de confirmar el pago.'});
       const full=await fullPedido(found);
       const items=Array.isArray(full?.pedido_items)?full.pedido_items:[];
       const subtotal=Math.round(items.reduce((s,i)=>s+Number(i.precio_usd||i.price||0)*Math.max(1,Number(i.cantidad||i.qty||1)||1),0)*100)/100;
@@ -355,11 +402,14 @@ exports.handler = async function(event) {
       const raw=type==='percent'?subtotal*Math.min(value,100)/100:Math.min(value,subtotal);
       const discount=Math.round(raw*100)/100;
       const total=Math.round((subtotal-discount)*100)/100;
-      let totalBs=found.total_bs??null;
+      let totalBs=found.total_bs??null,fx=null;
       if(/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta/i.test(clean(found.metodo_pago||''))){
-        try{const q=await getRate(true);totalBs=Math.round(total*q.rate*100)/100}catch(_){}
+        const q=await getRate(true);
+        if(q.stale)return reply(503,{ok:false,error:'No se pudo verificar BCV. Se conservó el total anterior sin modificar el descuento.'});
+        totalBs=Math.round(total*q.rate*100)/100;
+        fx={bcv_rate:q.rate,bcv_effective_date:q.effective_date,bcv_source:q.source,bcv_checked_at:q.checked_at};
       }
-      const payload={subtotal_usd:subtotal,discount_type:type,discount_value:value,discount_usd:discount,discount_reason:reason||null,total_usd:total,total_bs:totalBs};
+      const payload={subtotal_usd:subtotal,discount_type:type,discount_value:value,discount_usd:discount,discount_reason:reason||null,total_usd:total,total_bs:totalBs,...fx};
       let updated;
       try{updated=await updatePedido(found,payload)}
       catch(e){

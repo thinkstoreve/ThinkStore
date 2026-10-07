@@ -14,7 +14,7 @@ Site URL: usa el dominio principal REAL que abre correctamente el Panel.
 
 Redirect URLs recomendadas:
 - https://inventory.thinkstore.com.ve/
-- https://enterprise.thinkstore.com.ve/
+- https://enterprise.thinkstore.ve/
 - https://thinkstore.com.ve/**
 - https://www.thinkstore.com.ve/**  (solo si www también se usa)
 
@@ -24,7 +24,7 @@ Redirect URLs:
 - https://soporte.thinkstore.com.ve/**
 
 ## DNS / dominios
-`thinkstore.com.ve`, `soporte.thinkstore.com.ve`, `inventory.thinkstore.com.ve` y `enterprise.thinkstore.com.ve` deben resolver a sus despliegues reales. No deben usar URL forwarding/parking.
+`thinkstore.com.ve`, `soporte.thinkstore.com.ve`, `inventory.thinkstore.com.ve` y `enterprise.thinkstore.ve` deben resolver a sus despliegues reales. No deben usar URL forwarding/parking.
 
 ## Seguridad
 Si un token terminó visible en un dominio ajeno (por ejemplo `instantfwding.com/#access_token=...`), cierra/revoca esa sesión antes de volver a probar.

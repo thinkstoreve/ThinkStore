@@ -29,6 +29,8 @@
 .fx{margin-top:12px;padding:14px;border-radius:14px;background:#eef6ff;color:#034b91;display:none}.discount-box{margin:18px 0;padding:16px;border:1px solid var(--line);border-radius:18px;background:#fbfbfd}.discount-box h3{margin:0 0 6px}.discount-summary{display:grid;gap:5px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.discount-summary div{display:flex;justify-content:space-between;gap:14px}.discount-summary .final{font-size:18px;font-weight:900}.discount-summary .saving{color:#14804a;font-weight:800}
 .success{position:fixed;inset:0;background:rgba(245,245,247,.96);z-index:80;display:none;align-items:center;justify-content:center;padding:22px}.success.show{display:flex}.successbox{text-align:center;max-width:500px}.check{width:92px;height:92px;border-radius:50%;margin:0 auto 18px;background:#e7f8ef;color:#14804a;display:grid;place-items:center;font-size:48px;animation:pop .5s cubic-bezier(.2,.9,.2,1.2)}@keyframes pop{0%{transform:scale(.45);opacity:0}100%{transform:scale(1);opacity:1}}.success h2{font-size:36px;margin:0 0 10px}.success p{color:var(--muted);line-height:1.6}
 @media(max-width:760px){.form,.paygrid,.config,.scanbox{grid-template-columns:1fr}.steps{grid-template-columns:1fr}.config img{height:190px}.cartitem{grid-template-columns:58px 1fr}.cartitem .remove{grid-column:2}.topin{align-items:flex-start}}
+.paygrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:760px){.paygrid{grid-template-columns:repeat(2,minmax(0,1fr))}.pay{padding:12px 5px}.pay b{font-size:12px}}
 </style>
 </head>
 <body>
@@ -75,6 +77,7 @@
     <button class="pay active" data-method="Efectivo USD" onclick="selectPay(this)"><img src="assets/efectivo.svg"><b>Efectivo en dólares</b></button>
     <button class="pay" data-method="Pago Móvil" onclick="selectPay(this)"><img src="assets/pago-movil.svg"><b>Pago móvil</b></button>
     <button class="pay" data-method="Zelle" onclick="selectPay(this)"><img src="assets/zelle.svg"><b>Zelle</b></button>
+    <button class="pay" data-method="Pago mixto" onclick="selectPay(this)"><span style="font-size:31px">⇄</span><b>Pago mixto · USD + Bs.</b></button>
   </div>
   <div class="discount-box">
     <h3>Descuento de la venta</h3>
@@ -87,6 +90,7 @@
     <div id="discountSummary" class="discount-summary"></div>
   </div>
   <div id="fx" class="fx"></div>
+  <div id="adminSplitPayment" hidden></div>
   <div class="form">
     <label id="refWrap" style="display:none">Referencia de pago<input id="paymentRef" placeholder="Referencia / confirmación"></label>
     <label>Forma de entrega<select id="delivery" onchange="deliveryFields()"><option>Retiro en tienda</option><option>Delivery</option><option>Envío nacional</option></select></label>
@@ -107,11 +111,12 @@
 <script src="data.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
-<script src="ts-fx.js?v=13.64"></script>
+<script src="ts-fx.js?v=14.78"></script>
+<script src="ts-payment-split.js?v=14.79"></script>
 <script>
 const cfg=window.THINKSTORE_SUPABASE||{};
 const sb=window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
-let inventory=[],catalog=[],gallery=[],catalogCategories=[],cart=[],category='',paymentMethod='Efectivo USD',savedCode='',posVariantMap={};
+let inventory=[],catalog=[],gallery=[],catalogCategories=[],cart=[],category='',paymentMethod='Efectivo USD',savedCode='',posVariantMap={},mixedAdmin=null;
 let posScanBusy=false,posHardwareBuffer='',posHardwareTimer=null;
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])), money=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const slug=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto';
@@ -353,22 +358,28 @@ function updateSaleTotals(){
   const d=discountSnapshot(),box=$('discountSummary');
   if(box)box.innerHTML=`<div><span>Subtotal</span><b>${money(d.subtotal)}</b></div><div class="saving"><span>Descuento${d.type==='percent'&&d.value?` (${d.value}%)`:''}</span><b>− ${money(d.discount_usd)}</b></div><div class="final"><span>Total final</span><b>${money(d.total)}</b></div>`;
   if($('total'))$('total').textContent='Total final: '+money(d.total);
-  updateFx();
+  updateFx();if(paymentMethod==='Pago mixto')mixedAdmin?.update();
 }
 function renderCart(){
   $('cart').innerHTML=cart.map((x,i)=>`<div class="cartitem"><img src="${esc(x.image_url)}"><div><b>${esc(x.product_name)}</b><small>${esc([x.color,x.capacity,x.condition,x.model_code].filter(Boolean).join(' · '))}<br>${x.is_preorder?'Pre-Order · sin reserva de stock':'Stock · se reservará al guardar'}${x.inventory_unit_barcode?` · Escaneado: ${esc(x.inventory_unit_barcode)}`:''} · ${x.serial_number?`Serial: ${esc(x.serial_number)}${x.imei?' · IMEI: '+esc(x.imei):''}`:'Serial/IMEI: pendiente de asignación'} · Garantía: ${x.warranty_days} días</small></div><button class="btn ghost remove" onclick="removeCart(${i})">Quitar</button></div>`).join('')||'<div class="notice">Aún no has añadido productos.</div>';
   updateSaleTotals();
 }
 function goPayment(){if(!cart.length)return alert('Añade al menos un producto.');showPage(3);updateSaleTotals()}
-function selectPay(el){document.querySelectorAll('.pay').forEach(x=>x.classList.remove('active'));el.classList.add('active');paymentMethod=el.dataset.method;$('refWrap').style.display=/efectivo/i.test(paymentMethod)?'none':'block';if(/efectivo/i.test(paymentMethod))$('paymentRef').value='';updateFx()}
-async function updateFx(){const fx=$('fx'),total=discountSnapshot().total;if(paymentMethod!=='Pago Móvil'){fx.style.display='none';return}fx.style.display='block';fx.textContent='Consultando tasa oficial…';try{await window.ThinkStoreFX.refresh();const q=window.ThinkStoreFX.snapshot(total);fx.textContent=q?`${money(total)} × ${q.rate} = ${window.ThinkStoreFX.ves(q.total_ves)} · ${q.source}`:'Tasa no disponible'}catch{fx.textContent='No se pudo consultar la tasa oficial.'}}
+function selectPay(el){document.querySelectorAll('.pay').forEach(x=>x.classList.remove('active'));el.classList.add('active');paymentMethod=el.dataset.method;const mixed=paymentMethod==='Pago mixto';mixedAdmin?.setVisible(mixed);$('refWrap').style.display=mixed||/efectivo/i.test(paymentMethod)?'none':'block';if(mixed||/efectivo/i.test(paymentMethod))$('paymentRef').value='';updateFx()}
+async function updateFx(){const fx=$('fx'),total=discountSnapshot().total;if(paymentMethod!=='Pago Móvil'){fx.style.display='none';return}fx.style.display='block';try{await window.ThinkStoreFX.refresh()}catch{}const q=window.ThinkStoreFX.snapshot(total);fx.textContent=q?`${money(total)} × ${q.rate} = ${window.ThinkStoreFX.ves(q.total_ves)} · Vigente ${q.effective_date}${q.stale?' · Sin verificar; no cobrar en Bs.':''}`:'No se pudo consultar la tasa BCV.'}
+window.addEventListener('thinkstore:fx-updated',()=>{if(paymentMethod==='Pago Móvil'){const q=window.ThinkStoreFX?.snapshot(discountSnapshot().total);const el=$('fx');if(el)el.textContent=q?`${money(q.total_usd)} = ${window.ThinkStoreFX.ves(q.total_ves)} · Vigente ${q.effective_date}${q.stale?' · Sin verificar':''}`:'BCV no disponible'}});
 function deliveryFields(){$('companyWrap').style.display=$('delivery').value==='Envío nacional'?'block':'none'}
-function payload(){const c=customer(),d=discountSnapshot();return{customer_name:c.name,customer_email:c.email,customer_document:c.document,customer_phone:c.phone,customer_address:c.address,customer_city:c.city,customer_state:c.state,items:cart.map(({variant,...x})=>x),payment_method:paymentMethod,payment_ref:$('paymentRef').value.trim(),delivery_method:$('delivery').value,shipping_company:$('shippingCompany').value,sale_note:$('saleNote').value.trim(),discount_type:d.type,discount_value:d.value,discount_usd:d.discount_usd,discount_reason:d.reason,subtotal_usd:d.subtotal,total_final_usd:d.total}}
+function payload(){const c=customer(),d=discountSnapshot();return{customer_name:c.name,customer_email:c.email,customer_document:c.document,customer_phone:c.phone,customer_address:c.address,customer_city:c.city,customer_state:c.state,items:cart.map(({variant,...x})=>x),payment_method:paymentMethod,payment_ref:$('paymentRef').value.trim(),delivery_method:$('delivery').value,shipping_company:$('shippingCompany').value,sale_note:$('saleNote').value.trim(),discount_type:d.type,discount_value:d.value,discount_usd:d.discount_usd,discount_reason:d.reason,subtotal_usd:d.subtotal,total_final_usd:d.total,...(paymentMethod==='Pago mixto'?mixedAdmin.validate(false):{})}}
 function setBusy(on){$('holdBtn').disabled=on;$('confirmBtn').disabled=on}
-async function createHold(){if(savedCode)return savedCode;if(!/efectivo/i.test(paymentMethod)&&!$('paymentRef').value.trim())throw Error('Indica la referencia del pago.');setBusy(true);const r=await fetch('/.netlify/functions/admin-create-sale',{method:'POST',headers:await headers(),body:JSON.stringify(payload())}),d=await r.json().catch(()=>({}));setBusy(false);if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar la venta');savedCode=d.pedido?.codigo||'';sessionStorage.setItem('ts_pos_last_code',savedCode);return savedCode}
+async function createHold(){if(savedCode)return savedCode;if(paymentMethod!=='Pago mixto'&&!/efectivo/i.test(paymentMethod)&&!$('paymentRef').value.trim())throw Error('Indica la referencia del pago.');setBusy(true);const r=await fetch('/.netlify/functions/admin-create-sale',{method:'POST',headers:await headers(),body:JSON.stringify(payload())}),d=await r.json().catch(()=>({}));setBusy(false);if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar la venta');savedCode=d.pedido?.codigo||'';sessionStorage.setItem('ts_pos_last_code',savedCode);return savedCode}
 async function saveHold(){try{const code=await createHold();$('result').style.display='block';$('result').innerHTML=`Venta guardada en espera ✅<br><b>${esc(code)}</b><br>La venta quedó registrada. El stock disponible quedó reservado cuando correspondía; las Pre-Orders quedaron pendientes de asignación.`}catch(e){$('result').style.display='block';$('result').textContent='Error: '+e.message}}
-async function confirmSale(){try{const code=await createHold();setBusy(true);const r=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers:await headers(),body:JSON.stringify({code,action:'payment_decision',approved:true})}),d=await r.json().catch(()=>({}));setBusy(false);if(!r.ok||!d.ok)throw Error(d.error||'No se pudo confirmar el pago');{const ds=discountSnapshot();$('successText').textContent=`Pedido ${code}. Compra registrada por ${money(ds.total)}${ds.discount_usd>0?` con descuento de ${money(ds.discount_usd)}`:''}. El pago quedó confirmado. Ahora puedes asignar la unidad física; la Nota de Entrega se habilitará cuando tenga serial/IMEI asignado.`;}$('success').classList.add('show')}catch(e){setBusy(false);$('result').style.display='block';$('result').textContent='Error: '+e.message}}
+async function confirmSale(){try{if(paymentMethod==='Pago Móvil'||(paymentMethod==='Pago mixto'&&mixedAdmin.getLines().some(x=>x.currency==='VES')))await window.ThinkStoreFX.requireFresh();if(paymentMethod==='Pago mixto')mixedAdmin.validate(true);const code=await createHold();setBusy(true);
+let r=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers:await headers(),body:JSON.stringify({code,action:'payment_decision',approved:true,...(paymentMethod==='Pago mixto'?mixedAdmin.validate(true):{})})});let d=await r.json().catch(()=>({}));
+if(r.status===409&&d.rate_changed&&paymentMethod==='Pago mixto'){setBusy(false);await window.ThinkStoreFX.refresh(true);mixedAdmin.update();throw Error('La tasa BCV cambió. Revisa el saldo pendiente y confirma de nuevo.');}if(r.status===409&&d.rate_changed){setBusy(false);if(!confirm(`Cambió la tasa BCV.\nMonto anterior: ${window.ThinkStoreFX.ves(d.previous_total_bs)}\nMonto vigente: ${window.ThinkStoreFX.ves(d.current_total_bs)}\n¿Verificaste el pago por el nuevo monto?`))throw Error('Pago pendiente: verifica el monto.');setBusy(true);
+r=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers:await headers(),body:JSON.stringify({code,action:'payment_decision',approved:true,acknowledge_bcv_change:true})});d=await r.json().catch(()=>({}));}
+setBusy(false);if(!r.ok||!d.ok)throw Error(d.error||'No se pudo confirmar el pago');{const ds=discountSnapshot();$('successText').textContent=`Pedido ${code}. Compra registrada por ${money(ds.total)}${ds.discount_usd>0?` con descuento de ${money(ds.discount_usd)}`:''}. El pago quedó confirmado. Ahora puedes asignar la unidad física; la Nota de Entrega se habilitará cuando tenga serial/IMEI asignado.`;}$('success').classList.add('show')}catch(e){setBusy(false);$('result').style.display='block';$('result').textContent='Error: '+e.message}}
 function newSale(){sessionStorage.removeItem('ts_pos_customer');sessionStorage.removeItem('ts_pos_last_code');location.reload()}
+mixedAdmin=window.ThinkStoreSplit?.mount('adminSplitPayment',()=>discountSnapshot().total);
 $('posBarcodeForm')?.addEventListener('submit',e=>{e.preventDefault();scanSaleCode($('posBarcode')?.value)});wirePosHardwareScanner();
 (async()=>{if(!await guard())return;try{const pre=JSON.parse(sessionStorage.getItem('ts_pos_customer')||'null');if(pre){$('cName').value=pre.name||'';$('cEmail').value=pre.email||'';$('cDoc').value=pre.document||'';$('cPhone').value=pre.phone||'';$('cAddress').value=pre.address||'';$('cCity').value=pre.city||'Caracas';$('cState').value=pre.state||'Miranda'}}catch{}deliveryFields()})();
 </script>

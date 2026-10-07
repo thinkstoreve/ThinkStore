@@ -18,15 +18,15 @@ Pasos:
 1. Reemplaza la carpeta growth-enterprise actual en GitHub por esta carpeta.
 2. Commit changes.
 3. Espera el deploy de Netlify.
-4. Abre https://enterprise.thinkstore.com.ve
+4. Abre https://enterprise.thinkstore.ve
 5. Entra con el correo administrador de Supabase Auth.
 6. Verifica que el usuario tenga rol super_admin o admin y activo TRUE.
 
 Importante:
 - En Supabase Authentication > URL Configuration conserva:
-  https://enterprise.thinkstore.com.ve
-  https://enterprise.thinkstore.com.ve/
-  https://enterprise.thinkstore.com.ve/dashboard.html
+  https://enterprise.thinkstore.ve
+  https://enterprise.thinkstore.ve/
+  https://enterprise.thinkstore.ve/dashboard.html
   https://thinkstore.com.ve
   https://thinkstore.com.ve/
   https://thinkstore.com.ve/reset-password

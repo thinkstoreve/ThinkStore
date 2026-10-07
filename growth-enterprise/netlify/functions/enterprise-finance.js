@@ -324,6 +324,32 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const techPaid=sum(weekEntries.filter(e=>e.entry_type==='technician_payment'),e=>e.amount_usd);
   const cashOut=money(companyManualCash+companyInventoryCash+repayments+techPaid+staffOperatingExpenses+pettyExpense+pettyAdjustmentOut+staffAdjustmentOut);
 
+  // V10.14 · serie diaria real para las gráficas ejecutivas.
+  // Separa ingresos por origen y salidas de caja sin duplicar transferencias internas de Caja Chica.
+  const dayRows=[];
+  {
+    const cursor=new Date(`${range.start}T12:00:00-04:00`);
+    const end=new Date(`${range.end}T12:00:00-04:00`);
+    while(cursor<=end){
+      const key=caracasKey(cursor);dayRows.push({date:key,shop:0,support:0,other:0,inflow:0,outflow:0,net:0});
+      cursor.setUTCDate(cursor.getUTCDate()+1);
+    }
+  }
+  const dayMap=new Map(dayRows.map(x=>[x.date,x]));
+  const dayAt=value=>dayMap.get(caracasKey(value));
+  const addDaily=(value,field,amount)=>{const row=dayAt(value);if(row)row[field]=money(row[field]+num(amount))};
+  paidSales.forEach(o=>{const v=num(o.total_usd),dt=orderPaidDate(o);addDaily(dt,'shop',v);addDaily(dt,'inflow',v)});
+  if(weekSupportEvents.length){
+    weekSupportEvents.forEach(e=>{const v=num(e.amount_delta),dt=e.occurred_at||e.created_at;if(v>0){addDaily(dt,'support',v);addDaily(dt,'inflow',v)}else if(v<0)addDaily(dt,'outflow',Math.abs(v))});
+  }else{
+    supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>{const v=num(o.amount_paid),dt=o.paid_at||o.updated_at||o.created_at;addDaily(dt,'support',v);addDaily(dt,'inflow',v)});
+  }
+  weekEntries.forEach(e=>{const dt=entryDate(e),v=num(e.amount_usd);if(['other_income','receivable_collection'].includes(e.entry_type)){addDaily(dt,'other',v);addDaily(dt,'inflow',v)}else if(e.entry_type==='partner_advance'){addDaily(dt,'inflow',v)}else if(isCashExpenseType(e.entry_type)&&clean(e.funded_by||'company')==='company'){addDaily(dt,'outflow',v)}else if(['partner_repayment','technician_payment'].includes(e.entry_type)){addDaily(dt,'outflow',v)}});
+  weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company').forEach(p=>addDaily(p.occurred_at||p.created_at,'outflow',p.amount_usd));
+  weekStaffMovements.forEach(m=>{const v=staffMovementUsd(m),dt=m.created_at;if(!(v>0))return;if(m.direction==='in'){addDaily(dt,'inflow',v);if(m.type==='ingreso')addDaily(dt,'other',v)}else addDaily(dt,'outflow',v)});
+  weekPetty.forEach(m=>{const v=num(m.usd_equivalent),dt=m.occurred_at||m.created_at;if(!(v>0))return;if(m.movement_type==='fund'){if(['freddy','nelson'].includes(clean(m.funded_by)))addDaily(dt,'inflow',v);return}if(m.direction==='in')addDaily(dt,'inflow',v);else addDaily(dt,'outflow',v)});
+  dayRows.forEach(r=>{r.net=money(r.inflow-r.outflow)});
+
   const pettyBalanceUsd=money(activePetty.filter(m=>clean(m.currency).toUpperCase()==='USD').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   const pettyBalanceVes=money(activePetty.filter(m=>clean(m.currency).toUpperCase()==='VES').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   const pettyAccount=pettyAccounts.find(a=>a.slug==='main')||pettyAccounts[0]||null;
@@ -373,6 +399,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
       totals:{expected:reconExpectedTotal,actual:reconActualTotal,difference:reconDifferenceTotal,completed:reconActualKnown.length===reconciliationLines.length&&reconciliationLines.length>0},
       history:reconciliations.slice(0,20)
     },
+    charts:{daily_cash_flow:dayRows},
     entries:weekEntries.slice(0,200),support_orders:enrichedSupport,audits:audits.slice(0,20),
     quality:{
       finance_tables_ready:Array.isArray(settings)&&settings.length>0,

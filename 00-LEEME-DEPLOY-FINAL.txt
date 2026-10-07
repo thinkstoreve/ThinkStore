@@ -1,3 +1,14 @@
+AVISO DE ACTUALIZACION MAIN — 2026-10-06
+El ZIP principal de ESTE PAQUETE es Main V14.80, no V14.75.
+Para Caja Staff ejecuta primero MIGRACION-V14.80-CAJA-STAFF.sql y luego despliega Main V14.80 desde Git/Netlify CLI con funciones. Lee 00-LEEME-V14.80-CAJA-STAFF.txt.
+Los paquetes Enterprise / Inventory / Soporte citados debajo siguen siendo los de la guía histórica.
+
+ACTUALIZACIÓN 06-10-2026 · MAIN V14.76 / STAFF VENTAS
+- Si vas a instalar la mejora de Staff, usa ThinkStore-main-V14.76-STAFF-VENTAS-UNIFICADO.zip EN LUGAR de Main V14.75.
+- Esta actualización conserva la base acumulativa V14.75 y no requiere SQL adicional.
+- Las versiones Enterprise V10.9, Soporte V8.8.5 e Inventory V3.2.30 mantienen su orden de publicación documentado abajo.
+- Lee RELEASE-V14.76-STAFF-VENTAS-UNIFICADO.md para las pruebas de esta versión.
+
 THINKSTORE · DEPLOY FINAL DEL ECOSISTEMA
 Main V14.75 · Enterprise V10.9 · Inventory V3.2.30 · Soporte V8.8.5
 

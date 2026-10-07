@@ -35,6 +35,60 @@ function canonicalOwnerName(email,...values){
 let currentProfile = null;
 let deferredPwaPrompt = null;
 let pwaReady = false;
+let enterpriseBootStarted = false;
+let enterpriseWelcomeShown = false;
+
+function firstName(value){
+  const clean=String(value||'').trim();
+  return clean ? clean.split(/\s+/)[0] : 'Socio';
+}
+function caracasHour(){
+  try{
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Caracas',hour:'2-digit',hour12:false}).formatToParts(new Date());
+    return Number(parts.find(x=>x.type==='hour')?.value||12);
+  }catch{return new Date().getHours()}
+}
+function enterpriseGreeting(){
+  const h=caracasHour();
+  if(h<12)return 'Buenos días';
+  if(h<19)return 'Buenas tardes';
+  return 'Buenas noches';
+}
+function showEnterpriseBoot(name){
+  const el=qs('enterpriseBoot'); if(!el)return;
+  enterpriseBootStarted=true;
+  const n=firstName(name);
+  if(qs('enterpriseBootTitle'))qs('enterpriseBootTitle').textContent=`${enterpriseGreeting()}, ${n}`;
+  if(qs('enterpriseBootText'))qs('enterpriseBootText').textContent='Sincronizando ventas, caja, inventario, soporte y finanzas…';
+  el.classList.remove('hidden','boot-leave');
+  requestAnimationFrame(()=>el.classList.add('boot-show'));
+}
+function hideEnterpriseBoot(){
+  const el=qs('enterpriseBoot'); if(!el||el.classList.contains('hidden'))return;
+  el.classList.add('boot-leave');
+  setTimeout(()=>{el.classList.add('hidden');el.classList.remove('boot-show','boot-leave')},520);
+}
+function showPartnerWelcome(data){
+  if(enterpriseWelcomeShown)return;
+  const el=qs('partnerWelcome'); if(!el)return;
+  enterpriseWelcomeShown=true;
+  const name=firstName(currentProfile?.full_name||currentProfile?.nombre||'Socio');
+  const money=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const open=Number(data?.staff_cash?.open_sessions||0);
+  if(qs('partnerWelcomeTitle'))qs('partnerWelcomeTitle').textContent=`${enterpriseGreeting()}, ${name}`;
+  if(qs('partnerWelcomeSubtitle'))qs('partnerWelcomeSubtitle').textContent='ThinkStore está sincronizado. Este es el pulso del negocio ahora.';
+  const stats=qs('partnerWelcomeStats');
+  if(stats)stats.innerHTML=`<article><span>Cobrado semana</span><b>${money(data?.collections?.gross)}</b></article><article><span>Utilidad distribuible</span><b>${money(data?.result?.distributable)}</b></article><article><span>Cajas Staff abiertas</span><b>${open}</b></article>`;
+  el.classList.remove('hidden','welcome-leave');
+  requestAnimationFrame(()=>el.classList.add('welcome-show'));
+  const close=()=>{el.classList.add('welcome-leave');setTimeout(()=>{el.classList.add('hidden');el.classList.remove('welcome-show','welcome-leave')},420)};
+  if(qs('partnerWelcomeClose'))qs('partnerWelcomeClose').onclick=close;
+  setTimeout(()=>{if(!el.classList.contains('hidden'))close()},5200);
+}
+function animateActiveView(){
+  const view=document.querySelector('.view.active'); if(!view)return;
+  view.classList.remove('view-enter'); void view.offsetWidth; view.classList.add('view-enter');
+}
 
 const activity = [];
 const products = [];
@@ -102,9 +156,12 @@ async function getAdminProfile(user){
 function applyAdminIdentity(user, profile={}){
   const email = profile.email || user.email || 'admin@thinkstore.com.ve';
   const name = canonicalOwnerName(email,profile.full_name,profile.nombre,user?.user_metadata?.full_name,user?.user_metadata?.name);
-  if(qs('welcomeName')) qs('welcomeName').textContent = name;
+  if(qs('welcomeGreeting')) qs('welcomeGreeting').textContent = enterpriseGreeting();
+  if(qs('welcomeName')) qs('welcomeName').textContent = firstName(name);
   if(qs('adminName')) qs('adminName').textContent = name;
   if(qs('adminEmailLabel')) qs('adminEmailLabel').textContent = email;
+  const avatar=document.querySelector('.admin-card .avatar');
+  if(avatar){const parts=String(name||'A').trim().split(/\s+/).filter(Boolean);avatar.textContent=(parts[0]?.[0]||'A')+(parts[1]?.[0]||'');}
 }
 async function unlock(event){
   event?.preventDefault?.();
@@ -127,7 +184,7 @@ async function unlock(event){
     setLoginMessage(error.message || 'No se pudo iniciar sesión.', 'error');
   }
 }
-function showApp(){ qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); applyEnterpriseAccessUI(); renderHome(); renderModules(); if(currentProfile?.is_full_admin)renderStaffAccess(); loadEnterpriseV1Real(); }
+function showApp(){ showEnterpriseBoot(currentProfile?.full_name||currentProfile?.nombre); qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); qs('app')?.classList.add('enterprise-entering'); applyEnterpriseAccessUI(); renderHome(); renderModules(); if(currentProfile?.is_full_admin)renderStaffAccess(); animateActiveView(); setTimeout(()=>qs('app')?.classList.remove('enterprise-entering'),1100); loadEnterpriseV1Real(); }
 function applyEnterpriseAccessUI(){const app=qs('app');if(!app)return;app.classList.remove('enterprise-viewer','enterprise-manager');if(!currentProfile?.is_full_admin)app.classList.add(currentProfile?.enterprise_role==='manager'?'enterprise-manager':'enterprise-viewer');const sub=qs('pageSubtitle');if(sub&&!currentProfile?.is_full_admin&&currentProfile?.enterprise_role==='viewer')sub.textContent='Acceso Enterprise · Solo lectura'}
 
 async function sendPasswordRecovery(){
@@ -244,6 +301,7 @@ function switchView(id){
   if(id === 'staff') loadStaffAccess();
   if(id === 'commercial') loadEnterpriseV1Real();
   if(['support','client360','warranties','alerts'].includes(id)) loadEnterpriseV6Support();
+  animateActiveView();
 }
 function exportCSV(id='executive'){
   const source = modules[id] || [];
@@ -3055,6 +3113,63 @@ function renderV9RealMarketing(data){
   function purchaseRows(d){return (d.inventory?.payables||[]).slice(0,20).map(p=>`<div class="table-row fin-table-row"><div><b>${safe(p.supplier_name||'Proveedor')} · ${safe(p.product_name||'Compra')}</b><br><small>${safe(p.purchase_date||'Sin fecha')} · total ${fm(p.total_usd)} · pagado ${fm(p.paid_usd)}${p.reference?` · ${safe(p.reference)}`:''}</small></div><span>${fm(p.pending_usd)}</span><i class="tag">Por pagar</i></div>`).join('')||'<div class="fin-empty">No hay compras pendientes con proveedores.</div>'}
   function purchaseMethodRows(d){return (d.purchase_payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div><b>${safe(x.method)}</b><br><small>Compras Inventory</small></div><span>${fm(x.amount)}</span><i class="tag">${fn(x.count)} pago(s)</i></div>`).join('')||'<div class="fin-empty">Sin pagos de compras esta semana.</div>'}
   function partnerCard(p,label){return `<article class="fin-partner-card"><span>Empresa debe a ${safe(label)}</span><b>${fm(p?.balance)}</b><small>Aportes: ${fm(p?.advances)} · gastos: ${fm(p?.company_expenses_paid)} · compras Inventory: ${fm(p?.inventory_purchases_paid)} · Caja Chica: ${fm(p?.petty_cash_funded)} · devuelto: ${fm(p?.repaid)}</small></article>`}
+  function compactMoney(n){
+    const v=Number(n||0);
+    if(Math.abs(v)>=1000000)return '$'+(v/1000000).toFixed(v>=10000000?0:1)+'M';
+    if(Math.abs(v)>=1000)return '$'+(v/1000).toFixed(v>=10000?0:1)+'K';
+    return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0});
+  }
+  function shortDay(value){
+    try{return new Intl.DateTimeFormat('es-VE',{timeZone:'America/Caracas',weekday:'short'}).format(new Date(String(value)+'T12:00:00-04:00')).replace('.','')}catch{return String(value||'').slice(5)}
+  }
+  function renderExecutiveCharts(d){
+    const el=qs('enterpriseCharts');if(!el)return;
+    const daily=Array.isArray(d?.charts?.daily_cash_flow)?d.charts.daily_cash_flow:[];
+    const maxDaily=Math.max(1,...daily.flatMap(x=>[Number(x.inflow||0),Number(x.outflow||0)]));
+    const dayBars=daily.map(x=>{
+      const inVal=Number(x.inflow||0),outVal=Number(x.outflow||0);
+      const inPct=inVal>0?Math.max(3,inVal/maxDaily*100):0;
+      const outPct=outVal>0?Math.max(3,outVal/maxDaily*100):0;
+      const net=Number(x.net||0);
+      return `<div class="day-column" title="${safe(x.date)} · Entradas ${fm(x.inflow)} · Salidas ${fm(x.outflow)}"><div class="day-bars"><i class="bar-in" style="--bar:${inPct.toFixed(1)}%"></i><i class="bar-out" style="--bar:${outPct.toFixed(1)}%"></i></div><b class="${net<0?'negative':''}">${compactMoney(net)}</b><span>${safe(shortDay(x.date))}</span></div>`;
+    }).join('')||'<div class="chart-empty">Aún no hay movimientos diarios en esta semana.</div>';
+
+    const shop=Number(d.collections?.shop||0),support=Number(d.collections?.support||0),other=Number(d.collections?.other||0);
+    const mixTotal=Math.max(0,shop+support+other);
+    const p1=mixTotal?shop/mixTotal*100:0,p2=mixTotal?support/mixTotal*100:0;
+    const ringStyle=mixTotal?`--mix-a:${p1.toFixed(2)}%;--mix-b:${(p1+p2).toFixed(2)}%`:'';
+
+    const methods=(d.payment_methods||[]).slice(0,5);
+    const methodMax=Math.max(1,...methods.map(x=>Number(x.amount||0)));
+    const methodRows=methods.map(x=>`<div class="method-bar-row"><div><span>${safe(x.method)}</span><b>${fm(x.amount)}</b></div><i><em style="--w:${Math.max(4,Number(x.amount||0)/methodMax*100).toFixed(1)}%"></em></i></div>`).join('')||'<div class="chart-empty">Sin cobros clasificados todavía.</div>';
+
+    const q=d.quality||{};
+    const checks=[
+      ['Finanzas',!!q.finance_tables_ready],['Inventory',!!q.inventory_connected],['Soporte',!!q.support_payment_events],
+      ['Pagos mixtos',!!q.mixed_payments_table],['Caja Staff',!!q.staff_cash_table],['Caja Chica',!!q.petty_cash_table],['Conciliación',!!q.reconciliation_table]
+    ];
+    const healthy=checks.filter(x=>x[1]).length;const healthPct=Math.round(healthy/checks.length*100);
+    const healthRows=checks.map(([name,ok])=>`<span class="health-chip ${ok?'ok':'pending'}"><i></i>${safe(name)}</span>`).join('');
+
+    const pnl=[
+      ['Cobrado',Number(d.collections?.gross||0),'positive'],
+      ['Costos',Number(d.outflows?.total||0),'neutral'],
+      ['Distribuible',Number(d.result?.distributable||0),'accent']
+    ];
+    const pnlMax=Math.max(1,...pnl.map(x=>x[1]));
+    const pnlRows=pnl.map(([label,value,tone])=>`<div class="pnl-bar ${tone}"><span>${safe(label)}</span><i><em style="--w:${Math.max(4,value/pnlMax*100).toFixed(1)}%"></em></i><b>${fm(value)}</b></div>`).join('');
+
+    el.innerHTML=`<div class="chart-grid chart-grid-top">
+      <article class="panel executive-chart cashflow-chart"><div class="chart-head"><div><span>MOVIMIENTO SEMANAL</span><h3>Entradas y salidas por día</h3></div><div class="chart-legend"><i class="in"></i>Entradas <i class="out"></i>Salidas</div></div><div class="daily-bars">${dayBars}</div></article>
+      <article class="panel executive-chart mix-chart"><div class="chart-head"><div><span>ORIGEN DEL INGRESO</span><h3>Qué está generando caja</h3></div></div><div class="mix-wrap"><div class="mix-ring ${mixTotal?'':'empty'}" style="${ringStyle}"><div><b>${compactMoney(mixTotal)}</b><span>Total</span></div></div><div class="mix-legend"><p><i class="shop"></i><span>Tienda</span><b>${fm(shop)}</b></p><p><i class="support"></i><span>Servicio Técnico</span><b>${fm(support)}</b></p><p><i class="other"></i><span>Otros</span><b>${fm(other)}</b></p></div></div></article>
+    </div>
+    <div class="chart-grid chart-grid-bottom">
+      <article class="panel executive-chart"><div class="chart-head"><div><span>RENDIMIENTO</span><h3>Cobrado vs costos</h3></div></div><div class="pnl-bars">${pnlRows}</div><div class="chart-note">Margen tienda ${Number(d.inventory?.gross_margin_pct||0).toFixed(1)}% · inventario a costo ${fm(d.inventory?.value)}</div></article>
+      <article class="panel executive-chart"><div class="chart-head"><div><span>COBROS</span><h3>Métodos principales</h3></div><button onclick="switchView('reconciliation')">Conciliar</button></div><div class="method-bars">${methodRows}</div></article>
+      <article class="panel executive-chart health-chart"><div class="chart-head"><div><span>ECOSISTEMA</span><h3>Salud de conexiones</h3></div></div><div class="health-score"><div class="health-ring" style="--health:${healthPct}%"><b>${healthPct}%</b><span>${healthy}/${checks.length} activos</span></div></div><div class="health-chips">${healthRows}</div></article>
+    </div>`;
+    requestAnimationFrame(()=>el.classList.add('charts-ready'));
+  }
   function renderFinanceQuick(d){
     const el=qs('enterpriseFinanceQuick');if(!el)return;
     const recon=d.reconciliation?.current||{};
@@ -3213,12 +3328,12 @@ function renderV9RealMarketing(data){
       <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Historial de cierres</h3><button data-fin-refresh>Actualizar</button></div><div class="table">${auditHistory(d)}</div></article>`;
   }
   async function loadFinanceCenter(force=false){
-    if(!force&&financeCache){renderTreasury(financeCache);renderPettyCash(financeCache);renderReconciliation(financeCache);renderWeeklyAudit(financeCache);renderFinanceQuick(financeCache);return financeCache}
+    if(!force&&financeCache){renderTreasury(financeCache);renderPettyCash(financeCache);renderReconciliation(financeCache);renderWeeklyAudit(financeCache);renderFinanceQuick(financeCache);renderExecutiveCharts(financeCache);hideEnterpriseBoot();setTimeout(()=>showPartnerWelcome(financeCache),220);return financeCache}
     for(const id of ['treasury','pettyCash','reconciliation','weeklyAudit']){const el=qs(id);if(el&&!el.innerHTML.trim())el.innerHTML='<article class="panel"><p>Cargando control financiero real…</p></article>'}
     try{
       const r=await fetch('/.netlify/functions/enterprise-finance',{headers:await finHeaders(),cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo cargar Finanzas Centrales');
-      financeCache=d;window.enterpriseFinanceData=d;renderTreasury(d);renderPettyCash(d);renderReconciliation(d);renderWeeklyAudit(d);renderFinanceQuick(d);return d;
-    }catch(e){const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(e.message||e)}</p><small>Ejecuta SQL-01-SUPABASE-PRINCIPAL-FINAL.sql y luego MIGRACION-V14.81-ENTERPRISE-V10.13-INTEGRACION.sql en el Supabase principal.</small></article>`;['treasury','pettyCash','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});const home=qs('enterpriseFinanceQuick');if(home)home.innerHTML=html;return null}
+      financeCache=d;window.enterpriseFinanceData=d;renderTreasury(d);renderPettyCash(d);renderReconciliation(d);renderWeeklyAudit(d);renderFinanceQuick(d);renderExecutiveCharts(d);hideEnterpriseBoot();setTimeout(()=>showPartnerWelcome(d),220);return d;
+    }catch(e){hideEnterpriseBoot();const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(e.message||e)}</p><small>Ejecuta SQL-01-SUPABASE-PRINCIPAL-FINAL.sql y luego MIGRACION-V14.81-ENTERPRISE-V10.13-INTEGRACION.sql en el Supabase principal.</small></article>`;['treasury','pettyCash','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});const home=qs('enterpriseFinanceQuick');if(home)home.innerHTML=html;return null}
   }
   async function finPost(body){const r=await fetch('/.netlify/functions/enterprise-finance',{method:'POST',headers:await finHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar');financeCache=d.summary||null;await loadFinanceCenter(true);return d}
   function closeFinModal(){document.querySelector('.fin-modal')?.remove()}

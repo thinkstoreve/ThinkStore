@@ -10,7 +10,7 @@
 ## Redirect URLs requeridas en Supabase Auth
 Proyecto principal:
 - https://inventory.thinkstore.com.ve/**
-- https://enterprise.thinkstore.com.ve/**
+- https://enterprise.thinkstore.ve/**
 - https://thinkstore.com.ve/**
 
 Proyecto ThinkStore-Soporte:

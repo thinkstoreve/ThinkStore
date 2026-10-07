@@ -10,8 +10,8 @@
 <!-- V10.6: PWA deshabilitado para evitar caché offline -->
 <meta name="theme-color" content="#0f0f10">
   <title>ThinkStore Enterprise</title>
-  <meta name="thinkstore-enterprise-build" content="10.13-integracion-caja-chica" />
-  <meta name="thinkstore-build" content="10.9-finanzas-conciliacion">
+  <meta name="thinkstore-enterprise-build" content="10.14-graficas-bienvenida-premium" />
+  <meta name="thinkstore-build" content="10.14-graficas-bienvenida-premium">
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ThinkStore Enterprise" />
@@ -25,9 +25,31 @@
 .ts-clean-nav .ts-nav-icon{margin-left:0!important;margin-right:0!important;}
 @media (max-width:900px){.ts-clean-nav{column-gap:14px!important;}}
 </style>
-<script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.13-integracion-caja-chica";</script>
+<script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.14-graficas-bienvenida-premium";</script>
 </head>
 <body>
+
+  <div id="enterpriseBoot" class="enterprise-boot hidden" aria-live="polite">
+    <div class="enterprise-boot-inner">
+      <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
+      <div class="enterprise-boot-orbit"><i></i><b></b></div>
+      <span>THINKSTORE ENTERPRISE</span>
+      <h2 id="enterpriseBootTitle">Preparando tu panel</h2>
+      <p id="enterpriseBootText">Sincronizando ventas, caja, inventario y soporte…</p>
+      <div class="enterprise-boot-progress"><i></i></div>
+    </div>
+  </div>
+
+  <div id="partnerWelcome" class="partner-welcome hidden" aria-live="polite">
+    <div class="partner-welcome-card">
+      <button id="partnerWelcomeClose" type="button" aria-label="Cerrar">×</button>
+      <span class="partner-welcome-kicker">THINKSTORE · ENTERPRISE</span>
+      <h2 id="partnerWelcomeTitle">Bienvenido</h2>
+      <p id="partnerWelcomeSubtitle">Tu operación está sincronizada.</p>
+      <div id="partnerWelcomeStats" class="partner-welcome-stats"></div>
+      <div class="partner-welcome-foot"><i></i><span>Datos reales · actualización en vivo</span></div>
+    </div>
+  </div>
 
   <div id="pwaInstallBanner" class="pwa-install-banner hidden" style="display:none!important" role="region" aria-label="Instalar ThinkStore Enterprise">
     <div>
@@ -83,7 +105,7 @@
     <section class="workspace">
       <header class="topbar">
         <div class="title-block">
-          <p>Bienvenido, <span id="welcomeName">Administrador</span></p>
+          <p id="partnerGreetingLine"><span id="welcomeGreeting">Bienvenido</span>, <span id="welcomeName">Administrador</span></p>
           <h1 id="pageTitle">Resumen</h1>
           <small id="pageSubtitle">Libro financiero central de ThinkStore.</small>
         </div>
@@ -105,6 +127,7 @@
           <div class="finance-hero-status"><span>Actualización</span><b id="enterpriseLastSync">En vivo</b></div>
         </article>
         <section id="enterpriseFinanceQuick" class="enterprise-finance-home"></section>
+        <section id="enterpriseCharts" class="enterprise-charts" aria-label="Gráficas ejecutivas"></section>
       </section>
 
       <section id="weekly" class="view module-view"></section>

@@ -11,7 +11,7 @@
   const DB_NAME='thinkstore-offline-'+String(APP).toLowerCase().replace(/[^a-z0-9_-]+/g,'-');
   const DB_VERSION=1;
   const NATIVE_FETCH=window.fetch.bind(window);
-  let dbPromise=null,tokenProvider=null,syncing=false,lastOnline=navigator.onLine,indicatorCompactTimer=null;
+  let dbPromise=null,tokenProvider=null,syncing=false,lastOnline=navigator.onLine;
   const uuidTables=new Set(['service_orders','service_order_notes','service_order_photos','service_part_movements','service_parts','service_audit_log','service_appointments']);
   const now=()=>new Date().toISOString();
 
@@ -215,34 +215,20 @@
       #tsOfflineIndicator.online{background:rgba(22,95,52,.92)}#tsOfflineIndicator.offline{background:rgba(122,72,0,.94)}#tsOfflineIndicator.syncing{background:rgba(24,76,131,.94)}
       #tsOfflineIndicator .ts-offline-dot{width:7px;height:7px;border-radius:50%;background:#6ee7a0}#tsOfflineIndicator.offline .ts-offline-dot{background:#ffbd59}#tsOfflineIndicator.syncing .ts-offline-dot{background:#7db8ff}
       #tsOfflineIndicator button{border:0;border-radius:999px;padding:4px 7px;background:#fff;color:#111;font:800 10px inherit}
-      #tsOfflineIndicator.compact{width:30px;height:30px;padding:0;gap:0;justify-content:center;opacity:.82;cursor:pointer;transition:width .22s ease,padding .22s ease,opacity .22s ease,transform .22s ease}
-      #tsOfflineIndicator.compact b,#tsOfflineIndicator.compact button{display:none!important}
-      #tsOfflineIndicator.compact .ts-offline-dot{width:8px;height:8px;box-shadow:0 0 0 4px rgba(255,255,255,.08)}
-      #tsOfflineIndicator.compact:hover{opacity:1;transform:scale(1.04)}
-      @media(max-width:600px){#tsOfflineIndicator{left:10px;right:10px;bottom:max(8px,env(safe-area-inset-bottom));justify-content:center}#tsOfflineIndicator.compact{left:auto;right:max(10px,env(safe-area-inset-right));width:30px}}
+      @media(max-width:600px){#tsOfflineIndicator{left:10px;right:10px;bottom:max(8px,env(safe-area-inset-bottom));justify-content:center}}
     `;
     document.head.appendChild(style);document.body.appendChild(el);
-    if(APP==='support')el.addEventListener('click',()=>{if(!el.classList.contains('compact'))return;el.classList.remove('compact');scheduleIndicatorCompact(3000)});
-  }
-  function scheduleIndicatorCompact(delay=2400){
-    if(APP!=='support')return;
-    clearTimeout(indicatorCompactTimer);
-    indicatorCompactTimer=setTimeout(()=>{
-      const el=document.getElementById('tsOfflineIndicator');
-      if(el&&navigator.onLine&&!syncing&&el.classList.contains('online'))el.classList.add('compact');
-    },delay);
   }
   async function queueCount(){return (await all('queue').catch(()=>[])).length}
   async function updateIndicator(isSync=false){
     if(!document.body)return;
     installUi();const el=document.getElementById('tsOfflineIndicator'),b=el?.querySelector('b');if(!el||!b)return;
-    clearTimeout(indicatorCompactTimer);el.classList.remove('compact');
     const count=await queueCount();
     el.classList.remove('online','offline','syncing');
     if(isSync){el.classList.add('syncing');b.textContent='Sincronizando cambios…';return}
     if(!navigator.onLine){el.classList.add('offline');b.textContent=count?`Sin conexión · ${count} cambio${count===1?'':'s'} pendiente${count===1?'':'s'}`:'Sin conexión · modo local';}
     else if(count){el.classList.add('syncing');b.textContent=`Online · ${count} cambio${count===1?'':'s'} por sincronizar`;}
-    else{el.classList.add('online');b.textContent='Online · sincronizado';scheduleIndicatorCompact();}
+    else{el.classList.add('online');b.textContent='Online · sincronizado';}
   }
 
   let installPrompt=null;

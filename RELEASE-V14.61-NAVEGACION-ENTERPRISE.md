@@ -31,7 +31,7 @@ de ventas/citas en lugar de quedar vacío.
 - Recuperación de contraseña con URL dinámica.
 - No vuelve a interceptar navegaciones.
 
-Si `enterprise.thinkstore.com.ve` continúa enviando a `instantfwding.com`,
+Si `enterprise.thinkstore.ve` continúa enviando a `instantfwding.com`,
 eso corresponde al DNS/forwarding del subdominio. V14.61 ya no depende de ese
 subdominio para usar Enterprise.
 

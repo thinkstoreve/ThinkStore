@@ -327,6 +327,7 @@ body.ts-premium-admin .ts-premium-side{z-index:1200!important}
       <kbd>⌘ K</kbd>
       <div id="panelSearchResults" class="ts-search-results" hidden></div>
     </div>
+    <div class="panel-bcv-rate" data-ts-bcv><small>BCV USD → Bs.</small><b data-ts-fx-rate>Consultando…</b><small data-ts-fx-date>Vigencia BCV</small></div>
     <div class="ts-top-actions">
       <div class="ts-notification-wrap">
         <button id="panelNotificationBtn" class="ts-icon-btn" type="button" aria-label="Notificaciones" onclick="togglePanelNotifications(event)"><span class="ts-bell"></span><span id="panelNotificationCount" class="ts-notification-count" hidden>0</span></button>
@@ -339,6 +340,7 @@ body.ts-premium-admin .ts-premium-side{z-index:1200!important}
     </div>
   </div>
 </header>
+<style>.panel-bcv-rate{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:1px;margin-left:auto;margin-right:12px;white-space:nowrap;font:600 12px/1.2 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#174e76}.panel-bcv-rate b{font-size:13px}.panel-bcv-rate small{font-size:9px;color:#738393}@media(max-width:1100px){.panel-bcv-rate{display:none}}</style>
 <main class="layout menu-collapsed" id="panelLayout">
   <div class="menu-backdrop" id="menuBackdrop" onclick="closePanelMenu()"></div>
   <aside class="side ts-premium-side" id="side" aria-label="Menú del panel"></aside>
@@ -1288,7 +1290,7 @@ const views={
      <div class="inventory-real-tabs">
        <button class="inventory-real-tab active">📱 Equipos y accesorios</button>
        <button class="inventory-real-tab" onclick="openModule('productos')">🗂️ Catálogo de productos</button>
-       <a class="inventory-real-tab link" href="/inventory/" target="_blank" rel="noopener">🧩 Repuestos técnicos ↗</a>
+       <a class="inventory-real-tab link" href="https://inventory.thinkstore.com.ve" target="_blank" rel="noopener">🧩 Repuestos técnicos ↗</a>
      </div>
      <div class="module-head inventory-real-head">
        <div><b>Inventario real · Equipos y accesorios</b><small>Inventario Real vuelve a usar el editor avanzado: ficha, variantes, stock, precio, condición Pre-Owned, salud de batería, imágenes por color, publicación e historial.</small></div>
@@ -1329,17 +1331,17 @@ const views={
    if(!realState.appointments?.length)await refreshClientRealData({silent:true});
    const list=realState.appointments||[];
    const statusLabel=s=>({pendiente_confirmacion:'Pendiente',pendiente:'Pendiente',agendada:'Agendada',confirmada:'Agendada',en_proceso:'En revisión',recibida:'Recibido',completada:'Completada',cancelada:'Cancelada'}[String(s||'').toLowerCase()]||String(s||'Agendada').replace(/_/g,' '));
-   const cards=list.map(a=>`<article class="client-repair-card"><div class="client-order-head"><div><small>Soporte Think</small><h3>${esc(a.device_type||'Equipo')} ${esc(a.device_model||'')}</h3><span>${esc(fmtApptDate(a))}</span></div><span class="client-status support">${esc(statusLabel(a.status))}</span></div><div class="client-repair-detail"><div><small>Servicio</small><b>${esc(a.service_type||'Diagnóstico / revisión')}</b></div><div><small>Modalidad</small><b>${esc(a.service_mode||'Presencial')}</b></div><div class="wide"><small>Detalle reportado</small><b>${esc(a.reported_issue||'—')}</b></div></div><div class="client-progress support-progress"><div class="done"><i></i><span>Cita agendada</span></div><div class="${/recib|proceso|complet/i.test(a.status||'')?'done':''}"><i></i><span>Recepción</span></div><div class="${/proceso|complet/i.test(a.status||'')?'done':''}"><i></i><span>Diagnóstico</span></div><div class="${/complet/i.test(a.status||'')?'done':''}"><i></i><span>Finalizado</span></div></div><div class="actions"><button class="btn ghost" onclick="openClientRepairDetail('${esc(a.id||a.appointment_code||'')}')">Ver detalle</button><a class="btn ghost" href="/soporte" target="_blank" rel="noopener">Abrir Soporte Think</a></div></article>`);
+   const cards=list.map(a=>`<article class="client-repair-card"><div class="client-order-head"><div><small>Soporte Think</small><h3>${esc(a.device_type||'Equipo')} ${esc(a.device_model||'')}</h3><span>${esc(fmtApptDate(a))}</span></div><span class="client-status support">${esc(statusLabel(a.status))}</span></div><div class="client-repair-detail"><div><small>Servicio</small><b>${esc(a.service_type||'Diagnóstico / revisión')}</b></div><div><small>Modalidad</small><b>${esc(a.service_mode||'Presencial')}</b></div><div class="wide"><small>Detalle reportado</small><b>${esc(a.reported_issue||'—')}</b></div></div><div class="client-progress support-progress"><div class="done"><i></i><span>Cita agendada</span></div><div class="${/recib|proceso|complet/i.test(a.status||'')?'done':''}"><i></i><span>Recepción</span></div><div class="${/proceso|complet/i.test(a.status||'')?'done':''}"><i></i><span>Diagnóstico</span></div><div class="${/complet/i.test(a.status||'')?'done':''}"><i></i><span>Finalizado</span></div></div><div class="actions"><button class="btn ghost" onclick="openClientRepairDetail('${esc(a.id||a.appointment_code||'')}')">Ver detalle</button><a class="btn ghost" href="https://soporte.thinkstore.com.ve" target="_blank" rel="noopener">Abrir Soporte Think</a></div></article>`);
    $('content').innerHTML=`${realBar()}<div class="client-section-head"><div><span class="client-eyebrow">SOPORTE</span><h2>Mis reparaciones</h2><p>Tus citas de revisión y el progreso de tus equipos.</p></div><button class="btn blue" onclick="location.href='agenda-soporte.html'">Agendar revisión</button></div>${list.length?'<div class="client-orders-grid">'+cards.join('')+'</div>':'<div class="client-empty"><b>No tienes citas de soporte.</b><small>Agenda una revisión cuando necesites diagnóstico o reparación.</small><button class="btn blue" onclick="location.href=\'agenda-soporte.html\'">Agendar revisión</button></div>'}`;
  },
  tradein_cliente(){location.href='trade-in.html'},
 
  ventas(){renderSalesDashboard()},
  cotizaciones(){$('content').innerHTML=`<div class="form"><label>Cliente<input id="qClient"></label><label>Producto<input id="qProduct"></label><label>Precio USD<input id="qPrice" type="number"></label></div><div class="actions"><button class="btn" onclick="result('qResult','Cotización ThinkStore\\nCliente: '+val('qClient')+'\\nProducto: '+val('qProduct')+'\\nPrecio: '+money(val('qPrice')))">Generar</button></div><pre id="qResult" class="result"></pre>`},
- recepcion(){$('content').innerHTML=`<div class="notice">El Service Center independiente continúa en <b>thinkstore.com.ve/soporte</b>. No se mezcló su base con la tienda principal.</div>`},
+ recepcion(){$('content').innerHTML=`<div class="notice">El Service Center independiente continúa en <b>soporte.thinkstore.com.ve</b>. No se mezcló su base con la tienda principal.</div>`},
  tickets(){const list=tickets().map(t=>`<b>${esc(t.code||'Ticket')}</b> · ${esc(t.status||'Abierto')}<br>${esc(t.client||t.customer||'Cliente')}`);$('content').innerHTML=rows(list,'Sin tickets locales en este navegador. El soporte real está en Service Center.')},
  tecnico(){views.recepcion()},diagnostico(){views.recepcion()},repuestos(){views.recepcion()},
- garantias(){const u=user();const mine=orders().filter(o=>{const c=orderClient(o);return normalizeEmail(c.email)===normalizeEmail(u.email)||String(o.cliente_id||'')===String(u.id||'')});const eligible=mine.filter(o=>/entregado|disponible|enviado/i.test(orderStatus(o)));$('content').innerHTML=`<div class="client-section-head"><div><span class="client-eyebrow">PROTECCIÓN</span><h2>Garantías</h2><p>Consulta tus compras elegibles y solicita asistencia.</p></div></div>${eligible.length?`<div class="client-orders-grid">${eligible.map(o=>`<div class="client-order-card"><h3>${esc(orderCode(o))}</h3><p>${orderItems(o).map(i=>esc(i.product||i.name||'Equipo')).join(' · ')}</p><span class="badge">Compra registrada</span><div class="actions"><a class="btn ghost" href="/soporte" target="_blank">Solicitar soporte</a></div></div>`).join('')}</div>`:`<div class="client-empty"><b>Aún no hay garantías visibles.</b><small>Las compras elegibles aparecerán aquí cuando sean entregadas.</small></div>`}`},
+ garantias(){const u=user();const mine=orders().filter(o=>{const c=orderClient(o);return normalizeEmail(c.email)===normalizeEmail(u.email)||String(o.cliente_id||'')===String(u.id||'')});const eligible=mine.filter(o=>/entregado|disponible|enviado/i.test(orderStatus(o)));$('content').innerHTML=`<div class="client-section-head"><div><span class="client-eyebrow">PROTECCIÓN</span><h2>Garantías</h2><p>Consulta tus compras elegibles y solicita asistencia.</p></div></div>${eligible.length?`<div class="client-orders-grid">${eligible.map(o=>`<div class="client-order-card"><h3>${esc(orderCode(o))}</h3><p>${orderItems(o).map(i=>esc(i.product||i.name||'Equipo')).join(' · ')}</p><span class="badge">Compra registrada</span><div class="actions"><a class="btn ghost" href="https://soporte.thinkstore.com.ve" target="_blank">Solicitar soporte</a></div></div>`).join('')}</div>`:`<div class="client-empty"><b>Aún no hay garantías visibles.</b><small>Las compras elegibles aparecerán aquí cuando sean entregadas.</small></div>`}`},
  citas(){$('content').innerHTML=`<div class="notice">Citas: integración preparada en las funciones del proyecto; se mantiene sin mezclar con la base de Soporte.</div>`},
  puntos(){const l=clientLoyalty();$('content').innerHTML=`<div class="vip-card"><span class="client-eyebrow">THINKSTORE VIP</span><h2>${l.points} puntos</h2><p>Valor equivalente actual: <b>${money(l.value)}</b></p><div class="loyalty-rule"><b>Regla de acumulación</b><span>Por cada $100 en compras aprobadas recibes 10 puntos = $1.</span></div><div class="vip-levels"><span class="active">🥉 Bronce</span><span>🥈 Plata</span><span>🥇 Oro</span><span>💎 Platino</span></div><div class="vip-bar"><i style="width:${Math.min(100,Math.max(3,(l.points%250)/2.5))}%"></i></div><small>${l.eligibleOrders} compra(s) elegible(s) · ${money(l.spent)} acumulados para puntos.</small></div>`},
  recomendaciones(){$('content').innerHTML=`<div class="notice">Asistente comercial y recomendaciones disponibles en las funciones inteligentes del proyecto.</div>`},
@@ -1380,7 +1382,7 @@ async function openClientDeliveryNote(code){const win=window.open('about:blank',
 function openClientDeliveryEditor(code){const o=findClientOrder(code);if(!o)return alert('Pedido no encontrado.');if(!clientCanChangeDelivery(o))return alert('La modalidad de entrega ya no puede modificarse en esta etapa.');const current=String(o.metodo_envio||o.deliveryType||o.customer?.shipping||'Retiro en tienda');const carrier=String(o.empresa_envio||o.shippingCompany||'');showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">ENTREGA</span><h2>Cambiar modalidad</h2><p class="muted">Puedes modificarla antes de que el envío quede asignado definitivamente.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="client-delivery-lock"><b>Regla de seguridad:</b> si el pedido entra en tránsito todavía puedes cambiar la entrega únicamente mientras no tenga número de guía asignado. Después se bloquea.</div><div class="client-modal-grid"><label>Tipo de entrega<select id="cdMethod" onchange="toggleClientCarrier()"><option ${/retiro/i.test(current)?'selected':''}>Retiro en tienda</option><option ${/delivery/i.test(current)?'selected':''}>Delivery Caracas</option><option ${/envío nacional|envio nacional/i.test(current)?'selected':''}>Envío nacional</option></select></label><label>Transportista<select id="cdCarrier"><option value="">Por definir</option><option ${carrier==='MRW'?'selected':''}>MRW</option><option ${carrier==='Zoom'?'selected':''}>Zoom</option><option ${carrier==='TEALCA'?'selected':''}>TEALCA</option></select></label></div><div class="actions"><button class="btn blue" onclick="saveClientDelivery('${esc(code)}')">Guardar entrega</button><button class="btn ghost" onclick="closeClientModal()">Cancelar</button></div>`);toggleClientCarrier()}
 function toggleClientCarrier(){const method=val('cdMethod'),el=$('cdCarrier');if(el){el.disabled=!/Envío nacional/i.test(method);if(el.disabled)el.value=''}}
 async function saveClientDelivery(code){const method=val('cdMethod'),carrier=val('cdCarrier');if(/Envío nacional/i.test(method)&&!carrier)return alert('Selecciona MRW, Zoom o TEALCA.');try{await clientOrderApi('update_delivery',code,{delivery_method:method,shipping_company:carrier});await refreshClientRealData({silent:true});closeClientModal();await openModule('mis_pedidos')}catch(e){alert(e.message)}}
-function openClientRepairDetail(id){const a=(realState.appointments||[]).find(x=>String(x.id||x.appointment_code||'')===String(id));if(!a)return alert('No se encontró el detalle de esta reparación.');showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">SOPORTE THINK</span><h2>${esc(a.device_type||'Equipo')} ${esc(a.device_model||'')}</h2><p class="muted">Detalle de tu revisión o reparación.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="client-detail-grid"><div><small>Estado</small><b>${esc(String(a.status||'Agendada').replace(/_/g,' '))}</b></div><div><small>Cita</small><b>${esc(fmtApptDate(a))}</b></div><div><small>Servicio</small><b>${esc(a.service_type||'Diagnóstico / revisión')}</b></div><div><small>Modalidad</small><b>${esc(a.service_mode||'Presencial')}</b></div><div style="grid-column:1/-1"><small>Falla / detalle reportado</small><b>${esc(a.reported_issue||'—')}</b></div></div><div class="actions"><a class="btn blue" href="/soporte" target="_blank" rel="noopener">Abrir Soporte Think</a><button class="btn ghost" onclick="closeClientModal()">Cerrar</button></div>`)}
+function openClientRepairDetail(id){const a=(realState.appointments||[]).find(x=>String(x.id||x.appointment_code||'')===String(id));if(!a)return alert('No se encontró el detalle de esta reparación.');showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">SOPORTE THINK</span><h2>${esc(a.device_type||'Equipo')} ${esc(a.device_model||'')}</h2><p class="muted">Detalle de tu revisión o reparación.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="client-detail-grid"><div><small>Estado</small><b>${esc(String(a.status||'Agendada').replace(/_/g,' '))}</b></div><div><small>Cita</small><b>${esc(fmtApptDate(a))}</b></div><div><small>Servicio</small><b>${esc(a.service_type||'Diagnóstico / revisión')}</b></div><div><small>Modalidad</small><b>${esc(a.service_mode||'Presencial')}</b></div><div style="grid-column:1/-1"><small>Falla / detalle reportado</small><b>${esc(a.reported_issue||'—')}</b></div></div><div class="actions"><a class="btn blue" href="https://soporte.thinkstore.com.ve" target="_blank" rel="noopener">Abrir Soporte Think</a><button class="btn ghost" onclick="closeClientModal()">Cerrar</button></div>`)}
 
 
 function removeClientFavorite(id){
@@ -1477,8 +1479,14 @@ async function paymentDecision(code,approved){
   try{
     const o=orders().find(x=>String(orderCode(x))===String(code));
     const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
-    const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({id:o?.id,code,action:'payment_decision',approved})});
-    const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar la decisión de pago');
+    let res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({id:o?.id,code,action:'payment_decision',approved})});
+    let data=await res.json().catch(()=>({}));
+    if(res.status===409&&data.rate_changed&&approved){
+      if(!confirm(`La tasa BCV cambió.\nAntes: ${Number(data.previous_total_bs).toLocaleString('es-VE',{style:'currency',currency:'VES'})}\nAhora: ${Number(data.current_total_bs).toLocaleString('es-VE',{style:'currency',currency:'VES'})}\n\n¿Comprobaste el pago por la tasa vigente?`))return;
+      res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers,body:JSON.stringify({id:o?.id,code,action:'payment_decision',approved,acknowledge_bcv_change:true})});
+      data=await res.json().catch(()=>({}));
+    }
+    if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar la decisión de pago');
     await refreshRealData({silent:true});renderPayments();renderOrdersList();refreshKpis();
     alert(approved?'Pago verificado y decisión bloqueada.':'Pago rechazado y decisión bloqueada.');
   }catch(e){alert('Error: '+e.message)}
@@ -1827,7 +1835,7 @@ function openRealInventoryEditor(id){
   const v=(tsCatalogInventoryRows||[]).find(x=>String(x.id)===String(id));
   if(!v)return alert('Variante no encontrada.');
   const q=new URLSearchParams({variant:String(v.id),product:v.product_name||''});
-  const url='/inventory//?'+q.toString();
+  const url='https://inventory.thinkstore.com.ve/?'+q.toString();
   const w=window.open(url,'_blank','noopener');
   if(!w)alert('El navegador bloqueó Inventory. Permite ventanas emergentes para ThinkStore.');
 }
@@ -2868,7 +2876,7 @@ window.addEventListener('resize',()=>{if(innerWidth<=860&&panelMenuOpen())setPan
 const inviteEmail=new URLSearchParams(location.search).get('invite');if(inviteEmail&&!user()){location.replace('panel-login.html?invite='+encodeURIComponent(inviteEmail));}
 boot();
 </script>
-<script src="ts-fx.js?v=14.1"></script>
+<script src="ts-fx.js?v=14.78"></script>
 
 <script>
 (function(){

@@ -4,6 +4,7 @@ exports.handler=async function(event){
   if(event.httpMethod==='OPTIONS')return r(200,{ok:true});
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const {getRate}=require('./fx-rate-core');
+  const {prepare:prepareMixed}=require('./pos-mixed-payment');
   const clean=v=>String(v??'').trim(), norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const url=clean(process.env.SUPABASE_URL).replace(/\/$/,''); const service=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if(!url||!service)return r(501,{ok:false,error:'Faltan variables de Supabase'});
@@ -20,11 +21,6 @@ exports.handler=async function(event){
     let pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh}); const rows=await pr.json().catch(()=>[]),p=rows[0],role=norm(p?.role||p?.rol);
     if(!p||(p.active??p.activo??true)===false)return{ok:false};
     const uiRole=role==='super_admin'?'superadmin':(['administrator','gerente'].includes(role)?'admin':role);
-    const ovRaw=p.permission_overrides&&typeof p.permission_overrides==='object'?p.permission_overrides:{};
-    const ovAllow=Array.isArray(ovRaw.allow)?ovRaw.allow.map(String):[];
-    const internalMeta=u?.app_metadata?.thinkstore_internal===true||u?.user_metadata?.thinkstore_internal===true;
-    const internal=internalMeta||p.is_internal===true||Boolean(p.internal_origin||p.internal_invited_at||p.internal_invited_by||p.custom_role_key)||ovAllow.includes('staff.access')||ovAllow.includes('platform.staff')||['admin','superadmin'].includes(uiRole)||(p.is_internal!==false&&['vendedor','recepcion','soporte','tecnico','logistica'].includes(uiRole));
-    if(!internal)return{ok:false};
     const defaultPerms={vendedor:['ventas'],admin:['*'],superadmin:['*']};
     let perms=[...(defaultPerms[uiRole]||[])];
     if(p.custom_role_key){
@@ -72,7 +68,7 @@ exports.handler=async function(event){
   }
 
   const payment=clean(b.payment_method||'Efectivo USD'), paymentRef=clean(b.payment_ref||'');
-  if(!/efectivo/i.test(payment)&&!paymentRef)return r(400,{ok:false,error:'Indica la referencia del pago para este método.'});
+  if(payment!=='Pago mixto'&&!/efectivo/i.test(payment)&&!paymentRef)return r(400,{ok:false,error:'Indica la referencia del pago para este método.'});
 
   const discountType=clean(b.discount_type||'usd')==='percent'?'percent':'usd';
   const discountValue=Math.max(0,Number(b.discount_value||0));
@@ -109,9 +105,21 @@ exports.handler=async function(event){
     const discountUsd=Math.round(discountRaw*100)/100;
     const total=Math.round((subtotal-discountUsd)*100)/100;
     if(total<0)throw new Error('El descuento no puede superar el subtotal.');
-    let fxQuote=null;
+    let fxQuote=null, mixed=null;
+    if(payment==='Pago mixto'){
+      try{
+        const needsBs=Array.isArray(b.payment_lines)&&b.payment_lines.some(x=>Number(x.amount)>0&&(/^(VES|Bs)$/.test(x.currency)||/Pago Móvil|Efectivo Bs|Transferencia Bs|Punto de venta Bs/.test(x.method)));
+        const q=needsBs?await getRate(true):null;
+        mixed=prepareMixed(b.payment_lines,total,q);
+        if(needsBs&&(Number(b.client_bcv_rate)!==Number(q.rate)||String(b.client_bcv_date||'')!==String(q.effective_date)))
+          return r(409,{ok:false,rate_changed:true,error:'La tasa BCV cambió. Actualiza el cálculo y verifica los abonos en bolívares.'});
+        if(mixed.quote)fxQuote={...q,total_usd:total,total_ves:mixed.paid_ves};
+      }catch(e){return r(400,{ok:false,error:e.message});}
+    }
     if(/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta/i.test(payment)){
-      const q=await getRate(true); fxQuote={...q,total_usd:total,total_ves:Math.round(total*q.rate*100)/100};
+      const q=await getRate(true);
+      if(q.stale)throw new Error('No se puede registrar un nuevo cobro en bolívares sin verificar la tasa BCV vigente.');
+      fxQuote={...q,total_usd:total,total_ves:Math.round(total*q.rate*100)/100};
     }
 
     const cr=await fetch(`${url}/rest/v1/rpc/ts_next_order_code`,{method:'POST',headers:sh,body:'{}'});
@@ -121,7 +129,9 @@ exports.handler=async function(event){
     const pedidoPayload={
       codigo:code,cliente_id:customer?.id||null,estado:'Pago por verificar',metodo_pago:payment,referencia_pago:paymentRef,
       subtotal_usd:subtotal,discount_type:discountType,discount_value:discountValue,discount_usd:discountUsd,discount_reason:discountReason||null,
-      total_usd:total,total_bs:fxQuote?.total_ves??null,metodo_envio:clean(b.delivery_method||'Retiro en tienda'),
+      total_usd:total,total_bs:fxQuote?.total_ves??null,
+      bcv_rate:fxQuote?.rate??null,bcv_effective_date:fxQuote?.effective_date??null,bcv_source:fxQuote?.source??null,bcv_checked_at:fxQuote?.checked_at??null,
+      metodo_envio:clean(b.delivery_method||'Retiro en tienda'),
       empresa_envio:clean(b.shipping_company)||null,order_channel:'presencial',
       guest_name:guest.name,guest_email:guest.email,guest_document:guest.document,guest_phone:guest.phone,
       guest_address:guest.address,guest_city:guest.city||null,guest_state:guest.state||null,sale_note:clean(b.sale_note)||null,
@@ -132,6 +142,8 @@ exports.handler=async function(event){
     catch(e){
       if(/salesperson_user_id|salesperson_email|salesperson_name|pos_source/i.test(clean(e.message)))
         return r(409,{ok:false,migration_required:true,error:'Falta ejecutar supabase_v14_0_staff_pos.sql antes de usar ThinkStore Staff.'});
+      if(/bcv_rate|bcv_effective_date|bcv_source|bcv_checked_at/i.test(clean(e.message)))
+        return r(409,{ok:false,migration_required:true,error:'Ejecuta MIGRACION-V14.78-TASA-BCV.sql en Supabase principal antes de registrar ventas.'});
       if(/subtotal_usd|discount_|schema cache|column/i.test(clean(e.message)))
         return r(409,{ok:false,migration_required:true,error:'Falta ejecutar supabase_v13_65_descuentos_venta_presencial.sql antes de usar descuentos.'});
       if(/order_channel|guest_|sale_note/i.test(clean(e.message)))
@@ -176,6 +188,12 @@ exports.handler=async function(event){
           throw unitErr;
         }
       }
+      if(mixed){
+        // Abonos provisionales, NO ingresos; solo pasan a confirmados al aprobar.
+        await req('ts_order_payments',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(mixed.lines.map(x=>({
+          ...x,pedido_id:pedido.id,status:'pending',recorded_by:actor.email||actor.mode||null
+        })))});
+      }
       if(reserve.length){
         const rpc=await fetch(`${url}/rest/v1/rpc/ts_reserve_inventory`,{method:'POST',headers:sh,body:JSON.stringify({p_pedido_id:pedido.id,p_items:reserve,p_minutes:10080})});
         const rd=await rpc.json().catch(()=>({})); if(!rpc.ok)throw new Error(rd?.message||rd?.error||'No se pudo reservar inventario');
@@ -186,6 +204,6 @@ exports.handler=async function(event){
       throw e;
     }
 
-    return r(200,{ok:true,fx_quote:fxQuote,pricing:{subtotal_usd:subtotal,discount_type:discountType,discount_value:discountValue,discount_usd:discountUsd,discount_reason:discountReason,total_usd:total},pedido:{...pedido,codigo:code},customer:{registered:!!customer,...guest},items:variants.map(x=>({sku:x.v?.sku||x.item.sku||'',product_name:x.v?.product_name||x.item.product_name,model:x.v?.model||x.item.model||'',color:x.v?.color||x.item.color||'',capacity:x.v?.capacity||x.item.capacity||'',condition:x.item.is_preorder?'Pre-Order':(x.v?.condition||x.item.condition||'Nuevo'),is_preorder:x.item.is_preorder})),message:'Venta presencial guardada en espera de confirmación de pago. El stock se reservó únicamente para los productos vendidos desde existencia; las Pre-Orders no consumen stock.'});
+    return r(200,{ok:true,fx_quote:fxQuote,mixed_payment:mixed?{paid_usd:mixed.paid_usd,remaining_usd:mixed.remaining_usd,paid_ves:mixed.paid_ves}:null,pricing:{subtotal_usd:subtotal,discount_type:discountType,discount_value:discountValue,discount_usd:discountUsd,discount_reason:discountReason,total_usd:total},pedido:{...pedido,codigo:code},customer:{registered:!!customer,...guest},items:variants.map(x=>({sku:x.v?.sku||x.item.sku||'',product_name:x.v?.product_name||x.item.product_name,model:x.v?.model||x.item.model||'',color:x.v?.color||x.item.color||'',capacity:x.v?.capacity||x.item.capacity||'',condition:x.item.is_preorder?'Pre-Order':(x.v?.condition||x.item.condition||'Nuevo'),is_preorder:x.item.is_preorder})),message:'Venta presencial guardada en espera de confirmación de pago. El stock se reservó únicamente para los productos vendidos desde existencia; las Pre-Orders no consumen stock.'});
   }catch(e){console.error('admin-create-sale',e);return r(500,{ok:false,error:e.message||'No se pudo registrar la venta'})}
 }

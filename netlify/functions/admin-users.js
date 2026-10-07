@@ -235,12 +235,9 @@ function isInternalProfile(p,u=null){
   if(metaInternal)return true;
   if(p.is_internal===true)return true;
   if(p.internal_origin||p.internal_invited_at||p.internal_invited_by||p.custom_role_key)return true;
-  const role=normalizeUiRole(p.role||p.rol),ov=cleanOverrides(p.permission_overrides);
-  if(ov.allow.includes('staff.access')||ov.allow.includes('platform.staff'))return true;
-  if(['admin','superadmin'].includes(role))return true;
   if(p.is_internal===false)return false;
-  // Compatibilidad con perfiles internos creados antes de existir is_internal.
-  return INTERNAL_UI_ROLES.includes(role);
+  // Compatibilidad mínima: solo Admin/Super Admin bootstrap sin columna is_internal.
+  return ['admin','superadmin'].includes(normalizeUiRole(p.role||p.rol));
 }
 function roleLabel(r){return({vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Super Admin'})[normalizeUiRole(r)]||String(r||'Usuario interno')}
 async function findProfileByEmail(url,service,email){const paths=[`email=eq.${encodeURIComponent(email)}`,`correo=eq.${encodeURIComponent(email)}`];for(const q of paths){const r=await fetch(`${url}/rest/v1/profiles?select=*&${q}&limit=1`,{headers:svc(service)});if(r.ok){const rows=await r.json().catch(()=>[]);if(rows?.[0])return rows[0];}}return null}

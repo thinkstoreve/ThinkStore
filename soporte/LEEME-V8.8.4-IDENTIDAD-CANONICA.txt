@@ -1,3 +1,0 @@
-ThinkStore Soporte V8.8.4 · Identidad canónica
-
-La cuenta thinkstore.ve@gmail.com se muestra siempre como Freddy Sedispa, incluso si existía una sesión local antigua con otro nombre.

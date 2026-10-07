@@ -20,6 +20,6 @@ No modifica:
 Uso:
 1. Subir el ZIP a GitHub como las versiones anteriores.
 2. Esperar deploy de Netlify.
-3. Abrir https://enterprise.thinkstore.com.ve/app o https://enterprise.thinkstore.com.ve/install.
+3. Abrir https://enterprise.thinkstore.ve/app o https://enterprise.thinkstore.ve/install.
 4. En iPhone/iPad: Safari > Compartir > Añadir a pantalla de inicio.
 5. En Android: Chrome > Instalar aplicación.

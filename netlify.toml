@@ -4,6 +4,3 @@
 
 [functions]
   node_bundler = "esbuild"
-
-[functions."support-notification-digest"]
-  schedule = "*/5 * * * *"

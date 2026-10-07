@@ -1,0 +1,40 @@
+THINKSTORE MAIN V14.82 · COMPLETO ACUMULATIVO
+=============================================
+
+Este paquete es un MAIN COMPLETO de producción, no un parche.
+
+BASE INCLUIDA
+- Main completo V14.80
+- Integración Main V14.81
+- Enterprise interno actualizado a V10.14 como copia de respaldo/integración
+- Dominio canónico de Enterprise restaurado: https://enterprise.thinkstore.ve
+
+INCLUYE
+- Sitio principal ThinkStore y catálogo
+- Panel administrativo
+- Staff con venta presencial unificada
+- Foto de perfil para personal interno
+- Tasa BCV y equivalencia histórica
+- Pagos mixtos USD/VES
+- Caja Staff: apertura, movimientos, arqueo, cierre y auditoría
+- Integración con Inventory, Soporte y Enterprise
+- Acceso unificado/SSO hacia Enterprise en enterprise.thinkstore.ve
+- Copia interna growth-enterprise actualizada a Enterprise V10.14
+
+IMPORTANTE
+- Si ya ejecutaste las migraciones V14.77, V14.78, V14.79, V14.80 y los FIX de integración V14.81/Enterprise V10.13, NO necesitas ejecutar SQL adicional para V14.82.
+- Desplegar este ZIP completo en el sitio MAIN de ThinkStore, incluyendo /netlify/functions.
+- Enterprise continúa siendo una aplicación independiente en enterprise.thinkstore.ve.
+- El directorio growth-enterprise se conserva como copia integrada/compatibilidad; el acceso unificado usa el dominio externo canónico.
+
+PRUEBA DESPUÉS DEL DEPLOY
+1. Iniciar sesión como Super Admin.
+2. Abrir Staff y verificar perfil/foto.
+3. Confirmar tasa BCV.
+4. Crear venta con pago mixto.
+5. Abrir y cerrar Caja Staff.
+6. Desde Acceso Unificado abrir Enterprise y confirmar que navega a https://enterprise.thinkstore.ve.
+7. Verificar Inventory y Soporte.
+
+VERSIÓN
+ThinkStore Main V14.82 COMPLETE

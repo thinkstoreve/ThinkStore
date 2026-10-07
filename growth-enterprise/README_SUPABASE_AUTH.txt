@@ -12,7 +12,7 @@ Pasos:
 3. En Supabase > SQL Editor ejecuta supabase-setup.sql.
 4. En Supabase > Authentication > Users crea o invita el usuario administrador.
 5. Copia el UUID del usuario y ejecuta el UPDATE indicado al final de supabase-setup.sql.
-6. Abre https://enterprise.thinkstore.com.ve e inicia sesión con ese correo y contraseña.
+6. Abre https://enterprise.thinkstore.ve e inicia sesión con ese correo y contraseña.
 
 Notas:
 - La anon public key puede vivir en frontend; lo importante es tener RLS activo.

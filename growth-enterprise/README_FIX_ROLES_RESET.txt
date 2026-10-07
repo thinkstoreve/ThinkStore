@@ -11,6 +11,6 @@ Cambios aplicados:
 
 Importante en Supabase > Authentication > URL Configuration:
 Agrega también:
-https://enterprise.thinkstore.com.ve/reset-password
+https://enterprise.thinkstore.ve/reset-password
 
 Luego reemplaza la carpeta `growth-enterprise` en GitHub por esta versión y haz commit.

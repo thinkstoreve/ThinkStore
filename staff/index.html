@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="ThinkStore Staff">
 <meta name="robots" content="noindex,nofollow">
 <title>ThinkStore Staff</title>
-<link rel="stylesheet" href="app.css?v=14.91.0">
+<link rel="stylesheet" href="app.css?v=14.82.0">
 </head>
 <body>
 <div id="boot" class="boot"><div class="boot-logo"><img src="../logo-thinkstore.png" alt="ThinkStore"></div><span>Cargando ThinkStore Staff…</span></div>
@@ -42,8 +42,8 @@
     <nav class="side-nav">
       <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><span>Inicio</span></button>
       <button class="nav-item" data-view="sell" id="sellNav"><span class="nav-icon">▣</span><span>Vender</span></button>
-      <button class="nav-item" data-view="repairs"><span class="nav-icon">⌘</span><span>Reparaciones</span></button>
       <button class="nav-item" data-view="sales"><span class="nav-icon">↗</span><span>Ventas</span></button>
+      <button class="nav-item" data-view="cash" id="cashNav"><span class="nav-icon">◫</span><span>Caja</span></button>
       <button class="nav-item" data-view="account"><span class="nav-icon">◎</span><span>Cuenta</span></button>
     </nav>
     <div class="side-footer"><a href="../panel.html">Abrir panel completo</a><small>ThinkStore · uso interno</small></div>
@@ -52,6 +52,7 @@
   <main class="app-main">
     <header class="app-header">
       <div class="header-copy"><span id="headerContext">Inicio</span><b id="headerTitle">ThinkStore Staff</b></div>
+      <div class="staff-bcv-rate" data-ts-bcv aria-live="polite"><small>BCV · USD/Bs.</small><b data-ts-fx-rate>Consultando…</b><span data-ts-fx-date>Actualización automática</span></div>
       <button class="identity" id="identityButton" data-view="account" type="button"><span id="topAvatar" class="avatar">TS</span><span class="identity-copy"><b id="topName">Usuario</b><small id="topRole">Rol</small></span></button>
     </header>
 
@@ -60,22 +61,16 @@
         <div><span class="eyebrow">THINKSTORE STAFF</span><h1 id="welcomeTitle">Hola.</h1><p id="welcomeText">Tu operación diaria, organizada en un solo lugar.</p></div>
         <button id="heroSellButton" class="hero-action" data-view="sell" type="button">Nueva venta <span>→</span></button>
       </div>
-      <div class="metric-grid metric-grid-four">
-        <article class="metric-card"><span>Operaciones hoy</span><b id="metricSales">0</b><small>ventas + cobros de servicio</small></article>
-        <article class="metric-card"><span>Tienda</span><b id="metricStoreTotal">$0.00</b><small>ventas presenciales cobradas</small></article>
-        <article class="metric-card"><span>Servicio Técnico</span><b id="metricServiceTotal">$0.00</b><small>abonos y pagos del día</small></article>
-        <article class="metric-card emphasis"><span>Total cobrado hoy</span><b id="metricTotal">$0.00</b><small>control unificado de caja</small></article>
+      <div class="metric-grid">
+        <article class="metric-card"><span>Ventas hoy</span><b id="metricSales">0</b><small>operaciones registradas</small></article>
+        <article class="metric-card"><span>Total vendido</span><b id="metricTotal">$0.00</b><small>ventas presenciales</small></article>
+        <article class="metric-card"><span>Por verificar</span><b id="metricPending">0</b><small>pagos pendientes</small></article>
       </div>
       <div class="home-grid">
         <article class="panel-card quick-sale">
           <div class="panel-heading"><div><span class="eyebrow">ACCESO RÁPIDO</span><h2>Vender en tienda</h2></div><span class="soft-icon">▣</span></div>
           <p>Busca un producto, selecciona la variante disponible y registra el pago sin salir de la app.</p>
           <button class="primary" data-view="sell" type="button">Abrir tienda interna</button>
-        </article>
-        <article class="panel-card service-quick-card">
-          <div class="panel-heading"><div><span class="eyebrow">SERVICIO TÉCNICO</span><h2>Cobrar reparación</h2></div><span class="soft-icon">⌘</span></div>
-          <p>Busca una orden, registra abonos o márcala como pagada. La Nota de Entrega se genera y se envía automáticamente.</p>
-          <button class="primary" data-view="repairs" type="button">Abrir reparaciones</button>
         </article>
         <article class="panel-card">
           <div class="panel-heading"><div><span class="eyebrow">SESIÓN</span><h2 id="roleCardTitle">Tu rol</h2></div><span id="roleBadge" class="role-badge">—</span></div>
@@ -87,33 +82,78 @@
     </section>
 
     <section id="view-sell" class="view">
-      <div class="section-head sell-heading"><div><span class="eyebrow">PUNTO DE VENTA</span><h1>Tienda interna</h1><p>Catálogo y stock real de ThinkStore.</p></div><button id="cartButton" class="cart-button" type="button"><span>Carrito</span><b id="cartCount">0</b></button></div>
-      <div id="sellDenied" class="permission-card hidden"><div class="soft-icon">⌁</div><h2>Tu rol no tiene permiso de ventas</h2><p>Pide a un Administrador o Socio Administrador que agregue el permiso <b>Ventas</b> a tu cuenta.</p></div>
-      <div id="storeArea">
-        <div class="store-toolbar"><div class="search-box"><span>⌕</span><input id="productSearch" type="search" placeholder="Buscar productos, color, capacidad…"></div><button id="refreshStore" class="icon-button" type="button" title="Actualizar">↻</button></div>
-        <div class="barcode-sale-box" id="barcodeSaleBox">
-          <div class="barcode-sale-icon">▥</div>
-          <div class="barcode-sale-copy"><b>Escanear para añadir</b><small>Lee una etiqueta TSP, TSU, SKU, serial o IMEI. Un lector USB/Bluetooth puede escribir aquí y enviar Enter.</small></div>
-          <form id="barcodeScanForm" class="barcode-scan-form"><input id="barcodeScanInput" autocomplete="off" inputmode="none" placeholder="Escanea el código…"><button class="primary" type="submit">Añadir</button></form>
+      <div id="sellDenied" class="permission-card hidden"><div class="soft-icon">⌁</div><h2>Tu rol no tiene permiso de ventas</h2><p>Pide a un Administrador que habilite el permiso <b>Ventas</b> a tu cuenta.</p></div>
+      <div id="staffSaleWizard" class="hidden">
+        <nav class="staff-sale-steps" aria-label="Pasos de venta presencial">
+          <button type="button" class="staff-sale-step active" data-sale-step="1" aria-current="step"><i>1</i><span><b>Cliente</b><small>Datos de la compra</small></span></button>
+          <button type="button" class="staff-sale-step" data-sale-step="2"><i>2</i><span><b>Productos</b><small>Stock + Pre-Order</small></span></button>
+          <button type="button" class="staff-sale-step" data-sale-step="3"><i>3</i><span><b>Pago y entrega</b><small>Guardar o confirmar</small></span></button>
+        </nav>
+        <div id="staffSaleStep1" class="staff-sale-page active">
+          <div class="staff-sale-panel">
+            <div class="staff-sale-heading"><h1>Nueva venta presencial</h1><p>No requiere registro del cliente. Estos datos quedan vinculados únicamente a la compra.</p></div>
+            <form id="staffCustomerForm">
+              <div class="form-grid staff-customer-grid">
+                <label>Nombre y apellido<input id="customerName" autocomplete="name" required></label>
+                <label>Correo<input id="customerEmail" type="email" autocomplete="email" required></label>
+                <label>Cédula de identidad / RIF<input id="customerDocument" required></label>
+                <label>Teléfono<input id="customerPhone" type="tel" autocomplete="tel" required></label>
+                <label class="span2">Dirección<input id="customerAddress" autocomplete="street-address" required></label>
+                <label>Ciudad<input id="customerCity" value="Caracas" required></label>
+                <label>Estado<input id="customerState" value="Miranda" required></label>
+              </div>
+              <div class="staff-step-actions"><button id="staffGoProducts" class="primary" type="submit">Continuar a productos →</button></div>
+            </form>
+          </div>
         </div>
-        <div id="categoryChips" class="category-chips"></div>
-        <div id="productGrid" class="product-grid"></div>
+        <div id="staffSaleStep2" class="staff-sale-page">
+          <div class="staff-sale-panel staff-products-panel">
+            <div class="section-head sell-heading"><div><h1>Seleccionar productos</h1><p>Catálogo, variantes y stock real de ThinkStore.</p></div><button id="cartButton" class="cart-button" type="button"><span>Carrito</span><b id="cartCount">0</b></button></div>
+            <div id="storeArea">
+              <div class="store-toolbar"><div class="search-box"><span>⌕</span><input id="productSearch" type="search" placeholder="Buscar productos, color, capacidad…"></div><button id="refreshStore" class="icon-button" type="button" title="Actualizar inventario">↻</button></div>
+              <div class="barcode-sale-box" id="barcodeSaleBox">
+                <div class="barcode-sale-icon">▥</div><div class="barcode-sale-copy"><b>Escanear para añadir</b><small>Lee una etiqueta TSP, TSU, SKU, serial o IMEI. Un lector USB/Bluetooth puede escribir aquí y enviar Enter.</small></div>
+                <form id="barcodeScanForm" class="barcode-scan-form"><input id="barcodeScanInput" autocomplete="off" inputmode="none" placeholder="Escanea el código…"><button class="primary" type="submit">Añadir</button></form>
+              </div>
+              <div id="categoryChips" class="category-chips"></div>
+              <div id="productGrid" class="product-grid"></div>
+              <div class="staff-cart-preview"><div><b>Carrito de venta</b><small id="staffCartOverview">Aún no hay productos seleccionados.</small></div><button id="staffReviewCart" class="secondary" type="button">Revisar carrito</button></div>
+            </div>
+            <div class="staff-step-actions between"><button id="staffBackClient" class="secondary" type="button">← Cliente</button><button id="staffGoPayment" class="primary" type="button">Siguiente: método de pago →</button></div>
+          </div>
+        </div>
+        <div id="staffSaleStep3" class="staff-sale-page">
+          <div class="staff-sale-panel">
+            <div class="staff-sale-heading"><h1>Pago y forma de entrega</h1><p>Los pedidos desde stock reservan sus unidades al guardarse. Las Pre-Orders no consumen existencia.</p></div>
+            <form id="checkoutForm">
+              <div class="form-section"><h3>Método de pago</h3>
+                <div id="paymentChoices" class="choice-grid staff-payment-grid">
+                  <button type="button" class="choice active" data-payment="Efectivo USD"><img src="../assets/efectivo.svg" alt=""><b>Efectivo en dólares</b></button>
+                  <button type="button" class="choice" data-payment="Pago Móvil"><img src="../assets/pago-movil.svg" alt=""><b>Pago móvil</b></button>
+                  <button type="button" class="choice" data-payment="Zelle"><img src="../assets/zelle.svg" alt=""><b>Zelle</b></button>
+                  <button type="button" class="choice" data-payment="Pago mixto"><span style="font-size:29px">⇄</span><b>Pago mixto · $ + Bs.</b></button>
+                </div>
+                <label id="paymentRefWrap" class="hidden staff-payment-ref">Referencia de pago<input id="paymentRef" placeholder="Referencia / confirmación"></label>
+                <div id="paymentFx" class="fx-box hidden"></div>
+                <div id="staffSplitPayment" hidden></div>
+              </div>
+              <div class="form-section"><h3>Entrega y descuento</h3>
+                <div class="form-grid">
+                  <label>Forma de entrega<select id="deliveryMethod"><option>Retiro en tienda</option><option>Delivery</option><option>Envío nacional</option></select></label>
+                  <label id="shippingWrap" class="hidden">Empresa de envío<select id="shippingCompany"><option>MRW</option><option>Zoom</option><option>TEALCA</option></select></label>
+                  <label>Tipo de descuento<select id="discountType"><option value="usd">Monto USD</option><option value="percent">Porcentaje %</option></select></label>
+                  <label>Descuento<input id="discountValue" type="number" min="0" step="0.01" value="0"></label>
+                  <label class="span2">Motivo del descuento<input id="discountReason" maxlength="160" placeholder="Opcional"></label>
+                  <label class="span2">Nota de venta<textarea id="saleNote" placeholder="Observación interna opcional"></textarea></label>
+                </div>
+              </div>
+              <div class="checkout-summary"><div><span>Subtotal</span><b id="checkoutSubtotal">$0.00</b></div><div><span>Descuento</span><b id="checkoutDiscount">-$0.00</b></div><div class="grand"><span>Total final</span><b id="checkoutTotal">$0.00</b></div></div>
+              <div class="staff-sale-notice"><b>Guardar en espera:</b> el pedido quedará como «Pago por verificar». Para confirmar un pago distinto a efectivo, indica su referencia.</div>
+              <div class="staff-step-actions between"><button id="staffBackProducts" class="secondary" type="button">← Productos</button><div class="checkout-actions"><button id="holdSaleButton" class="secondary" type="button">Guardar en espera</button><button id="confirmSaleButton" class="primary" type="submit">Confirmar pago y finalizar venta</button></div></div>
+            </form>
+          </div>
+        </div>
       </div>
-    </section>
-
-    <section id="view-repairs" class="view">
-      <div class="section-head"><div><span class="eyebrow">CAJA · SERVICIO TÉCNICO</span><h1>Reparaciones</h1><p>Abonos, pagos, métodos de pago y Nota de Entrega desde el mismo sistema de ventas.</p></div><button id="refreshRepairs" class="icon-button" type="button">↻</button></div>
-      <div class="repair-metrics">
-        <article><span>Cobrado hoy</span><b id="repairTodayTotal">$0.00</b><small id="repairTodayCount">0 movimientos</small></article>
-        <article><span>Pendiente por cobrar</span><b id="repairPendingTotal">$0.00</b><small id="repairPendingCount">0 reparaciones</small></article>
-        <article><span>Total caja hoy</span><b id="combinedTodayTotal">$0.00</b><small>Tienda + Servicio Técnico</small></article>
-      </div>
-      <article class="panel-card payment-method-card">
-        <div class="section-head compact"><div><span class="eyebrow">MÉTODOS DE PAGO</span><h2>Distribución del día</h2></div></div>
-        <div id="repairMethodSummary" class="method-summary"></div>
-      </article>
-      <div class="repair-toolbar"><div class="search-box"><span>⌕</span><input id="repairSearch" type="search" placeholder="Buscar orden, cliente, equipo, serial…"></div><select id="repairFilter"><option value="pending">Pendientes de cobro</option><option value="all">Todas</option><option value="paid">Pagadas</option></select></div>
-      <div id="repairList" class="repair-list"></div>
     </section>
 
     <section id="view-sales" class="view">
@@ -121,10 +161,79 @@
       <div id="salesList" class="sales-list full"></div>
     </section>
 
+    <section id="view-cash" class="view" aria-label="Caja del día">
+      <div class="cash-page-head">
+        <div><span class="eyebrow">CONTROL DIARIO · THINKSTORE STAFF</span><h1>Caja del día</h1><p>Un turno, todos tus cobros y un cierre claro.</p></div>
+        <div class="cash-head-actions"><span id="cashStatus" class="cash-pill">Consultando…</span><button id="cashRefresh" class="secondary" type="button">↻ Actualizar</button></div>
+      </div>
+      <div id="cashError" class="cash-notice hidden" role="alert"></div>
+      <div id="cashManagerArea" class="cash-manager hidden"><label for="cashSessionSelect">Revisar caja del equipo</label><select id="cashSessionSelect" aria-label="Seleccionar caja de vendedor"></select><p>Los administradores pueden revisar cierres de otros vendedores; los movimientos siempre quedan a cargo del titular.</p></div>
+      <div id="cashOpenArea" class="cash-open-card panel-card hidden">
+        <div class="cash-card-intro"><span class="eyebrow">APERTURA</span><h2>Comienza tu turno.</h2><p>Indica el efectivo que tienes antes de realizar ventas. Los importes se registran por separado.</p></div>
+        <form id="cashOpenForm">
+          <div class="cash-fields"><label>Efectivo USD inicial<input id="cashOpeningUsd" type="number" min="0" step="0.01" value="0" required inputmode="decimal"></label><label>Efectivo Bs. inicial<input id="cashOpeningVes" type="number" min="0" step="0.01" value="0" required inputmode="decimal"></label></div>
+          <label class="cash-full-label">Observación (opcional)<input id="cashOpeningNote" maxlength="500" placeholder="Ej. Fondo de caja entregado"></label>
+          <button class="primary" type="submit">Abrir caja →</button>
+        </form>
+      </div>
+      <div id="cashBody" class="hidden">
+        <div class="cash-summary-grid">
+          <article class="cash-kpi"><span class="cash-kpi-icon">◉</span><small>Apertura</small><strong id="cashKpiOpenUsd">$0,00</strong><span id="cashKpiOpenVes">Bs. 0,00</span></article>
+          <article class="cash-kpi"><span class="cash-kpi-icon">↗</span><small>Ventas cobradas</small><strong id="cashKpiSales">$0,00</strong><span id="cashKpiSalesCount">0 operaciones</span></article>
+          <article class="cash-kpi"><span class="cash-kpi-icon">⇄</span><small>Movimientos extra</small><strong id="cashKpiMoves">0</strong><span>Ingresos y egresos separados</span></article>
+          <article class="cash-kpi"><span class="cash-kpi-icon">✓</span><small>Diferencia de efectivo</small><strong id="cashKpiDifference">Por contar</strong><span id="cashKpiDifferenceVes">Completa el arqueo</span></article>
+        </div>
+        <div id="cashWarning" class="cash-notice hidden" role="status"></div>
+        <div class="cash-two-col">
+          <section class="panel-card cash-methods-card">
+            <div class="cash-section-head"><div><span class="eyebrow">COBROS DEL TURNO</span><h2>Métodos de pago</h2></div><span class="cash-mini-label">USD / Bs. separados</span></div>
+            <div class="cash-total-pair"><div><small>Total cobrado en dólares</small><b id="cashCollectedUsd">$0,00</b></div><div><small>Total cobrado en bolívares</small><b id="cashCollectedVes">Bs. 0,00</b></div></div>
+            <div id="cashMethods" class="cash-method-list"></div>
+            <p class="cash-footnote">Los pagos mixtos se suman una sola vez, por cada abono confirmado. Los montos en bolívares conservan su valor original.</p>
+          </section>
+          <section class="panel-card cash-new-movement" id="cashManualPanel">
+            <div class="cash-section-head"><div><span class="eyebrow">CAJA CHICA</span><h2>Nuevo movimiento</h2></div><span class="cash-mini-label">Registro manual</span></div>
+            <form id="cashMovementForm">
+              <div class="cash-fields"><label>Movimiento<select id="cashMoveType"><option value="gasto">Gasto menor</option><option value="ingreso">Ingreso extra</option><option value="retiro">Retiro de caja</option><option value="devolucion">Devolución</option><option value="ajuste">Ajuste</option></select></label><label id="cashMoveDirectionLabel" class="hidden">Dirección<select id="cashMoveDirection"><option value="in">Entrada (+)</option><option value="out">Salida (−)</option></select></label><label>Método<select id="cashMoveMethod"><option>Efectivo USD</option><option>Efectivo Bs</option><option>Zelle</option><option>Pago Móvil</option><option>Transferencia USD</option><option>Transferencia Bs</option><option>Punto de venta Bs</option></select></label></div>
+              <div class="cash-fields"><label>Monto<input id="cashMoveAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="0,00"></label><label id="cashMoveRefWrap" class="hidden">Referencia<input id="cashMoveRef" maxlength="120" placeholder="Número de operación"></label></div>
+              <label class="cash-full-label">Concepto<input id="cashMoveConcept" maxlength="180" required placeholder="¿En qué se utilizó?" minlength="3"></label>
+              <p class="cash-footnote">Las ventas no se agregan manualmente: aparecen al confirmar el cobro. Los gastos menores quedan auditados en Caja Staff.</p>
+              <button id="cashAddMovement" type="submit" class="primary">Registrar movimiento</button>
+            </form>
+          </section>
+        </div>
+        <section class="panel-card cash-activity">
+          <div class="cash-section-head"><div><span class="eyebrow">HISTORIAL</span><h2>Movimientos del turno</h2></div><span id="cashActivityCount" class="cash-mini-label">0 movimientos</span></div>
+          <div class="cash-table-wrap"><table class="cash-table"><thead><tr><th>Operación</th><th>Método</th><th>Hora</th><th class="cash-right">Monto</th></tr></thead><tbody id="cashLedger"></tbody></table></div>
+        </section>
+        <section class="panel-card cash-close-card" id="cashClosePanel">
+          <div class="cash-section-head"><div><span class="eyebrow">ARQUEO</span><h2>Cierre de caja</h2><p>Cuenta solo el dinero físico. Los pagos electrónicos se verifican por separado.</p></div><span id="cashClosingBadge" class="cash-mini-label">Pendiente</span></div>
+          <div class="cash-reconcile-grid">
+            <div class="cash-expected"><span>Saldo esperado · efectivo</span><div><small>Dólares</small><b id="cashExpectedUsd">$0,00</b></div><div><small>Bolívares</small><b id="cashExpectedVes">Bs. 0,00</b></div></div>
+            <div class="cash-actual"><span>Saldo contado · efectivo</span><div class="cash-fields"><label>USD contados<input id="cashCountUsd" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label>Bs. contados<input id="cashCountVes" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label></div></div>
+            <div class="cash-difference"><span>Resultado</span><div><small>Diferencia USD</small><b id="cashDiffUsd">—</b></div><div><small>Diferencia Bs.</small><b id="cashDiffVes">—</b></div></div>
+          </div>
+          <div class="cash-verifications"><h3>Confirmar medios electrónicos</h3><p>Comprueba las entradas en tu banco antes de cerrar.</p><div id="cashVerifyMethods" class="cash-verification-list"></div></div>
+          <label class="cash-full-label">Observaciones del cierre<textarea id="cashClosingNote" rows="2" maxlength="500" placeholder="Si hay una diferencia, indica el motivo antes de cerrar."></textarea></label>
+          <div class="cash-close-actions"><button id="cashSaveDraft" class="secondary" type="button">Guardar borrador</button><button id="cashCloseBtn" class="primary" type="button">Cerrar caja</button><button id="cashReopenBtn" class="secondary hidden" type="button">Reabrir cierre</button></div>
+          <p class="cash-footnote">Cada cierre conserva su resumen, usuario, fecha, conteo y observaciones. Reabrir una caja requiere permisos administrativos y un motivo.</p>
+        </section>
+      </div>
+    </section>
+
     <section id="view-account" class="view">
       <div class="account-card">
         <span id="accountAvatar" class="account-avatar">TS</span>
         <h1 id="accountName">Usuario</h1><p id="accountEmail">correo</p><span id="accountRole" class="role-badge">Rol</span>
+        <div id="photoControl" class="profile-photo-control">
+          <input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden aria-label="Seleccionar foto de perfil">
+          <div class="photo-action-row">
+            <button id="uploadProfilePhoto" class="secondary" type="button">Cambiar foto</button>
+            <button id="removeProfilePhoto" class="photo-remove" type="button">Quitar foto</button>
+          </div>
+          <p class="photo-hint">JPG, PNG o foto compatible del teléfono. Se ajusta automáticamente a 512 px.</p>
+          <p id="photoStatus" class="photo-status" role="status" aria-live="polite"></p>
+        </div>
       </div>
       <div class="account-grid">
         <article class="panel-card"><div class="section-head"><div><span class="eyebrow">ACCESO</span><h2>Permisos activos</h2></div></div><div id="permissions" class="permission-list"></div></article>
@@ -136,26 +245,23 @@
   <nav class="bottom-nav" aria-label="Navegación">
     <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><small>Inicio</small></button>
     <button class="nav-item" data-view="sell" id="sellBottomNav"><span class="nav-icon">▣</span><small>Vender</small></button>
-    <button class="nav-item" data-view="repairs"><span class="nav-icon">⌘</span><small>Servicio</small></button>
     <button class="nav-item" data-view="sales"><span class="nav-icon">↗</span><small>Ventas</small></button>
+    <button class="nav-item" data-view="cash" id="cashBottomNav"><span class="nav-icon">◫</span><small>Caja</small></button>
     <button class="nav-item" data-view="account"><span class="nav-icon">◎</span><small>Cuenta</small></button>
   </nav>
 </div>
 
 <div id="productModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="productModal"></div><div class="sheet product-sheet"><button class="sheet-close" data-close="productModal" type="button">×</button><div id="productModalBody"></div></div></div>
 <div id="cartDrawer" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="cartDrawer"></div><div class="sheet cart-sheet"><div class="sheet-head"><div><span class="eyebrow">VENTA ACTUAL</span><h2>Carrito</h2></div><button class="sheet-close static" data-close="cartDrawer" type="button">×</button></div><div id="cartItems" class="cart-items"></div><div class="cart-total"><span>Total</span><b id="cartTotal">$0.00</b></div><button id="checkoutButton" class="primary wide" type="button">Continuar al cobro</button></div></div>
-<div id="checkoutModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="checkoutModal"></div><div class="sheet checkout-sheet"><div class="sheet-head"><div><span class="eyebrow">CHECKOUT</span><h2>Completar venta</h2></div><button class="sheet-close static" data-close="checkoutModal" type="button">×</button></div><form id="checkoutForm"><div class="form-section"><h3>Cliente</h3><div class="form-grid"><label>Nombre y apellido<input id="customerName" required></label><label>Correo<input id="customerEmail" type="email" required></label><label>Cédula / RIF<input id="customerDocument" required></label><label>Teléfono<input id="customerPhone" required></label><label class="span2">Dirección<input id="customerAddress" required value="Retiro en tienda ThinkStore"></label><label>Ciudad<input id="customerCity" value="Caracas"></label><label>Estado<input id="customerState" value="Distrito Capital"></label></div></div><div class="form-section"><h3>Pago</h3><div id="paymentChoices" class="choice-grid"><button type="button" class="choice active" data-payment="Efectivo USD">Efectivo USD</button><button type="button" class="choice" data-payment="Pago Móvil">Pago Móvil</button><button type="button" class="choice" data-payment="Zelle">Zelle</button></div><label id="paymentRefWrap" class="hidden">Referencia de pago<input id="paymentRef"></label><div id="paymentFx" class="fx-box hidden"></div></div><div class="form-section"><h3>Entrega</h3><div class="form-grid"><label>Forma de entrega<select id="deliveryMethod"><option>Retiro en tienda</option><option>Delivery</option><option>Envío nacional</option></select></label><label id="shippingWrap" class="hidden">Empresa<select id="shippingCompany"><option>MRW</option><option>Zoom</option><option>TEALCA</option></select></label><label>Descuento<select id="discountType"><option value="usd">Monto USD</option><option value="percent">Porcentaje %</option></select></label><label>Valor<input id="discountValue" type="number" min="0" step="0.01" value="0"></label><label class="span2">Motivo del descuento<input id="discountReason" placeholder="Opcional"></label><label class="span2">Nota de venta<textarea id="saleNote" placeholder="Observación interna opcional"></textarea></label></div></div><div class="checkout-summary"><div><span>Subtotal</span><b id="checkoutSubtotal">$0.00</b></div><div><span>Descuento</span><b id="checkoutDiscount">-$0.00</b></div><div class="grand"><span>Total</span><b id="checkoutTotal">$0.00</b></div></div><div class="checkout-actions"><button id="holdSaleButton" class="secondary" type="button">Guardar en espera</button><button id="confirmSaleButton" class="primary" type="submit">Cobrar y confirmar</button></div></form></div></div>
-<div id="servicePaymentModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="servicePaymentModal"></div><div class="sheet service-payment-sheet"><div class="sheet-head"><div><span class="eyebrow">COBRO DE REPARACIÓN</span><h2 id="servicePayTitle">Orden</h2><p id="servicePaySubtitle">Cliente · equipo</p></div><button class="sheet-close static" data-close="servicePaymentModal" type="button">×</button></div><form id="servicePaymentForm"><input id="servicePayCode" type="hidden"><div class="service-pay-balance"><div><span>Total reparación</span><b id="serviceQuote">$0.00</b></div><div><span>Abonado</span><b id="servicePaid">$0.00</b></div><div class="remaining"><span>Pendiente</span><b id="serviceBalance">$0.00</b></div></div><div class="form-section"><h3>Pago</h3><label>Método de pago<select id="servicePaymentMethod"><option>Efectivo USD</option><option>Efectivo Bs</option><option>Pago Móvil</option><option>Zelle</option><option>Transferencia USD</option><option>Transferencia Bs</option><option>Punto de Venta</option><option>Efectivo EUR</option><option>USDT</option><option>Otro</option></select></label><div class="form-grid" style="margin-top:12px"><label>Monto aplicado a la reparación (USD)<input id="serviceAmountUsd" type="number" min="0.01" step="0.01" required></label><label>Moneda<select id="serviceCurrency"><option>USD</option><option>VES</option><option>EUR</option><option>USDT</option></select></label><label>Monto recibido en moneda original (opcional)<input id="serviceOriginalAmount" inputmode="decimal" placeholder="Ej. 5.000,00"></label><label>Referencia / transacción<input id="servicePaymentRef" placeholder="Opcional en efectivo"></label><label class="span2">Nota de caja<textarea id="servicePaymentNote" placeholder="Observación opcional"></textarea></label></div></div><div class="checkout-actions"><button id="servicePartialButton" class="secondary" type="submit">Registrar abono</button><button id="servicePaidButton" class="primary" type="button">Marcar pagado + Nota de Entrega</button></div><div id="servicePaymentHint" class="service-payment-hint">Al marcar como pagado, ThinkStore generará la Nota de Entrega y la enviará automáticamente al correo del cliente.</div></form></div></div>
-
-<div id="serviceNoteModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="serviceNoteModal"></div><div class="sheet service-note-sheet"><div class="sheet-head"><div><span class="eyebrow">NOTA DE ENTREGA</span><h2 id="serviceNoteTitle">Reparación</h2></div><div class="note-actions"><button id="printServiceNote" class="secondary" type="button">Imprimir / PDF</button><button class="sheet-close static" data-close="serviceNoteModal" type="button">×</button></div></div><div id="serviceNoteBody" class="service-note-body"></div></div></div>
-
 <div id="successModal" class="success-modal hidden"><div class="success-card"><div class="success-check">✓</div><span class="eyebrow">VENTA REGISTRADA</span><h2>Todo listo.</h2><p id="successMessage">La venta fue registrada correctamente.</p><div class="success-actions"><button id="newSaleButton" class="primary" type="button">Nueva venta</button><button class="secondary" data-view="sales" type="button">Ver ventas</button></div></div></div>
 <div id="toast" class="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../supabase-config.js"></script>
 <script src="../data.js"></script>
-<script src="../ts-fx.js?v=13.64"></script>
-<script src="app.js?v=14.91.0"></script>
+<script src="../ts-fx.js?v=14.78"></script>
+<script src="../ts-payment-split.js?v=14.79"></script>
+<script src="cash.js?v=14.82.0"></script>
+<script src="app.js?v=14.82.0"></script>
 </body>
 </html>

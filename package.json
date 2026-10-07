@@ -1,11 +1,9 @@
 {
   "name": "thinkstore",
-  "version": "14.91.0",
+  "version": "14.82.0",
   "private": true,
-  "description": "ThinkStore V14.4 - verified customer onboarding + V14.3 panel/sync/barcode",
+  "description": "ThinkStore Main V14.82 · paquete completo acumulativo con Staff, ventas, BCV, pagos mixtos, fotos de perfil, Caja Staff y acceso unificado a Enterprise en enterprise.thinkstore.ve",
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.4",
-    "@aws-sdk/client-s3": "^3.901.0",
-    "@aws-sdk/s3-request-presigner": "^3.901.0"
+    "@supabase/supabase-js": "^2.57.4"
   }
 }

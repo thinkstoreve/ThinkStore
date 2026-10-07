@@ -8,7 +8,7 @@ Cambios aplicados:
 - Mantiene modo seguro: no escribe en Supabase, no toca Resend, no cambia pedidos, no modifica notas de entrega ni recuperación de contraseña.
 
 Pruebas sugeridas:
-1. Iniciar sesión en enterprise.thinkstore.com.ve.
+1. Iniciar sesión en enterprise.thinkstore.ve.
 2. Clic en tarjetas del Panel Ejecutivo.
 3. Clic en filas de CRM, Ventas, Inventario, Finanzas y Soporte.
 4. Exportar CSV desde cada módulo.

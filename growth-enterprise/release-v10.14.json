@@ -1,0 +1,17 @@
+{
+  "version": "10.14-domain-restore",
+  "build": "graficas-bienvenida-premium",
+  "requires_sql": false,
+  "base": "10.13",
+  "domain": "https://enterprise.thinkstore.ve",
+  "features": [
+    "bienvenida personalizada por usuario",
+    "animacion de carga premium",
+    "graficas ejecutivas con datos reales",
+    "serie diaria de entradas y salidas",
+    "origen de ingresos",
+    "metodos de pago",
+    "salud del ecosistema"
+  ],
+  "notes": "Restores original Enterprise custom domain only; financial logic unchanged."
+}
