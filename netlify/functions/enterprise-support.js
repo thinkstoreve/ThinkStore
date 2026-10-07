@@ -2,6 +2,7 @@ const json=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/
 const clean=v=>String(v??'').trim();
 const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const {statusClientEmail,sendResend}=require('./support-mail-ui');
 
 function parseOverrides(profile={}){let o=profile?.permission_overrides||{};if(typeof o==='string'){try{o=JSON.parse(o)}catch{o={}}}return{allow:Array.isArray(o.allow)?o.allow:[],deny:Array.isArray(o.deny)?o.deny:[]}}
 function enterpriseAccess(profile={}){const role=norm(profile?.role||profile?.rol).replace(/\s+/g,'_'),active=(profile?.active??profile?.activo??true)!==false;if(!profile||!active)return{ok:false,role:'viewer',admin:false};const admin=['admin','super_admin','superadmin','administrator','gerente'].includes(role);const o=parseOverrides(profile);const allowed=admin||(!o.deny.includes('platform.enterprise')&&o.allow.includes('platform.enterprise'));const erole=admin||o.allow.includes('enterprise.role.manager')?'manager':'viewer';return{ok:allowed,role:erole,admin}}
@@ -75,7 +76,11 @@ exports.handler=async function(event){
       const updated=await request(`service_orders?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(changes)});await request('service_order_notes',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({order_id:id,note:'Datos operativos actualizados desde Enterprise.',visibility:'internal',author_name:auth.user?.email||'Enterprise',note_type:'Gestión Enterprise',status_after:order.status})});await writeAudit('update_details',order,changes);return json(200,{ok:true,order:updated?.[0]||{...order,...changes}});
     }
     if(action==='notify_client'){
-      if(!order.client_email)return json(400,{ok:false,error:'La orden no tiene correo del cliente'});const resend=clean(process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY);if(!resend)return json(501,{ok:false,error:'Falta RESEND_API_KEY'});const tracking=`https://soporte.thinkstore.com.ve/?orden=${encodeURIComponent(order.code)}`;const subject=`ThinkStore Soporte — ${order.status} | ${order.code}`;const html=`<div style="background:#f5f5f7;padding:30px;font-family:Arial"><div style="max-width:650px;margin:auto;background:white;border-radius:24px;overflow:hidden"><div style="background:#09090c;color:white;padding:28px;text-align:center"><h1>ThinkStore Soporte</h1><p>${esc(order.code)}</p></div><div style="padding:28px"><p>Hola <b>${esc(order.client_name)}</b>,</p><p>Tu equipo <b>${esc(order.device_model)}</b> está en estado <b>${esc(order.status)}</b>.</p><p><a href="${tracking}">Consultar orden</a></p></div></div></div>`;const er=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.FROM_SOPORTE_EMAIL||process.env.FROM_EMAIL||'ThinkStore Soporte <soporte@thinkstore.com.ve>',to:order.client_email,reply_to:process.env.REPLY_TO_SOPORTE||'soporte@thinkstore.com.ve',subject,html})});const ed=await er.json().catch(()=>({}));if(!er.ok)throw new Error(ed.message||'Error enviando correo');await writeAudit('notify_client',null,{recipient:order.client_email,provider_id:ed.id||null});return json(200,{ok:true,email:{sent:true,id:ed.id||null}});
+      if(!order.client_email)return json(400,{ok:false,error:'La orden no tiene correo del cliente'});
+      const mail=statusClientEmail(order);
+      const ed=await sendResend({to:order.client_email,subject:mail.subject,html:mail.html,text:mail.text});
+      await writeAudit('notify_client',null,{recipient:order.client_email,provider_id:ed.id||null});
+      return json(200,{ok:true,email:{sent:true,id:ed.id||null}});
     }
     return json(400,{ok:false,error:'Acción de soporte no válida'});
   }catch(error){console.error('ThinkStore Enterprise Support',error);return json(500,{ok:false,error:error.message||'Error interno de soporte'})}

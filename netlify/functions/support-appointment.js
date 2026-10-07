@@ -1,17 +1,16 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const json=(statusCode,body)=>({statusCode,headers:{'content-type':'application/json','access-control-allow-origin':'*','access-control-allow-headers':'content-type,authorization'},body:JSON.stringify(body)});
-const esc=s=>String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const {appointmentClientEmail,sendResend}=require('./support-mail-ui');
 
 async function sendAppointmentEmail(body,appointment){
-  const key=process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY;
-  if(!key) return {sent:false,error:'resend_not_configured'};
-  const when=`${body.preferred_date} · ${String(body.preferred_time||'').slice(0,5)}`;
-  const html=`<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111"><div style="max-width:620px;margin:0 auto;padding:34px 18px"><div style="background:#fff;border:1px solid #e5e5ea;border-radius:28px;padding:30px"><div style="font-size:13px;letter-spacing:.15em;font-weight:800;color:#55708f">SOPORTE THINK</div><h1 style="font-size:32px;line-height:1.05;margin:10px 0 12px">Tu cita quedó agendada ✅</h1><p style="color:#6e6e73;line-height:1.55">Hola ${esc(body.name)}, recibimos tu solicitud y la cita quedó registrada automáticamente. No necesitas esperar una confirmación adicional para asistir.</p><div style="background:#f7f7f8;border-radius:20px;padding:18px;margin:22px 0;line-height:1.7"><b>${esc(body.device_type)} ${esc(body.device_model)}</b><br><span>${esc(body.service_type)}</span><br><span>${esc(body.issue)}</span><br><b>${esc(when)}</b><br><span>${esc(body.service_mode||'Presencial')}</span></div><p style="color:#6e6e73;line-height:1.55">Si necesitamos ajustar el horario o solicitar información adicional, Soporte Think se comunicará contigo.</p><a href="https://thinkstore.com.ve/panel.html#mis_reparaciones" style="display:inline-block;background:#0071e3;color:#fff;text-decoration:none;border-radius:999px;padding:13px 20px;font-weight:800">Ver mi cita</a><p style="font-size:12px;color:#8e8e93;margin-top:24px">Código de solicitud: ${esc(appointment?.id||'')}</p></div></div></body></html>`;
-  const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.FROM_SUPPORT_EMAIL||'Soporte Think <soporte@thinkstore.com.ve>',to:String(body.email||'').trim().toLowerCase(),reply_to:process.env.REPLY_TO_SUPPORT||'contacto@thinkstore.com.ve',subject:`Cita agendada · ${body.device_type} ${body.device_model} · ThinkStore`,html})});
-  const data=await res.json().catch(()=>({}));
-  return res.ok?{sent:true,id:data.id||null}:{sent:false,error:data.message||data.error||`Resend HTTP ${res.status}`};
+  const mail=appointmentClientEmail(body,appointment);
+  try{
+    const data=await sendResend({to:String(body.email||'').trim().toLowerCase(),subject:mail.subject,html:mail.html,text:mail.text});
+    return {sent:true,id:data.id||null};
+  }catch(error){return {sent:false,error:error.message||String(error)}}
 }
+
 
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS') return json(204,{});

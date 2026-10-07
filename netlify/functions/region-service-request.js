@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const {regionReceiptEmail,sendResend}=require('./support-mail-ui');
 
 const headers={
   'Content-Type':'application/json; charset=utf-8',
@@ -23,13 +24,14 @@ function makeCode(){
 }
 
 async function sendReceiptEmail(body,order){
-  const key=clean(process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY);
-  if(!key||!body.email)return {sent:false,error:'resend_not_configured'};
-  const html=`<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111"><div style="max-width:640px;margin:auto;padding:34px 18px"><div style="background:#fff;border:1px solid #e5e5ea;border-radius:28px;padding:30px"><div style="font-size:12px;letter-spacing:.16em;font-weight:900;color:#0878ff">THINKSTORE · SERVICIO TÉCNICO</div><h1 style="font-size:32px;line-height:1.05;margin:10px 0 12px">Recibimos tu solicitud ✅</h1><p style="color:#6e6e73;line-height:1.55">Hola ${esc(body.name)}, registramos tu solicitud de envío desde <b>${esc(body.region)}</b>. Un técnico continuará la coordinación contigo por WhatsApp.</p><div style="background:#f7f8fa;border-radius:20px;padding:18px;margin:22px 0;line-height:1.65"><b>${esc(body.category)} · ${esc(body.model)}</b><br>${body.serial?`<span>Serial / IMEI: ${esc(body.serial)}</span><br>`:''}<span>${esc(body.issue)}</span><br><span>${esc(body.city)} · ${esc(body.region)}</span></div><p style="color:#6e6e73;line-height:1.55">Código de solicitud: <b>${esc(order.code)}</b>. Conserva este código para cualquier consulta.</p><p style="font-size:12px;color:#8e8e93;margin-top:24px">ThinkStore Servicio Técnico · Caracas</p></div></div></body></html>`;
-  const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.FROM_SUPPORT_EMAIL||'ThinkStore Soporte <soporte@thinkstore.com.ve>',to:clean(body.email).toLowerCase(),reply_to:process.env.REPLY_TO_SUPPORT||'soporte@thinkstore.com.ve',subject:`Solicitud de servicio ${order.code} · ThinkStore`,html})});
-  const data=await res.json().catch(()=>({}));
-  return res.ok?{sent:true,id:data.id||null}:{sent:false,error:data.message||data.error||`Resend HTTP ${res.status}`};
+  if(!body.email)return {sent:false,error:'missing_email'};
+  const mail=regionReceiptEmail(body,order);
+  try{
+    const data=await sendResend({to:clean(body.email).toLowerCase(),subject:mail.subject,html:mail.html,text:mail.text});
+    return {sent:true,id:data.id||null};
+  }catch(error){return {sent:false,error:error.message||String(error)}}
 }
+
 
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS')return {statusCode:204,headers,body:''};

@@ -335,8 +335,8 @@ exports.handler = async function(event) {
     </div>`;
   }
 
-  const from = process.env.FROM_MARKETING_EMAIL || process.env.FROM_VENTAS_EMAIL || 'ThinkStore Promociones <ventas@thinkstore.com.ve>';
-  const replyTo = process.env.REPLY_TO_MARKETING || process.env.REPLY_TO_VENTAS || 'ventas@thinkstore.com.ve';
+  const from = process.env.FROM_MARKETING_EMAIL || process.env.FROM_INFO_EMAIL || 'ThinkStore <info@thinkstore.com.ve>';
+  const replyTo = process.env.REPLY_TO_MARKETING || process.env.REPLY_TO_INFO || 'info@thinkstore.com.ve';
   let sent = 0, failed = 0, errors = [];
   async function sendOne(r) {
     try {

@@ -1,23 +1,7 @@
 const clean=v=>String(v??'').trim();
-const LOGO='https://soporte.thinkstore.com.ve/assets/thinkstore-logo-white.png';
-const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const {staffEmail,rows:detailRows,callout,sendResend,panelUrl,appointmentDate,appointmentTime}=require('./support-mail-ui');
 const reply=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/json','Cache-Control':'no-store'},body:JSON.stringify(body)});
 const WEBHOOK_SECRET="uV0rTyB7yrUdFpR5pI4mOItrtJVpdwzLQYIPkBsTWCSuJrp5";
-
-function formatDate(value){
-  if(!value)return 'Por confirmar';
-  try{
-    return new Intl.DateTimeFormat('es-VE',{day:'2-digit',month:'long',year:'numeric',timeZone:'America/Caracas'}).format(new Date(`${value}T12:00:00-04:00`));
-  }catch{return value}
-}
-function formatTime(value){
-  if(!value)return 'Por confirmar';
-  const v=String(value).slice(0,5);
-  const [h,m]=v.split(':').map(Number);
-  if(Number.isNaN(h))return v;
-  const hour=((h+11)%12)+1;
-  return `${hour}:${String(m||0).padStart(2,'0')} ${h>=12?'p. m.':'a. m.'}`;
-}
 
 exports.handler=async event=>{
   if(event.httpMethod!=='POST')return reply(405,{ok:false,error:'Método no permitido'});
@@ -57,37 +41,16 @@ exports.handler=async event=>{
     const client=clean(a.client_name)||'Cliente';
     const device=clean(a.device_model)||clean(a.device_type)||'Equipo por confirmar';
     const subject=`Nueva cita web · ${client} · ${device}`;
-    const panel='https://soporte.thinkstore.com.ve/panel.html';
-    const date=formatDate(a.preferred_date);
-    const time=formatTime(a.preferred_time);
+    const date=appointmentDate(a.preferred_date);
+    const time=appointmentTime(a.preferred_time);
     const service=clean(a.service_type)||'Diagnóstico / revisión';
     const mode=clean(a.service_mode)||'Presencial';
     const issue=clean(a.reported_issue)||'Sin detalle adicional';
-
-    const html=`<!doctype html><html><body style="margin:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1d1d1f"><div style="padding:34px 16px"><div style="max-width:660px;margin:auto;background:#fff;border:1px solid #e8e8ed;border-radius:28px;overflow:hidden"><div style="background:#0b0b0d;color:#fff;padding:28px 32px"><img src="${LOGO}" alt="ThinkStore" width="190" style="display:block;width:190px;max-width:65%;height:auto;margin:0 0 22px"><div style="font-size:11px;letter-spacing:.15em;font-weight:800;color:#86bfff">NUEVA CITA WEB</div><div style="font-size:27px;font-weight:800;letter-spacing:-.03em;margin-top:8px">Nueva solicitud de Servicio Técnico</div></div><div style="padding:30px 32px"><h1 style="font-size:28px;line-height:1.08;letter-spacing:-.04em;margin:0 0 7px">${esc(client)}</h1><p style="margin:0;color:#6e6e73;font-size:15px;line-height:1.55">Acaba de agendar una cita para <b style="color:#1d1d1f">${esc(device)}</b>.</p><div style="margin:24px 0;background:#f7f7f9;border:1px solid #ececf0;border-radius:20px;padding:18px 20px"><table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td style="padding:7px 0;color:#7b7b80">Fecha</td><td style="padding:7px 0;text-align:right;font-weight:700">${esc(date)}</td></tr><tr><td style="padding:7px 0;color:#7b7b80">Hora</td><td style="padding:7px 0;text-align:right;font-weight:700">${esc(time)}</td></tr><tr><td style="padding:7px 0;color:#7b7b80">Servicio</td><td style="padding:7px 0;text-align:right;font-weight:700">${esc(service)}</td></tr><tr><td style="padding:7px 0;color:#7b7b80">Modalidad</td><td style="padding:7px 0;text-align:right;font-weight:700">${esc(mode)}</td></tr></table></div><div style="margin-bottom:20px"><div style="font-size:11px;letter-spacing:.1em;color:#7b7b80;font-weight:800">DETALLE DEL CLIENTE</div><div style="font-size:14px;line-height:1.7;margin-top:7px">${a.client_phone?`Teléfono: <b>${esc(a.client_phone)}</b><br>`:''}${a.client_email?`Correo: <b>${esc(a.client_email)}</b><br>`:''}Motivo: ${esc(issue)}</div></div><div style="text-align:center;margin-top:26px"><a href="${panel}" style="display:inline-block;background:#0071e3;color:#fff;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:14px;font-weight:750">Abrir citas en Soporte</a></div><p style="margin:26px 0 0;text-align:center;color:#a1a1a6;font-size:11px">Notificación enviada automáticamente al generarse la cita.</p></div></div></div></body></html>`;
-    const text=`Nueva cita web ThinkStore Soporte
-
-Cliente: ${client}
-Equipo: ${device}
-Fecha: ${date}
-Hora: ${time}
-Servicio: ${service}
-Modalidad: ${mode}
-Teléfono: ${a.client_phone||'-'}
-Correo: ${a.client_email||'-'}
-Motivo: ${issue}
-
-Panel: ${panel}`;
-
-    const er=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({
-      from:process.env.SUPPORT_ALERT_FROM||'ThinkStore Alertas <info@thinkstore.com.ve>',
-      to,
-      reply_to:process.env.REPLY_TO_SOPORTE||'soporte@thinkstore.com.ve',
-      subject,html,text
-    })});
-    const ed=await er.json().catch(()=>({}));
-    if(!er.ok)throw new Error(ed.message||'No se pudo enviar el correo');
-
+    const html=staffEmail({eyebrow:'NUEVA CITA WEB',title:'Nueva solicitud de Servicio Técnico',lead:`${client} agendó una cita para ${device}.`,body:
+      detailRows([['Fecha',date],['Hora',time],['Servicio',service],['Modalidad',mode],['Teléfono',a.client_phone||''],['Correo',a.client_email||'']])+callout('Motivo de la cita',issue,'blue'),
+      ctaLabel:'Abrir citas en Soporte',ctaUrl:panelUrl()});
+    const text=`Nueva cita web ThinkStore Soporte\n\nCliente: ${client}\nEquipo: ${device}\nFecha: ${date}\nHora: ${time}\nServicio: ${service}\nModalidad: ${mode}\nTeléfono: ${a.client_phone||'-'}\nCorreo: ${a.client_email||'-'}\nMotivo: ${issue}\n\nPanel: ${panelUrl()}`;
+    const ed=await sendResend({to,subject,html,text});
     const now=new Date().toISOString();
     await req(`support_notifications?id=eq.${encodeURIComponent(notificationId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({email_sent_at:now,email_attempts:Number(n.email_attempts||0)+1,email_last_error:null})});
     return reply(200,{ok:true,sent:true,email_id:ed.id||null});

@@ -1,3 +1,4 @@
+const {emailShell,esc:supportEsc}=require('./support-mail-ui');
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -42,14 +43,24 @@ exports.handler = async function(event) {
       label: 'Preórdenes ThinkStore'
     },
     soporte: {
-      from: process.env.FROM_SOPORTE_EMAIL || 'ThinkStore Soporte <soporte@thinkstore.com.ve>',
+      from: process.env.FROM_SOPORTE_EMAIL || 'ThinkStore Servicio Técnico <soporte@thinkstore.com.ve>',
       replyTo: process.env.REPLY_TO_SOPORTE || 'soporte@thinkstore.com.ve',
-      label: 'Soporte ThinkStore'
+      label: 'ThinkStore Servicio Técnico'
     },
     ventas: {
       from: process.env.FROM_VENTAS_EMAIL || process.env.FROM_EMAIL || 'ThinkStore Ventas <ventas@thinkstore.com.ve>',
       replyTo: process.env.REPLY_TO_VENTAS || process.env.REPLY_TO || 'ventas@thinkstore.com.ve',
       label: 'Ventas ThinkStore'
+    },
+    info: {
+      from: process.env.FROM_INFO_EMAIL || 'ThinkStore <info@thinkstore.com.ve>',
+      replyTo: process.env.REPLY_TO_INFO || 'info@thinkstore.com.ve',
+      label: 'Cuenta y atención ThinkStore'
+    },
+    cuenta: {
+      from: process.env.FROM_INFO_EMAIL || 'ThinkStore Cuenta <info@thinkstore.com.ve>',
+      replyTo: process.env.REPLY_TO_INFO || 'info@thinkstore.com.ve',
+      label: 'Cuenta ThinkStore'
     }
   };
   const selected = departments[department] || departments.pedidos;
@@ -100,6 +111,18 @@ exports.handler = async function(event) {
     </table>
   </div>`;
 
+  const finalHtml = department === 'soporte'
+    ? emailShell({
+        preheader: subject,
+        eyebrow: 'SERVICIO TÉCNICO',
+        title: subject || 'Actualización de Servicio Técnico',
+        lead: 'Tienes una nueva actualización de ThinkStore Servicio Técnico.',
+        body: `<div style="background:#f7f7f9;border:1px solid #ececf0;border-radius:18px;padding:18px;font-size:14px;line-height:1.7;color:#292b30">${supportEsc(text).replace(/\n/g,'<br>')}</div>`,
+        ctaLabel: actionLabel,
+        ctaUrl: actionUrl
+      })
+    : html;
+
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -110,7 +133,7 @@ exports.handler = async function(event) {
         reply_to: selected.replyTo,
         subject,
         text,
-        html
+        html: finalHtml
       })
     });
     const result = await response.json().catch(() => ({}));

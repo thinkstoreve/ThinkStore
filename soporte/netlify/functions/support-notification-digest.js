@@ -25,7 +25,7 @@ exports.handler=async()=>{
     const subject=`ThinkStore Soporte · ${pending.length} alerta${pending.length===1?'':'s'} pendiente${pending.length===1?'':'s'}`;
     const html=shell({eyebrow:'RESUMEN DE RESPALDO',title:`${pending.length} novedad${pending.length===1?'':'es'} pendiente${pending.length===1?'':'s'}`,subtitle:'Eventos que no pudieron confirmarse por correo instantáneo o que requieren seguimiento.',buttonLabel:'Abrir Centro de Notificaciones',body:cards});
     const text=pending.map(n=>`- ${n.title||meta(n.event_type)[1]}: ${n.message||''}`).join('\n');
-    const from=clean(process.env.SUPPORT_ALERT_FROM||'ThinkStore Alertas <info@thinkstore.com.ve>');
+    const from=clean(process.env.SUPPORT_ALERT_FROM||process.env.FROM_SOPORTE_EMAIL||'ThinkStore Servicio Técnico <soporte@thinkstore.com.ve>');
     const er=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({from,to,reply_to:process.env.REPLY_TO_SOPORTE||'soporte@thinkstore.com.ve',subject,html,text})});
     const ed=await er.json().catch(()=>({}));if(!er.ok)throw new Error(ed.message||'No se pudo enviar el correo');
     const now=new Date().toISOString();

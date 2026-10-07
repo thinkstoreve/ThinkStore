@@ -1,4 +1,5 @@
 'use strict';
+const {supportRoot}=require('./support-mail-ui');
 
 const H={
   'Content-Type':'application/json; charset=utf-8',
@@ -300,7 +301,7 @@ async function buildServiceNote(order,url,key){
   const client=checklist.__client||{};
   const partText=parts.length?parts.map(p=>`${p.qty}× ${p.name||p.sku||'Repuesto'}`).join(', '):'Sin repuestos registrados en la orden';
   const details=[order.quote_repair_details,`Falla reportada: ${order.reported_issue||'No indicada'}`,`Repuestos utilizados: ${partText}`].filter(Boolean).join(' · ');
-  const trackingBase=clean(process.env.SUPPORT_PUBLIC_URL||process.env.SOPORTE_PUBLIC_URL||'https://soporte.thinkstore.com.ve').replace(/\/$/,'');
+  const trackingBase=supportRoot();
   const payload={
     documentKind:'service',
     trackingUrl:`${trackingBase}/seguimiento.html?orden=${encodeURIComponent(order.code)}`,
@@ -332,11 +333,11 @@ async function sendDeliveryNote(order,html){
   if(!to||!to.includes('@'))return{sent:false,error:'La orden no tiene correo de cliente.'};
   const key=clean(process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY);
   if(!key)return{sent:false,error:'Falta RESEND_API_KEY en Netlify.'};
-  const from=process.env.FROM_SOPORTE_EMAIL||'ThinkStore Soporte <soporte@thinkstore.com.ve>';
-  const replyTo=process.env.REPLY_TO_SUPPORT||'soporte@thinkstore.com.ve';
+  const from=process.env.FROM_SOPORTE_EMAIL||process.env.FROM_SUPPORT_EMAIL||'ThinkStore Servicio Técnico <soporte@thinkstore.com.ve>';
+  const replyTo=process.env.REPLY_TO_SOPORTE||process.env.REPLY_TO_SUPPORT||'soporte@thinkstore.com.ve';
   try{
     const rr=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({
-      from,to:[to],reply_to:replyTo,subject:`Nota de entrega · ${order.code} · ThinkStore`,html
+      from,to:[to],reply_to:replyTo,subject:`Tu Nota de Entrega · ${order.code} · ThinkStore`,html
     })});
     const data=await rr.json().catch(()=>({}));
     return rr.ok?{sent:true,id:data.id||null,to}:{sent:false,error:data.message||data.error||`Resend HTTP ${rr.status}`,to};
