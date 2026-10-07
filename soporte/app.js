@@ -1736,7 +1736,8 @@ ${summary}
     <div class="signatures"><div class="sign">Firma del cliente<br>${esc(o.signatures?.client||o.client||'')}</div><div class="sign">Firma de recepción<br>${esc(o.signatures?.reception||session?.name||'')}</div></div><div class="foot">ThinkStore · Tecnología. Todo en un solo lugar.</div></div>`);
   }
   function label40x60Markup(o,qr){
-    return `<div style="width:40mm;height:60mm;padding:3.2mm 3mm 2.8mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#fff;color:#111"><div style="width:100%;text-align:center;border-bottom:.35mm solid #111;padding-bottom:2mm"><b style="font-size:13pt;letter-spacing:-.25pt">ThinkStore</b><div style="font-size:6.8pt;margin-top:.6mm">Servicio Técnico</div></div><div style="width:100%;text-align:center;margin-top:2.2mm"><b style="display:block;font-size:10.5pt;line-height:1.05">${esc(o.code)}</b><div style="font-size:7.8pt;font-weight:700;line-height:1.15;margin-top:1.5mm;max-height:9mm;overflow:hidden">${esc(o.device)}</div>${o.color?`<div style="font-size:6.8pt;margin-top:.8mm">${esc(o.color)}</div>`:''}</div><img src="${qr}" style="width:24mm;height:24mm;margin-top:2.3mm" alt="QR"><div style="font-size:6.2pt;text-align:center;line-height:1.2;margin-top:1.5mm">Escanea para ver el estado</div></div>`;
+    const clientName=String(o?.client||'Cliente').trim()||'Cliente';
+    return `<div style="width:40mm;height:60mm;padding:2.5mm 2.6mm 2.2mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#fff;color:#111"><div style="width:100%;text-align:center;border-bottom:.35mm solid #111;padding-bottom:1.4mm"><b style="font-size:12.4pt;letter-spacing:-.25pt">ThinkStore</b><div style="font-size:6.5pt;margin-top:.35mm">Servicio Técnico</div></div><div style="width:100%;text-align:center;margin-top:1.35mm"><b style="display:block;font-size:9.8pt;line-height:1.05">${esc(o.code)}</b><div style="font-size:7pt;font-weight:800;line-height:1.1;margin-top:1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cliente: ${esc(clientName)}</div><div style="font-size:7.2pt;font-weight:700;line-height:1.1;margin-top:1mm;max-height:7mm;overflow:hidden">${esc(o.device)}</div>${o.color?`<div style="font-size:6.2pt;margin-top:.55mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(o.color)}</div>`:''}</div><img src="${qr}" style="width:20.5mm;height:20.5mm;margin-top:1.25mm" alt="QR"><div style="font-size:5.9pt;text-align:center;line-height:1.15;margin-top:1mm">Escanea para ver el estado</div></div>`;
   }
   function labelLegacyMarkup(o,qr){
     // Formato anterior ORIGINAL: 76x50 mm, escalado completo sin
@@ -1747,9 +1748,10 @@ ${summary}
         <b style="font-size:13pt">ThinkStore</b>
         <div style="font-size:7pt;margin-bottom:3mm">Servicio Técnico</div>
         <b style="font-size:11pt">${esc(o.code)}</b>
-        <div style="font-size:9pt;margin-top:2mm">${esc(o.device)}</div>
-        <div style="font-size:8pt">${esc(o.color||'')}</div>
-        <div style="font-size:6.5pt;margin-top:2mm">Escanea para ver el estado</div>
+        <div style="font-size:8pt;font-weight:700;margin-top:1.4mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cliente: ${esc(o.client||'Cliente')}</div>
+        <div style="font-size:8.5pt;margin-top:1.3mm">${esc(o.device)}</div>
+        <div style="font-size:7.5pt">${esc(o.color||'')}</div>
+        <div style="font-size:6.2pt;margin-top:1.5mm">Escanea para ver el estado</div>
       </div>
       <img src="${qr}" style="width:28mm;height:28mm" alt="QR">
     </div>`;
@@ -1835,26 +1837,30 @@ ${summary}
       doc.line(3,12,37,12);
 
       doc.setFont('helvetica','bold');
-      doc.setFontSize(10.5);
-      doc.text(String(o.code||''),20,17,{align:'center'});
+      doc.setFontSize(9.8);
+      doc.text(String(o.code||''),20,15.7,{align:'center'});
 
-      doc.setFontSize(7.5);
+      doc.setFontSize(7);
+      const clientLine=doc.splitTextToSize(`Cliente: ${String(o.client||'Cliente')}`,33).slice(0,1);
+      doc.text(clientLine,20,19.2,{align:'center'});
+
+      doc.setFontSize(7.2);
       const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),34).slice(0,2);
-      doc.text(deviceLines,20,21,{align:'center',lineHeightFactor:1.05});
+      doc.text(deviceLines,20,22.6,{align:'center',lineHeightFactor:1.02});
 
-      let colorY=21+(deviceLines.length*3.3)+.4;
+      let colorY=22.6+(deviceLines.length*3.05)+.15;
       if(o.color){
         doc.setFont('helvetica','normal');
-        doc.setFontSize(6.5);
+        doc.setFontSize(6.2);
         doc.text(doc.splitTextToSize(String(o.color),32).slice(0,1),20,colorY,{align:'center'});
-        colorY+=3;
+        colorY+=2.7;
       }
 
-      const qrY=Math.max(27,colorY+1.2);
-      doc.addImage(qrData,'PNG',8,qrY,24,24,undefined,'FAST');
+      const qrY=Math.max(29,colorY+.8);
+      doc.addImage(qrData,'PNG',9.75,qrY,20.5,20.5,undefined,'FAST');
       doc.setFont('helvetica','normal');
-      doc.setFontSize(6.1);
-      doc.text('Escanea para ver el estado',20,Math.min(57.2,qrY+27.2),{align:'center'});
+      doc.setFontSize(5.9);
+      doc.text('Escanea para ver el estado',20,Math.min(57.1,qrY+23.3),{align:'center'});
     }else{
       // Formato anterior ORIGINAL 76x50, escalado uniformemente a 60x39.47.
       // No se altera su composición horizontal.
@@ -1879,18 +1885,22 @@ ${summary}
       doc.setFontSize(11*S);
       doc.text(String(o.code||''),sx(4),sy(17));
 
-      doc.setFontSize(8.5*S);
+      doc.setFontSize(8*S);
+      const clientLine=doc.splitTextToSize(`Cliente: ${String(o.client||'Cliente')}`,38*S).slice(0,1);
+      doc.text(clientLine,sx(4),sy(21));
+
+      doc.setFontSize(8.2*S);
       const deviceWidth=38*S;
       const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),deviceWidth).slice(0,2);
-      doc.text(deviceLines,sx(4),sy(22),{lineHeightFactor:1.08});
+      doc.text(deviceLines,sx(4),sy(25),{lineHeightFactor:1.05});
 
       if(o.color){
         doc.setFont('helvetica','normal');
-        doc.setFontSize(7*S);
-        doc.text(doc.splitTextToSize(String(o.color),38*S).slice(0,1),sx(4),sy(30));
+        doc.setFontSize(6.8*S);
+        doc.text(doc.splitTextToSize(String(o.color),38*S).slice(0,1),sx(4),sy(34));
       }
 
-      doc.setFontSize(6.2*S);
+      doc.setFontSize(6*S);
       doc.text('Escanea para ver el estado',sx(4),sy(43));
 
       doc.addImage(qrData,'PNG',sx(46),sy(10.5),26*S,26*S,undefined,'FAST');
