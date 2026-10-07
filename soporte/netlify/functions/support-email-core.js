@@ -37,6 +37,14 @@ async function sendClientEvent({eventType,order,message='',rating=0,comment='',r
       ctaLabel:'Abrir orden y continuar reparación',ctaUrl:panelUrl()});
     text=`Cotización aprobada\nCliente: ${client}\nOrden: ${code}\nEquipo: ${device}\nMonto: ${money(order.quote_currency,order.quote_amount)}\nPanel: ${panelUrl()}`;
     if(clean(comment))types.push('client_message');
+  }else if(eventType==='quote_rejected'){
+    subject=`Cotización no aprobada · ${client} · ${code}`;
+    mail=staffEmail({eyebrow:'COTIZACIÓN NO APROBADA',title:'El cliente no aprobó la cotización',lead:`${client} registró su decisión sobre la reparación de ${device}.`,code,body:
+      rows([['Cliente',client],['Equipo',device],['Monto cotizado',money(order.quote_currency,order.quote_amount)],['Fecha',when]])+
+      callout('Reparación propuesta',order.quote_repair_details||'','amber')+
+      callout('Comentario del cliente',comment||order.quote_client_comment||'','blue'),
+      ctaLabel:'Abrir orden y revisar siguientes pasos',ctaUrl:panelUrl()});
+    text=`Cotización no aprobada\nCliente: ${client}\nOrden: ${code}\nEquipo: ${device}\nMonto: ${money(order.quote_currency,order.quote_amount)}\nComentario: ${clean(comment||order.quote_client_comment)}\nPanel: ${panelUrl()}`;
   }else if(eventType==='client_message'){
     subject=`Nuevo mensaje de ${client} · ${code}`;
     mail=staffEmail({eyebrow:'MENSAJE DEL CLIENTE',title:'Tienes un nuevo mensaje',lead:`${client} escribió desde el seguimiento seguro de ${device}.`,code,body:

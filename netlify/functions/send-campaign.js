@@ -203,7 +203,7 @@ exports.handler = async function(event) {
     const serviceUrl = actionUrl || 'https://thinkstore.com.ve/servicio-tecnico.html';
     const serviceLabel = actionLabel || 'Consultar servicio técnico';
     const agendaUrl = 'https://thinkstore.com.ve/agenda-soporte.html';
-    const whatsappUrl = secondaryActionUrl || 'https://wa.me/584120142898';
+    const whatsappUrl = secondaryActionUrl || 'https://wa.me/584141032030';
     const whatsappLabel = secondaryActionLabel || 'Escribir por WhatsApp';
     return `
     ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${esc(preheader)}</div>` : ''}

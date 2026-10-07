@@ -1,307 +1,177 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="robots" content="noindex,nofollow" />
-  <meta name="theme-color" content="#f5f5f7" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#f5f5f7">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <title>Seguimiento de reparación | ThinkStore</title>
   <style>
-    :root{--bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--line:#e6e6eb;--blue:#0071e3;--green:#28a45c;--shadow:0 18px 55px rgba(0,0,0,.06)}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}.wrap{width:min(980px,calc(100% - 28px));margin:auto;padding:28px 0 60px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px}.brand{display:flex;align-items:center;gap:12px}.brand-mark{width:48px;height:48px;border-radius:15px;background:#0b0b0d;padding:10px;display:grid;place-items:center}.brand-mark img{width:100%;height:100%;object-fit:contain}.brand b{display:block;font-size:19px;letter-spacing:-.02em}.brand span{display:block;color:var(--muted);font-size:12px;margin-top:2px}.secure-chip{font-size:11px;color:#4f5a67;background:#fff;border:1px solid var(--line);padding:8px 10px;border-radius:999px}.hero{background:#0b0b0d;color:#fff;border-radius:30px;padding:38px 38px 34px;box-shadow:var(--shadow);position:relative;overflow:hidden}.hero:after{content:"";position:absolute;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,#147ce533,transparent 65%);right:-80px;top:-100px}.eyebrow{font-size:11px;letter-spacing:.13em;font-weight:800;color:#8dbfff}.hero h1{font-size:clamp(34px,5vw,54px);line-height:1.02;letter-spacing:-.045em;margin:10px 0 12px;max-width:680px}.hero p{font-size:15px;color:#b7bac1;margin:0;line-height:1.55}.hero-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}.hero-meta span{background:#ffffff10;border:1px solid #ffffff18;padding:8px 11px;border-radius:999px;font-size:11px}.status-pill{background:#123c26!important;border-color:#245d3d!important;color:#9ee2b8!important}.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-top:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow)}.card h2{font-size:20px;letter-spacing:-.025em;margin:0 0 5px}.card>.sub{color:var(--muted);font-size:12px;margin:0 0 18px}.timeline{display:grid;gap:0}.step{display:grid;grid-template-columns:28px 1fr;gap:12px;position:relative;padding-bottom:18px}.step:not(:last-child):before{content:"";position:absolute;left:13px;top:25px;bottom:0;width:2px;background:#e2e5e9}.dot{width:28px;height:28px;border-radius:50%;background:#f0f1f3;border:2px solid #d9dce1;display:grid;place-items:center;font-size:10px;z-index:1}.step.done .dot{background:#111;color:#fff;border-color:#111}.step.current .dot{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 0 0 5px #0071e316}.step b{font-size:13px;display:block;margin-top:4px}.step small{font-size:10px;color:var(--muted);display:block;margin-top:3px}.technical-list{display:grid;gap:10px}.tech-card{border:1px solid #e8e8ed;background:#fbfbfd;border-radius:18px;padding:15px}.tech-head{display:flex;justify-content:space-between;gap:12px}.tech-head span{font-size:9px;letter-spacing:.08em;color:var(--blue);font-weight:850;text-transform:uppercase}.tech-head b{display:block;font-size:14px;margin-top:3px}.tech-head small{font-size:9px;color:#999}.tech-summary{font-size:12px;color:#4e5560;line-height:1.55;margin:10px 0 0}.tech-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.tech-fields>div{background:#fff;border:1px solid #ececf0;border-radius:13px;padding:10px}.tech-fields span{font-size:8px;color:#85858b;text-transform:uppercase;letter-spacing:.06em;font-weight:800}.tech-fields p{font-size:11px;line-height:1.45;margin:4px 0 0}.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.photo{display:block;border-radius:16px;overflow:hidden;background:#eee;aspect-ratio:1/1;position:relative}.photo img{width:100%;height:100%;object-fit:cover;display:block}.photo span{position:absolute;left:7px;right:7px;bottom:7px;background:#000a;color:#fff;font-size:9px;padding:6px 7px;border-radius:9px;backdrop-filter:blur(12px)}.empty{font-size:12px;color:var(--muted);padding:12px 0}.chat{display:flex;flex-direction:column;gap:8px;max-height:430px;overflow:auto;padding:4px 2px 10px}.bubble{max-width:78%;padding:11px 13px;border-radius:17px}.bubble.staff{align-self:flex-start;background:#f0f1f4}.bubble.client{align-self:flex-end;background:var(--blue);color:#fff}.bubble-head{display:flex;justify-content:space-between;gap:10px;font-size:9px;margin-bottom:5px}.bubble-head span{font-weight:800}.bubble-head small{opacity:.65}.bubble p{font-size:12px;line-height:1.5;white-space:pre-wrap;margin:0}.composer{border-top:1px solid var(--line);padding-top:14px;margin-top:4px}.composer textarea{width:100%;min-height:84px;resize:vertical;border:1px solid #d9dce2;border-radius:15px;padding:12px 13px;font:inherit;font-size:12px;outline:none;background:#fff}.composer textarea:focus{border-color:#7db7f4;box-shadow:0 0 0 4px #0071e312}.composer-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}.composer-foot small{color:var(--muted);font-size:10px}.composer button,.lookup button{border:0;border-radius:999px;background:var(--blue);color:#fff;padding:11px 17px;font-weight:750;cursor:pointer}.lookup-wrap{background:#fff;border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow);max-width:620px;margin:44px auto}.lookup-wrap h1{font-size:30px;letter-spacing:-.035em;margin:0 0 8px}.lookup-wrap p{color:var(--muted);font-size:13px;line-height:1.5}.lookup{display:flex;gap:8px;margin-top:16px}.lookup input{flex:1;border:1px solid #d9dce2;border-radius:999px;padding:12px 15px;font:inherit;text-transform:uppercase}.notice{margin-top:10px;border-radius:14px;padding:12px 13px;font-size:11px}.notice.warn{background:#fff7e8;color:#7b5612;border:1px solid #f2dbad}.notice.err{background:#fff0f0;color:#a72d2d;border:1px solid #f0c1c1}.last{font-size:10px;color:#999;text-align:center;margin-top:18px}.section-full{grid-column:1/-1}.hidden{display:none!important}@media(max-width:760px){.quote-approval-top{flex-direction:column}.quote-price{text-align:left}.quote-action-row{flex-direction:column}.quote-action-row button{width:100%}.wrap{padding-top:16px}.topbar{margin-bottom:16px}.secure-chip{display:none}.hero{border-radius:24px;padding:28px 22px}.grid{grid-template-columns:1fr}.section-full{grid-column:auto}.tech-fields{grid-template-columns:1fr}.gallery{grid-template-columns:repeat(2,1fr)}.bubble{max-width:90%}.lookup{flex-direction:column}.lookup button{width:100%}}
-  
-    .rating-picker{display:flex;gap:7px;margin:4px 0 12px}.rating-picker button{border:0;background:#f1f2f4;color:#c1c4ca;width:42px;height:42px;border-radius:13px;font-size:21px;cursor:pointer}.rating-picker button.active{background:#fff6d9;color:#e8a400;box-shadow:inset 0 0 0 1px #f2d477}.rating-picker button:hover{transform:translateY(-1px)}
-    #feedbackForm textarea{width:100%;min-height:105px;border:1px solid #d9dce2;border-radius:15px;padding:12px 13px;font:inherit;font-size:12px;resize:vertical}.feedback-thanks{background:#edf8f1;border:1px solid #c8e8d4;border-radius:16px;padding:15px;color:#216c42}.feedback-thanks b{display:block}.feedback-thanks small{display:block;margin-top:4px;line-height:1.45}
-
-
-
-    .quote-approval{margin-top:18px;background:linear-gradient(180deg,#ffffff 0%,#fbfbfd 100%);border:1px solid #e8e8ed;border-radius:30px;padding:28px;box-shadow:var(--shadow)}
-    .quote-approval-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px}
-    .quote-approval-top>div:first-child{max-width:690px}
-    .quote-approval-top span{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.14em;font-weight:800;color:var(--blue);text-transform:uppercase}
-    .quote-approval-top h2{font-size:clamp(28px,4vw,42px);letter-spacing:-.04em;line-height:1.03;margin:12px 0 10px}
-    .quote-approval-top p{margin:0;color:#5f6673;font-size:15px;line-height:1.6;max-width:58ch}
-    .quote-price{min-width:215px;background:#f7f8fb;border:1px solid #e8ebf1;border-radius:24px;padding:18px 20px;text-align:right;box-shadow:inset 0 1px 0 #fff}
-    .quote-price small{display:block;font-size:11px;color:#6d7380;text-transform:uppercase;letter-spacing:.12em;font-weight:800;margin-bottom:7px}
-    .quote-price b{display:block;font-size:34px;line-height:1.05;letter-spacing:-.045em}
-    .quote-scope{background:#fff;border:1px solid #e8e8ed;border-radius:24px;padding:20px 22px;margin-bottom:16px}
-    .quote-scope span{display:block;font-size:11px;color:#6d7380;text-transform:uppercase;letter-spacing:.12em;font-weight:800;margin-bottom:10px}
-    .quote-scope p{margin:0;font-size:16px;line-height:1.7;white-space:pre-wrap;color:#23262d}
-    .quote-wait-box,.quote-approved-box{border-radius:20px;padding:15px 17px;margin-bottom:18px;font-size:13px;line-height:1.6}
-    .quote-wait-box{background:#f5f9ff;border:1px solid #d7e9ff;color:#215a94}
-    .quote-approved-box{background:#edf8f1;border:1px solid #c9e7d4;color:#216c42}
-    .quote-approved-box b{display:block;font-size:15px;margin-bottom:3px}
-    .quote-approved-box small{display:block;font-size:12px;line-height:1.5;color:inherit}
-    #quoteActions{display:grid;gap:16px}
-    .quote-comment-block{background:#fff;border:1px solid #e8e8ef;border-radius:24px;padding:18px}
-    .quote-comment-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-    .quote-comment-head b{font-size:18px;letter-spacing:-.02em;display:block}
-    .quote-comment-head small{display:block;color:#6f7581;font-size:12px;line-height:1.45;margin-top:5px;max-width:64ch}
-    .quote-comment-label{display:block}
-    .quote-comment-label span{display:block;font-weight:700;font-size:13px;margin-bottom:8px;color:#25272d}
-    .quote-comment-label textarea{width:100%;min-height:138px;resize:vertical;border:1px solid #d9dce2;border-radius:20px;padding:16px 17px;font:inherit;font-size:14px;line-height:1.55;outline:none;background:#fbfbfd;color:#1d1d1f;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease}
-    .quote-comment-label textarea:focus{border-color:#7db7f4;box-shadow:0 0 0 5px #0071e312;background:#fff}
-    .quote-comment-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px;color:#6f7581;font-size:11px}
-    .quick-replies-wrap{display:grid;gap:10px}
-    .quick-replies-label{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#767d89}
-    .quick-replies{display:flex;flex-wrap:wrap;gap:10px}
-    .quick-replies button{border:1px solid #d8dde5;background:#fff;border-radius:999px;padding:12px 16px;font:inherit;font-size:13px;font-weight:700;color:#1d1d1f;cursor:pointer;transition:all .18s ease;box-shadow:0 4px 18px rgba(17,17,17,.03)}
-    .quick-replies button:hover{border-color:#c4d8f9;color:var(--blue);background:#f7fbff;transform:translateY(-1px)}
-    .quote-action-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-    .quote-action-row button{border:0;border-radius:999px;padding:14px 20px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,opacity .18s ease}
-    .quote-action-row button:hover,.approve-confirm:hover{transform:translateY(-1px)}
-    .quote-action-row button:disabled,.approve-confirm:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
-    .secondary-action{background:#f2f4f7;color:#1d1d1f;border:1px solid #e0e4ea;box-shadow:0 8px 22px rgba(17,17,17,.04)}
-    .secondary-action:hover{background:#fff}
-    .approve-action,.approve-confirm{background:#111;color:#fff;box-shadow:0 14px 26px rgba(17,17,17,.18)}
-    .approve-action{padding-inline:24px}
-    .quote-action-note{font-size:11px;color:#6f7581}
-    .terms-modal{position:fixed;inset:0;background:rgba(13,17,23,.44);backdrop-filter:blur(14px);display:grid;place-items:center;padding:20px;z-index:60}
-    .terms-card{width:min(740px,100%);max-height:min(92vh,900px);overflow:auto;background:#fff;border:1px solid #e6e8ed;border-radius:30px;padding:28px;box-shadow:0 35px 80px rgba(0,0,0,.2);position:relative}
-    .terms-close{position:absolute;right:18px;top:18px;width:40px;height:40px;border-radius:999px;border:1px solid #e1e4ea;background:#f7f8fb;color:#20242b;font-size:24px;line-height:1;cursor:pointer}
-    .terms-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.14em;font-weight:800;color:var(--blue);text-transform:uppercase}
-    .terms-card h2{font-size:clamp(28px,4vw,40px);letter-spacing:-.045em;line-height:1.05;margin:12px 0 10px}
-    .terms-intro{margin:0 0 18px;color:#5f6673;font-size:15px;line-height:1.6;max-width:58ch}
-    .terms-list{display:grid;gap:12px;margin-bottom:18px}
-    .terms-list>div{background:#fbfbfd;border:1px solid #e9ebf0;border-radius:20px;padding:16px 17px}
-    .terms-list b{display:block;font-size:15px;letter-spacing:-.015em;margin-bottom:6px}
-    .terms-list p{margin:0;color:#505662;font-size:13px;line-height:1.6}
-    .terms-accept{display:flex;align-items:flex-start;gap:14px;border:1px solid #dfe7f3;background:#f7fbff;border-radius:22px;padding:16px 17px;margin:6px 0 16px;cursor:pointer}
-    .terms-accept input{margin-top:3px;width:18px;height:18px;accent-color:#111;flex:0 0 auto}
-    .terms-accept b{display:block;font-size:14px;letter-spacing:-.01em}
-    .terms-accept small{display:block;margin-top:4px;color:#5f6673;font-size:12px;line-height:1.5}
-    .terms-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px}
-    .terms-actions p{margin:0;color:#6f7581;font-size:11px;line-height:1.45;max-width:330px}
-    @media(max-width:760px){.quote-approval{padding:22px}.quote-approval-top h2{font-size:33px}.quote-price{width:100%;text-align:left}.quote-comment-head{flex-direction:column}.quote-comment-foot{flex-direction:column;align-items:flex-start}.quick-replies{gap:8px}.quick-replies button{width:100%;justify-content:flex-start;text-align:left}.terms-card{padding:22px;border-radius:24px}.terms-actions{flex-direction:column;align-items:stretch}.approve-confirm{width:100%}}
-
-    .client-name-meta{display:inline-flex;align-items:center;gap:6px;margin:3px 0 10px;padding:6px 10px;border:1px solid #e3e6eb;background:#f8f9fb;border-radius:999px;color:#5f6672;font-size:11px;line-height:1;font-weight:650}
-    .client-name-meta::before{content:'Cliente';font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#8a909a;font-weight:800}
-    @media(max-width:760px){.client-name-meta{font-size:10px}}
-
-</style>
+    :root{--bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--soft:#86868b;--line:#e6e6eb;--blue:#0071e3;--blue-soft:#edf6ff;--green:#248a4b;--green-soft:#edf8f1;--amber:#9a6500;--amber-soft:#fff7e5;--red:#b53636;--red-soft:#fff0f0;--shadow:0 18px 55px rgba(0,0,0,.055)}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}.hidden{display:none!important}button,input,textarea{font:inherit}.wrap{width:min(1120px,calc(100% - 28px));margin:auto;padding:24px 0 60px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:12px}.brand-mark{width:46px;height:46px;border-radius:15px;background:#0b0b0d;padding:9px;display:grid;place-items:center;box-shadow:0 8px 24px #00000012}.brand-mark img{width:100%;height:100%;object-fit:contain}.brand b{display:block;font-size:18px;letter-spacing:-.025em}.brand span{display:block;color:var(--muted);font-size:11px;margin-top:2px}.secure-chip{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#4f5a67;background:#fff;border:1px solid var(--line);padding:8px 11px;border-radius:999px}.secure-chip:before{content:"";width:7px;height:7px;border-radius:50%;background:#30a85b;box-shadow:0 0 0 4px #30a85b18}
+    .lookup-wrap{background:#fff;border:1px solid var(--line);border-radius:30px;padding:32px;box-shadow:var(--shadow);max-width:680px;margin:56px auto}.lookup-icon{width:52px;height:52px;border-radius:17px;background:#0b0b0d;color:#fff;display:grid;place-items:center;font-size:22px;margin-bottom:20px}.lookup-wrap h1{font-size:clamp(30px,5vw,43px);line-height:1.04;letter-spacing:-.045em;margin:0 0 10px}.lookup-wrap>p{color:var(--muted);font-size:14px;line-height:1.6;margin:0}.lookup-form{display:grid;gap:12px;margin-top:24px}.field span{display:block;font-size:11px;font-weight:800;color:#61666f;margin:0 0 7px}.field input,.field textarea{width:100%;border:1px solid #d8dbe1;border-radius:15px;background:#fff;padding:13px 14px;outline:none;color:var(--text)}.field input:focus,.field textarea:focus{border-color:#78b4f3;box-shadow:0 0 0 4px #0071e312}.field input.code{text-transform:uppercase}.lookup-actions{display:flex;align-items:center;gap:10px}.primary,.secondary,.danger{border:0;border-radius:999px;padding:12px 18px;font-weight:800;cursor:pointer;transition:.18s ease}.primary{background:var(--blue);color:#fff}.primary:hover{filter:brightness(.96);transform:translateY(-1px)}.secondary{background:#f1f2f4;color:#222;border:1px solid #e0e1e5}.danger{background:#fff;color:var(--red);border:1px solid #efcaca}.primary:disabled,.secondary:disabled,.danger:disabled{opacity:.5;cursor:not-allowed;transform:none}.lookup-note{font-size:11px;color:var(--muted);line-height:1.5}.notice{margin-top:12px;border-radius:15px;padding:12px 14px;font-size:12px;line-height:1.5}.notice.info{background:var(--blue-soft);color:#215d99;border:1px solid #d4e8ff}.notice.ok{background:var(--green-soft);color:#256d43;border:1px solid #c9e8d5}.notice.warn{background:var(--amber-soft);color:#795712;border:1px solid #efdbad}.notice.err{background:var(--red-soft);color:#9e3333;border:1px solid #f0caca}
+    .hero{background:#0b0b0d;color:#fff;border-radius:32px;padding:38px;box-shadow:var(--shadow);position:relative;overflow:hidden}.hero:after{content:"";position:absolute;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,#147ce538,transparent 68%);right:-100px;top:-140px;pointer-events:none}.hero-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:30px;position:relative;z-index:1}.eyebrow{font-size:10px;letter-spacing:.16em;font-weight:850;color:#8fc2ff}.hero h1{font-size:clamp(34px,5vw,56px);line-height:1;letter-spacing:-.05em;margin:10px 0 10px}.hero p{font-size:15px;color:#b8bbc1;line-height:1.6;margin:0;max-width:690px}.hero-client{display:inline-flex;margin-top:12px;color:#d7d9de;font-size:12px}.hero-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}.hero-meta span{background:#ffffff0f;border:1px solid #ffffff18;padding:8px 11px;border-radius:999px;font-size:11px}.status-pill{font-weight:800}.status-pill.green{background:#153d28;border-color:#275c3d;color:#a9e9bf}.status-pill.blue{background:#11365c;border-color:#235a91;color:#b6d8ff}.status-pill.amber{background:#4a3818;border-color:#72582b;color:#ffe0a0}.status-pill.red{background:#4d2020;border-color:#793333;color:#ffc1c1}.hero-side{background:#ffffff0b;border:1px solid #ffffff14;border-radius:22px;padding:19px;align-self:stretch}.hero-side small{display:block;color:#8e939b;font-size:9px;letter-spacing:.11em;text-transform:uppercase;font-weight:800}.hero-side b{display:block;margin-top:5px;font-size:14px}.hero-side-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.hero-side-grid>div{min-width:0}.hero-side .serial{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
+    .progress-card{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:26px;padding:23px;box-shadow:var(--shadow)}.section-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.section-head h2{font-size:21px;letter-spacing:-.03em;margin:0}.section-head p{font-size:12px;color:var(--muted);margin:5px 0 0;line-height:1.5}.live-badge{font-size:10px;color:#287148;background:#eef9f2;border:1px solid #cee8d7;border-radius:999px;padding:7px 9px;white-space:nowrap}.progress{display:grid;grid-template-columns:repeat(7,1fr);gap:0;margin-top:24px}.pstep{position:relative;text-align:center;min-width:0}.pstep:before{content:"";position:absolute;top:14px;left:-50%;right:50%;height:2px;background:#e1e3e7;z-index:0}.pstep:first-child:before{display:none}.pstep.done:before,.pstep.current:before{background:#111}.p-dot{width:29px;height:29px;border-radius:50%;background:#f0f1f3;border:2px solid #d9dce1;margin:0 auto 9px;display:grid;place-items:center;font-size:10px;font-weight:800;position:relative;z-index:1}.pstep.done .p-dot{background:#111;color:#fff;border-color:#111}.pstep.current .p-dot{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:0 0 0 5px #0071e313}.pstep b{display:block;font-size:10px;line-height:1.25}.pstep small{display:block;color:#96989d;font-size:8px;line-height:1.35;margin-top:3px;min-height:22px;padding:0 3px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.card{background:#fff;border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow)}.card.full{grid-column:1/-1}.card h2{font-size:20px;letter-spacing:-.03em;margin:0 0 5px}.card>.sub{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 18px}.latest-box{background:linear-gradient(180deg,#fbfdff,#f7f9fc);border:1px solid #e2e9f2;border-radius:19px;padding:17px}.latest-box .kicker{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);font-weight:850}.latest-box h3{font-size:18px;letter-spacing:-.02em;margin:7px 0 7px}.latest-box p{font-size:13px;line-height:1.6;color:#4f5660;margin:0;white-space:pre-wrap}.latest-box small{display:block;color:#92959b;font-size:9px;margin-top:10px}.order-facts{display:grid;grid-template-columns:1fr 1fr;gap:9px}.fact{border:1px solid #ececf0;border-radius:16px;padding:13px;background:#fbfbfc}.fact span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.09em;font-weight:850;color:#858992}.fact b{display:block;font-size:12px;line-height:1.4;margin-top:5px;word-break:break-word}.fact.wide{grid-column:1/-1}
+    .quote-card{margin-top:16px;background:linear-gradient(180deg,#fff,#fbfbfd);border:1px solid var(--line);border-radius:28px;padding:27px;box-shadow:var(--shadow)}.quote-top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.quote-top .tag{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:850}.quote-top h2{font-size:clamp(26px,4vw,38px);letter-spacing:-.04em;line-height:1.05;margin:9px 0}.quote-top p{color:var(--muted);font-size:13px;line-height:1.6;margin:0;max-width:610px}.quote-price{background:#f5f6f8;border:1px solid #e6e7ea;border-radius:20px;padding:16px 18px;min-width:190px;text-align:right}.quote-price small{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#747880;font-weight:850}.quote-price b{display:block;font-size:30px;letter-spacing:-.04em;margin-top:5px}.quote-details{margin-top:17px;background:#fff;border:1px solid #e8e8ed;border-radius:20px;padding:18px}.quote-details span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:850;color:#777c84}.quote-details p{font-size:14px;line-height:1.65;white-space:pre-wrap;margin:8px 0 0}.quote-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.quote-meta span{font-size:10px;background:#f3f4f6;border-radius:999px;padding:7px 9px;color:#5d626a}.quote-question{margin-top:16px}.quote-question textarea,.composer textarea,.feedback textarea{width:100%;min-height:88px;border:1px solid #d9dce2;border-radius:15px;padding:12px 13px;resize:vertical;outline:none;background:#fff}.quote-question textarea:focus,.composer textarea:focus,.feedback textarea:focus{border-color:#7db7f4;box-shadow:0 0 0 4px #0071e312}.quick-replies{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.quick-replies button{border:1px solid #e1e3e6;background:#f7f7f8;border-radius:999px;padding:7px 10px;font-size:10px;cursor:pointer}.quote-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:13px}.decision-box{margin-top:16px;border-radius:17px;padding:14px 16px;font-size:12px;line-height:1.55}.decision-box.ok{background:var(--green-soft);border:1px solid #c9e8d5;color:#256d43}.decision-box.warn{background:var(--amber-soft);border:1px solid #efdbad;color:#795712}.decision-box b{display:block;font-size:13px;margin-bottom:2px}
+    .tech-list{display:grid;gap:10px}.tech-card{border:1px solid #e8e8ed;background:#fbfbfd;border-radius:18px;padding:15px}.tech-head{display:flex;justify-content:space-between;gap:12px}.tech-head .type{font-size:9px;letter-spacing:.09em;color:var(--blue);font-weight:850;text-transform:uppercase}.tech-head b{display:block;font-size:14px;margin-top:4px}.tech-head small{font-size:9px;color:#999;text-align:right}.tech-summary{font-size:12px;color:#4e5560;line-height:1.55;margin:10px 0 0;white-space:pre-wrap}.tech-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.tech-fields>div{background:#fff;border:1px solid #ececf0;border-radius:13px;padding:10px}.tech-fields span{font-size:8px;color:#85858b;text-transform:uppercase;letter-spacing:.06em;font-weight:800}.tech-fields p{font-size:11px;line-height:1.45;margin:4px 0 0;white-space:pre-wrap}
+    .photo-section+.photo-section{margin-top:19px}.photo-section h3{font-size:13px;margin:0 0 9px}.gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.photo{display:block;border-radius:16px;overflow:hidden;background:#eee;aspect-ratio:1/1;position:relative}.photo img{width:100%;height:100%;object-fit:cover;display:block;transition:.2s}.photo:hover img{transform:scale(1.025)}.photo span{position:absolute;left:7px;right:7px;bottom:7px;background:#000a;color:#fff;font-size:9px;padding:6px 7px;border-radius:9px;backdrop-filter:blur(12px)}
+    .activity{display:grid;gap:0}.activity-row{display:grid;grid-template-columns:24px 1fr;gap:11px;position:relative;padding-bottom:17px}.activity-row:not(:last-child):before{content:"";position:absolute;left:11px;top:22px;bottom:0;width:2px;background:#e5e6e8}.activity-dot{width:24px;height:24px;border-radius:50%;background:#111;color:#fff;display:grid;place-items:center;font-size:9px;z-index:1}.activity-row b{display:block;font-size:12px}.activity-row p{font-size:11px;color:#5e646d;line-height:1.5;margin:4px 0 0}.activity-row small{display:block;font-size:9px;color:#96989d;margin-top:4px}
+    .chat{display:flex;flex-direction:column;gap:8px;max-height:430px;overflow:auto;padding:3px 2px 10px}.bubble{max-width:78%;padding:11px 13px;border-radius:17px}.bubble.staff{align-self:flex-start;background:#f0f1f4}.bubble.client{align-self:flex-end;background:var(--blue);color:#fff}.bubble-head{display:flex;justify-content:space-between;gap:10px;font-size:9px;margin-bottom:5px}.bubble-head span{font-weight:800}.bubble-head small{opacity:.65}.bubble p{font-size:12px;line-height:1.5;white-space:pre-wrap;margin:0}.composer{border-top:1px solid var(--line);padding-top:14px;margin-top:4px}.composer-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}.composer-foot small{color:var(--muted);font-size:10px}
+    .money-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.money-box{border:1px solid #e8e8ed;border-radius:17px;padding:14px;background:#fbfbfc}.money-box span{display:block;color:#858992;font-size:8px;text-transform:uppercase;letter-spacing:.09em;font-weight:850}.money-box b{display:block;font-size:18px;letter-spacing:-.03em;margin-top:6px}.payment-status{margin-top:12px;font-size:11px;color:#5e646d}.warranty-hero{border-radius:18px;padding:17px;background:#f5f9ff;border:1px solid #dcecff}.warranty-hero.active{background:var(--green-soft);border-color:#cce8d7}.warranty-hero b{display:block;font-size:16px}.warranty-hero p{font-size:11px;line-height:1.55;color:#59616b;margin:5px 0 0}.delivery-box{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#0b0b0d;color:#fff;border-radius:22px;padding:20px}.delivery-box b{display:block;font-size:18px}.delivery-box p{font-size:11px;line-height:1.5;color:#b7bac1;margin:5px 0 0}.delivery-box a{display:inline-flex;text-decoration:none;background:#fff;color:#111;border-radius:999px;padding:11px 15px;font-size:11px;font-weight:800;white-space:nowrap}
+    .rating{display:flex;gap:7px;margin:5px 0 12px}.rating button{border:0;background:#f1f2f4;color:#c1c4ca;width:42px;height:42px;border-radius:13px;font-size:21px;cursor:pointer}.rating button.active{background:#fff6d9;color:#e8a400;box-shadow:inset 0 0 0 1px #f2d477}.empty{font-size:12px;color:var(--muted);padding:10px 0;line-height:1.55}.last{text-align:center;color:#9b9da2;font-size:9px;margin-top:20px}
+    .modal{position:fixed;inset:0;background:#0008;backdrop-filter:blur(12px);z-index:50;display:grid;place-items:center;padding:18px}.modal-card{width:min(620px,100%);max-height:min(760px,90vh);overflow:auto;background:#fff;border-radius:28px;padding:27px;box-shadow:0 30px 100px #0004;position:relative}.modal-close{position:absolute;right:16px;top:16px;width:34px;height:34px;border:0;border-radius:50%;background:#f0f1f3;font-size:20px;cursor:pointer}.modal-card .tag{font-size:9px;letter-spacing:.13em;text-transform:uppercase;font-weight:850;color:var(--blue)}.modal-card h2{font-size:28px;letter-spacing:-.04em;margin:10px 0 8px}.modal-card>p{font-size:12px;line-height:1.6;color:var(--muted)}.terms-list{display:grid;gap:8px;margin:17px 0}.term{border:1px solid #e8e8ed;border-radius:15px;padding:12px}.term b{font-size:11px}.term p{font-size:10px;color:#616771;line-height:1.5;margin:5px 0 0}.check{display:flex;gap:10px;background:#f7f8fa;border:1px solid #e6e8eb;border-radius:16px;padding:13px;margin-top:14px}.check input{width:18px;height:18px;margin:1px 0 0}.check b{display:block;font-size:11px}.check small{display:block;color:#747980;font-size:9px;line-height:1.45;margin-top:3px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+    @media(max-width:820px){.wrap{width:min(100% - 20px,1120px);padding-top:14px}.secure-chip{display:none}.hero{padding:27px 21px;border-radius:25px}.hero-grid{grid-template-columns:1fr}.hero-side{padding:15px}.grid{grid-template-columns:1fr}.card.full{grid-column:auto}.quote-top{flex-direction:column}.quote-price{width:100%;text-align:left;min-width:0}.progress{grid-template-columns:1fr;margin-top:20px}.pstep{text-align:left;display:grid;grid-template-columns:32px 1fr;gap:9px;padding-bottom:12px}.pstep:before{left:14px;right:auto;top:-10px;bottom:auto;height:18px;width:2px}.pstep:first-child:before{display:none}.p-dot{margin:0}.pstep b{font-size:11px;margin-top:2px}.pstep small{min-height:0;padding:0}.gallery{grid-template-columns:repeat(2,1fr)}.tech-fields{grid-template-columns:1fr}.money-grid{grid-template-columns:1fr}.delivery-box{flex-direction:column;align-items:flex-start}.delivery-box a{width:100%;justify-content:center}.lookup-wrap{margin:28px auto;padding:24px}.hero-side-grid{grid-template-columns:1fr 1fr}.quote-actions{flex-direction:column}.quote-actions button{width:100%}.bubble{max-width:90%}.composer-foot{align-items:flex-start;flex-direction:column}.composer-foot button{width:100%}.section-head{align-items:flex-start}.live-badge{display:none}}
+  </style>
 </head>
 <body>
   <main class="wrap">
-    <div class="topbar"><div class="brand"><div class="brand-mark"><img src="/assets/thinkstore-logo-white.png" alt="ThinkStore"></div><div><b>ThinkStore</b><span>Servicio Técnico</span></div></div><div class="secure-chip" id="secureChip">Seguimiento seguro</div></div>
+    <div class="topbar">
+      <div class="brand"><div class="brand-mark"><img src="/assets/thinkstore-logo-white.png" alt="ThinkStore"></div><div><b>ThinkStore</b><span>Servicio Técnico</span></div></div>
+      <div class="secure-chip" id="secureChip">Seguimiento seguro</div>
+    </div>
 
-    <section id="lookupScreen" class="lookup-wrap hidden"><h1>Consulta tu reparación</h1><p>Ingresa el código de orden. Para ver fotografías, bitácora y responder mensajes usa el enlace seguro enviado por ThinkStore.</p><form id="lookup" class="lookup"><input id="code" required placeholder="TS-SVC-2026-0001" autocomplete="off"><button>Consultar</button></form><div id="lookupNotice"></div></section>
+    <section id="lookupScreen" class="lookup-wrap hidden">
+      <div class="lookup-icon">⌁</div>
+      <h1>Consulta tu reparación.</h1>
+      <p id="lookupIntro">Ingresa tu número de orden. Para proteger fotografías, diagnóstico y conversaciones, verificaremos los últimos 4 dígitos del teléfono registrado.</p>
+      <form id="lookupForm" class="lookup-form">
+        <label class="field"><span>Número de orden</span><input id="codeInput" class="code" required placeholder="TS-SVC-2026-0001" autocomplete="off"></label>
+        <label id="phoneWrap" class="field hidden"><span>Últimos 4 dígitos del teléfono</span><input id="phoneLast4Input" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="••••" autocomplete="one-time-code"></label>
+        <div class="lookup-actions"><button id="lookupButton" class="primary" type="submit">Consultar reparación</button></div>
+        <div class="lookup-note">Si escaneaste el QR impreso en tu orden, el acceso se abre directamente sin pedir este dato.</div>
+      </form>
+      <div id="lookupNotice"></div>
+    </section>
 
     <div id="portal" class="hidden">
-      <section class="hero"><div class="eyebrow">SEGUIMIENTO DE REPARACIÓN</div><h1 id="device">Tu equipo</h1><div id="clientNameMeta" class="client-name-meta hidden"></div><p id="heroCopy">Aquí puedes revisar el avance completo de tu servicio.</p><div class="hero-meta"><span id="orderCode"></span><span class="status-pill" id="status"></span><span id="updatedTop"></span></div></section>
+      <section class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="eyebrow">SEGUIMIENTO DE REPARACIÓN</div>
+            <h1 id="device">Tu equipo</h1>
+            <div id="clientName" class="hero-client"></div>
+            <p id="heroCopy">Consulta el avance, diagnóstico, cotización y mensajes de tu orden.</p>
+            <div class="hero-meta"><span id="orderCode">—</span><span id="statusPill" class="status-pill blue">—</span><span id="updatedTop">—</span></div>
+          </div>
+          <div class="hero-side">
+            <div class="hero-side-grid">
+              <div><small>Equipo</small><b id="metaDevice">—</b></div>
+              <div><small>Color</small><b id="metaColor">—</b></div>
+              <div><small>Serial / IMEI</small><b id="metaSerial" class="serial">—</b></div>
+              <div><small>Recepción</small><b id="metaReceived">—</b></div>
+              <div><small>Modalidad</small><b id="metaMode">—</b></div>
+              <div><small>Última actualización</small><b id="metaUpdated">—</b></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <section id="quoteApprovalCard" class="quote-approval hidden">
-        <div class="quote-approval-top"><div><span>COTIZACIÓN DE REPARACIÓN</span><h2>Revisa antes de autorizar.</h2><p>Consulta el trabajo propuesto, haz cualquier pregunta y aprueba cuando estés de acuerdo.</p></div><div class="quote-price"><small>Total</small><b id="quoteAmount">—</b></div></div>
-        <div class="quote-scope"><span>Reparación propuesta</span><p id="quoteRepairDetails"></p></div>
-        <div id="quoteDecisionState"></div>
-        <div id="quoteActions">
-          <div class="quote-comment-block">
-            <div class="quote-comment-head">
-              <div>
-                <b>Comentarios o preguntas antes de aprobar</b>
-                <small>Si deseas confirmar tiempo estimado, garantía o cualquier detalle de la reparación, puedes escribirlo aquí antes de autorizar la cotización.</small>
-              </div>
-            </div>
-            <label class="quote-comment-label">
-              <span>Mensaje para el técnico</span>
-              <textarea id="quoteComment" maxlength="1200" placeholder="Escribe una pregunta o comentario para el técnico..."></textarea>
-            </label>
-            <div class="quote-comment-foot">
-              <span>Puedes dejar observaciones antes de autorizar la reparación.</span>
-              <span>Respuesta directa en este mismo seguimiento.</span>
-            </div>
-          </div>
-          <div class="quick-replies-wrap">
-            <div class="quick-replies-label">Respuestas rápidas</div>
-            <div class="quick-replies"><button type="button" data-quick="¿Cuánto tiempo tomará la reparación?">Tiempo estimado</button><button type="button" data-quick="¿La reparación incluye garantía?">Garantía</button><button type="button" data-quick="Tengo una pregunta sobre la cotización.">Tengo una pregunta</button></div>
-          </div>
-          <div class="quote-action-row"><button id="sendQuoteQuestion" type="button" class="secondary-action">Enviar consulta</button><button id="openApproveQuote" type="button" class="approve-action">Aprobar cotización</button></div>
-          <div class="quote-action-note">La reparación no comenzará hasta recibir tu aprobación.</div>
+      <section class="progress-card">
+        <div class="section-head"><div><h2>Estado del servicio</h2><p>Una vista rápida de dónde se encuentra tu equipo.</p></div><div class="live-badge">● Actualización automática</div></div>
+        <div id="progress" class="progress"></div>
+        <div id="progressNotice"></div>
+      </section>
+
+      <section id="quoteCard" class="quote-card hidden">
+        <div class="quote-top"><div><div class="tag">COTIZACIÓN DE REPARACIÓN</div><h2 id="quoteTitle">Revisa antes de autorizar.</h2><p id="quoteLead">Consulta el trabajo propuesto, haz cualquier pregunta y aprueba cuando estés de acuerdo.</p></div><div class="quote-price"><small>Total</small><b id="quoteAmount">—</b></div></div>
+        <div class="quote-details"><span>Reparación propuesta</span><p id="quoteRepairDetails"></p><div class="quote-meta"><span id="quoteWarranty"></span><span id="quoteSentAt"></span></div></div>
+        <div id="quoteDecision"></div>
+        <div id="quoteInteractive" class="quote-question">
+          <textarea id="quoteComment" maxlength="1200" placeholder="Escribe una pregunta o comentario para el técnico..."></textarea>
+          <div class="quick-replies"><button type="button" data-quick="¿Cuánto tiempo tomará la reparación?">Tiempo estimado</button><button type="button" data-quick="¿La reparación incluye garantía?">Garantía</button><button type="button" data-quick="Tengo una pregunta sobre la cotización.">Tengo una pregunta</button></div>
+          <div class="quote-actions"><button id="sendQuoteQuestion" class="secondary" type="button">Enviar consulta</button><button id="rejectQuote" class="danger" type="button">No aprobar</button><button id="approveQuote" class="primary" type="button">Aprobar cotización</button></div>
           <div id="quoteNotice"></div>
         </div>
       </section>
 
       <section class="grid">
-        <div class="card"><h2>Estado del servicio</h2><p class="sub">Avance general de tu reparación.</p><div class="timeline" id="timeline"></div></div>
-        <div class="card"><h2>Resumen técnico</h2><p class="sub">Última actualización publicada por nuestro técnico.</p><div id="latestTechnical" class="technical-list"></div></div>
-        <div class="card section-full"><h2>Bitácora y diagnóstico</h2><p class="sub">Historial detallado de lo realizado en tu equipo.</p><div id="technicalList" class="technical-list"></div></div>
-        <div class="card section-full"><h2>Imágenes de la reparación</h2><p class="sub">Fotografías que nuestro equipo decidió compartir contigo.</p><div id="gallery" class="gallery"></div></div>
-        <div class="card section-full"><h2>Mensajes con el técnico</h2><p class="sub">Puedes responder directamente desde aquí.</p><div id="chat" class="chat"></div><div id="composer" class="composer"><textarea id="replyMessage" maxlength="2000" placeholder="Escribe tu mensaje para ThinkStore..."></textarea><div class="composer-foot"><small>Tu respuesta quedará asociada a esta orden.</small><button id="sendReply" type="button">Enviar</button></div><div id="replyNotice"></div></div></div>
-        <div id="feedbackCard" class="card section-full hidden"><h2>¿Cómo fue tu experiencia?</h2><p class="sub">Tu reseña queda asociada a esta reparación y será revisada por nuestro equipo.</p><div id="feedbackExisting" class="hidden"></div><div id="feedbackForm"><div class="rating-picker" id="ratingPicker"><button type="button" data-rating="1">★</button><button type="button" data-rating="2">★</button><button type="button" data-rating="3">★</button><button type="button" data-rating="4">★</button><button type="button" data-rating="5">★</button></div><textarea id="feedbackComment" maxlength="1200" placeholder="Cuéntanos cómo fue la atención, la reparación o cualquier detalle que quieras compartir..."></textarea><div class="composer-foot"><small>Puedes dejar entre 1 y 5 estrellas.</small><button id="sendFeedback" type="button">Enviar reseña</button></div><div id="feedbackNotice"></div></div></div>
+        <article class="card"><h2>¿Qué está pasando con mi equipo?</h2><p class="sub">La última actualización publicada por ThinkStore.</p><div id="latestUpdate"></div></article>
+        <article class="card"><h2>Datos de la orden</h2><p class="sub">Información principal del servicio.</p><div id="orderFacts" class="order-facts"></div></article>
+        <article class="card full"><h2>Diagnóstico técnico</h2><p class="sub">Resultados y recomendaciones que el técnico decidió compartir contigo.</p><div id="diagnosisBlock" class="tech-list"></div></article>
+        <article class="card full"><h2>Imágenes del equipo</h2><p class="sub">Recepción, diagnóstico, reparación y resultado final, cuando estén disponibles.</p><div id="photoGroups"></div></article>
+        <article class="card full"><h2>Historial de la reparación</h2><p class="sub">Cronología de los hitos visibles de esta orden.</p><div id="history" class="activity"></div></article>
+        <article class="card full"><h2>Mensajes con ThinkStore</h2><p class="sub">Tus mensajes quedan asociados directamente a esta orden.</p><div id="chat" class="chat"></div><div id="composer" class="composer"><textarea id="replyMessage" maxlength="2000" placeholder="Escribe tu mensaje para ThinkStore..."></textarea><div class="composer-foot"><small>El equipo de Soporte recibirá una notificación.</small><button id="sendReply" class="primary" type="button">Enviar mensaje</button></div><div id="replyNotice"></div></div></article>
+        <article id="paymentCard" class="card hidden"><h2>Pago</h2><p class="sub">Resumen económico de la reparación.</p><div id="paymentSummary"></div></article>
+        <article id="warrantyCard" class="card hidden"><h2>Garantía</h2><p class="sub">Cobertura registrada para este servicio.</p><div id="warrantySummary"></div></article>
+        <article id="deliveryCard" class="card full hidden"><div class="delivery-box"><div><b>Tu equipo está listo.</b><p id="deliveryText">La reparación y las pruebas finales fueron completadas.</p></div><a id="deliveryWhatsapp" href="#" target="_blank" rel="noopener">Coordinar entrega por WhatsApp</a></div></article>
+        <article id="feedbackCard" class="card full hidden"><h2>¿Cómo fue tu experiencia?</h2><p class="sub">Tu reseña queda asociada a esta reparación.</p><div id="feedbackExisting"></div><div id="feedbackForm" class="feedback"><div class="rating" id="ratingPicker"><button type="button" data-rating="1">★</button><button type="button" data-rating="2">★</button><button type="button" data-rating="3">★</button><button type="button" data-rating="4">★</button><button type="button" data-rating="5">★</button></div><textarea id="feedbackComment" maxlength="1200" placeholder="Cuéntanos cómo fue la atención o la reparación..."></textarea><div class="composer-foot"><small>Selecciona entre 1 y 5 estrellas.</small><button id="sendFeedback" class="primary" type="button">Enviar reseña</button></div><div id="feedbackNotice"></div></div></article>
       </section>
       <div class="last" id="updated"></div>
     </div>
   </main>
 
-  <div id="quoteTermsModal" class="terms-modal hidden">
-    <div class="terms-card">
-      <button id="closeTerms" class="terms-close" type="button" aria-label="Cerrar">×</button>
-      <span class="terms-eyebrow">POLÍTICAS DE REPARACIÓN</span>
-      <h2>Confirma tu aprobación</h2>
-      <p class="terms-intro">Antes de aprobar la cotización, revisa los términos del servicio. Tu aceptación quedará asociada a esta orden y permitirá al técnico continuar con la reparación autorizada.</p>
-      <div class="terms-list">
-        <div><b>1. Alcance autorizado</b><p>ThinkStore realizará únicamente el trabajo indicado en la cotización aprobada. Cualquier reparación adicional requerirá una nueva autorización.</p></div>
-        <div><b>2. Pruebas del equipo</b><p>Autorizas las pruebas funcionales necesarias antes, durante y después de la reparación para verificar el resultado del servicio.</p></div>
-        <div><b>3. Información y respaldo</b><p>Se recomienda mantener respaldo de la información importante antes de cualquier reparación o intervención técnica.</p></div>
-        <div><b>4. Repuestos y garantía</b><p>La calidad de los repuestos, condiciones y garantía aplicables serán las indicadas en la orden, cotización o comprobante del servicio.</p></div>
-        <div><b>5. Monto aprobado</b><p>El monto aprobado corresponde a esta cotización. Cualquier variación deberá ser informada y aprobada antes de continuar.</p></div>
-      </div>
-      <label class="terms-accept"><input id="acceptRepairTerms" type="checkbox"><span><b>He leído y acepto las políticas de reparación.</b><small>La fecha de aceptación, el monto cotizado y cualquier comentario enviado quedarán registrados como aprobación del cliente.</small></span></label>
-      <div class="terms-actions">
-        <p>Al aprobar, el panel de soporte recibirá la autorización del cliente para continuar con la reparación.</p>
-        <button id="confirmApproveQuote" type="button" class="approve-confirm" disabled>Aceptar y aprobar cotización</button>
-      </div>
-      <div id="termsNotice"></div>
-    </div>
+  <div id="termsModal" class="modal hidden">
+    <div class="modal-card"><button class="modal-close" data-close="termsModal" type="button">×</button><div class="tag">POLÍTICAS DE REPARACIÓN</div><h2>Confirma tu aprobación.</h2><p>Tu aceptación quedará registrada en la orden junto con la fecha, el monto cotizado y cualquier comentario enviado.</p><div class="terms-list"><div class="term"><b>1. Alcance autorizado</b><p>ThinkStore realizará únicamente el trabajo indicado en la cotización aprobada. Cualquier trabajo adicional requerirá nueva autorización.</p></div><div class="term"><b>2. Pruebas del equipo</b><p>Autorizas las pruebas funcionales necesarias antes, durante y después de la reparación.</p></div><div class="term"><b>3. Información y respaldo</b><p>Se recomienda mantener respaldo de la información importante antes de cualquier intervención técnica.</p></div><div class="term"><b>4. Repuestos y garantía</b><p>La calidad, condiciones y garantía aplicables son las indicadas en la orden, cotización o comprobante.</p></div><div class="term"><b>5. Monto aprobado</b><p>Cualquier variación del monto debe ser informada y autorizada antes de continuar.</p></div></div><label class="check"><input id="acceptTerms" type="checkbox"><span><b>He leído y acepto las políticas de reparación.</b><small>Esta aceptación permitirá continuar con el trabajo autorizado.</small></span></label><div class="modal-actions"><button class="secondary" data-close="termsModal" type="button">Cancelar</button><button id="confirmApprove" class="primary" type="button" disabled>Aceptar y aprobar</button></div><div id="termsNotice"></div></div>
   </div>
-  <script>
-    const steps=['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado'];
-    const params=new URLSearchParams(location.search);let code=(params.get('orden')||'').trim().toUpperCase();let token=(params.get('token')||'').trim();let liveTimer=null;
-    let selectedRating=0;
 
-    // V8.7.3: referencias DOM explícitas.
-    // No depender de variables globales creadas automáticamente por id,
-    // porque nombres como "status" y "closeTerms" chocan con propiedades
-    // o funciones del navegador.
-    const lookupScreen=document.getElementById('lookupScreen');
-    const portal=document.getElementById('portal');
-    const secureChip=document.getElementById('secureChip');
-    const lookupForm=document.getElementById('lookup');
-    const lookupNotice=document.getElementById('lookupNotice');
-    const orderCode=document.getElementById('orderCode');
-    const device=document.getElementById('device');
-    const clientNameMeta=document.getElementById('clientNameMeta');
-    const statusEl=document.getElementById('status');
-    const updatedTop=document.getElementById('updatedTop');
-    const heroCopy=document.getElementById('heroCopy');
-    const timeline=document.getElementById('timeline');
-    const latestTechnical=document.getElementById('latestTechnical');
-    const technicalList=document.getElementById('technicalList');
-    const gallery=document.getElementById('gallery');
-    const chat=document.getElementById('chat');
-    const composer=document.getElementById('composer');
-    const replyMessage=document.getElementById('replyMessage');
-    const replyNotice=document.getElementById('replyNotice');
-    const sendReply=document.getElementById('sendReply');
-    const quoteApprovalCard=document.getElementById('quoteApprovalCard');
-    const quoteAmount=document.getElementById('quoteAmount');
-    const quoteRepairDetails=document.getElementById('quoteRepairDetails');
-    const quoteDecisionState=document.getElementById('quoteDecisionState');
-    const quoteActions=document.getElementById('quoteActions');
-    const quoteComment=document.getElementById('quoteComment');
-    const quoteNotice=document.getElementById('quoteNotice');
-    const sendQuoteQuestion=document.getElementById('sendQuoteQuestion');
-    const openApproveQuote=document.getElementById('openApproveQuote');
-    const quoteTermsModal=document.getElementById('quoteTermsModal');
-    const closeTermsBtn=document.getElementById('closeTerms');
-    const acceptRepairTerms=document.getElementById('acceptRepairTerms');
-    const confirmApproveQuote=document.getElementById('confirmApproveQuote');
-    const termsNotice=document.getElementById('termsNotice');
-    const feedbackCard=document.getElementById('feedbackCard');
-    const feedbackExisting=document.getElementById('feedbackExisting');
-    const feedbackForm=document.getElementById('feedbackForm');
-    const feedbackComment=document.getElementById('feedbackComment');
-    const feedbackNotice=document.getElementById('feedbackNotice');
-    const sendFeedback=document.getElementById('sendFeedback');
-    const updated=document.getElementById('updated');
+  <div id="rejectModal" class="modal hidden">
+    <div class="modal-card"><button class="modal-close" data-close="rejectModal" type="button">×</button><div class="tag" style="color:#a26700">DECISIÓN DE COTIZACIÓN</div><h2>No aprobar cotización.</h2><p>Registraremos tu decisión y ThinkStore podrá coordinar contigo los siguientes pasos. Puedes dejar un comentario opcional.</p><label class="field"><span>Comentario</span><textarea id="rejectComment" maxlength="1200" placeholder="Ej. Quiero retirar el equipo sin reparar o necesito consultar otra opción..."></textarea></label><div class="modal-actions"><button class="secondary" data-close="rejectModal" type="button">Volver</button><button id="confirmReject" class="danger" type="button">Confirmar que no apruebo</button></div><div id="rejectNotice"></div></div>
+  </div>
+
+  <script>
+  (()=>{
+    'use strict';
+    const WHATSAPP='584141032030';
+    const params=new URLSearchParams(location.search);
+    let code=(params.get('orden')||'').trim().toUpperCase();
+    let token=(params.get('token')||'').trim();
+    let phoneLast4='';
+    let liveTimer=null;
+    let selectedRating=0;
+    let currentOrder=null;
+    const $=id=>document.getElementById(id);
     const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const fmt=v=>v?new Date(v).toLocaleString('es-VE'):'—';
-    function renderTimeline(current){let idx=steps.indexOf(String(current||'Recibido'));if(idx<0)idx=0;timeline.innerHTML=steps.map((s,i)=>`<div class="step ${i<idx?'done':i===idx?'current':''}"><span class="dot">${i<idx?'✓':i+1}</span><div><b>${s}</b><small>${i===idx?'Estado actual':i<idx?'Completado':'Pendiente'}</small></div></div>`).join('')}
-    function noteCard(n){const fields=[['Diagnóstico',n.diagnosis],['Trabajo realizado',n.work_performed],['Repuestos / piezas',n.parts_used],['Pruebas realizadas',n.tests_performed],['Observaciones',n.client_notes]].filter(([,v])=>String(v||'').trim());return `<article class="tech-card"><div class="tech-head"><div><span>${esc(n.note_type||'Actualización')}</span><b>${esc(n.client_title||n.status_after||'Actualización técnica')}</b></div><small>${fmt(n.created_at)}${n.author_name?' · '+esc(n.author_name):''}</small></div>${n.note?`<p class="tech-summary">${esc(n.note)}</p>`:''}${fields.length?`<div class="tech-fields">${fields.map(([k,v])=>`<div><span>${esc(k)}</span><p>${esc(v)}</p></div>`).join('')}</div>`:''}</article>`}
-    function renderMessages(rows){chat.innerHTML=rows.length?rows.map(m=>`<div class="bubble ${m.sender_type==='client'?'client':'staff'}"><div class="bubble-head"><span>${esc(m.sender_type==='client'?'Tú':(m.sender_name||'ThinkStore'))}</span><small>${fmt(m.created_at)}</small></div><p>${esc(m.message)}</p></div>`).join(''):'<div class="empty">Aún no hay mensajes en esta orden.</div>';chat.scrollTop=chat.scrollHeight}
-    function renderPhotos(rows){gallery.innerHTML=rows.length?rows.map(p=>`<a class="photo" href="${esc(p.signed_url)}" target="_blank" rel="noopener"><img src="${esc(p.signed_url)}" alt="${esc(p.client_caption||p.label||'Imagen de reparación')}"><span>${esc(p.client_caption||p.label||'Imagen de reparación')}</span></a>`).join(''):'<div class="empty">Aún no hay imágenes publicadas.</div>'}
-    function renderQuote(o){
-      const card=document.getElementById('quoteApprovalCard');
-      const available=(o.status==='Cotización enviada'||o.status==='Aprobado por cliente'||o.quote_status==='Enviado'||o.quote_status==='Aprobado')&&Number(o.quote_amount||0)>0&&String(o.quote_repair_details||'').trim();
-      if(!available){card.classList.add('hidden');return}
-      card.classList.remove('hidden');
-      quoteAmount.textContent=`${o.quote_currency||'USD'} ${Number(o.quote_amount||0).toFixed(2)}`;
-      quoteRepairDetails.textContent=o.quote_repair_details||'';
-      if(o.quote_approved_at||o.quote_status==='Aprobado'||o.status==='Aprobado por cliente'){
-        quoteDecisionState.innerHTML=`<div class="quote-approved-box"><b>✓ Cotización aprobada</b><small>Aprobada ${o.quote_approved_at?'el '+fmt(o.quote_approved_at):'por el cliente'}.${o.quote_client_comment?` Comentario: ${esc(o.quote_client_comment)}`:''}</small></div>`;
-        quoteActions.classList.add('hidden');
-      }else{
-        quoteDecisionState.innerHTML=`<div class="quote-wait-box">Puedes hacer preguntas antes de aprobar. La reparación no comenzará hasta recibir tu autorización.</div>`;
-        quoteActions.classList.remove('hidden');
-      }
-    }
-    function openTerms(){acceptRepairTerms.checked=false;confirmApproveQuote.disabled=true;termsNotice.innerHTML='';quoteTermsModal.classList.remove('hidden')}
-    function hideTerms(){quoteTermsModal.classList.add('hidden')}
-    function renderFeedback(o,feedback){
-      const card=document.getElementById('feedbackCard');
-      if(o.status!=='Entregado'){card.classList.add('hidden');return}
-      card.classList.remove('hidden');
-      if(feedback){
-        feedbackForm.classList.add('hidden');feedbackExisting.classList.remove('hidden');
-        feedbackExisting.innerHTML=`<div class="feedback-thanks"><b>Gracias por tu reseña · ${'★'.repeat(Number(feedback.rating||0))}</b><small>${esc(feedback.comment||'Tu opinión fue registrada correctamente.')}</small></div>`;
-      }else{
-        feedbackExisting.classList.add('hidden');feedbackForm.classList.remove('hidden');
-      }
-    }
-    async function api(payload){
-      const r=await fetch('/.netlify/functions/public-service-portal',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      const raw=await r.text();
-      let d={};
-      try{d=raw?JSON.parse(raw):{}}catch{d={}}
-      if(!r.ok||!d.ok){
-        const detail=d.error||`No se pudo cargar el seguimiento (HTTP ${r.status}).`;
-        throw new Error(detail);
-      }
-      return d;
-    }
-    async function loadPortal(silent=false){if(!code)return showLookup();try{const d=await api({action:'lookup',code,token});if(!d.secure){showBasic(d.order);return}lookupScreen.classList.add('hidden');portal.classList.remove('hidden');secureChip.textContent='Enlace seguro';const o=d.order;orderCode.textContent=o.code;device.textContent=o.device_model||'Tu equipo';if(o.client_name){clientNameMeta.textContent=o.client_name;clientNameMeta.classList.remove('hidden')}else{clientNameMeta.textContent='';clientNameMeta.classList.add('hidden')}statusEl.textContent=o.status||'Recibido';updatedTop.textContent='Actualizado '+fmt(o.updated_at);heroCopy.textContent='Consulta el diagnóstico, bitácora, fotografías y mensajes relacionados con tu reparación.';renderTimeline(o.status);const notes=d.notes||[];latestTechnical.innerHTML=notes.length?noteCard(notes[0]):'<div class="empty">Aún no hay diagnóstico público.</div>';technicalList.innerHTML=notes.length?notes.map(noteCard).join(''):'<div class="empty">Nuestro equipo todavía no ha publicado entradas técnicas.</div>';renderPhotos(d.photos||[]);renderMessages(d.messages||[]);renderQuote(o);renderFeedback(o,d.feedback||null);composer.classList.remove('hidden');updated.textContent='Última sincronización: '+new Date().toLocaleString('es-VE')+' · actualización automática';if(!silent){clearInterval(liveTimer);liveTimer=setInterval(()=>loadPortal(true),15000)}}catch(e){if(!silent)showError(e.message)}}
-    function showLookup(){portal.classList.add('hidden');lookupScreen.classList.remove('hidden');secureChip.textContent='Consulta de orden'}
-    function showBasic(o){quoteApprovalCard.classList.add('hidden');feedbackCard.classList.add('hidden');clientNameMeta.textContent='';clientNameMeta.classList.add('hidden');lookupScreen.classList.add('hidden');portal.classList.remove('hidden');secureChip.textContent='Vista básica';orderCode.textContent=o.code;device.textContent=o.device_model||'Tu equipo';statusEl.textContent=o.status||'Recibido';updatedTop.textContent='Actualizado '+fmt(o.updated_at);heroCopy.textContent='Este es un seguimiento básico. Para ver diagnóstico, fotografías y responder mensajes abre el enlace seguro enviado por ThinkStore.';renderTimeline(o.status);latestTechnical.innerHTML='<div class="notice warn">Abre el enlace seguro recibido por correo o escanea el QR de tu orden para ver el seguimiento completo.</div>';technicalList.innerHTML='<div class="empty">El detalle técnico está protegido.</div>';gallery.innerHTML='<div class="empty">Las imágenes están disponibles únicamente desde el enlace seguro.</div>';chat.innerHTML='<div class="empty">Los mensajes están disponibles únicamente desde el enlace seguro.</div>';composer.classList.add('hidden');updated.textContent='Última actualización: '+fmt(o.updated_at)}
-    function showError(message){showLookup();lookupNotice.innerHTML=`<div class="notice err">${esc(message)}</div>`}
-    lookupForm.addEventListener('submit',e=>{e.preventDefault();code=document.getElementById('code').value.trim().toUpperCase();token='';history.replaceState(null,'',`?orden=${encodeURIComponent(code)}`);loadPortal()});
-    const codeInput=document.getElementById('code');
-    sendReply.addEventListener('click',async()=>{const message=replyMessage.value.trim();if(!message)return;sendReply.disabled=true;replyNotice.innerHTML='';try{await api({action:'reply',code,token,message});replyMessage.value='';replyNotice.innerHTML='<div class="notice" style="background:#edf8f1;color:#217a45;border:1px solid #c8e8d4">Mensaje enviado.</div>';await loadPortal(true)}catch(e){replyNotice.innerHTML=`<div class="notice err">${esc(e.message)}</div>`}finally{sendReply.disabled=false}});
-    document.querySelectorAll('[data-quick]').forEach(b=>b.addEventListener('click',()=>{quoteComment.value=b.dataset.quick||'';quoteComment.focus()}));
-    sendQuoteQuestion.addEventListener('click',async()=>{const message=quoteComment.value.trim();if(!message)return;sendQuoteQuestion.disabled=true;quoteNotice.innerHTML='';try{await api({action:'reply',code,token,message});quoteComment.value='';quoteNotice.innerHTML='<div class="notice" style="background:#edf8f1;color:#217a45;border:1px solid #c8e8d4">Consulta enviada al técnico.</div>';await loadPortal(true)}catch(e){quoteNotice.innerHTML=`<div class="notice err">${esc(e.message)}</div>`}finally{sendQuoteQuestion.disabled=false}});
-    openApproveQuote.addEventListener('click',openTerms);
-    closeTermsBtn.addEventListener('click',hideTerms);
-    quoteTermsModal.addEventListener('click',e=>{if(e.target===quoteTermsModal)hideTerms()});
-    acceptRepairTerms.addEventListener('change',()=>{confirmApproveQuote.disabled=!acceptRepairTerms.checked});
-    confirmApproveQuote.addEventListener('click',async()=>{
-      if(!acceptRepairTerms.checked)return;
-      confirmApproveQuote.disabled=true;termsNotice.innerHTML='';
-      try{
-        const d=await api({action:'approve_quote',code,token,accept_terms:true,comment:quoteComment.value.trim()});
-        hideTerms();
-        quoteNotice.innerHTML='<div class="notice" style="background:#edf8f1;color:#217a45;border:1px solid #c8e8d4"><b>Cotización aprobada.</b> ThinkStore ya recibió tu autorización.</div>';
-        await loadPortal(true);
-      }catch(e){
-        termsNotice.innerHTML=`<div class="notice err">${esc(e.message)}</div>`;
-        confirmApproveQuote.disabled=false;
-      }
-    });
-    document.querySelectorAll('#ratingPicker [data-rating]').forEach(btn=>btn.addEventListener('click',()=>{
-      selectedRating=Number(btn.dataset.rating||0);
-      document.querySelectorAll('#ratingPicker [data-rating]').forEach(b=>b.classList.toggle('active',Number(b.dataset.rating||0)<=selectedRating));
-    }));
-    sendFeedback.addEventListener('click',async()=>{
-      const comment=feedbackComment.value.trim();
-      if(!selectedRating)return feedbackNotice.innerHTML='<div class="notice err">Selecciona una puntuación.</div>';
-      if(!comment)return feedbackNotice.innerHTML='<div class="notice err">Escribe un comentario para enviar tu reseña.</div>';
-      sendFeedback.disabled=true;feedbackNotice.innerHTML='';
-      try{await api({action:'submit_feedback',code,token,rating:selectedRating,comment});await loadPortal(true)}
-      catch(e){feedbackNotice.innerHTML=`<div class="notice err">${esc(e.message)}</div>`}
-      finally{sendFeedback.disabled=false}
-    });
-    try{
-      if(code){codeInput.value=code;loadPortal()}else showLookup();
-    }catch(error){
-      console.error('ThinkStore seguimiento boot:',error);
-      portal.classList.add('hidden');
-      lookupScreen.classList.remove('hidden');
-      secureChip.textContent='Seguimiento';
-      lookupNotice.innerHTML=`<div class="notice err">No pudimos iniciar el seguimiento. Recarga la página o inténtalo nuevamente.</div>`;
-    }
+    const fmt=v=>{if(!v)return '—';try{return new Intl.DateTimeFormat('es-VE',{dateStyle:'medium',timeStyle:'short',timeZone:'America/Caracas'}).format(new Date(v))}catch{return String(v)}};
+    const fmtDate=v=>{if(!v)return '—';try{return new Intl.DateTimeFormat('es-VE',{dateStyle:'long',timeZone:'America/Caracas'}).format(new Date(v))}catch{return String(v)}};
+    const money=(currency,amount)=>String(currency||'USD').toUpperCase()==='VES'?`Bs. ${Number(amount||0).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}`:`${String(currency||'USD').toUpperCase()} ${Number(amount||0).toFixed(2)}`;
+    const noteTitle=n=>n?.client_title||n?.status_after||n?.note_type||'Actualización técnica';
+
+    function statusTone(status){const s=String(status||'').toLowerCase();if(/no aprobado|cancel/.test(s))return'red';if(/esperando/.test(s))return'amber';if(/listo|entreg|aprob/.test(s))return'green';return'blue'}
+    function statusCopy(status){const map={'Recibido':'Recibimos tu equipo y la orden ya está activa.','En diagnóstico':'Nuestro equipo está revisando la falla y documentando el diagnóstico.','Diagnóstico disponible':'El diagnóstico técnico ya está disponible para revisión.','Cotización enviada':'Tu cotización está lista. Revísala y decide cuando estés de acuerdo.','Aprobado por cliente':'Recibimos tu autorización y la reparación puede continuar.','En reparación':'Estamos trabajando en la reparación autorizada de tu equipo.','Esperando repuesto':'La orden sigue activa mientras esperamos el repuesto necesario.','Listo para entregar':'La reparación y las pruebas finales fueron completadas.','Entregado':'Servicio completado. Tu historial y garantía seguirán disponibles aquí.','No aprobado':'Registramos que la cotización no fue aprobada. ThinkStore coordinará contigo los siguientes pasos.','Cancelado':'Esta orden fue cancelada.'};return map[status]||'Consulta aquí la información actualizada de tu servicio.'}
+    const stages=[['Recibido',['Recibido']],['Diagnóstico',['En diagnóstico','Diagnóstico disponible']],['Cotización',['Cotización enviada','Aprobado por cliente','No aprobado']],['Reparación',['En reparación','Esperando repuesto']],['Pruebas',['Pruebas','Prueba final']],['Listo',['Listo para entregar']],['Entregado',['Entregado']]];
+    function stageIndex(status){const s=String(status||'');if(s==='No aprobado')return 2;if(s==='Cancelado')return 0;if(s==='Listo para entregar')return 5;if(s==='Entregado')return 6;if(s==='Esperando repuesto'||s==='En reparación')return 3;if(s==='Aprobado por cliente'||s==='Cotización enviada')return 2;if(s==='Diagnóstico disponible'||s==='En diagnóstico')return 1;return 0}
+    function stageDate(label,data){const h=data.history||[],notes=data.notes||[];const patterns={Recibido:/recib|recep/i,Diagnóstico:/diagn/i,Cotización:/cotiz|presupuesto/i,Reparación:/repar|repuesto/i,Pruebas:/prueba/i,Listo:/listo/i,Entregado:/entreg/i};if(label==='Recibido')return data.order.created_at;const row=h.find(x=>patterns[label]?.test(`${x.title||''} ${x.status||''}`));if(row)return row.created_at;if(label==='Pruebas'){const n=notes.find(x=>String(x.tests_performed||'').trim());return n?.created_at||null}return null}
+    function renderProgress(data){const o=data.order,idx=stageIndex(o.status);$('progress').innerHTML=stages.map(([label],i)=>{const date=stageDate(label,data);const done=i<idx||(o.status==='Listo para entregar'&&i===4)||(o.status==='Entregado'&&i<6);const current=i===idx&&!['No aprobado','Cancelado'].includes(o.status);return `<div class="pstep ${done?'done':current?'current':''}"><div class="p-dot">${done?'✓':i+1}</div><div><b>${esc(label)}</b><small>${date?esc(fmt(date)):current?'Estado actual':'Pendiente'}</small></div></div>`}).join('');let notice='';if(o.status==='No aprobado')notice='<div class="notice warn"><b>Cotización no aprobada.</b> La orden permanece registrada mientras ThinkStore coordina contigo los siguientes pasos.</div>';if(o.status==='Cancelado')notice='<div class="notice err">Esta orden fue cancelada.</div>';$('progressNotice').innerHTML=notice}
+
+    function techCard(n){const fields=[['Diagnóstico',n.diagnosis],['Trabajo realizado',n.work_performed],['Repuestos / piezas',n.parts_used],['Pruebas realizadas',n.tests_performed],['Observaciones',n.client_notes]].filter(([,v])=>String(v||'').trim());return `<article class="tech-card"><div class="tech-head"><div><span class="type">${esc(n.note_type||'Actualización')}</span><b>${esc(noteTitle(n))}</b></div><small>${esc(fmt(n.created_at))}${n.author_name?' · '+esc(n.author_name):''}</small></div>${n.note?`<p class="tech-summary">${esc(n.note)}</p>`:''}${fields.length?`<div class="tech-fields">${fields.map(([k,v])=>`<div><span>${esc(k)}</span><p>${esc(v)}</p></div>`).join('')}</div>`:''}</article>`}
+    function renderLatest(notes,o){const n=notes?.[0];if(!n){$('latestUpdate').innerHTML=`<div class="latest-box"><div class="kicker">ESTADO ACTUAL</div><h3>${esc(o.status||'Recibido')}</h3><p>${esc(statusCopy(o.status))}</p><small>${esc(fmt(o.updated_at))}</small></div>`;return}$('latestUpdate').innerHTML=`<div class="latest-box"><div class="kicker">ÚLTIMA ACTUALIZACIÓN</div><h3>${esc(noteTitle(n))}</h3><p>${esc(n.note||n.diagnosis||n.work_performed||statusCopy(o.status))}</p><small>${esc(fmt(n.created_at))}${n.author_name?' · '+esc(n.author_name):''}</small></div>`}
+    function renderFacts(o){const rows=[['Falla reportada',o.reported_issue||'Por confirmar','wide'],['Estado',o.status||'—'],['Modalidad',o.service_mode||'Presencial'],['Fecha de recepción',fmt(o.created_at)],['Última actualización',fmt(o.updated_at)]];$('orderFacts').innerHTML=rows.map(([k,v,w])=>`<div class="fact ${w||''}"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}
+    function renderDiagnosis(notes){const selected=notes.filter(n=>String(n.diagnosis||n.work_performed||n.tests_performed||n.parts_used||'').trim()||/diagn|repar|prueba/i.test(String(n.note_type||'')));$('diagnosisBlock').innerHTML=selected.length?selected.map(techCard).join(''):'<div class="empty">El técnico todavía no ha publicado un diagnóstico detallado para el cliente.</div>'}
+    function photoGroup(p){const s=`${p.label||''} ${p.client_caption||''}`.toLowerCase();if(/recep|ingreso|frontal|posterior|lateral|condici/.test(s))return'Recepción';if(/diagn|intern|falla|componente/.test(s))return'Diagnóstico';if(/repar|proceso|repuesto|trabajo/.test(s))return'Reparación';if(/final|listo|resultado|entrega|después|despues/.test(s))return'Resultado final';return'Otras imágenes'}
+    function renderPhotos(rows){if(!rows?.length){$('photoGroups').innerHTML='<div class="empty">Aún no hay fotografías publicadas para esta orden.</div>';return}const groups={};rows.forEach(p=>(groups[photoGroup(p)]??=[]).push(p));$('photoGroups').innerHTML=['Recepción','Diagnóstico','Reparación','Resultado final','Otras imágenes'].filter(k=>groups[k]?.length).map(k=>`<section class="photo-section"><h3>${esc(k)}</h3><div class="gallery">${groups[k].map(p=>`<a class="photo" href="${esc(p.signed_url)}" target="_blank" rel="noopener"><img src="${esc(p.signed_url)}" alt="${esc(p.client_caption||p.label||k)}"><span>${esc(p.client_caption||p.label||k)}</span></a>`).join('')}</div></section>`).join('')}
+    function renderHistory(rows){$('history').innerHTML=rows?.length?rows.map(x=>`<div class="activity-row"><div class="activity-dot">✓</div><div><b>${esc(x.title||x.status||'Actualización')}</b>${x.detail?`<p>${esc(x.detail)}</p>`:''}<small>${esc(fmt(x.created_at))}</small></div></div>`).join(''):'<div class="empty">Todavía no hay actividad visible para mostrar.</div>'}
+    function renderMessages(rows){$('chat').innerHTML=rows?.length?rows.map(m=>`<div class="bubble ${m.sender_type==='client'?'client':'staff'}"><div class="bubble-head"><span>${esc(m.sender_type==='client'?'Tú':(m.sender_name||'ThinkStore'))}</span><small>${esc(fmt(m.created_at))}</small></div><p>${esc(m.message)}</p></div>`).join(''):'<div class="empty">Aún no hay mensajes en esta orden.</div>';$('chat').scrollTop=$('chat').scrollHeight}
+    function renderPayment(o){const visible=Number(o.quote_amount||0)>0||Number(o.amount_paid||0)>0;if(!visible){$('paymentCard').classList.add('hidden');return}$('paymentCard').classList.remove('hidden');const cur=o.quote_currency||'USD';$('paymentSummary').innerHTML=`<div class="money-grid"><div class="money-box"><span>Total</span><b>${esc(money(cur,o.quote_amount))}</b></div><div class="money-box"><span>Abonado</span><b>${esc(money(cur,o.amount_paid))}</b></div><div class="money-box"><span>Pendiente</span><b>${esc(money(cur,o.balance))}</b></div></div><div class="payment-status">Estado: <b>${esc(o.balance<=0&&Number(o.quote_amount)>0?'Pagado':o.payment_status||'Pendiente')}</b>${o.paid_at?` · ${esc(fmt(o.paid_at))}`:''}</div>`}
+    function renderWarranty(o){if(!(Number(o.warranty_days)>0)){$('warrantyCard').classList.add('hidden');return}$('warrantyCard').classList.remove('hidden');const delivered=Boolean(o.delivered_at||o.status==='Entregado');let active=false,expired=false;if(o.warranty_expires_at){expired=new Date(o.warranty_expires_at)<new Date();active=!expired}$('warrantySummary').innerHTML=`<div class="warranty-hero ${active?'active':''}"><b>${delivered?(expired?'Garantía vencida':active?'Garantía activa':'Garantía registrada'):'Garantía registrada'}</b><p>${Number(o.warranty_days)} días de cobertura.${delivered&&o.warranty_expires_at?` Vigente hasta ${esc(fmtDate(o.warranty_expires_at))}.`:' Se activa con la entrega del equipo, según las condiciones del servicio.'}</p></div>`}
+    function renderDelivery(o){if(o.status!=='Listo para entregar'){$('deliveryCard').classList.add('hidden');return}$('deliveryCard').classList.remove('hidden');$('deliveryText').textContent=o.balance>0?`Tu equipo está listo. Saldo pendiente: ${money(o.quote_currency,o.balance)}.`:'La reparación y las pruebas finales fueron completadas.';const msg=`Hola ThinkStore, mi orden ${o.code} está lista para entregar. Quiero coordinar el retiro o la entrega de mi equipo.`;$('deliveryWhatsapp').href=`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`}
+
+    function renderQuote(o){const available=Number(o.quote_amount||0)>0&&String(o.quote_repair_details||'').trim()&&(/Cotización enviada|Aprobado por cliente|No aprobado/.test(o.status)||/Enviado|Aprobado|No aprobado/.test(o.quote_status||''));if(!available){$('quoteCard').classList.add('hidden');return}$('quoteCard').classList.remove('hidden');$('quoteAmount').textContent=money(o.quote_currency,o.quote_amount);$('quoteRepairDetails').textContent=o.quote_repair_details;$('quoteWarranty').textContent=o.warranty_days?`Garantía: ${o.warranty_days} días`:'Garantía: por confirmar';$('quoteSentAt').textContent=o.quote_sent_at?`Enviada: ${fmt(o.quote_sent_at)}`:'Cotización disponible';const approved=o.quote_status==='Aprobado'||o.status==='Aprobado por cliente'||o.quote_approved_at;const rejected=o.quote_status==='No aprobado'||o.status==='No aprobado';if(approved){$('quoteTitle').textContent='Cotización aprobada.';$('quoteLead').textContent='Tu autorización quedó registrada y ThinkStore puede continuar con la reparación.';$('quoteDecision').innerHTML=`<div class="decision-box ok"><b>✓ Cotización aprobada</b>${o.quote_approved_at?`Aprobada ${esc(fmt(o.quote_approved_at))}.`:''}${o.quote_client_comment?` Comentario: ${esc(o.quote_client_comment)}`:''}</div>`;$('quoteInteractive').classList.add('hidden')}else if(rejected){$('quoteTitle').textContent='Decisión registrada.';$('quoteLead').textContent='Hemos recibido que no deseas aprobar esta cotización.';$('quoteDecision').innerHTML=`<div class="decision-box warn"><b>Cotización no aprobada</b>ThinkStore coordinará contigo los siguientes pasos.${o.quote_client_comment?` Comentario: ${esc(o.quote_client_comment)}`:''}</div>`;$('quoteInteractive').classList.add('hidden')}else{$('quoteTitle').textContent='Revisa antes de autorizar.';$('quoteLead').textContent='Consulta el trabajo propuesto, haz cualquier pregunta y aprueba cuando estés de acuerdo.';$('quoteDecision').innerHTML='<div class="decision-box warn">La reparación no comenzará hasta recibir tu autorización.</div>';$('quoteInteractive').classList.remove('hidden')}}
+    function renderFeedback(o,feedback){if(o.status!=='Entregado'){$('feedbackCard').classList.add('hidden');return}$('feedbackCard').classList.remove('hidden');if(feedback){$('feedbackForm').classList.add('hidden');$('feedbackExisting').innerHTML=`<div class="notice ok"><b>Gracias por tu reseña · ${'★'.repeat(Number(feedback.rating||0))}</b><br>${esc(feedback.comment||'Tu opinión fue registrada correctamente.')}</div>`}else{$('feedbackExisting').innerHTML='';$('feedbackForm').classList.remove('hidden')}}
+
+    async function api(payload){const r=await fetch('/.netlify/functions/public-service-portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,code,token,phone_last4:phoneLast4})});const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch{}if(!r.ok||!d.ok)throw new Error(d.error||`No se pudo cargar el seguimiento (HTTP ${r.status}).`);return d}
+    function showLookup(message=''){clearInterval(liveTimer);$('portal').classList.add('hidden');$('lookupScreen').classList.remove('hidden');$('secureChip').textContent='Consulta segura';if(code)$('codeInput').value=code;if(message)$('lookupNotice').innerHTML=`<div class="notice err">${esc(message)}</div>`}
+    function requestPhoneVerification(o){$('portal').classList.add('hidden');$('lookupScreen').classList.remove('hidden');$('codeInput').value=o.code||code;$('codeInput').readOnly=true;$('phoneWrap').classList.remove('hidden');$('phoneLast4Input').required=true;$('phoneLast4Input').focus();$('lookupButton').textContent='Ver seguimiento seguro';$('lookupNotice').innerHTML='<div class="notice info"><b>Orden encontrada.</b> Confirma los últimos 4 dígitos del teléfono registrado para abrir diagnóstico, fotos, cotización y mensajes.</div>'}
+    function renderPortal(data){const o=data.order;currentOrder=o;code=o.code||code;$('lookupScreen').classList.add('hidden');$('portal').classList.remove('hidden');$('secureChip').textContent=data.verification_method==='phone_last4'?'Acceso verificado':'Enlace seguro';$('device').textContent=o.device_model||o.device_type||'Tu equipo';$('clientName').textContent=o.client_name?`Cliente · ${o.client_name}`:'';$('heroCopy').textContent=statusCopy(o.status);$('orderCode').textContent=o.code;$('statusPill').textContent=o.status||'Recibido';$('statusPill').className=`status-pill ${statusTone(o.status)}`;$('updatedTop').textContent=`Actualizado ${fmt(o.updated_at)}`;$('metaDevice').textContent=o.device_model||o.device_type||'—';$('metaColor').textContent=o.device_color||'—';$('metaSerial').textContent=o.serial_masked||'—';$('metaReceived').textContent=fmt(o.created_at);$('metaMode').textContent=o.service_mode||'Presencial';$('metaUpdated').textContent=fmt(o.updated_at);renderProgress(data);renderLatest(data.notes||[],o);renderFacts(o);renderDiagnosis(data.notes||[]);renderPhotos(data.photos||[]);renderHistory(data.history||[]);renderMessages(data.messages||[]);renderQuote(o);renderPayment(o);renderWarranty(o);renderDelivery(o);renderFeedback(o,data.feedback||null);$('updated').textContent=`Última sincronización: ${new Date().toLocaleString('es-VE')} · actualización automática cada 15 segundos`}
+    async function loadPortal(silent=false){if(!code&&!token)return showLookup();try{const d=await api({action:'lookup'});if(!d.secure){if(d.requires_verification){requestPhoneVerification(d.order);return}showLookup('Para consultar el detalle utiliza el enlace seguro enviado por ThinkStore o escanea el QR de tu orden.');return}renderPortal(d);if(!silent){clearInterval(liveTimer);liveTimer=setInterval(()=>loadPortal(true),15000)}}catch(e){if(!silent)showLookup(e.message)}}
+
+    $('lookupForm').addEventListener('submit',async e=>{e.preventDefault();code=$('codeInput').value.trim().toUpperCase();const p=$('phoneLast4Input').value.trim();if(!$('phoneWrap').classList.contains('hidden')){if(!/^\d{4}$/.test(p))return $('lookupNotice').innerHTML='<div class="notice err">Ingresa exactamente los últimos 4 dígitos del teléfono.</div>';phoneLast4=p}history.replaceState(null,'',`?orden=${encodeURIComponent(code)}`);$('lookupButton').disabled=true;$('lookupNotice').innerHTML='';try{await loadPortal(false)}finally{$('lookupButton').disabled=false}});
+    $('sendReply').addEventListener('click',async()=>{const message=$('replyMessage').value.trim();if(!message)return;$('sendReply').disabled=true;$('replyNotice').innerHTML='';try{await api({action:'reply',message});$('replyMessage').value='';$('replyNotice').innerHTML='<div class="notice ok">Mensaje enviado a ThinkStore.</div>';await loadPortal(true)}catch(e){$('replyNotice').innerHTML=`<div class="notice err">${esc(e.message)}</div>`}finally{$('sendReply').disabled=false}});
+    document.querySelectorAll('[data-quick]').forEach(b=>b.addEventListener('click',()=>{$('quoteComment').value=b.dataset.quick||'';$('quoteComment').focus()}));
+    $('sendQuoteQuestion').addEventListener('click',async()=>{const message=$('quoteComment').value.trim();if(!message)return;$('sendQuoteQuestion').disabled=true;try{await api({action:'reply',message});$('quoteComment').value='';$('quoteNotice').innerHTML='<div class="notice ok">Consulta enviada al técnico.</div>';await loadPortal(true)}catch(e){$('quoteNotice').innerHTML=`<div class="notice err">${esc(e.message)}</div>`}finally{$('sendQuoteQuestion').disabled=false}});
+    $('approveQuote').addEventListener('click',()=>{$('acceptTerms').checked=false;$('confirmApprove').disabled=true;$('termsNotice').innerHTML='';$('termsModal').classList.remove('hidden')});
+    $('acceptTerms').addEventListener('change',()=>{$('confirmApprove').disabled=!$('acceptTerms').checked});
+    $('confirmApprove').addEventListener('click',async()=>{if(!$('acceptTerms').checked)return;$('confirmApprove').disabled=true;try{await api({action:'approve_quote',accept_terms:true,comment:$('quoteComment').value.trim()});$('termsModal').classList.add('hidden');$('quoteNotice').innerHTML='<div class="notice ok"><b>Cotización aprobada.</b> ThinkStore recibió tu autorización.</div>';await loadPortal(true)}catch(e){$('termsNotice').innerHTML=`<div class="notice err">${esc(e.message)}</div>`;$('confirmApprove').disabled=false}});
+    $('rejectQuote').addEventListener('click',()=>{$('rejectComment').value=$('quoteComment').value.trim();$('rejectNotice').innerHTML='';$('rejectModal').classList.remove('hidden')});
+    $('confirmReject').addEventListener('click',async()=>{$('confirmReject').disabled=true;try{await api({action:'reject_quote',comment:$('rejectComment').value.trim()});$('rejectModal').classList.add('hidden');await loadPortal(true)}catch(e){$('rejectNotice').innerHTML=`<div class="notice err">${esc(e.message)}</div>`}finally{$('confirmReject').disabled=false}});
+    document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.close)?.classList.add('hidden')));document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.add('hidden')}));
+    document.querySelectorAll('#ratingPicker [data-rating]').forEach(btn=>btn.addEventListener('click',()=>{selectedRating=Number(btn.dataset.rating||0);document.querySelectorAll('#ratingPicker [data-rating]').forEach(b=>b.classList.toggle('active',Number(b.dataset.rating||0)<=selectedRating))}));
+    $('sendFeedback').addEventListener('click',async()=>{const comment=$('feedbackComment').value.trim();if(!selectedRating)return $('feedbackNotice').innerHTML='<div class="notice err">Selecciona una puntuación.</div>';if(!comment)return $('feedbackNotice').innerHTML='<div class="notice err">Escribe un comentario.</div>';$('sendFeedback').disabled=true;try{await api({action:'submit_feedback',rating:selectedRating,comment});await loadPortal(true)}catch(e){$('feedbackNotice').innerHTML=`<div class="notice err">${esc(e.message)}</div>`}finally{$('sendFeedback').disabled=false}});
+
+    if(code||token){if(code)$('codeInput').value=code;loadPortal(false)}else showLookup();
+  })();
   </script>
 </body>
 </html>

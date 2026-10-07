@@ -141,7 +141,24 @@
                 <h3>Datos del cliente</h3>
                 <p>Información privada de recepción. No se incluye en el QR público.</p>
               </div>
-              <span>CLIENTE</span>
+              <div class="client-data-head-actions">
+                <span>CLIENTE</span>
+                <button type="button" class="client-picker-trigger" onclick="TSService.openReceptionClientSearch()"><span aria-hidden="true">⌕</span> Buscar / agregar cliente</button>
+              </div>
+            </div>
+            <div id="receptionClientSelected" class="reception-client-selected" hidden></div>
+            <div id="receptionClientSearchPanel" class="reception-client-search-panel" hidden>
+              <div class="reception-client-search-head">
+                <div><b>Buscar cliente</b><small>Encuentra cuentas registradas de ThinkStore o clientes atendidos anteriormente en Servicio Técnico.</small></div>
+                <button type="button" class="secondary small" onclick="TSService.closeReceptionClientSearch()">Cerrar</button>
+              </div>
+              <div class="reception-client-search-row">
+                <label><span>Nombre, teléfono, correo o C.I. / RIF</span><input id="receptionClientSearchInput" type="search" placeholder="Ej. María, 0414..., correo@email.com" autocomplete="off" oninput="TSService.searchReceptionClients(this.value)" /></label>
+                <button type="button" class="client-new-button" onclick="TSService.startNewReceptionClient()">＋ Agregar cliente nuevo</button>
+              </div>
+              <div id="receptionClientSearchStatus" class="reception-client-search-status"></div>
+              <div id="receptionClientResults" class="reception-client-results"></div>
+              <p class="reception-client-help">Los clientes nuevos quedarán disponibles para futuras órdenes después de guardar su primera recepción.</p>
             </div>
             <div class="client-data-grid">
               <label class="span2">Nombre completo<input id="oClient" required placeholder="Nombre y apellido" autocomplete="name" /></label>
@@ -331,7 +348,7 @@
         </select></label>
         <label>Responsable<input id="bAuthor" placeholder="Técnico / Recepción" /></label>
         <label>Estado<select id="bStatus">
-          <option>Recibido</option><option>En diagnóstico</option><option>Cotización enviada</option><option>Aprobado por cliente</option><option>En reparación</option><option>Esperando repuesto</option><option>Listo para entregar</option><option>Entregado</option><option>No aprobado</option>
+          <option>Recibido</option><option>En diagnóstico</option><option>Diagnóstico disponible</option><option>Cotización enviada</option><option>Aprobado por cliente</option><option>En reparación</option><option>Esperando repuesto</option><option>Listo para entregar</option><option>Entregado</option><option>No aprobado</option>
         </select></label>
       </div>
       <label>Nota / resumen de la bitácora<textarea id="bDetail" placeholder="Resumen breve de lo ocurrido en esta etapa..."></textarea></label>

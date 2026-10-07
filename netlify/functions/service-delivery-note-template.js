@@ -13,8 +13,9 @@ function render({order={},events=[],parts=[],notes=[]}={}){
  const total=Number(order.quote_amount||0);
  const used=(parts||[]).filter(p=>String(p.status||'').toLowerCase()!=='released');
  const rows=used.length?used.map(p=>`<div class="ts-note-product"><div class="ts-note-product-body"><div class="ts-note-product-head"><strong>${E(p.service_parts?.name||p.part_name||'Repuesto')}</strong><strong>${Number(p.quantity_consumed||p.quantity_reserved||0)} × ${money(p.sale_price_snapshot||0)}</strong></div><div class="ts-note-muted">${E([p.service_parts?.sku,p.service_parts?.category].filter(Boolean).join(' · '))}</div></div></div>`).join(''):'<div>Sin repuestos registrados para esta reparación.</div>';
- const token=order.public_token?`?token=${encodeURIComponent(order.public_token)}`:`?orden=${encodeURIComponent(order.code||'')}`;
- const tracking='https://thinkstore.com.ve/soporte/seguimiento.html'+token;
+ const trackingParams=new URLSearchParams({orden:String(order.code||'')});
+ if(order.public_token)trackingParams.set('token',String(order.public_token));
+ const tracking=`https://soporte.thinkstore.com.ve/seguimiento.html?${trackingParams.toString()}`;
  const qr='https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='+encodeURIComponent(tracking);
  const social=`<div class="ts-note-social"><a href="https://thinkstore.com.ve">thinkstore.com.ve</a><a href="https://www.instagram.com/thinkstore_ve/">@thinkstore_ve</a><a href="https://wa.me/584141032030">+58 414 103 2030</a></div>`;
  return css+`<div class="ts-note-doc"><article class="ts-note-sheet">
