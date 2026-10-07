@@ -1,1 +1,0 @@
-Cambio aplicado: solo se movió el texto y botones del encabezado hacia la izquierda. La imagen y demás funciones se mantienen igual.

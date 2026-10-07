@@ -1,1 +1,0 @@
-export function onRequest(){return new Response(JSON.stringify({ok:true,service:'thinkstore-inventory-pages-functions',version:'3.2.26'}),{status:200,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});}

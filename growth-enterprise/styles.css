@@ -224,3 +224,9 @@ button,input,select,textarea{font-size:16px}
 @media(max-width:760px){.partner-welcome-card{padding:28px 20px}.partner-welcome-card h2{font-size:31px}.partner-welcome-stats{grid-template-columns:1fr}.chart-grid-bottom{grid-template-columns:1fr}.health-chart{display:block}.daily-bars{gap:5px;height:185px}.day-bars{height:128px}.mix-wrap{grid-template-columns:128px 1fr}.mix-ring{width:120px;height:120px}.mix-ring:after{inset:15px}.executive-chart{min-height:auto}.title-block #partnerGreetingLine{font-size:12px}}
 @media(max-width:480px){.mix-wrap{grid-template-columns:1fr}.mix-ring{margin:0 auto}.mix-legend{width:100%}.day-column>b{font-size:8px}.day-column>span{font-size:9px}.chart-head{gap:8px}.chart-legend{display:none}.enterprise-boot-inner h2{font-size:29px}}
 @media(prefers-reduced-motion:reduce){.enterprise-boot-inner>img,.enterprise-boot-orbit i,.enterprise-boot-orbit b,.enterprise-boot-progress i,.view.view-enter>*,.day-bars i,.pnl-bar>i>em,.method-bar-row>i>em,.mix-ring,.health-ring,.enterprise-entering .sidebar,.enterprise-entering .workspace{animation:none!important}.enterprise-boot,.partner-welcome,.partner-welcome-card,.enterprise-charts{transition:none!important}}
+
+/* V10.18 · Enterprise auth/boot hard guard */
+.enterprise-boot.boot-show{animation:tsEnterpriseBootHardHide .01s linear 4.2s forwards}
+@keyframes tsEnterpriseBootHardHide{to{opacity:0;visibility:hidden;pointer-events:none}}
+.enterprise-boot-skip{margin:22px auto 0;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#dbe8fb;border-radius:999px;padding:9px 16px;font-weight:700;cursor:pointer;opacity:.78}
+.enterprise-boot-skip:hover{background:rgba(255,255,255,.12);opacity:1}

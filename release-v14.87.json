@@ -1,7 +1,0 @@
-{
-  "version": "14.87",
-  "name": "Servicio Técnico Pago + Inventario Automático",
-  "base": "14.86",
-  "requires_sql": true,
-  "support_required": "8.8.8"
-}

@@ -10,8 +10,8 @@
 <!-- V10.6: PWA deshabilitado para evitar caché offline -->
 <meta name="theme-color" content="#0f0f10">
   <title>ThinkStore Enterprise</title>
-  <meta name="thinkstore-enterprise-build" content="10.17-boot-failsafe" />
-  <meta name="thinkstore-build" content="10.17-boot-failsafe">
+  <meta name="thinkstore-enterprise-build" content="10.18-auth-boot-reset" />
+  <meta name="thinkstore-build" content="10.18-auth-boot-reset">
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ThinkStore Enterprise" />
@@ -25,7 +25,7 @@
 .ts-clean-nav .ts-nav-icon{margin-left:0!important;margin-right:0!important;}
 @media (max-width:900px){.ts-clean-nav{column-gap:14px!important;}}
 </style>
-<script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.17-boot-failsafe";</script>
+<script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.18-auth-boot-reset";</script>
 </head>
 <body>
 
@@ -37,6 +37,7 @@
       <h2 id="enterpriseBootTitle">Preparando tu panel</h2>
       <p id="enterpriseBootText">Sincronizando ventas, caja, inventario y soporte…</p>
       <div class="enterprise-boot-progress"><i></i></div>
+      <button id="enterpriseBootSkip" class="enterprise-boot-skip" type="button" onclick="try{forceEnterpriseOpen()}catch(e){document.getElementById('enterpriseBoot')?.classList.add('hidden');document.getElementById('app')?.classList.remove('hidden')}">Abrir panel</button>
     </div>
   </div>
 
@@ -166,7 +167,21 @@
     if('caches' in window){caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('thinkstore-enterprise-')).map(k=>caches.delete(k)))).catch(()=>{});}
   }catch(e){}
 })();
-</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</script><script>
+(function(){
+  window.__TS_ENTERPRISE_BOOT_GUARD__=setInterval(function(){
+    var b=document.getElementById('enterpriseBoot');
+    if(!b||b.classList.contains('hidden'))return;
+    var shown=Number(b.dataset.shownAt||0);
+    if(!shown){b.dataset.shownAt=String(Date.now());return;}
+    if(Date.now()-shown>3800){
+      b.style.display='none';b.classList.add('hidden');b.setAttribute('aria-hidden','true');
+      var app=document.getElementById('app');if(app)app.classList.remove('hidden');
+    }
+  },400);
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.js"></script>
 <script src="support-config.js"></script>
 <script src="app.js"></script>

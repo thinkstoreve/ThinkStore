@@ -55,32 +55,38 @@ function enterpriseGreeting(){
   return 'Buenas noches';
 }
 let enterpriseBootFailsafeTimer=null;
+function forceEnterpriseOpen(){
+  try{
+    const app=qs('app'),lock=qs('lockScreen'),boot=qs('enterpriseBoot');
+    app?.classList.remove('hidden');
+    lock?.classList.add('hidden');
+    if(boot){
+      boot.classList.add('hidden');
+      boot.classList.remove('boot-show','boot-leave');
+      boot.style.display='none';
+      boot.setAttribute('aria-hidden','true');
+    }
+  }catch(_error){}
+}
 function showEnterpriseBoot(name){
   const el=qs('enterpriseBoot'); if(!el)return;
   enterpriseBootStarted=true;
+  el.style.display='';
+  el.removeAttribute('aria-hidden');
   const n=firstName(name);
   if(qs('enterpriseBootTitle'))qs('enterpriseBootTitle').textContent=`${enterpriseGreeting()}, ${n}`;
   if(qs('enterpriseBootText'))qs('enterpriseBootText').textContent='Sincronizando ventas, caja, inventario, soporte y finanzas…';
   el.classList.remove('hidden','boot-leave');
   requestAnimationFrame(()=>el.classList.add('boot-show'));
   clearTimeout(enterpriseBootFailsafeTimer);
-  enterpriseBootFailsafeTimer=setTimeout(()=>{
-    try{
-      qs('app')?.classList.remove('hidden');
-      if(qs('enterpriseBootText'))qs('enterpriseBootText').textContent='Abriendo Enterprise…';
-      hideEnterpriseBoot();
-    }catch(_error){
-      el.classList.add('hidden');
-      el.classList.remove('boot-show','boot-leave');
-    }
-  },2800);
+  enterpriseBootFailsafeTimer=setTimeout(forceEnterpriseOpen,2600);
 }
 function hideEnterpriseBoot(){
   clearTimeout(enterpriseBootFailsafeTimer);
   enterpriseBootFailsafeTimer=null;
-  const el=qs('enterpriseBoot'); if(!el||el.classList.contains('hidden'))return;
+  const el=qs('enterpriseBoot'); if(!el)return;
   el.classList.add('boot-leave');
-  setTimeout(()=>{el.classList.add('hidden');el.classList.remove('boot-show','boot-leave')},420);
+  setTimeout(forceEnterpriseOpen,360);
 }
 function showPartnerWelcome(data){
   if(enterpriseWelcomeShown)return;
@@ -203,7 +209,10 @@ async function unlock(event){
     setLoginMessage('Acceso autorizado.', 'success');
   }catch(error){
     console.error(error);
-    await window.supabaseClient?.auth?.signOut();
+    try{await window.supabaseClient?.auth?.signOut({scope:'local'})}catch(_error){}
+    forceEnterpriseOpen();
+    qs('app')?.classList.add('hidden');
+    qs('lockScreen')?.classList.remove('hidden');
     setLoginMessage(error.message || 'No se pudo iniciar sesión.', 'error');
   }
 }
@@ -253,24 +262,24 @@ async function logout(){ await window.supabaseClient?.auth?.signOut(); location.
 async function bootAuth(){
   const client=getClient();
   let opening=false,opened=false;
+  const params=new URLSearchParams(location.search);
+  const ssoTokenHash=params.get('sso_token_hash');
+  const ssoType=params.get('sso_type')||'magiclink';
+  const hasHashCallback=/(#.*access_token=|#.*refresh_token=|#.*type=)/i.test(location.href);
+  const hasCodeCallback=/[?&]code=/i.test(location.href);
+  const isSsoEntry=Boolean(ssoTokenHash||hasHashCallback||hasCodeCallback);
 
-  // V10.6: recibe el token SSO directamente desde ThinkStore Main.
-  // No usa redirect_to ni Site URL de Supabase, evitando redirecciones externas.
-  const ssoParams=new URLSearchParams(location.search);
-  const ssoTokenHash=ssoParams.get('sso_token_hash');
-  const ssoType=ssoParams.get('sso_type')||'magiclink';
-  if(ssoTokenHash){
-    try{
-      setLoginMessage('Completando acceso unificado…','');
-      const {error}=await client.auth.verifyOtp({token_hash:ssoTokenHash,type:ssoType==='magiclink'?'magiclink':ssoType});
-      if(error)throw error;
-      ssoParams.delete('sso_token_hash'); ssoParams.delete('sso_type'); ssoParams.delete('sso_v');
-      const cleanQuery=ssoParams.toString();
-      history.replaceState(null,'',location.pathname+(cleanQuery?'?'+cleanQuery:'')+location.hash);
-    }catch(error){
-      console.warn('Enterprise SSO token:',error.message||error);
-      setLoginMessage('No se pudo completar el acceso unificado: '+(error.message||error),'error');
-    }
+  // V10.18: una visita directa SIEMPRE muestra login.
+  // Solo un callback SSO explícito puede abrir Enterprise automáticamente.
+  if(!isSsoEntry){
+    try{ await client.auth.signOut({scope:'local'}); }catch(_error){}
+    forceEnterpriseOpen();
+    qs('app')?.classList.add('hidden');
+    qs('lockScreen')?.classList.remove('hidden');
+    const boot=qs('enterpriseBoot');
+    if(boot){boot.style.display='none';boot.classList.add('hidden')}
+    setLoginMessage('Inicia sesión para abrir Enterprise.','');
+    return;
   }
 
   async function openSession(session){
@@ -281,52 +290,68 @@ async function bootAuth(){
       applyAdminIdentity(session.user,profile);
       showApp();
       opened=true;
-      // Limpia los tokens/códigos del callback SSO sin perder la ruta actual.
       if(location.hash&&/(access_token|refresh_token|type=)/i.test(location.hash)){
         history.replaceState(null,'',location.pathname+location.search);
       }
       return true;
     }catch(error){
-      const cached=JSON.parse(localStorage.getItem('ts_enterprise_profile')||'null');
-      if(cached){
-        const cachedEmail=cached.email||session.user.email||'';
-        const cachedName=canonicalOwnerName(cachedEmail,cached.full_name,cached.nombre,session.user?.user_metadata?.full_name,session.user?.user_metadata?.name);
-        currentProfile={...cached,email:cachedEmail,full_name:cachedName,nombre:cachedName};
-        try{localStorage.setItem('ts_enterprise_profile',JSON.stringify(currentProfile))}catch{}
-        applyAdminIdentity(session.user,currentProfile);
-        showApp();
-        opened=true;
-        setLoginMessage('Enterprise abrió con el último perfil autorizado mientras actualiza permisos.','');
-        return true;
-      }
+      console.warn('Enterprise session profile:',error?.message||error);
       throw error;
     }finally{opening=false}
   }
 
-  // Supabase procesa automáticamente los callbacks de magic-link/SSO. Escuchamos
-  // el evento para no perder la sesión si llega unos milisegundos después de DOMContentLoaded.
-  client.auth.onAuthStateChange((_event,session)=>{
-    if(session?.user&&!opened){setTimeout(()=>openSession(session).catch(error=>{
-      console.warn('Enterprise SSO:',error.message||error);
-      setLoginMessage(error.message||'No se pudo validar el acceso unificado.','error');
-    }),0)}
+  if(ssoTokenHash){
+    try{
+      setLoginMessage('Completando acceso unificado…','');
+      const {error}=await client.auth.verifyOtp({token_hash:ssoTokenHash,type:ssoType==='magiclink'?'magiclink':ssoType});
+      if(error)throw error;
+      params.delete('sso_token_hash');params.delete('sso_type');params.delete('sso_v');
+      const clean=params.toString();
+      history.replaceState(null,'',location.pathname+(clean?'?'+clean:'')+location.hash);
+    }catch(error){
+      console.warn('Enterprise SSO token:',error?.message||error);
+      try{await client.auth.signOut({scope:'local'})}catch(_error){}
+      forceEnterpriseOpen();
+      qs('app')?.classList.add('hidden');
+      qs('lockScreen')?.classList.remove('hidden');
+      setLoginMessage('El acceso unificado venció. Inicia sesión con tus credenciales.','error');
+      return;
+    }
+  }
+
+  const unsubscribe=client.auth.onAuthStateChange((_event,session)=>{
+    if(session?.user&&!opened){
+      setTimeout(()=>openSession(session).catch(error=>{
+        console.warn('Enterprise SSO:',error?.message||error);
+        forceEnterpriseOpen();
+        qs('app')?.classList.add('hidden');
+        qs('lockScreen')?.classList.remove('hidden');
+        setLoginMessage(error.message||'No se pudo validar el acceso unificado.','error');
+      }),0);
+    }
   });
 
   try{
-    const {data}=await client.auth.getSession();
+    const {data,error}=await client.auth.getSession();
+    if(error)throw error;
     if(await openSession(data?.session))return;
-    const isCallback=/(#.*access_token=|[?&]code=)/i.test(location.href);
-    setLoginMessage(isCallback?'Completando acceso unificado…':'Inicia sesión para abrir Enterprise.','');
+    forceEnterpriseOpen();
+    qs('app')?.classList.add('hidden');
+    qs('lockScreen')?.classList.remove('hidden');
+    setLoginMessage('Inicia sesión para abrir Enterprise.','');
   }catch(error){
-    console.warn('Enterprise:',error.message||error);
+    console.warn('Enterprise:',error?.message||error);
+    forceEnterpriseOpen();
+    qs('app')?.classList.add('hidden');
+    qs('lockScreen')?.classList.remove('hidden');
     setLoginMessage(error.message||'No se pudo conectar con Supabase. Reintenta.','error');
   }
 }
 function renderHome(){
-  qs('activityList').innerHTML = '<div class="activity-item"><div><b>Cargando actividad real…</b><span>Sin datos simulados</span></div></div>';
-  qs('topProducts').innerHTML = '<div class="product-row"><div><b>Cargando productos reales…</b><small>Supabase</small></div></div>';
-  qs('channelList').innerHTML = '<li><span>Cargando canales reales…</span></li>';
-  qs('statusList').innerHTML = '<div class="status-row"><b>Conectando fuentes reales…</b></div>';
+  const activityList=qs('activityList'); if(activityList)activityList.innerHTML='<div class="activity-item"><div><b>Cargando actividad real…</b><span>Sin datos simulados</span></div></div>';
+  const topProducts=qs('topProducts'); if(topProducts)topProducts.innerHTML='<div class="product-row"><div><b>Cargando productos reales…</b><small>Supabase</small></div></div>';
+  const channelList=qs('channelList'); if(channelList)channelList.innerHTML='<li><span>Cargando canales reales…</span></li>';
+  const statusList=qs('statusList'); if(statusList)statusList.innerHTML='<div class="status-row"><b>Conectando fuentes reales…</b></div>';
 }
 function renderModules(){
   Object.entries(modules).forEach(([id,items])=>{

@@ -1,1 +1,0 @@
-ThinkStore: al cambiar el estatus a Pago recibido, Pago verificado o Pago confirmado se envía automáticamente otro correo con la Nota de Entrega. También se mantiene el correo normal de actualización de estatus.
