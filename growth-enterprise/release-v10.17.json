@@ -1,0 +1,11 @@
+{
+  "version": "10.17",
+  "build": "boot-failsafe",
+  "description": "Enterprise boot blindado: el dashboard siempre se libera aunque una sección falle al renderizar.",
+  "changes": [
+    "failsafe de bienvenida iniciado antes de cualquier render",
+    "renderizado aislado por sección",
+    "sincronización financiera en segundo plano",
+    "sin cambios de datos/BCV/Staff/Soporte"
+  ]
+}

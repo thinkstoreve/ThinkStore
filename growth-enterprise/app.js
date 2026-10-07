@@ -54,6 +54,7 @@ function enterpriseGreeting(){
   if(h<19)return 'Buenas tardes';
   return 'Buenas noches';
 }
+let enterpriseBootFailsafeTimer=null;
 function showEnterpriseBoot(name){
   const el=qs('enterpriseBoot'); if(!el)return;
   enterpriseBootStarted=true;
@@ -62,11 +63,24 @@ function showEnterpriseBoot(name){
   if(qs('enterpriseBootText'))qs('enterpriseBootText').textContent='Sincronizando ventas, caja, inventario, soporte y finanzas…';
   el.classList.remove('hidden','boot-leave');
   requestAnimationFrame(()=>el.classList.add('boot-show'));
+  clearTimeout(enterpriseBootFailsafeTimer);
+  enterpriseBootFailsafeTimer=setTimeout(()=>{
+    try{
+      qs('app')?.classList.remove('hidden');
+      if(qs('enterpriseBootText'))qs('enterpriseBootText').textContent='Abriendo Enterprise…';
+      hideEnterpriseBoot();
+    }catch(_error){
+      el.classList.add('hidden');
+      el.classList.remove('boot-show','boot-leave');
+    }
+  },2800);
 }
 function hideEnterpriseBoot(){
+  clearTimeout(enterpriseBootFailsafeTimer);
+  enterpriseBootFailsafeTimer=null;
   const el=qs('enterpriseBoot'); if(!el||el.classList.contains('hidden'))return;
   el.classList.add('boot-leave');
-  setTimeout(()=>{el.classList.add('hidden');el.classList.remove('boot-show','boot-leave')},520);
+  setTimeout(()=>{el.classList.add('hidden');el.classList.remove('boot-show','boot-leave')},420);
 }
 function showPartnerWelcome(data){
   if(enterpriseWelcomeShown)return;
@@ -98,6 +112,15 @@ const modules = {};
 
 function qs(id){return document.getElementById(id)}
 function safe(value){return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
+function releaseEnterpriseBootOnRuntimeError(){
+  try{
+    const app=qs('app'),boot=qs('enterpriseBoot');
+    if(app&&!app.classList.contains('hidden')&&boot&&!boot.classList.contains('hidden'))setTimeout(()=>hideEnterpriseBoot(),60);
+  }catch{}
+}
+window.addEventListener('error',releaseEnterpriseBootOnRuntimeError);
+window.addEventListener('unhandledrejection',releaseEnterpriseBootOnRuntimeError);
 function setLoginMessage(message, type=''){
   const el = qs('loginMessage');
   if(!el) return;
@@ -184,7 +207,25 @@ async function unlock(event){
     setLoginMessage(error.message || 'No se pudo iniciar sesión.', 'error');
   }
 }
-function showApp(){ showEnterpriseBoot(currentProfile?.full_name||currentProfile?.nombre); qs('lockScreen')?.classList.add('hidden'); qs('app')?.classList.remove('hidden'); qs('app')?.classList.add('enterprise-entering'); applyEnterpriseAccessUI(); renderHome(); renderModules(); if(currentProfile?.is_full_admin)renderStaffAccess(); animateActiveView(); setTimeout(()=>qs('app')?.classList.remove('enterprise-entering'),1100); /* V10.16: la bienvenida nunca bloquea el dashboard. La sincronización continúa en segundo plano. */ setTimeout(()=>{const b=qs('enterpriseBoot');if(b&&!b.classList.contains('hidden')){if(qs('enterpriseBootText'))qs('enterpriseBootText').textContent='Abriendo Enterprise. Los datos seguirán sincronizándose en segundo plano…';hideEnterpriseBoot();}},3200); Promise.resolve().then(()=>loadEnterpriseV1Real()).catch(e=>console.warn('Enterprise background sync:',e?.message||e)); }
+function showApp(){
+  showEnterpriseBoot(currentProfile?.full_name||currentProfile?.nombre);
+  const lock=qs('lockScreen');
+  const app=qs('app');
+  lock?.classList.add('hidden');
+  app?.classList.remove('hidden');
+  try{
+    app?.classList.add('enterprise-entering');
+    try{applyEnterpriseAccessUI()}catch(error){console.warn('Enterprise access UI:',error?.message||error)}
+    try{renderHome()}catch(error){console.warn('Enterprise home:',error?.message||error)}
+    try{renderModules()}catch(error){console.warn('Enterprise modules:',error?.message||error)}
+    if(currentProfile?.is_full_admin){try{renderStaffAccess()}catch(error){console.warn('Enterprise staff:',error?.message||error)}}
+    try{animateActiveView()}catch(error){console.warn('Enterprise animation:',error?.message||error)}
+  }finally{
+    setTimeout(()=>app?.classList.remove('enterprise-entering'),900);
+    setTimeout(()=>hideEnterpriseBoot(),2400);
+  }
+  Promise.resolve().then(()=>loadEnterpriseV1Real()).catch(error=>console.warn('Enterprise background sync:',error?.message||error));
+}
 function applyEnterpriseAccessUI(){const app=qs('app');if(!app)return;app.classList.remove('enterprise-viewer','enterprise-manager');if(!currentProfile?.is_full_admin)app.classList.add(currentProfile?.enterprise_role==='manager'?'enterprise-manager':'enterprise-viewer');const sub=qs('pageSubtitle');if(sub&&!currentProfile?.is_full_admin&&currentProfile?.enterprise_role==='viewer')sub.textContent='Acceso Enterprise · Solo lectura'}
 
 async function sendPasswordRecovery(){
