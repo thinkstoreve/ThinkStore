@@ -1,3 +1,4 @@
+const {mainConfig,authenticateInternal}=require('./staff-auth-core');
 const crypto=require('crypto');
 const {getRate}=require('./fx-rate-core');
 const {prepare:prepareMixed}=require('./pos-mixed-payment');
@@ -15,43 +16,26 @@ exports.handler = async function(event) {
   const clean=v=>String(v??'').trim();
   const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const SUPABASE_URL=clean(process.env.MAIN_SUPABASE_URL||process.env.THINKSTORE_SUPABASE_URL||'https://clhnndxsgzqnihhtrout.supabase.co').replace(/\/$/,'');
-  const SERVICE=clean(process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY);
+  const cfg=mainConfig(),SUPABASE_URL=cfg.url;
+  const SERVICE=cfg.service;
   if(!SUPABASE_URL||!SERVICE) return reply(501,{ok:false,error:'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Netlify.'});
 
   let body={};
   try{body=JSON.parse(event.body||'{}')}catch{return reply(400,{ok:false,error:'JSON inválido'})}
 
   async function authorizeAdmin(){
-    const provided=clean(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']||'');
-    const allowed=[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].filter(Boolean).map(String);
-    if(provided&&allowed.includes(provided)) return {ok:true,mode:'legacy'};
-    const token=clean(event.headers.authorization||event.headers.Authorization||'').replace(/^Bearer\s+/i,'');
-    if(!token)return{ok:false};
-    const ur=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:SERVICE,Authorization:`Bearer ${token}`}});
-    const u=await ur.json().catch(()=>({}));
-    if(!ur.ok||!u.id)return{ok:false};
-    const serviceHeaders={apikey:SERVICE,Authorization:`Bearer ${SERVICE}`};
-    const pr=await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:serviceHeaders});
-    const rows=await pr.json().catch(()=>[]);let p=rows[0]||null;
-    if(!p&&u.email){
-      const rr=await fetch(`${SUPABASE_URL}/rest/v1/roles_usuarios?select=id,rol,activo&email=ilike.${encodeURIComponent(u.email)}&limit=1`,{headers:serviceHeaders});
-      const roleRows=await rr.json().catch(()=>[]);const rp=roleRows[0];if(rp)p={id:rp.id,role:rp.rol,active:rp.activo};
+    const a=await authenticateInternal(event);
+    if(!a.ok)return{ok:false};
+    const p=a.profile||{},role=String(a.role||'').toLowerCase();
+    if(!['admin','superadmin','vendedor'].includes(role))return{ok:false};
+    if(role==='vendedor'){
+      const ov=p.permission_overrides&&typeof p.permission_overrides==='object'?p.permission_overrides:{};
+      const deny=Array.isArray(ov.deny)?ov.deny:[];
+      if(deny.includes('ventas'))return{ok:false};
     }
-    if(!p||(p.active??p.activo??true)===false)return{ok:false};
-    const raw=norm(p.role||p.rol),uiRole=raw==='super_admin'?'superadmin':(['administrator','gerente'].includes(raw)?'admin':raw);
-    const defaultPerms={vendedor:['ventas'],admin:['*'],superadmin:['*']};
-    let perms=[...(defaultPerms[uiRole]||[])];
-    if(p.custom_role_key){
-      const rr=await fetch(`${SUPABASE_URL}/rest/v1/ts_roles?select=permissions&role_key=eq.${encodeURIComponent(p.custom_role_key)}&active=eq.true&limit=1`,{headers:serviceHeaders});
-      const rd=await rr.json().catch(()=>[]);if(rr.ok&&Array.isArray(rd?.[0]?.permissions))perms=rd[0].permissions.map(String);
-    }
-    const ov=p.permission_overrides&&typeof p.permission_overrides==='object'?p.permission_overrides:{};
-    const allow=Array.isArray(ov.allow)?ov.allow.map(String):[],deny=Array.isArray(ov.deny)?ov.deny.map(String):[];
-    if(!perms.includes('*'))perms=[...new Set([...perms,...allow])].filter(x=>!deny.includes(x));
-    if(!(perms.includes('*')||perms.includes('ventas')))return{ok:false};
-    return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',role:uiRole};
+    return{ok:true,user:a.auth_user,profile:p,role};
   }
+
   const auth=await authorizeAdmin();
   if(!auth.ok)return reply(401,{ok:false,error:'Acceso administrador no autorizado'});
 

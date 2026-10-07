@@ -1,3 +1,4 @@
+const {mainConfig,authenticateInternal}=require('./staff-auth-core');
 /** ThinkStore Staff V14.77 — private, self-service profile photos. */
 const H={'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Allow-Methods':'POST,OPTIONS','Cache-Control':'no-store'};
 const BUCKET='staff-profile-photos';
@@ -8,19 +9,11 @@ const normalizeRole=v=>{const k=String(v||'').toLowerCase().replace(/[ -]+/g,'_'
 const storagePath=path=>path.split('/').map(encodeURIComponent).join('/');
 
 async function authorizedUser(event,url,secret){
-  const token=String(event.headers?.authorization||event.headers?.Authorization||'').replace(/^Bearer\s+/i,'').trim();
-  if(!token)return null;
-  const auth=await fetch(`${url}/auth/v1/user`,{headers:{apikey:secret,Authorization:`Bearer ${token}`}});
-  if(!auth.ok)return null;
-  const user=await auth.json().catch(()=>({}));
-  if(!isValidUUID(user.id))return null;
-  const q=`${url}/rest/v1/profiles?select=id,role,is_internal,active,staff_avatar_path&id=eq.${encodeURIComponent(user.id)}&limit=1`;
-  const rowsRes=await fetch(q,{headers:serviceHeaders(secret)});
-  if(!rowsRes.ok)return null;
-  const rows=await rowsRes.json().catch(()=>[]),p=rows[0];
-  if(!p||p.id!==user.id||p.active===false||p.is_internal!==true||!['vendedor','admin','superadmin'].includes(normalizeRole(p.role)))return null;
-  return {id:user.id,profile:p};
+  const auth=await authenticateInternal(event);
+  if(!auth.ok||!['vendedor','admin','superadmin'].includes(normalizeRole(auth.role)))return null;
+  return{id:auth.user_id,profile:auth.profile};
 }
+
 function allowedImage(bytes,mime){
   if(mime==='image/jpeg')return bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;
   if(mime==='image/webp')return bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP';
@@ -48,7 +41,7 @@ async function deleteOld(url,secret,id,path){
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return {statusCode:204,headers:H,body:''};
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
-  const url=String(process.env.MAIN_SUPABASE_URL||process.env.THINKSTORE_SUPABASE_URL||'https://clhnndxsgzqnihhtrout.supabase.co').trim().replace(/\/$/,''),secret=String(process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||'').trim();
+  const cfg=mainConfig(),url=cfg.url,secret=cfg.service;
   if(!url||!secret)return r(503,{ok:false,error:'Falta configurar Supabase en Netlify'});
   let user;try{user=await authorizedUser(event,url,secret)}catch(e){console.error('staff-avatar auth',e);return r(502,{ok:false,error:'No se pudo verificar el usuario en Supabase'})}
   if(!user)return r(403,{ok:false,error:'Solo el vendedor o administrador autorizado puede cambiar su foto'});

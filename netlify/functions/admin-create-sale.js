@@ -1,3 +1,4 @@
+const {mainConfig,authenticateInternal}=require('./staff-auth-core');
 exports.handler=async function(event){
   const H={'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization, x-admin-secret','Access-Control-Allow-Methods':'POST,OPTIONS'};
   const r=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
@@ -6,7 +7,7 @@ exports.handler=async function(event){
   const {getRate}=require('./fx-rate-core');
   const {prepare:prepareMixed}=require('./pos-mixed-payment');
   const clean=v=>String(v??'').trim(), norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const url=clean(process.env.MAIN_SUPABASE_URL||process.env.THINKSTORE_SUPABASE_URL||'https://clhnndxsgzqnihhtrout.supabase.co').replace(/\/$/,''); const service=clean(process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY);
+  const cfg=mainConfig(),url=cfg.url,service=cfg.service;
   if(!url||!service)return r(501,{ok:false,error:'Faltan variables de Supabase'});
   const sh={apikey:service,Authorization:`Bearer ${service}`,'Content-Type':'application/json'};
 
@@ -14,17 +15,9 @@ exports.handler=async function(event){
     const legacy=clean(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']||'');
     const allowed=[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].filter(Boolean).map(String);
     if(legacy&&allowed.includes(legacy))return{ok:true,mode:'legacy'};
-    const token=clean(event.headers.authorization||event.headers.Authorization||'').replace(/^Bearer\s+/i,'');
-    if(!token)return{ok:false};
-    const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}}); const u=await ur.json().catch(()=>({}));
-    if(!ur.ok||!u.id)return{ok:false};
-    let pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh}); let rows=await pr.json().catch(()=>[]),p=rows[0];
-    if(!p){pr=await fetch(`${url}/rest/v1/profiles?select=*&user_id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh});rows=await pr.json().catch(()=>[]);p=rows[0];}
-    if(!p&&u.email){const rr=await fetch(`${url}/rest/v1/roles_usuarios?select=*&email=ilike.${encodeURIComponent(u.email)}&limit=1`,{headers:sh});const rd=await rr.json().catch(()=>[]),rp=rd[0];if(rp)p={id:u.id,role:rp.rol||rp.role||'vendedor',active:rp.activo??rp.active??true,is_internal:true};}
-    const role=norm(p?.role||p?.rol);
-    if(!p||(p.active??p.activo??true)===false)return{ok:false};
-    const uiRole=role==='super_admin'?'superadmin':(['administrator','gerente'].includes(role)?'admin':role);
-    const defaultPerms={vendedor:['ventas'],admin:['*'],superadmin:['*']};
+    const a=await authenticateInternal(event);
+    if(!a.ok)return{ok:false};
+    const p=a.profile||{},uiRole=norm(a.role),defaultPerms={vendedor:['ventas'],admin:['*'],superadmin:['*']};
     let perms=[...(defaultPerms[uiRole]||[])];
     if(p.custom_role_key){
       const rr=await fetch(`${url}/rest/v1/ts_roles?select=permissions&role_key=eq.${encodeURIComponent(p.custom_role_key)}&active=eq.true&limit=1`,{headers:sh});
@@ -34,8 +27,9 @@ exports.handler=async function(event){
     const allow=Array.isArray(ov.allow)?ov.allow.map(String):[],deny=Array.isArray(ov.deny)?ov.deny.map(String):[];
     if(!perms.includes('*'))perms=[...new Set([...perms,...allow])].filter(x=>!deny.includes(x));
     if(!(perms.includes('*')||perms.includes('ventas')))return{ok:false};
-    return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',name:p.full_name||p.nombre||p.name||u.user_metadata?.full_name||u.email||'',role:uiRole};
+    return{ok:true,user_id:a.user_id,email:a.email,name:p.full_name||p.nombre||p.name||a.email,role:uiRole};
   }
+
   const actor=await auth(); if(!actor.ok)return r(401,{ok:false,error:'Acceso no autorizado'});
 
   let b={}; try{b=JSON.parse(event.body||'{}')}catch{return r(400,{ok:false,error:'JSON inválido'})}

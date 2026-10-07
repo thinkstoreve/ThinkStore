@@ -8,7 +8,7 @@ function enterpriseAccess(profile={}){const role=norm(profile?.role||profile?.ro
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return json(200,{ok:true});
   if(event.httpMethod!=='POST')return json(405,{ok:false,error:'Método no permitido'});
-  const url=clean(process.env.SUPABASE_URL).replace(/\/$/,'');
+  const url='https://clhnndxsgzqnihhtrout.supabase.co';
   const key=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if(!url||!key)return json(501,{ok:false,error:'Faltan variables del Supabase principal'});
   const adminHeaders={apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'};

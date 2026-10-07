@@ -34,7 +34,7 @@ const hasNum=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS')return{statusCode:204,headers:H,body:''};
   if(event.httpMethod!=='GET')return out(405,{ok:false,error:'Método no permitido'});
-  const mainUrl=clean(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL).replace(/\/$/,'');
+  const mainUrl='https://clhnndxsgzqnihhtrout.supabase.co';
   const mainKey=clean(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY);
   const supportUrl=clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/$/,'');
   const supportKey=clean(process.env.SUPPORT_SUPABASE_SECRET_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY);

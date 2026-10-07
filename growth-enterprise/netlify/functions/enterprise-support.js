@@ -9,7 +9,7 @@ function enterpriseAccess(profile={}){const role=norm(profile?.role||profile?.ro
 exports.handler=async function(event){
   if(event.httpMethod==='OPTIONS')return json(200,{ok:true});
   if(!['GET','POST'].includes(event.httpMethod))return json(405,{ok:false,error:'Método no permitido'});
-  const mainUrl=clean(process.env.SUPABASE_URL).replace(/\/$/,'');
+  const mainUrl='https://clhnndxsgzqnihhtrout.supabase.co';
   const mainKey=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const supportUrl=clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/$/,'');
   const supportKey=clean(process.env.SUPPORT_SUPABASE_SECRET_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY);
