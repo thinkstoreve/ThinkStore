@@ -1245,6 +1245,31 @@ const TSService=(()=>{
       return;
     }
 
+    // V14.89 · SSO integrado: consume el token hash generado por Main y crea
+    // la sesión directamente en el Supabase de Soporte, sin redirect externo.
+    const urlParams=new URLSearchParams(location.search);
+    const ssoHash=urlParams.get('sso_token_hash');
+    const ssoType=urlParams.get('sso_type')||'magiclink';
+    if(ssoHash){
+      try{
+        const {error}=await supabaseClient.auth.verifyOtp({token_hash:ssoHash,type:ssoType});
+        if(error)throw error;
+        urlParams.delete('sso_token_hash');urlParams.delete('sso_type');urlParams.delete('sso_v');
+        const cleanUrl=location.pathname+(urlParams.toString()?('?'+urlParams.toString()):'')+location.hash;
+        history.replaceState(null,'',cleanUrl);
+      }catch(err){
+        console.error('ThinkStore Soporte SSO',err);
+        localStorage.removeItem('ts_service_session');
+        session=null;
+        if(isPanelPage()){
+          const dash=document.getElementById('roleDashboard');if(dash)dash.classList.add('hidden');
+          setTimeout(()=>openLogin(),80);
+          alert('No se pudo completar el acceso unificado a Servicio Técnico. Reintenta desde Staff o el Panel Administrativo.');
+          return;
+        }
+      }
+    }
+
     const {data:{session:sbSession}}=await supabaseClient.auth.getSession();
     if(sbSession?.user?.email){
       try{

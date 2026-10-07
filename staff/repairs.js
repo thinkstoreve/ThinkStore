@@ -1,4 +1,4 @@
-/* ThinkStore V14.88 — Servicio Técnico / Cobranza / Nota de entrega en Staff. */
+/* ThinkStore V14.89 — App Ventas · Servicio / Cobros y abonos restaurado. */
 (() => {
 'use strict';
 const $=id=>document.getElementById(id);
@@ -34,7 +34,7 @@ function row(o){const a=account(o);const paid=a.paidOff;return `<article class="
   <div><b>${esc(o.code||'Sin código')}</b><small>${esc(o.client_name||'Sin cliente')} · ${date(o.created_at)}</small></div>
   <div class="repairs-device"><b>${esc(o.device_model||'Equipo sin modelo')}</b><small>${esc(o.status||'Sin estado')} · ${esc(o.quote_status||'Cotización pendiente')}</small></div>
   <div class="repairs-total"><span class="repairs-pill ${paid?'paid':a.partial?'partial':''}">${paid?'Cobrado':a.partial?'Abonado':a.canceled?'Cancelado':'Por cobrar'}</span><small>${paid?`Cobrado ${fmt(a.paid,o)}`:a.budget>0?`Pendiente ${fmt(a.pending,o)}`:'Sin cotización'}</small></div>
-  <div class="repairs-action"><button class="secondary" data-repair-open="${esc(o.id)}" type="button">Ver reparación →</button></div></article>`}
+  <div class="repairs-action"><button class="secondary service-pay-open" data-repair-open="${esc(o.id)}" type="button">${paid?'Ver cobro':'Cobrar / abonar'} →</button></div></article>`}
 function render(){summaries();$('repairsList').innerHTML='';const term=query.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
  const visible=orders.filter(o=>{const a=account(o);if(filter==='pending'&&(a.pending<=0||a.canceled))return false;if(filter==='paid'&&!a.paidOff)return false;const hay=[o.code,o.client_name,o.client_phone,o.device_model,o.serial_imei,o.status].join(' ').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');return !term||hay.includes(term)});
  $('repairsList').innerHTML=visible.length?visible.map(row).join(''):'<div class="repairs-empty">No hay reparaciones que coincidan con este filtro.</div>';
@@ -45,7 +45,7 @@ async function load(force=false){if(loading)return;if(!getToken)return notice('I
  catch(e){notice(e.message);if(!initialized)$('repairsList').innerHTML='<div class="repairs-empty">No se pudieron cargar las órdenes desde Soporte. No se muestran datos de prueba.</div>'}
  finally{loading=false;$('repairsRefresh').disabled=false}
 }
-function detail(){const o=active;if(!o)return;const a=account(o);$('repairsModalTitle').textContent=`${o.code||'Orden'} · ${o.device_model||'Servicio Técnico'}`;
+function detail(){const o=active;if(!o)return;const a=account(o);$('repairsModalTitle').textContent=`${o.code||'Orden'} · ${o.client_name||'Cliente'}`;
  $('repairsModalBody').innerHTML=`<div class="repairs-meta">
  <div><b>Cliente</b>${esc(o.client_name||'—')}<small>${esc(o.client_phone||'')}</small></div><div><b>Equipo</b>${esc(o.device_model||'—')}<small>${esc(o.serial_imei||'Sin serial')}</small></div>
  <div><b>Estado</b>${esc(o.status||'—')}</div><div><b>Presupuesto</b>${esc(o.quote_status||'Pendiente')}</div></div>
@@ -55,13 +55,13 @@ function detail(){const o=active;if(!o)return;const a=account(o);$('repairsModal
  <div><h3>Historial de cobros</h3><div id="repairsEvents" class="repairs-history">Cargando historial…</div></div>
  <hr class="repairs-divider">
  <form id="repairsPayForm" class="repairs-pay-form">
-   <h3>Registrar pago o abono</h3>
+   <h3>Registrar cobro o abono</h3>
    <div class="repairs-pay-grid"><label>Método<select id="repairsPayMethod">${METHODS.map(m=>`<option>${esc(m)}</option>`).join('')}</select></label>
    <label>Monto recibido <small id="repairsPayUnit">USD</small><input id="repairsPayAmount" type="number" min="0.01" step="0.01" placeholder="0,00" required></label></div>
    <div id="repairsBcvBox" class="repairs-pay-hint hidden">Consultando BCV…</div>
    <label>Referencia (obligatoria para pagos bancarios)<input id="repairsPayReference" maxlength="100" placeholder="N.º de operación"></label>
    <label>Observación (opcional)<textarea id="repairsPayNote" maxlength="300" placeholder="Observaciones del abono"></textarea></label>
-   <div class="repairs-pay-actions"><button class="primary" id="repairsPaySave" type="submit" ${a.canceled||a.pending<=0||a.budget<=0||String(o.quote_currency||'USD').toUpperCase()!=='USD'?'disabled':''}>Registrar abono</button><button class="secondary" id="repairsFillBalance" type="button" ${a.canceled||a.pending<=0?'disabled':''}>Completar saldo</button></div>
+   <div class="repairs-pay-actions"><button class="primary" id="repairsPaySave" type="submit" ${a.canceled||a.pending<=0||a.budget<=0||String(o.quote_currency||'USD').toUpperCase()!=='USD'?'disabled':''}>Registrar cobro / abono</button><button class="secondary" id="repairsFillBalance" type="button" ${a.canceled||a.pending<=0?'disabled':''}>Completar saldo</button></div>
  </form>
  <div class="repairs-print-actions"><button class="secondary" id="repairsDeliveryNote" type="button" ${!(a.paidOff&&/listo|entregado/i.test(o.status||''))?'disabled':''}>Imprimir nota de entrega</button><button class="secondary" id="repairsOpenTechnical" type="button">Abrir en Servicio Técnico ↗</button></div>
  ${!(a.paidOff&&/listo|entregado/i.test(o.status||''))?'<p class="repairs-pay-hint">La nota se habilita después de cobrar el total y marcar el equipo como listo o entregado en Soporte.</p>':''}`;
@@ -90,7 +90,7 @@ async function savePayment(e){e.preventDefault();if(!active)return;const id=acti
  const btn=$('repairsPaySave');btn.disabled=true;btn.textContent='Registrando…';
  try{const res=await api('POST',{action:'pay',order_id:id,method,amount,reference,note});await load(true);if(!res.note_saved)notice('Cobro registrado; no se pudo agregar la anotación a la bitácora. Revísala desde Soporte.');
  const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];detail();$('repairsEvents').innerHTML=events.length?events.map(e=>`<div><b>${esc(e.event_type||'Abono')}</b> · ${usd(e.amount_delta)} · ${date(e.occurred_at)} · ${esc(e.payment_method||'')}</div>`).join(''):'Pago guardado. Historial detallado no disponible.';window.alert((res.fully_paid?'Pago completado. Repuestos reservados consumidos y orden marcada ✓ Cobrado.':'Abono registrado correctamente en Soporte.')+'\nImporte aplicado: '+usd(res.payment?.equivalent||0)+(res.fully_paid&&!res.email_sent?'\nEl cobro quedó guardado; el correo al cliente no pudo confirmarse.':''));
- }catch(err){window.alert(err.message||'No se pudo registrar el cobro.');btn.disabled=false;btn.textContent='Registrar abono';}
+ }catch(err){window.alert(err.message||'No se pudo registrar el cobro.');btn.disabled=false;btn.textContent='Registrar cobro / abono';}
 }
 function printDelivery(){if(!active)return;const o=active,a=account(o);if(!a.paidOff||!/listo|entregado/i.test(o.status||'')){alert('Confirma el pago y el estado listo para entregar antes de imprimir.');return}
  const d=window.open('','_blank','width=800,height=1000');if(!d){alert('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para ThinkStore.');return}

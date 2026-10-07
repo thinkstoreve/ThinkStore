@@ -1,5 +1,5 @@
-const CACHE='thinkstore-staff-v14-88-0';
-const SHELL=['./','./index.html','./app.css?v=14.88.0','./app.js?v=14.88.0','./cash.js?v=14.88.0','./repairs.js?v=14.88.0','./manifest.webmanifest','./icon-192.png','./icon-512.png','../logo-thinkstore.png','../supabase-config.js','../ts-fx.js?v=14.78','../ts-payment-split.js?v=14.79'];
+const CACHE='thinkstore-staff-v14-89-0';
+const SHELL=['./','./index.html','./app.css?v=14.89.0','./app.js?v=14.89.0','./cash.js?v=14.89.0','./repairs.js?v=14.89.0','./manifest.webmanifest','./icon-192.png','./icon-512.png','../logo-thinkstore.png','../supabase-config.js','../ts-fx.js?v=14.78','../ts-payment-split.js?v=14.79'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{

@@ -54,7 +54,7 @@ function navigate(view,push=true){
   const allowed=['home','sell','sales','repairs','cash','account'];if(!allowed.includes(view)||(view==='cash'&&!state.canSell)||(view==='repairs'&&!canUseRepairs()))view='home';
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+view));
   document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
-  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],repairs:['Servicio Técnico','Reparaciones'],cash:['Caja diaria','Caja Staff'],account:['Perfil','Mi cuenta']};
+  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],repairs:['Servicio Técnico','Cobros y abonos'],cash:['Caja diaria','Caja Staff'],account:['Perfil','Mi cuenta']};
   $('headerContext').textContent=titles[view][0];$('headerTitle').textContent=titles[view][1];
   if(view==='cash'&&state.canSell)window.ThinkStoreCash?.load();if(view==='repairs')window.ThinkStoreRepairs?.load();if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell&&state.saleStep===2)setTimeout(()=>$('barcodeScanInput')?.focus(),80);
 }
@@ -68,7 +68,7 @@ function renderIdentity(){
   $('welcomeTitle').textContent=`Hola, ${firstName(name)}.`;$('welcomeText').textContent=state.canSell?'Todo listo para vender y atender clientes desde tu cuenta.':'Tu sesión interna está activa. Verás únicamente las funciones autorizadas para tu rol.';$('roleBadge').textContent=role;$('roleCardTitle').textContent=role;
   const isManager=['admin','superadmin'].includes(u.role)||u.permissions?.includes('*');$('salesScopeText').textContent=isManager?'Ventas presenciales recientes del equipo.':'Tus ventas presenciales recientes.';
   $('cashNav').classList.toggle('hidden',!state.canSell);$('cashBottomNav').classList.toggle('hidden',!state.canSell);$('sellNav').classList.toggle('hidden',!state.canSell);$('sellBottomNav').classList.toggle('hidden',!state.canSell);$('heroSellButton').classList.toggle('hidden',!state.canSell);document.querySelectorAll('[data-view="sales"]').forEach(el=>el.classList.toggle('hidden',!state.canSell));
-  show('supportNav',canOpenSupport());show('repairsNav',canUseRepairs());show('repairsBottomNav',canUseRepairs());
+  show('supportNav',canOpenSupport());show('repairsNav',canUseRepairs());show('repairsBottomNav',canUseRepairs());show('heroRepairButton',canUseRepairs());
 }
 function renderHome(){const m=state.metrics||{};$('metricSales').textContent=Number(m.today_sales||0);$('metricTotal').textContent=money(m.today_total||0);$('metricPending').textContent=Number(m.pending||0);$('roleCardText').textContent=state.canSell?(m.attribution_ready===false?'Tu permiso de ventas está activo. Ejecuta supabase_v14_0_staff_pos.sql para activar la atribución individual de ventas.':'Tu cuenta tiene acceso a Venta presencial. Las operaciones quedan registradas a tu nombre.'):'Tu rol no tiene permiso de Venta presencial. Puedes seguir usando los módulos habilitados desde el panel completo.';renderSaleRows('homeRecentSales',(state.recent||[]).slice(0,5));}
 function renderSales(){renderSaleRows('salesList',state.recent||[])}

@@ -34,3 +34,22 @@ test('Paquete incluye los cuatro SQL del flujo',()=>{
   for(const n of ['01-ORDEN-REPUESTOS','02-GUARDAR-REPUESTOS','03-CONSUMIR-AL-PAGO','04-PAGO-ATOMICO'])
     assert.ok(fs.existsSync(path.join(root,`SQL-SOPORTE-V8.8.8-${n}.sql`)),n);
 });
+
+
+test('SSO integrado usa token hash y Soporte consume verifyOtp',()=>{
+  const sso=read('netlify/functions/admin-sso.js');
+  const app=read('soporte/app.js');
+  assert.match(sso,/directSupportOtpUrl/);
+  assert.match(sso,/sso_token_hash/);
+  assert.match(app,/verifyOtp\(\{token_hash:ssoHash,type:ssoType\}\)/);
+});
+
+test('App Ventas recupera Servicio Cobros y abonos',()=>{
+  const html=read('staff/index.html');
+  const app=read('staff/app.js');
+  assert.match(html,/Cobros y abonos/);
+  assert.match(html,/Pendientes por cobrar/);
+  assert.match(html,/Cobradas/);
+  assert.match(html,/Cobrar reparación/);
+  assert.match(app,/repairs:\['Servicio Técnico','Cobros y abonos'\]/);
+});
