@@ -117,7 +117,7 @@ exports.handler=async event=>{
 
   const patch={
     amount_paid:next,
-    payment_status:paid?'Cobrado':'Abono parcial',
+    payment_status:paid?'Pagado':'Abono parcial',
     payment_method:method,
     payment_notes:meta,
     paid_at:new Date().toISOString()

@@ -104,6 +104,8 @@ const TSService=(()=>{
   let selectedReceptionClientId=null;
   let supportAlerts=[];
   let supportAlertTimer=null;
+  let supportPaymentTimer=null;
+  let currentPanelView='dashboard';
   let notificationFilter='all';
   const seenSupportAlertIds=new Set();
 
@@ -111,6 +113,13 @@ const TSService=(()=>{
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function toast(message,type='ok'){let el=document.getElementById('serviceToast');if(!el){el=document.createElement('div');el.id='serviceToast';document.body.appendChild(el)}el.className=`service-toast ${type}`;el.textContent=message;requestAnimationFrame(()=>el.classList.add('show'));clearTimeout(window.__serviceToast);window.__serviceToast=setTimeout(()=>el.classList.remove('show'),4200)}
   function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',quoteRepairDetails:row.quote_repair_details||'',quoteSentAt:row.quote_sent_at||'',quoteApprovedAt:row.quote_approved_at||'',quoteClientComment:row.quote_client_comment||'',quoteTermsVersion:row.quote_terms_version||'',quoteTermsAcceptedAt:row.quote_terms_accepted_at||'',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},receivedByName:checklist?.__meta?.received_by_name||row.created_by_email||'',receivedByEmail:checklist?.__meta?.received_by_email||row.created_by_email||'',receivedByRole:checklist?.__meta?.received_by_role||'',receivedAt:checklist?.__meta?.received_at||row.created_at||'',passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',publicToken:row.public_token||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
+  function orderPaymentState(o={}){
+    const quote=Math.max(0,Number(o.quoteAmount||0)),paid=Math.max(0,Number(o.amountPaid||0)),raw=String(o.paymentStatus||'').toLowerCase();
+    const paidOff=/pagado|cobrado/.test(raw)||(quote>0&&paid+0.0001>=quote);
+    const partial=!paidOff&&(/abono/.test(raw)||paid>0);
+    return paidOff?{key:'paid',label:'Pagado',detail:paid?`$${paid.toFixed(2)}`:''}:partial?{key:'partial',label:'Abono parcial',detail:paid?`$${paid.toFixed(2)}`:''}:{key:'pending',label:'Pendiente',detail:quote>0?`$${Math.max(0,quote-paid).toFixed(2)}`:''};
+  }
+  function paymentBadgeHtml(o={}){const p=orderPaymentState(o);return `<span class="support-payment-badge ${p.key}"><i>${p.key==='paid'?'✓':p.key==='partial'?'◐':'$'}</i><span>${esc(p.label)}</span>${p.detail?`<small>${esc(p.detail)}</small>`:''}</span>`}
 
 
   function cleanClientSearchValue(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
@@ -425,6 +434,25 @@ const TSService=(()=>{
     loadSupportAlerts(true).catch(()=>{});
     supportAlertTimer=setInterval(()=>loadSupportAlerts(true).catch(()=>{}),10000);
   }
+  async function refreshExternalPaymentStates(){
+    if(!session)return;
+    const {data,error}=await supabaseClient.from('service_orders').select('id,payment_status,amount_paid,payment_method,payment_notes,paid_at,quote_amount,quote_currency,updated_at');
+    if(error)return;
+    let changed=false;
+    for(const row of data||[]){
+      const o=orders.find(x=>String(x.id)===String(row.id));if(!o)continue;
+      const nextStatus=row.payment_status||'Pendiente',nextPaid=Number(row.amount_paid||0),nextQuote=Number(row.quote_amount||0),nextPaidAt=row.paid_at||'';
+      if(String(o.paymentStatus)!==String(nextStatus)||Number(o.amountPaid)!==nextPaid||Number(o.quoteAmount)!==nextQuote||String(o.paidAt||'')!==String(nextPaidAt)){
+        o.paymentStatus=nextStatus;o.amountPaid=nextPaid;o.paymentMethod=row.payment_method||'';o.paymentNotes=row.payment_notes||'';o.paidAt=nextPaidAt;o.quoteAmount=nextQuote;o.quoteCurrency=row.quote_currency||o.quoteCurrency||'USD';o.updated_at=row.updated_at||o.updated_at;o.updated=dateText(row.updated_at||o.updated_at||o.created_at);changed=true;
+      }
+    }
+    if(changed&&['dashboard','orders','reception','technical','sales','logistics'].includes(currentPanelView)){await renderPanel(currentPanelView)}
+  }
+  function startSupportPaymentPolling(){
+    clearInterval(supportPaymentTimer);
+    refreshExternalPaymentStates().catch(()=>{});
+    supportPaymentTimer=setInterval(()=>refreshExternalPaymentStates().catch(()=>{}),6000);
+  }
   async function loadSupportData(){
     const [orderRes,noteRes,photoRes,partsRes,movementsRes,appointmentsRes]=await Promise.all([
       supabaseClient.from('service_orders').select('*').order('created_at',{ascending:false}),
@@ -523,7 +551,7 @@ const TSService=(()=>{
     await supabaseClient.auth.signOut();
     localStorage.removeItem('ts_service_session');
     session=null;
-    clearInterval(supportAlertTimer);supportAlertTimer=null;supportAlerts=[];renderSupportAlerts();
+    clearInterval(supportAlertTimer);supportAlertTimer=null;clearInterval(supportPaymentTimer);supportPaymentTimer=null;supportAlerts=[];renderSupportAlerts();
     const dash=document.getElementById('roleDashboard');
     if(dash) dash.classList.add('hidden');
     location.href='index.html';
@@ -586,7 +614,7 @@ const TSService=(()=>{
     if(!dash||!nav)return;
     renderRoleMenu();
     const box=document.getElementById('panelContent');if(box)box.innerHTML='<div class="notice">Cargando datos reales de soporte…</div>';
-    try{await loadSupportData();await renderPanel('dashboard');startSupportAlertPolling()}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
+    try{await loadSupportData();await renderPanel('dashboard');startSupportAlertPolling();startSupportPaymentPolling()}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
     dash.classList.remove('hidden');
     showSupportWelcome();
     requestAnimationFrame(()=>{
@@ -665,6 +693,7 @@ const TSService=(()=>{
 
   async function renderPanel(view){
     if(!can(view)){alert('Tu rol no tiene permiso para esta sección');return}
+    currentPanelView=view;
     document.querySelectorAll('#roleMenu .support-nav-btn').forEach(btn=>{
       const active=btn.dataset.view===view;
       btn.classList.toggle('active',active);
@@ -958,7 +987,7 @@ ${summary}
 
   function ordersTable(scope='orders'){
     const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Diagnóstico disponible','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
-    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Última carga ${new Date().toLocaleTimeString('es-VE')}</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id));return `<tr><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Diagnóstico disponible','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
+    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Los pagos de App Ventas se sincronizan automáticamente</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id)),pay=orderPaymentState(o);return `<tr class="${pay.key==='paid'?'support-order-paid':''}"><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><div class="support-order-state"><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Diagnóstico disponible','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select>${paymentBadgeHtml(o)}</div></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
 
   async function openOrderManager(id){
     const o=orders.find(x=>String(x.id)===String(id));if(!o)return;

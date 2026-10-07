@@ -61,7 +61,7 @@ begin
 
   update public.service_orders
      set amount_paid=v_after,
-         payment_status=case when v_final then 'Cobrado' else 'Abono parcial' end,
+         payment_status=case when v_final then 'Pagado' else 'Abono parcial' end,
          payment_method=nullif(trim(p_payment_method),''),
          payment_notes=left(concat_ws(E'\n',nullif(trim(coalesce(o.payment_notes,'')),''),v_note),1800),
          paid_at=now(),
@@ -77,7 +77,7 @@ begin
     'total',v_total,
     'pending',greatest(0,round(v_total-v_after,2)),
     'fully_paid',v_final,
-    'payment_status',case when v_final then 'Cobrado' else 'Abono parcial' end,
+    'payment_status',case when v_final then 'Pagado' else 'Abono parcial' end,
     'inventory',v_consume,
     'delivery_note_ready',v_final
   );

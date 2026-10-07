@@ -89,7 +89,7 @@ exports.handler=async event=>{
     if(!['pay','view_delivery_note','resend_delivery_note'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
     const id=clean(b.order_id,50);
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
-    const current=await getOrder(conf,id);
+    let current=await getOrder(conf,id);
     if(!current)return result(404,{ok:false,error:'Reparación no encontrada'});
     if(['view_delivery_note','resend_delivery_note'].includes(b.action)){
       const acc=account(current);
@@ -109,7 +109,14 @@ exports.handler=async event=>{
     if(isBs)bcv=await getRate(true);
     const p=paymentPlan(current,b,bcv);
     const comment=clean(b.note,300);
-    const description=`Cobro Staff: ${p.method} · ${p.currency==='VES'?'Bs.':'USD'} ${p.amount.toFixed(2)} · equiv. USD ${p.equivalent.toFixed(2)}${p.rate?` · BCV ${p.rate}, vigencia ${p.bcv_effective_date}`:''}${p.reference?' · Ref. '+p.reference:''}${comment?' · '+comment:''} · ${actor.email}`;
+    const description=`Cobro Staff: ${p.method} · ${p.currency==='VES'?'Bs.':'USD'} ${p.amount.toFixed(2)} · equiv. USD ${p.equivalent.toFixed(2)}${p.rate?` · BCV ${p.rate}, vigencia ${p.bcv_effective_date}`:''}${p.reference?' · Ref. '+p.reference:''}${comment?' · '+comment:''}${p.bootstrap_quote?' · Total final definido al cobrar':''} · ${actor.email}`;
+    // Si la orden todavía no tiene cotización, Staff puede fijar el total final en el mismo acto de cobro.
+    // Se hace antes del RPC para que el cierre atómico pueda validar el saldo y generar la Nota de Entrega.
+    if(p.bootstrap_quote){
+      const patched=await rest(conf,'service_orders',{id:`eq.${id}`},{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({quote_amount:p.budget,quote_currency:'USD'})});
+      if(!Array.isArray(patched)||!patched.length)return result(409,{ok:false,error:'No pude definir el total final de la reparación. No se registró el cobro.'});
+      current=patched[0];
+    }
     // V8.8.8: el pago se confirma dentro del Supabase de Soporte junto al consumo de repuestos.
     // Si al completar el saldo falta stock, el RPC falla y NO modifica el cobro.
     let atomic;
@@ -119,11 +126,19 @@ exports.handler=async event=>{
         p_currency:p.currency,p_original_amount:p.amount,p_bcv_rate:p.rate||null,p_bcv_effective_date:p.bcv_effective_date||null
       })});
     }catch(e){
-      if([400,404].includes(e.status)||/function|rpc|schema cache/i.test(String(e.message||'')))return result(409,{ok:false,error:'Falta activar el cierre automático V8.8.8 en el Supabase de Soporte. Ejecuta los 4 SQL antes de cobrar.'});
+      if(e.status===404||/function|rpc|schema cache|does not exist/i.test(String(e.message||'')))return result(409,{ok:false,error:'Falta activar el cierre automático V8.8.8 en el Supabase de Soporte. Ejecuta los 4 SQL antes de cobrar.'});
       throw e;
     }
-    const updated=await getOrder(conf,id);
+    let updated=await getOrder(conf,id);
     if(!updated)return result(409,{ok:false,error:'El pago se procesó, pero no pude volver a leer la orden. Revisa Soporte antes de repetir el cobro.'});
+    // V15.08: al completar el pago desde App Ventas, Recepción debe ver explícitamente “Pagado”.
+    // El RPC histórico puede devolver “Cobrado”; normalizamos el estado sin requerir un SQL nuevo.
+    if(atomic?.fully_paid&&String(updated.payment_status||'').toLowerCase()!=='pagado'){
+      try{
+        const normalized=await rest(conf,'service_orders',{id:`eq.${id}`},{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({payment_status:'Pagado',paid_at:updated.paid_at||new Date().toISOString()})});
+        if(Array.isArray(normalized)&&normalized[0])updated=normalized[0];
+      }catch(e){console.warn('No se pudo normalizar el estado Pagado',e.message)}
+    }
     // El trigger service_payment_events registra el delta de manera auditable.
     let audited=true;
     try{await rest(conf,'service_order_notes',{}, {method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({order_id:id,note:description,visibility:'internal',author_name:actor.email||'Staff',note_type:'Cobranza Staff',status_after:current.status})})}catch(e){audited=false;console.warn('Soporte cobranzas: nota de bitácora no registrada',e.message)}
@@ -134,6 +149,6 @@ exports.handler=async event=>{
         deliveryNoteEmail=await sendDeliveryNote(updated,note.html);
       }catch(e){console.warn('Nota de Entrega de Soporte no enviada',e.message);deliveryNoteEmail={sent:false,error:e.message}}
     }
-    const parts=await orderParts(conf,updated.code);return result(200,{ok:true,payment:{...p,status:atomic?.payment_status||p.status,pending:Number(atomic?.pending??p.pending)},order:updated,parts,note_saved:audited,fully_paid:Boolean(atomic?.fully_paid),inventory:atomic?.inventory||null,delivery_note_ready:Boolean(atomic?.delivery_note_ready),email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail});
+    const parts=await orderParts(conf,updated.code);return result(200,{ok:true,payment:{...p,status:atomic?.fully_paid?'Pagado':(atomic?.payment_status||p.status),pending:Number(atomic?.pending??p.pending)},order:updated,parts,note_saved:audited,fully_paid:Boolean(atomic?.fully_paid),inventory:atomic?.inventory||null,delivery_note_ready:Boolean(atomic?.delivery_note_ready),email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail});
   }catch(e){console.error('[staff-repairs]',e?.message);const code=e?.status>=400&&e.status<500?e.status:500;return result(code,{ok:false,error:clean(e?.message||'No se pudo consultar Soporte')})}
 };
