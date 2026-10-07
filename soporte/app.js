@@ -38,6 +38,8 @@ const TSService=(()=>{
   let pendingAppointmentId=null;
   let serviceParts=[];
   let partMovements=[];
+  let serviceOrderParts=[];
+  let partsReservationReady=true;
   let serviceAppointments=[];
 
   const dateText=v=>v?new Date(v).toLocaleString('es-VE'):'Sin fecha';
@@ -46,13 +48,14 @@ const TSService=(()=>{
   function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
   function mapNote(row,byId){const order=byId.get(row.order_id);return{id:row.id,orderId:row.order_id,orderCode:order?.code||'Sin orden',type:row.note_type||'Seguimiento',author:row.author_name||'Soporte ThinkStore',status:row.status_after||order?.status||'',detail:row.note||'',files:row.attachments||'',created:dateText(row.created_at)};}
   async function loadSupportData(){
-    const [orderRes,noteRes,photoRes,partsRes,movementsRes,appointmentsRes]=await Promise.all([
+    const [orderRes,noteRes,photoRes,partsRes,movementsRes,appointmentsRes,orderPartsRes]=await Promise.all([
       supabaseClient.from('service_orders').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_order_notes').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_order_photos').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_parts').select('*').order('name',{ascending:true}),
       supabaseClient.from('service_part_movements').select('*').order('created_at',{ascending:false}).limit(300),
-      supabaseClient.from('service_appointments').select('*').order('preferred_date',{ascending:true}).order('preferred_time',{ascending:true})
+      supabaseClient.from('service_appointments').select('*').order('preferred_date',{ascending:true}).order('preferred_time',{ascending:true}),
+      supabaseClient.from('service_order_parts').select('*').order('updated_at',{ascending:false}).limit(3000)
     ]);
     if(orderRes.error)throw new Error('No se pudieron cargar las órdenes: '+orderRes.error.message);
     if(noteRes.error)throw new Error('No se pudo cargar la bitácora: '+noteRes.error.message);
@@ -62,6 +65,8 @@ const TSService=(()=>{
     bitacora=(noteRes.data||[]).map(row=>mapNote(row,byId));
     servicePhotos=photoRes.data||[];
     serviceParts=partsRes.data||[];partMovements=movementsRes.data||[];serviceAppointments=appointmentsRes.error?[]:(appointmentsRes.data||[]);
+    partsReservationReady=!orderPartsRes.error;serviceOrderParts=orderPartsRes.error?[]:(orderPartsRes.data||[]);
+    if(orderPartsRes.error)console.warn('Reservas de repuestos no disponibles. Ejecuta SQL Soporte V8.8.8:',orderPartsRes.error.message);
     if(appointmentsRes.error)console.warn('No se pudieron cargar citas web:',appointmentsRes.error.message);
   }
   async function audit(action,entityId,beforeData,afterData){try{await supabaseClient.from('service_audit_log').insert({actor_email:session?.email||null,actor_role:session?.role||null,action,entity_type:'service_order',entity_id:String(entityId||''),before_data:beforeData||null,after_data:afterData||null})}catch(_){}}
@@ -464,7 +469,7 @@ const TSService=(()=>{
 
   function ordersTable(scope='orders'){
     const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
-    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Última carga ${new Date().toLocaleTimeString('es-VE')}</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id));return `<tr><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small></td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
+    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Última carga ${new Date().toLocaleTimeString('es-VE')}</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id));return `<tr><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small></td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select>${/cobrado|pagado/i.test(String(o.paymentStatus||''))?'<div class="paid-badge">✓ Cobrado</div>':''}</td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
 
   async function openOrderManager(id){
     const o=orders.find(x=>String(x.id)===String(id));if(!o)return;
@@ -473,7 +478,27 @@ const TSService=(()=>{
     document.getElementById('mOrderTitle').textContent=`${o.code} · ${o.device}`;
     document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
     mQuoteAmount.value=o.quoteAmount||'';mQuoteStatus.value=o.quote;mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=o.technicalNotes||'';
-    await renderOrderFiles(o.id);modal.classList.add('open');
+    mPaymentStatus.disabled=true;mAmountPaid.readOnly=true;mPaymentMethod.disabled=true;mPaymentNotes.readOnly=true;
+    await renderOrderParts(o.code);await renderOrderFiles(o.id);modal.classList.add('open');
+  }
+  async function renderOrderParts(orderCode){
+    const box=document.getElementById('mOrderParts');if(!box)return;
+    const current=serviceOrderParts.filter(r=>String(r.order_code).toUpperCase()===String(orderCode).toUpperCase()&&r.status==='reserved');
+    const used=new Map(current.map(r=>[String(r.part_id),r]));
+    if(!partsReservationReady){box.innerHTML='<div class="notice">Activa SQL Soporte V8.8.8 para reservar repuestos antes del cobro.</div>';return}
+    if(!serviceParts.length){box.innerHTML='<small>No hay repuestos activos en inventario.</small>';return}
+    box.innerHTML=`<div class="parts-reservation-list">${serviceParts.filter(p=>p.active!==false).map(p=>{const r=used.get(String(p.id));const reservedOther=serviceOrderParts.filter(x=>String(x.part_id)===String(p.id)&&x.status==='reserved'&&String(x.order_code).toUpperCase()!==String(orderCode).toUpperCase()).reduce((n,x)=>n+Math.max(0,Number(x.quantity_reserved||0)-Number(x.quantity_consumed||0)),0);const available=Math.max(0,Number(p.quantity||0)-reservedOther);return `<label class="part-reservation-row"><input type="checkbox" data-order-part-check="${esc(p.id)}" ${r?'checked':''}><span><b>${esc(p.name)}</b><small>${esc(p.sku||'')} · Disponible ${available}${reservedOther?` · ${reservedOther} reservado(s) en otras órdenes`:''}</small></span><input data-order-part-qty="${esc(p.id)}" type="number" min="1" max="${Math.max(1,available)}" value="${r?Number(r.quantity_reserved||1):1}" ${r?'':'disabled'}></label>`}).join('')}</div>`;
+    box.querySelectorAll('[data-order-part-check]').forEach(ch=>ch.addEventListener('change',()=>{const q=box.querySelector(`[data-order-part-qty="${CSS.escape(ch.dataset.orderPartCheck)}"]`);if(q)q.disabled=!ch.checked}));
+  }
+  async function saveOrderParts(){
+    const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o)return toast('Orden no encontrada.','error');
+    if(!partsReservationReady)return toast('Primero ejecuta SQL Soporte V8.8.8 en Supabase de Soporte.','error');
+    if(/cobrado|pagado/i.test(String(o.paymentStatus||'')))return toast('La orden ya está cobrada; sus repuestos no se pueden cambiar.','error');
+    const box=document.getElementById('mOrderParts');const parts=[...box.querySelectorAll('[data-order-part-check]:checked')].map(ch=>({part_id:ch.dataset.orderPartCheck,quantity:Number(box.querySelector(`[data-order-part-qty="${CSS.escape(ch.dataset.orderPartCheck)}"]`)?.value||0)})).filter(x=>x.quantity>0);
+    const {data,error}=await supabaseClient.rpc('ts_save_service_order_parts',{p_order_code:o.code,p_parts:parts,p_actor_email:session?.email||null});
+    if(error)return toast('No se pudieron guardar los repuestos: '+error.message,'error');
+    const {data:rows,error:loadError}=await supabaseClient.from('service_order_parts').select('*').eq('order_code',o.code);if(!loadError){serviceOrderParts=serviceOrderParts.filter(r=>String(r.order_code).toUpperCase()!==String(o.code).toUpperCase()).concat(rows||[])}
+    await renderOrderParts(o.code);toast(`Repuestos reservados. ${Number(data?.reserved_lines||0)} línea(s) · costo reservado $${Number(data?.reserved_cost||0).toFixed(2)}.`);
   }
   async function renderOrderFiles(orderId){
     const box=document.getElementById('mOrderFiles');if(!box)return;const files=servicePhotos.filter(p=>String(p.order_id)===String(orderId));
@@ -482,10 +507,10 @@ const TSService=(()=>{
   }
   async function saveOrderManager(e){
     e.preventDefault();const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o)return;
-    const paymentStatus=mPaymentStatus.value||'Pendiente',quoteAmount=mQuoteAmount.value?Number(mQuoteAmount.value):0;let amountPaid=mAmountPaid.value===''?0:Number(mAmountPaid.value||0);if(paymentStatus==='Cobrado'&&quoteAmount>0&&amountPaid<quoteAmount)amountPaid=quoteAmount;const paidAt=paymentStatus==='Pendiente'?null:(o.paidAt||new Date().toISOString());
-    const changes={assigned_technician_email:mTechnician.value||null,quote_amount:quoteAmount||null,quote_status:mQuoteStatus.value,payment_status:paymentStatus,amount_paid:Math.max(0,amountPaid),payment_method:mPaymentMethod.value||null,payment_notes:mPaymentNotes.value.trim()||null,paid_at:paidAt,service_mode:mServiceMode.value||'Presencial',warranty_days:Number(mWarrantyDays.value||0),delivery_method:mDeliveryMethod.value.trim()||null,tracking_company:mTrackingCompany.value.trim()||null,tracking_code:mTrackingCode.value.trim()||null,technical_notes:mTechnicalNotes.value.trim()||null};
+    const quoteAmount=mQuoteAmount.value?Number(mQuoteAmount.value):0;
+    const changes={assigned_technician_email:mTechnician.value||null,quote_amount:quoteAmount||null,quote_status:mQuoteStatus.value,service_mode:mServiceMode.value||'Presencial',warranty_days:Number(mWarrantyDays.value||0),delivery_method:mDeliveryMethod.value.trim()||null,tracking_company:mTrackingCompany.value.trim()||null,tracking_code:mTrackingCode.value.trim()||null,technical_notes:mTechnicalNotes.value.trim()||null};
     const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',o.id);if(error){toast('No se pudo guardar: '+error.message,'error');return}
-    await supabaseClient.from('service_order_notes').insert({order_id:o.id,note:`Datos operativos actualizados: técnico, presupuesto, cobranza (${paymentStatus}), garantía o entrega.`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Gestión de orden',status_after:o.status});await audit('update_order_details',o.id,o,changes);
+    await supabaseClient.from('service_order_notes').insert({order_id:o.id,note:`Datos operativos actualizados: técnico, presupuesto, garantía o entrega.`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Gestión de orden',status_after:o.status});await audit('update_order_details',o.id,o,changes);
     await loadSupportData();closeModals();await renderPanel('orders');toast('Orden actualizada correctamente.');
   }
   async function uploadOrderFile(){
@@ -1049,7 +1074,7 @@ const TSService=(()=>{
   function trackingUrl(order){
     // El QR siempre apunta al portal público HTTPS, incluso cuando el panel se prueba en local.
     // Así la hoja/etiqueta impresa nunca entrega una URL 127.0.0.1 al cliente.
-    const base='https://soporte.thinkstore.com.ve/seguimiento.html';
+    const base=location.origin+'/soporte/seguimiento.html';
     return `${base}?orden=${encodeURIComponent(order.code)}`;
   }
   function cleanReceptionObservation(o){
@@ -1257,5 +1282,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,saveOrderParts,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

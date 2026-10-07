@@ -1162,3 +1162,7 @@ button,input,select,textarea{font-size:16px}
   .reception-photo-grid{grid-template-columns:1fr 1fr!important}.order-actions{display:grid!important;grid-template-columns:1fr!important;padding-bottom:max(12px,env(safe-area-inset-bottom))!important}
   .order-actions button,.hero-actions button,.actions button{min-height:44px!important}
 }
+
+/* ThinkStore Soporte V8.8.8 · reservas por orden */
+.paid-badge{display:inline-flex;align-items:center;margin-top:7px;padding:4px 8px;border-radius:999px;background:#e8f7ee;color:#137a3d;font-size:11px;font-weight:800;letter-spacing:.02em}
+.reserved-parts-box{margin-top:18px}.parts-reservation-list{display:grid;gap:8px;max-height:310px;overflow:auto;padding-right:3px}.part-reservation-row{display:grid;grid-template-columns:auto 1fr 76px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:#fff}.part-reservation-row>input[type=checkbox]{width:18px;height:18px}.part-reservation-row>input[type=number]{margin:0;padding:8px 9px}.part-reservation-row span{min-width:0}.part-reservation-row b,.part-reservation-row small{display:block}.part-reservation-row small{color:var(--muted);margin-top:2px}.part-reservation-row:has(input[type=checkbox]:checked){border-color:#9fc5ff;background:#f5f9ff}

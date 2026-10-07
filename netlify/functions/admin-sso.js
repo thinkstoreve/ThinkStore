@@ -6,7 +6,7 @@ const norm=v=>clean(v).toLowerCase().replace(/[ -]+/g,'_');
 const svc=k=>({apikey:k,Authorization:`Bearer ${k}`,'Content-Type':'application/json'});
 const out=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
 const ADMIN_ROLES=['admin','superadmin','super_admin','administrator','gerente'];
-const STATIC_PLATFORM_URLS={support:'https://soporte.thinkstore.com.ve/panel.html',inventory:'https://inventory.thinkstore.com.ve/',enterprise:String(process.env.ENTERPRISE_APP_URL||'https://enterprise.thinkstore.ve').replace(/\/+$/,'')};
+const STATIC_PLATFORM_URLS={inventory:'https://inventory.thinkstore.com.ve/',enterprise:String(process.env.ENTERPRISE_APP_URL||'https://enterprise.thinkstore.ve').replace(/\/+$/,'')};
 const ENTERPRISE_FALLBACK_URL=String(process.env.ENTERPRISE_FALLBACK_URL||'https://enterprise.thinkstore.com.ve').replace(/\/+$/,'');
 function trustedMainOrigin(event){
   const fallback=clean(process.env.THINKSTORE_MAIN_URL||'https://thinkstore.com.ve').replace(/\/+$/,'');
@@ -20,7 +20,7 @@ function trustedMainOrigin(event){
 }
 function platformUrls(event){
   const base=trustedMainOrigin(event);
-  return {staff:`${base}/staff/`,support:STATIC_PLATFORM_URLS.support,inventory:STATIC_PLATFORM_URLS.inventory,enterprise:STATIC_PLATFORM_URLS.enterprise,marketing:`${base}/panel.html#marketing`,admin:`${base}/panel.html`};
+  return {staff:`${base}/staff/`,support:`${base}/soporte/panel.html`,inventory:STATIC_PLATFORM_URLS.inventory,enterprise:STATIC_PLATFORM_URLS.enterprise,marketing:`${base}/panel.html#marketing`,admin:`${base}/panel.html`};
 }
 function normalizeRole(v){const r=norm(v);return r==='super_admin'?'superadmin':(r==='administrator'||r==='gerente'?'admin':r)}
 function overrides(p){const o=p?.permission_overrides&&typeof p.permission_overrides==='object'?p.permission_overrides:{};return{allow:Array.isArray(o.allow)?o.allow:[],deny:Array.isArray(o.deny)?o.deny:[]}}

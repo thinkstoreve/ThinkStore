@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="ThinkStore Staff">
 <meta name="robots" content="noindex,nofollow">
 <title>ThinkStore Staff</title>
-<link rel="stylesheet" href="app.css?v=14.84.0">
+<link rel="stylesheet" href="app.css?v=14.88.0">
 </head>
 <body>
 <div id="boot" class="boot"><div class="boot-logo"><img src="../logo-thinkstore.png" alt="ThinkStore"></div><span>Cargando ThinkStore Staff…</span></div>
@@ -44,6 +44,7 @@
       <button class="nav-item" data-view="sell" id="sellNav"><span class="nav-icon">▣</span><span>Vender</span></button>
       <button class="nav-item" data-view="sales"><span class="nav-icon">↗</span><span>Ventas</span></button>
       <button class="nav-item hidden" data-platform="support" id="supportNav" type="button"><span class="nav-icon">⌁</span><span>Servicio Técnico</span></button>
+      <button class="nav-item hidden" data-view="repairs" id="repairsNav" type="button"><span class="nav-icon">▤</span><span>Reparaciones</span></button>
       <button class="nav-item" data-view="cash" id="cashNav"><span class="nav-icon">◫</span><span>Caja</span></button>
       <button class="nav-item" data-view="account"><span class="nav-icon">◎</span><span>Cuenta</span></button>
     </nav>
@@ -162,6 +163,29 @@
       <div id="salesList" class="sales-list full"></div>
     </section>
 
+
+    <!-- V14.88 · Cobranza de reparaciones dentro de Staff, sin reemplazar la gestión técnica -->
+    <section id="view-repairs" class="view" aria-label="Reparaciones y cobros">
+      <div class="repairs-head">
+        <div><span class="eyebrow">SERVICIO TÉCNICO · COBRANZA</span><h1>Reparaciones</h1><p>Órdenes reales de Soporte, pagos pendientes y notas de entrega.</p></div>
+        <div class="repairs-head-actions"><button id="repairsOpenSupport" class="secondary" type="button">Abrir panel técnico ↗</button><button id="repairsRefresh" class="secondary" type="button">↻ Actualizar</button></div>
+      </div>
+      <div id="repairsNotice" class="repairs-notice hidden" role="alert"></div>
+      <div class="repairs-kpis">
+        <article><small>Por cobrar</small><strong id="repairsPendingTotal">$0,00</strong><span id="repairsPendingCount">0 órdenes</span></article>
+        <article><small>Cobradas</small><strong id="repairsPaidTotal">$0,00</strong><span id="repairsPaidCount">0 órdenes</span></article>
+        <article><small>Abonos registrados</small><strong id="repairsPartialTotal">$0,00</strong><span id="repairsPartialCount">0 abonos</span></article>
+        <article><small>Total reparaciones</small><strong id="repairsAllCount">0</strong><span>Desde Soporte</span></article>
+      </div>
+      <div class="repairs-panel">
+        <div class="repairs-toolbar">
+          <div class="repairs-filters" role="group" aria-label="Filtrar reparaciones"><button type="button" class="repairs-filter active" data-repair-filter="pending">Por cobrar</button><button type="button" class="repairs-filter" data-repair-filter="paid">Cobradas</button><button type="button" class="repairs-filter" data-repair-filter="all">Todas</button></div>
+          <label class="repairs-search"><span class="sr-only">Buscar por orden, cliente o equipo</span><input id="repairsSearch" placeholder="Buscar orden, cliente o equipo…" autocomplete="off"></label>
+        </div>
+        <div id="repairsList" class="repairs-list" aria-live="polite"><div class="repairs-empty">Entra a Reparaciones para consultar las órdenes.</div></div>
+      </div>
+    </section>
+
     <section id="view-cash" class="view" aria-label="Caja del día">
       <div class="cash-page-head">
         <div><span class="eyebrow">CONTROL DIARIO · THINKSTORE STAFF</span><h1>Caja del día</h1><p>Un turno, todos tus cobros y un cierre claro.</p></div>
@@ -247,6 +271,7 @@
     <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><small>Inicio</small></button>
     <button class="nav-item" data-view="sell" id="sellBottomNav"><span class="nav-icon">▣</span><small>Vender</small></button>
     <button class="nav-item" data-view="sales"><span class="nav-icon">↗</span><small>Ventas</small></button>
+    <button class="nav-item hidden" data-view="repairs" id="repairsBottomNav"><span class="nav-icon">▤</span><small>Repar.</small></button>
     <button class="nav-item" data-view="cash" id="cashBottomNav"><span class="nav-icon">◫</span><small>Caja</small></button>
     <button class="nav-item" data-view="account"><span class="nav-icon">◎</span><small>Cuenta</small></button>
   </nav>
@@ -254,6 +279,7 @@
 
 <div id="productModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="productModal"></div><div class="sheet product-sheet"><button class="sheet-close" data-close="productModal" type="button">×</button><div id="productModalBody"></div></div></div>
 <div id="cartDrawer" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="cartDrawer"></div><div class="sheet cart-sheet"><div class="sheet-head"><div><span class="eyebrow">VENTA ACTUAL</span><h2>Carrito</h2></div><button class="sheet-close static" data-close="cartDrawer" type="button">×</button></div><div id="cartItems" class="cart-items"></div><div class="cart-total"><span>Total</span><b id="cartTotal">$0.00</b></div><button id="checkoutButton" class="primary wide" type="button">Continuar al cobro</button></div></div>
+<div id="repairsModal" class="modal" aria-hidden="true"><div id="repairsBackdrop" class="modal-backdrop"></div><div class="sheet repairs-sheet"><div class="sheet-head"><div><span class="eyebrow">REPARACIÓN · THINKSTORE</span><h2 id="repairsModalTitle">Detalle de reparación</h2></div><button id="repairsClose" class="sheet-close static" type="button" aria-label="Cerrar">×</button></div><div id="repairsModalBody" class="repairs-details"></div></div></div>
 <div id="successModal" class="success-modal hidden"><div class="success-card"><div class="success-check">✓</div><span class="eyebrow">VENTA REGISTRADA</span><h2>Todo listo.</h2><p id="successMessage">La venta fue registrada correctamente.</p><div class="success-actions"><button id="newSaleButton" class="primary" type="button">Nueva venta</button><button class="secondary" data-view="sales" type="button">Ver ventas</button></div></div></div>
 <div id="toast" class="toast" hidden></div>
 
@@ -262,7 +288,8 @@
 <script src="../data.js"></script>
 <script src="../ts-fx.js?v=14.78"></script>
 <script src="../ts-payment-split.js?v=14.79"></script>
-<script src="cash.js?v=14.85.0"></script>
-<script src="app.js?v=14.85.0"></script>
+<script src="cash.js?v=14.88.0"></script>
+<script src="repairs.js?v=14.88.0"></script>
+<script src="app.js?v=14.88.0"></script>
 </body>
 </html>

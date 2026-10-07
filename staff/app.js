@@ -15,6 +15,7 @@ let installPrompt=null,mixedStaff=null;
 function initials(name){const parts=String(name||'TS').trim().split(/\s+/).filter(Boolean);return(parts.slice(0,2).map(x=>x[0]).join('')||'TS').toUpperCase()}
 function firstName(name){return String(name||'').trim().split(/\s+/)[0]||'Usuario'}
 function canOpenSupport(){const u=state.user||{},p=Array.isArray(u.permissions)?u.permissions:[];return p.includes('*')||p.includes('platform.support')||['recepcion','soporte','tecnico','logistica','admin','superadmin'].includes(u.role)}
+function canUseRepairs(){const p=state.user?.permissions||[],r=state.user?.role;return ['admin','superadmin'].includes(r)|| (p.includes('pagos')&&p.includes('ventas')&&!p.includes('deny.reparaciones')) || (canOpenSupport()&&['recepcion','soporte'].includes(r))}
 function openSupport(){if(!canOpenSupport())return toast('Tu cuenta no tiene habilitado Servicio Técnico');toast('Abriendo Servicio Técnico…',1200);setTimeout(()=>{location.href='../sso-entry.html?platform=support'},90)}
 function show(el,on=true){if(typeof el==='string')el=$(el);if(el)el.classList.toggle('hidden',!on)}
 function toast(msg,ms=2800){const el=$('toast');if(!el)return;el.textContent=msg;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,ms)}
@@ -24,7 +25,7 @@ function openModal(id){const el=$(id);if(!el)return;el.classList.add('open');el.
 function closeModal(id){const el=$(id);if(!el)return;el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!document.querySelector('.modal.open'))document.body.style.overflow=''}
 
 async function login(email,password){if(!sb)throw Error('Supabase no está configurado.');const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await bootstrap()}
-async function logout(){try{await sb?.auth?.signOut()}catch{}state.user=null;state.cart=[];window.ThinkStoreCash?.reset();show('appShell',false);show('loginScreen',true);$('loginPassword').value='';history.replaceState(null,'','/staff/')}
+async function logout(){window.ThinkStoreRepairs?.reset();try{await sb?.auth?.signOut()}catch{}state.user=null;state.cart=[];window.ThinkStoreCash?.reset();show('appShell',false);show('loginScreen',true);$('loginPassword').value='';history.replaceState(null,'','/staff/')}
 async function resetPassword(){const email=$('loginEmail').value.trim();if(!email||!email.includes('@'))return messageLogin('Escribe primero tu correo.');const redirect=(cfg.SITE_URL||location.origin).replace(/\/$/,'')+'/panel-login.html?view=recovery';const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:redirect});if(error)return messageLogin(error.message);messageLogin('Te enviamos un enlace para crear una nueva contraseña.',false)}
 function messageLogin(text,error=true){const m=$('loginMessage');m.hidden=false;m.textContent=text;m.style.background=error?'#fff4f4':'#edf9f3';m.style.color=error?'#a31b0b':'#006e52'}
 
@@ -38,7 +39,7 @@ async function bootstrap(){
     if(r.status===401){await sb.auth.signOut();throw Error(d.error||'Tu sesión venció. Inicia sesión nuevamente.');}
     if(r.status===403){await sb.auth.signOut();throw Error(d.error||'Esta cuenta no tiene acceso a ThinkStore Staff.');}
     if(!r.ok||!d.ok)throw Error(d.error||'No se pudo abrir ThinkStore Staff.');
-    state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};
+    state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};window.ThinkStoreRepairs?.setAuth(async()=>{const {data}=await sb.auth.getSession();return data?.session?.access_token});window.ThinkStoreRepairs?.setUser(state.user);
     show('loginScreen',false);show('appShell',true);show('boot',false);renderIdentity();renderHome();renderStore();renderSales();renderAccount();window.ThinkStoreCash?.setUser(state.user);navigate(location.hash.replace('#','')||'home',false);
   }catch(e){show('boot',false);show('appShell',false);show('loginScreen',true);messageLogin(e.message||String(e));}
 }
@@ -46,16 +47,16 @@ async function bootstrap(){
 async function refreshData(silent=false){
   const {data:{session}}=await sb.auth.getSession();if(!session)return logout();
   if(!silent)toast('Actualizando…',1200);
-  try{const r=await fetch('/.netlify/functions/staff-pos',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo actualizar');state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};renderIdentity();renderHome();renderStore();renderSales();renderAccount();window.ThinkStoreCash?.setUser(state.user);if(document.querySelector('#view-cash.active'))window.ThinkStoreCash?.load();if(!silent)toast('Datos actualizados');}catch(e){if(!silent)toast(e.message||'No se pudo actualizar')}
+  try{const r=await fetch('/.netlify/functions/staff-pos',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo actualizar');state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};window.ThinkStoreRepairs?.setAuth(async()=>{const {data}=await sb.auth.getSession();return data?.session?.access_token});window.ThinkStoreRepairs?.setUser(state.user);renderIdentity();renderHome();renderStore();renderSales();renderAccount();window.ThinkStoreCash?.setUser(state.user);if(document.querySelector('#view-cash.active'))window.ThinkStoreCash?.load();if(!silent)toast('Datos actualizados');}catch(e){if(!silent)toast(e.message||'No se pudo actualizar')}
 }
 
 function navigate(view,push=true){
-  const allowed=['home','sell','sales','cash','account'];if(!allowed.includes(view)||(view==='cash'&&!state.canSell))view='home';
+  const allowed=['home','sell','sales','repairs','cash','account'];if(!allowed.includes(view)||(view==='cash'&&!state.canSell)||(view==='repairs'&&!canUseRepairs()))view='home';
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+view));
   document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
-  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],cash:['Caja diaria','Caja Staff'],account:['Perfil','Mi cuenta']};
+  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],repairs:['Servicio Técnico','Reparaciones'],cash:['Caja diaria','Caja Staff'],account:['Perfil','Mi cuenta']};
   $('headerContext').textContent=titles[view][0];$('headerTitle').textContent=titles[view][1];
-  if(view==='cash'&&state.canSell)window.ThinkStoreCash?.load();if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell&&state.saleStep===2)setTimeout(()=>$('barcodeScanInput')?.focus(),80);
+  if(view==='cash'&&state.canSell)window.ThinkStoreCash?.load();if(view==='repairs')window.ThinkStoreRepairs?.load();if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell&&state.saleStep===2)setTimeout(()=>$('barcodeScanInput')?.focus(),80);
 }
 
 function renderIdentity(){
@@ -67,7 +68,7 @@ function renderIdentity(){
   $('welcomeTitle').textContent=`Hola, ${firstName(name)}.`;$('welcomeText').textContent=state.canSell?'Todo listo para vender y atender clientes desde tu cuenta.':'Tu sesión interna está activa. Verás únicamente las funciones autorizadas para tu rol.';$('roleBadge').textContent=role;$('roleCardTitle').textContent=role;
   const isManager=['admin','superadmin'].includes(u.role)||u.permissions?.includes('*');$('salesScopeText').textContent=isManager?'Ventas presenciales recientes del equipo.':'Tus ventas presenciales recientes.';
   $('cashNav').classList.toggle('hidden',!state.canSell);$('cashBottomNav').classList.toggle('hidden',!state.canSell);$('sellNav').classList.toggle('hidden',!state.canSell);$('sellBottomNav').classList.toggle('hidden',!state.canSell);$('heroSellButton').classList.toggle('hidden',!state.canSell);document.querySelectorAll('[data-view="sales"]').forEach(el=>el.classList.toggle('hidden',!state.canSell));
-  show('supportNav',canOpenSupport());
+  show('supportNav',canOpenSupport());show('repairsNav',canUseRepairs());show('repairsBottomNav',canUseRepairs());
 }
 function renderHome(){const m=state.metrics||{};$('metricSales').textContent=Number(m.today_sales||0);$('metricTotal').textContent=money(m.today_total||0);$('metricPending').textContent=Number(m.pending||0);$('roleCardText').textContent=state.canSell?(m.attribution_ready===false?'Tu permiso de ventas está activo. Ejecuta supabase_v14_0_staff_pos.sql para activar la atribución individual de ventas.':'Tu cuenta tiene acceso a Venta presencial. Las operaciones quedan registradas a tu nombre.'):'Tu rol no tiene permiso de Venta presencial. Puedes seguir usando los módulos habilitados desde el panel completo.';renderSaleRows('homeRecentSales',(state.recent||[]).slice(0,5));}
 function renderSales(){renderSaleRows('salesList',state.recent||[])}

@@ -161,3 +161,39 @@
 #supportNav .nav-icon{font-size:21px;transform:rotate(-12deg)}
 #supportNav:not(.hidden){animation:staffSupportIn .22s ease both}
 @keyframes staffSupportIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+/* V14.87 · Reparaciones / Cobranza Staff */
+.repairs-head{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+.repairs-head h1{font-size:clamp(30px,4vw,46px);letter-spacing:-.045em;margin:7px 0}
+.repairs-head p{color:#73777d;margin:0}.repairs-head-actions{display:flex;gap:9px;flex-wrap:wrap}
+.repairs-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.repairs-kpis article{background:#fff;border:1px solid #e4e5e8;border-radius:20px;padding:22px 18px;min-width:0;display:grid;gap:9px}
+.repairs-kpis small{font-size:12px;color:#73777d;font-weight:720}.repairs-kpis strong{font-size:clamp(20px,2.4vw,30px);letter-spacing:-.045em;overflow-wrap:anywhere}.repairs-kpis span{color:#74777d;font-size:12px}
+.repairs-panel{border-radius:22px;background:#fff;border:1px solid #e4e5e8;overflow:hidden}
+.repairs-toolbar{padding:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #e9eaec}
+.repairs-filters{display:flex;gap:6px;background:#f2f3f5;padding:4px;border-radius:999px;flex-wrap:wrap}
+.repairs-filter{border:0;border-radius:999px;background:transparent;padding:9px 14px;font-size:12px;font-weight:800;color:#697078}
+.repairs-filter.active{background:#fff;color:#202223;box-shadow:0 2px 8px #0000000d}
+.repairs-search{flex:1;max-width:360px}.repairs-search input{width:100%;border:1px solid #e0e2e7;border-radius:13px;padding:11px 14px;background:#fff;outline:none}
+.repairs-list{min-height:110px}.repairs-row{display:grid;grid-template-columns:minmax(160px,1.45fr) minmax(140px,1.2fr) minmax(112px,1fr) auto;align-items:center;gap:14px;padding:17px 20px;border-bottom:1px solid #ededf0}
+.repairs-row:last-child{border-bottom:none}.repairs-row b{font-size:14px}.repairs-row small{display:block;color:#767b80;font-size:12px;margin-top:5px;overflow-wrap:anywhere}.repairs-row .secondary{font-size:12px;white-space:nowrap}
+.repairs-pill{display:inline-block;border-radius:100px;padding:6px 9px;background:#fff7ed;color:#9a5818;font-size:11px;font-weight:800}.repairs-pill.paid{background:#e9f8f1;color:#13704e}.repairs-pill.partial{background:#f0f4ff;color:#225cbb}
+.repairs-empty{padding:40px 20px;text-align:center;color:#747a80;font-size:14px}
+.repairs-notice{padding:15px 18px;background:#fff3f0;border:1px solid #f0d6cc;border-radius:15px;color:#8c3e22;margin:12px 0 18px;font-size:13px;line-height:1.5}
+.repairs-sheet{max-width:680px;width:min(680px,calc(100vw - 24px));max-height:min(91vh,900px);overflow:auto}
+.repairs-details{padding:0 20px 22px}.repairs-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.repairs-summary>div{border:1px solid #e9e9ea;border-radius:13px;padding:13px}.repairs-summary small{display:block;color:#73777d;font-size:12px;margin-bottom:6px}.repairs-summary b{font-size:20px}
+.repairs-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;color:#545961;font-size:13px}.repairs-meta b{display:block;color:#232526;font-size:13px;margin-bottom:5px}
+.repairs-divider{border:0;border-top:1px solid #e7e8eb;margin:22px 0}.repairs-pay-form{display:grid;gap:13px}.repairs-pay-form h3{margin:0}.repairs-pay-form label{font-size:13px;font-weight:740;color:#41464b}
+.repairs-pay-form input,.repairs-pay-form select,.repairs-pay-form textarea{display:block;width:100%;border:1px solid #dfe2e7;border-radius:12px;padding:12px;margin-top:6px;background:#fff}
+.repairs-pay-form textarea{min-height:58px}.repairs-pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.repairs-pay-hint{font-size:12px;color:#66717a;line-height:1.5;background:#f5f7fa;padding:12px;border-radius:12px}
+.repairs-pay-actions{display:flex;gap:10px;flex-wrap:wrap}.repairs-pay-actions button{flex:1;min-width:155px}.repairs-history{font-size:12px;color:#66717a;line-height:1.75;margin:10px 0}
+.repairs-print-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.sr-only{position:absolute;left:-99999px;width:1px;height:1px;overflow:hidden}
+@media(max-width:1050px){.repairs-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.repairs-row{grid-template-columns:1.5fr 1fr auto}}
+@media(max-width:650px){.repairs-head{align-items:stretch}.repairs-head-actions button{flex:1}.repairs-kpis{gap:8px}.repairs-kpis article{padding:15px 13px;border-radius:14px}.repairs-kpis strong{font-size:23px}.repairs-toolbar{align-items:stretch}.repairs-search{max-width:none}.repairs-row{grid-template-columns:minmax(0,1fr) auto;gap:10px}.repairs-row .repairs-device{grid-column:1/2}.repairs-row .repairs-total{grid-column:2/3;grid-row:1/3;text-align:right}.repairs-row .repairs-action{grid-column:1/-1;justify-self:stretch}.repairs-row .repairs-action button{width:100%}.repairs-summary{gap:5px}.repairs-summary>div{padding:8px}.repairs-summary b{font-size:15px}.repairs-details{padding:0 12px 18px}.repairs-meta{grid-template-columns:1fr}.repairs-pay-grid{grid-template-columns:1fr}}
+/* Side sheet follows the original Staff modal positioning. */
+.repairs-sheet{position:absolute;right:0;top:0;bottom:0;width:min(680px,100%);max-height:none;overflow:auto;padding:24px 20px 26px}
+.repairs-sheet .sheet-head{align-items:center;margin-bottom:16px}
+.repairs-sheet .sheet-head h2{font-size:22px;line-height:1.25}
+@media(max-width:650px){.repairs-sheet{width:100%;padding:16px 12px 24px}}
+
+@media(max-width:900px){.bottom-nav{grid-template-columns:repeat(6,minmax(0,1fr))}.bottom-nav .nav-item{min-width:0}.bottom-nav .nav-item small{font-size:10px}}
