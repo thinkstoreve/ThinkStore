@@ -21,18 +21,18 @@ async function api(method='GET',payload=null,query=''){
   const url='/.netlify/functions/staff-repairs'+query;
   const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),25000);
   try{const res=await fetch(url,{method,headers:{Authorization:'Bearer '+token,...(payload?{'Content-Type':'application/json'}:{})},...(payload?{body:JSON.stringify(payload)}:{}),cache:'no-store',signal:ctrl.signal});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw Error(data.error||`Error de Soporte (${res.status})`);return data}
-  catch(e){if(e.name==='AbortError')throw Error('Soporte tardó demasiado en responder. Reintenta la consulta; no repitas un cobro sin comprobar el saldo.');throw e}finally{clearTimeout(timer)}
+  catch(e){if(e.name==='AbortError')throw Error('Soporte tardó demasiado en responder. Reintenta la consulta; no repitas un pago sin comprobar el saldo.');throw e}finally{clearTimeout(timer)}
 }
 function summaries(){
   const viable=orders.filter(o=>!account(o).canceled&&String(o.quote_currency||'USD').toUpperCase()==='USD');
   const due=viable.filter(o=>account(o).pending>0),paid=viable.filter(o=>account(o).paidOff),partial=viable.filter(o=>account(o).partial);
   setText('repairsPendingTotal',usd(due.reduce((n,o)=>n+account(o).pending,0)));setText('repairsPendingCount',`${due.length} órdenes`);
   setText('repairsPartialTotal',usd(partial.reduce((n,o)=>n+account(o).paid,0)));setText('repairsPartialCount',`${partial.length} con abono`);
-  setText('repairsPaidTotal',usd(paid.reduce((n,o)=>n+account(o).paid,0)));setText('repairsPaidCount',`${paid.length} cobradas`);setText('repairsAllCount',orders.length);
+  setText('repairsPaidTotal',usd(paid.reduce((n,o)=>n+account(o).paid,0)));setText('repairsPaidCount',`${paid.length} pagadas`);setText('repairsAllCount',orders.length);
 }
 function row(o){
   const a=account(o),paid=a.paidOff;
-  const status=paid?'Cobrado':a.partial?'Abono parcial':a.canceled?'Cancelado':'Pendiente';
+  const status=paid?'Pagado':a.partial?'Abono parcial':a.canceled?'Cancelado':'Pendiente';
   const amount=paid?`Total ${fmt(a.paid,o)}`:a.budget>0?`Saldo ${fmt(a.pending,o)}`:'Sin presupuesto';
   return `<article class="sale-row repair-classic-row" data-repair-row="${esc(o.id)}">
     <div class="sale-main"><b>${esc(o.code||'Sin código')}</b><span>${esc(o.client_name||'Sin cliente')} · ${date(o.created_at)}</span></div>
@@ -72,7 +72,7 @@ function detail(){
     </div>
     <div class="form-section repair-form-section"><div class="repair-section-title"><h3>Repuestos</h3><small>Reservados o consumidos en esta orden</small></div>${partRows()}</div>
     <div class="form-section repair-form-section"><div class="repair-section-title"><h3>Historial de pagos</h3><small>Cada abono queda ligado a la reparación</small></div><div id="repairsEvents" class="repair-history-list">${historyRows()}</div></div>
-    ${paid?`<div class="form-section repair-paid-panel"><div><span class="repair-check">✓</span><div><h3>Reparación cobrada</h3><p>El saldo está completo. La Nota de Entrega está disponible sin cambiar el estado técnico del equipo.</p></div></div><div class="repair-final-actions"><button class="primary" id="repairsDeliveryNote" type="button">Ver / imprimir Nota de Entrega</button><button class="secondary" id="repairsOpenTechnical" type="button">Abrir Servicio Técnico ↗</button></div></div>`:`
+    ${paid?`<div class="form-section repair-paid-panel"><div><div><h3>Reparación pagada</h3><p>El saldo está completo. La Nota de Entrega está disponible sin cambiar el estado técnico del equipo.</p></div></div><div class="repair-final-actions"><button class="primary" id="repairsDeliveryNote" type="button">Ver / imprimir Nota de Entrega</button><button class="secondary" id="repairsResendDeliveryNote" type="button">Reenviar al correo</button><button class="secondary" id="repairsOpenTechnical" type="button">Abrir Servicio Técnico ↗</button></div></div>`:`
     <form id="repairsPayForm" class="form-section repair-payment-form">
       <div class="repair-section-title"><h3>Registrar pago</h3><small>Abono parcial o pago total</small></div>
       <div class="choice-grid repair-method-grid" id="repairMethodChoices">${methodChoices()}</div>
@@ -84,7 +84,7 @@ function detail(){
       </div>
       <div id="repairsBcvBox" class="fx-box hidden"></div>
       <div class="repair-payment-actions"><button class="secondary" id="repairsPaySave" type="submit">Registrar abono</button><button class="primary" id="repairsMarkPaid" type="button">Marcar pagado + Nota de Entrega</button></div>
-      <p class="repair-payment-foot">El pago final consume los repuestos reservados en la misma operación. Si el stock no alcanza, el cobro no se confirma.</p>
+      <p class="repair-payment-foot">El pago final consume los repuestos reservados en la misma operación. Si el stock no alcanza, el pago no se confirma.</p>
     </form>
     <div class="repair-final-actions"><button class="secondary" id="repairsOpenTechnical" type="button">Abrir Servicio Técnico ↗</button></div>`}`;
   bindDetail();updatePaymentUi();
@@ -93,7 +93,7 @@ function bindDetail(){
   document.querySelectorAll('[data-repair-method]').forEach(b=>b.addEventListener('click',()=>{selectedMethod=b.dataset.repairMethod;document.querySelectorAll('[data-repair-method]').forEach(x=>x.classList.toggle('active',x.dataset.repairMethod===selectedMethod));updatePaymentUi()}));
   $('repairsPayAmount')?.addEventListener('input',updatePaymentUi);$('repairsCustomUsd')?.addEventListener('input',updatePaymentUi);
   $('repairsPayForm')?.addEventListener('submit',e=>savePayment(e,false));$('repairsMarkPaid')?.addEventListener('click',e=>savePayment(e,true));
-  $('repairsDeliveryNote')?.addEventListener('click',printDelivery);$('repairsOpenTechnical')?.addEventListener('click',()=>window.location.href='../sso-entry.html?platform=support');
+  $('repairsDeliveryNote')?.addEventListener('click',printDelivery);$('repairsResendDeliveryNote')?.addEventListener('click',resendDelivery);$('repairsOpenTechnical')?.addEventListener('click',()=>window.location.href='../sso-entry.html?platform=support');
 }
 async function open(id){
   const original=orders.find(o=>String(o.id)===String(id));if(!original)return;active=original;events=[];parts=[];selectedMethod='Efectivo USD';detail();
@@ -127,14 +127,38 @@ async function savePayment(e,markPaid){
   try{
     const res=await api('POST',{action:'pay',order_id:id,method:selectedMethod,amount,usd_equivalent:usdEquivalent,reference,note});await load(true);
     const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];detail();
-    if(res.fully_paid)alert('Pago completado. La reparación quedó ✓ Cobrado, los repuestos reservados fueron consumidos y la Nota de Entrega está disponible.');else alert('Abono registrado correctamente.');
+    if(res.fully_paid)alert('Pago completado. La reparación quedó Pagada, los repuestos reservados fueron consumidos y la Nota de Entrega está disponible.');else alert('Abono registrado correctamente.');
   }catch(err){alert(err.message||'No se pudo registrar el pago.');detail()}
 }
-function deliveryHtml(o){
-  const a=account(o);const last=events.find(e=>e.event_type==='payment')||events[0]||{};const partsHtml=parts.length?parts.map(p=>`<tr><td>${esc(p.service_parts?.name||p.part_name||'Repuesto')}</td><td>${Number(p.quantity_consumed||p.quantity_reserved||0)}</td><td>${usd(p.sale_price_snapshot||0)}</td></tr>`).join(''):'<tr><td colspan="3">Sin repuestos registrados</td></tr>';
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Nota de Entrega ${esc(o.code)}</title><style>*{box-sizing:border-box}body{margin:0;background:#fff;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}.page{width:210mm;min-height:297mm;margin:auto;padding:18mm}.head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dedee2;padding-bottom:18px}.brand{display:flex;gap:14px;align-items:center}.brand img{width:54px;height:54px;object-fit:contain}.brand h1{font-size:24px;margin:0}.muted{color:#73777d;font-size:12px}.title{margin:28px 0 18px}.title h2{font-size:28px;margin:0 0 5px}.pill{display:inline-block;border-radius:999px;background:#edf8f2;color:#13704e;padding:7px 10px;font-size:11px;font-weight:800}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{background:#f5f5f7;border-radius:14px;padding:14px}.card small{display:block;color:#777;margin-bottom:5px}.card b{font-size:14px}.section{margin-top:20px}.section h3{font-size:15px;margin:0 0 10px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:10px;border-bottom:1px solid #ececef}th{color:#777}.total{margin-top:22px;background:#f5f5f7;border-radius:16px;padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.total small{display:block;color:#777}.total b{font-size:18px}.sign{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:70px}.sign div{text-align:center;border-top:1px solid #777;padding-top:9px;font-size:12px}.foot{margin-top:36px;color:#777;font-size:10px;line-height:1.5}.printbar{position:fixed;top:10px;right:10px}.printbar button{border:0;background:#111;color:#fff;border-radius:999px;padding:10px 15px;font-weight:800}@media print{.printbar{display:none}.page{margin:0}}</style></head><body><div class="printbar"><button onclick="window.print()">Imprimir / PDF</button></div><div class="page"><header class="head"><div class="brand"><img src="${location.origin}/logo-thinkstore.png"><div><h1>ThinkStore</h1><div class="muted">Servicio Técnico · Chacao, Caracas</div></div></div><div><span class="pill">✓ Cobrado</span><div class="muted" style="margin-top:7px;text-align:right">${esc(o.code)}<br>${date(new Date().toISOString())}</div></div></header><div class="title"><h2>Nota de Entrega</h2><div class="muted">Servicio Técnico ThinkStore</div></div><div class="grid"><div class="card"><small>Cliente</small><b>${esc(o.client_name||'—')}</b><div class="muted">${esc(o.client_phone||'')}</div></div><div class="card"><small>Equipo</small><b>${esc(o.device_model||'—')}</b><div class="muted">${esc(o.serial_imei||'Sin serial / IMEI')}</div></div><div class="card"><small>Reparación / diagnóstico</small><b>${esc(o.reported_issue||'Servicio técnico')}</b></div><div class="card"><small>Garantía</small><b>${Number(o.warranty_days||0)} día(s)</b></div></div><section class="section"><h3>Repuestos utilizados</h3><table><thead><tr><th>Repuesto</th><th>Cant.</th><th>Valor</th></tr></thead><tbody>${partsHtml}</tbody></table></section><div class="total"><div><small>Total reparación</small><b>${fmt(a.budget,o)}</b></div><div><small>Método</small><b>${esc(o.payment_method||last.payment_method||'Registrado')}</b></div><div><small>Referencia</small><b>${esc(last.reference||'—')}</b></div></div><p class="foot">La reparación permanece vinculada a la orden ${esc(o.code)}. La emisión de esta Nota de Entrega no modifica por sí sola el estado técnico ni registra una entrega física del equipo.</p><div class="sign"><div>Entregado por ThinkStore</div><div>Recibido conforme · Cliente</div></div></div></body></html>`;
+
+async function deliveryNoteAction(action){
+  if(!active)throw Error('No hay una reparación seleccionada.');
+  return api('POST',{action,order_id:active.id});
 }
-function printDelivery(){if(!active)return;const a=account(active);if(!a.paidOff){alert('La Nota de Entrega se habilita cuando el saldo está completamente pagado.');return}const w=window.open('','_blank','width=900,height=1100');if(!w){alert('Permite ventanas emergentes para ver la Nota de Entrega.');return}w.document.open();w.document.write(deliveryHtml(active));w.document.close()}
+async function printDelivery(){
+  if(!active)return;const a=account(active);
+  if(!a.paidOff){alert('La Nota de Entrega se habilita cuando el saldo está completamente pagado.');return}
+  const w=window.open('about:blank','_blank','width=900,height=1100');
+  if(!w){alert('Permite ventanas emergentes para ver la Nota de Entrega.');return}
+  w.document.write('<p style="font-family:-apple-system,BlinkMacSystemFont,Arial;padding:30px">Cargando Nota de Entrega…</p>');
+  try{
+    const data=await deliveryNoteAction('view_delivery_note');
+    w.document.open();
+    w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Nota de Entrega ${esc(active.code||'')}</title><style>.ts-printbar{position:sticky;top:0;z-index:20;padding:10px;text-align:center;background:rgba(255,255,255,.96);border-bottom:1px solid #e5e5ea}.ts-printbar button{border:0;border-radius:999px;background:#111;color:#fff;padding:10px 17px;font-weight:800;cursor:pointer}@media print{.ts-printbar{display:none}}</style></head><body style="margin:0"><div class="ts-printbar"><button onclick="window.print()">Imprimir / PDF</button></div>${data.html||''}</body></html>`);
+    w.document.close();
+  }catch(err){
+    w.document.open();w.document.write(`<p style="font-family:-apple-system,BlinkMacSystemFont,Arial;padding:30px">${esc(err.message||'No se pudo generar la Nota de Entrega.')}</p>`);w.document.close();
+  }
+}
+async function resendDelivery(){
+  if(!active)return;
+  if(!active.client_email){alert('La orden no tiene correo del cliente. Puedes visualizar o imprimir la Nota de Entrega.');return}
+  if(!confirm(`¿Reenviar la Nota de Entrega de ${active.code} a ${active.client_email}?`))return;
+  const btn=$('repairsResendDeliveryNote');if(btn){btn.disabled=true;btn.textContent='Enviando…'}
+  try{await deliveryNoteAction('resend_delivery_note');alert('Nota de Entrega reenviada correctamente al correo del cliente.')}
+  catch(err){alert(err.message||'No se pudo reenviar la Nota de Entrega.')}
+  finally{if(btn){btn.disabled=false;btn.textContent='Reenviar al correo'}}
+}
 function init(){
   $('repairsRefresh')?.addEventListener('click',()=>load(true));$('repairsOpenSupport')?.addEventListener('click',()=>location.href='../sso-entry.html?platform=support');$('repairsSearch')?.addEventListener('input',e=>{query=e.target.value;render()});
   document.querySelectorAll('[data-repair-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.repairFilter;render()}));$('repairsList')?.addEventListener('click',e=>{const id=e.target.closest('[data-repair-open]')?.dataset.repairOpen;if(id)open(id)});$('repairsClose')?.addEventListener('click',close);$('repairsBackdrop')?.addEventListener('click',close);window.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('repairsModal')?.classList.contains('open'))close()});

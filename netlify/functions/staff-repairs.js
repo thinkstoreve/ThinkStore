@@ -4,6 +4,7 @@
 const {authenticateInternal}=require('./staff-auth-core');
 const {getRate}=require('./fx-rate-core');
 const {account,paymentPlan,canAccessRepairs,round}=require('./staff-repairs-core');
+const {render:renderServiceDeliveryNote}=require('./service-delivery-note-template');
 const H={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Headers':'authorization,content-type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'};
 const result=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
 const clean=(v,n=400)=>String(v??'').trim().slice(0,n);
@@ -23,7 +24,7 @@ async function rest(conf,table,query={},options={}){
     return body;
   }finally{clearTimeout(timer)}
 }
-const FIELDS='id,code,client_name,client_phone,client_email,device_model,device_type,serial_imei,reported_issue,status,quote_amount,quote_currency,quote_status,payment_status,amount_paid,payment_method,payment_notes,paid_at,created_at,updated_at,delivered_at,warranty_days,delivery_method,reserved_parts_cost,direct_parts_cost,delivery_note_generated_at';
+const FIELDS='*';
 async function ordersList(conf){
   const orders=[];const chunk=350;const max=1750;
   for(let offset=0;offset<max;offset+=chunk){
@@ -36,6 +37,32 @@ async function getOrder(conf,id){const rows=await rest(conf,'service_orders',{se
 
 async function orderParts(conf,code){
   try{return await rest(conf,'service_order_parts',{select:'id,order_code,quantity_reserved,quantity_consumed,unit_cost_snapshot,sale_price_snapshot,status,service_parts(name,sku,category)',order_code:`eq.${code}`,status:'neq.released',order:'created_at.asc',limit:100})||[]}catch(e){console.warn('No se pudo leer repuestos de la orden',e.message);return []}
+}
+
+async function orderNotes(conf,id){
+  try{return await rest(conf,'service_order_notes',{select:'id,note,note_type,work_performed,diagnosis,parts_used,client_notes,visibility,created_at',order_id:`eq.${id}`,order:'created_at.desc',limit:100})||[]}catch(e){console.warn('No se pudo leer detalle técnico de la orden',e.message);return []}
+}
+async function paymentEvents(conf,id){
+  try{return await rest(conf,'service_payment_events',{select:'id,event_type,amount_delta,balance_after,payment_method,reference,notes,occurred_at',service_order_id:`eq.${id}`,order:'occurred_at.desc',limit:100})||[]}catch(e){console.warn('No se pudo leer historial de pagos',e.message);return []}
+}
+async function deliveryNoteData(conf,order){
+  const [events,parts,notes]=await Promise.all([paymentEvents(conf,order.id),orderParts(conf,order.code),orderNotes(conf,order.id)]);
+  return{events,parts,notes,html:renderServiceDeliveryNote({order,events,parts,notes})};
+}
+async function sendDeliveryNote(order,html){
+  if(!order?.client_email)return{sent:false,reason:'no_email'};
+  const resend=clean(process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY);
+  if(!resend)return{sent:false,reason:'missing_resend'};
+  const er=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${resend}`,'Content-Type':'application/json'},body:JSON.stringify({
+    from:process.env.FROM_SOPORTE_EMAIL||'ThinkStore Soporte <soporte@thinkstore.com.ve>',
+    to:order.client_email,
+    reply_to:process.env.REPLY_TO_SOPORTE||'soporte@thinkstore.com.ve',
+    subject:`Nota de Entrega · ${order.code} · ThinkStore`,
+    html:`<div style="background:#f5f5f7;padding:18px">${html}</div>`
+  })});
+  const data=await er.json().catch(()=>({}));
+  if(!er.ok)throw Error(clean(data?.message||'No se pudo enviar la Nota de Entrega'));
+  return{sent:true,id:data?.id||null};
 }
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return{statusCode:204,headers:H,body:''};
@@ -59,11 +86,20 @@ exports.handler=async event=>{
       return result(200,{ok:true,...data,refreshed_at:new Date().toISOString()});
     }
     let b;try{b=JSON.parse(event.body||'{}')}catch{return result(400,{ok:false,error:'Solicitud inválida'})}
-    if(b.action!=='pay')return result(400,{ok:false,error:'Acción no autorizada'});
+    if(!['pay','view_delivery_note','resend_delivery_note'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
     const id=clean(b.order_id,50);
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
     const current=await getOrder(conf,id);
     if(!current)return result(404,{ok:false,error:'Reparación no encontrada'});
+    if(['view_delivery_note','resend_delivery_note'].includes(b.action)){
+      const acc=account(current);
+      if(!acc.paidOff)return result(409,{ok:false,error:'La Nota de Entrega se habilita cuando la reparación está completamente pagada.'});
+      const note=await deliveryNoteData(conf,current);
+      if(b.action==='view_delivery_note')return result(200,{ok:true,html:note.html});
+      if(!current.client_email)return result(409,{ok:false,error:'La orden no tiene correo del cliente. La Nota de Entrega sigue disponible para visualizar o imprimir.'});
+      const email=await sendDeliveryNote(current,note.html);
+      return result(200,{ok:true,email});
+    }
     // Enterprise relies on this immutable payment-event trail. Never charge silently without it.
     try { await rest(conf,'service_payment_events',{select:'id',limit:1}); }
     catch(e){if([400,404].includes(e.status))return result(409,{ok:false,error:'Falta activar el historial de abonos en el Supabase de Soporte (MIGRACION-SOPORTE-V8.8.5-HISTORIAL-ABONOS-ENTERPRISE.sql). No se registró ningún cobro.'});throw e;}
@@ -91,9 +127,13 @@ exports.handler=async event=>{
     // El trigger service_payment_events registra el delta de manera auditable.
     let audited=true;
     try{await rest(conf,'service_order_notes',{}, {method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({order_id:id,note:description,visibility:'internal',author_name:actor.email||'Staff',note_type:'Cobranza Staff',status_after:current.status})})}catch(e){audited=false;console.warn('Soporte cobranzas: nota de bitácora no registrada',e.message)}
-    let emailSent=false;
-    if(atomic?.fully_paid&&updated.client_email&&process.env.RESEND_API_KEY){
-      try{const tracking=`https://thinkstore.com.ve/soporte/seguimiento.html?orden=${encodeURIComponent(updated.code)}`;const er=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.FROM_SOPORTE_EMAIL||'ThinkStore Soporte <soporte@thinkstore.com.ve>',to:updated.client_email,reply_to:process.env.REPLY_TO_SOPORTE||'soporte@thinkstore.com.ve',subject:`Pago recibido · ${updated.code} · ThinkStore`,html:`<div style="font-family:-apple-system,BlinkMacSystemFont,Arial;color:#1d1d1f;max-width:620px;margin:auto;padding:28px"><h2>Pago recibido</h2><p>Hola <b>${clean(updated.client_name,120)}</b>, el pago de la reparación <b>${clean(updated.code,80)}</b> fue completado correctamente.</p><p>Equipo: <b>${clean(updated.device_model,140)}</b></p><p>La reparación mantiene su estado técnico <b>${clean(updated.status,80)}</b>; el cobro no cambia automáticamente el equipo a listo para entregar.</p><p><a href="${tracking}">Consultar seguimiento</a></p></div>`})});emailSent=er.ok}catch(e){console.warn('Correo de pago de Soporte no enviado',e.message)}}
-    const parts=await orderParts(conf,updated.code);return result(200,{ok:true,payment:{...p,status:atomic?.payment_status||p.status,pending:Number(atomic?.pending??p.pending)},order:updated,parts,note_saved:audited,fully_paid:Boolean(atomic?.fully_paid),inventory:atomic?.inventory||null,delivery_note_ready:Boolean(atomic?.delivery_note_ready),email_sent:emailSent});
+    let deliveryNoteEmail={sent:false};
+    if(atomic?.fully_paid){
+      try{
+        const note=await deliveryNoteData(conf,updated);
+        deliveryNoteEmail=await sendDeliveryNote(updated,note.html);
+      }catch(e){console.warn('Nota de Entrega de Soporte no enviada',e.message);deliveryNoteEmail={sent:false,error:e.message}}
+    }
+    const parts=await orderParts(conf,updated.code);return result(200,{ok:true,payment:{...p,status:atomic?.payment_status||p.status,pending:Number(atomic?.pending??p.pending)},order:updated,parts,note_saved:audited,fully_paid:Boolean(atomic?.fully_paid),inventory:atomic?.inventory||null,delivery_note_ready:Boolean(atomic?.delivery_note_ready),email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail});
   }catch(e){console.error('[staff-repairs]',e?.message);const code=e?.status>=400&&e.status<500?e.status:500;return result(code,{ok:false,error:clean(e?.message||'No se pudo consultar Soporte')})}
 };

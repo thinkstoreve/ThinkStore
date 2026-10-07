@@ -1,0 +1,7 @@
+{
+  "version": "14.92.0",
+  "name": "Reparaciones Pagado + Nota de Entrega + Notificaciones",
+  "support_ui": "8.9.2",
+  "sql_required": false,
+  "preserves": ["V8.8.8 atomic payment/inventory", "V14.91 compact connection indicator", "unified Main + Support"]
+}

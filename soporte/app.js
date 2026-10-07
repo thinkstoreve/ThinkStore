@@ -5,12 +5,12 @@ const TSService=(()=>{
   if(window.ThinkStoreOffline)window.ThinkStoreOffline.setTokenProvider(async()=>{const {data}=await supabaseClient.auth.getSession();return data?.session?.access_token||''});
 
   const roles={
-    superadmin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports'],
-    admin:['dashboard','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','reports'],
-    reception:['dashboard','appointments','orders','reception','bitacora','parts','clients'],
-    technician:['dashboard','orders','technical','bitacora','parts'],
-    sales:['dashboard','orders','sales','parts','clients'],
-    logistics:['dashboard','orders','logistics'],
+    superadmin:['dashboard','notifications','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports'],
+    admin:['dashboard','notifications','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','reports'],
+    reception:['dashboard','notifications','appointments','orders','reception','bitacora','parts','clients'],
+    technician:['dashboard','notifications','orders','technical','bitacora','parts'],
+    sales:['dashboard','notifications','orders','sales','parts','clients'],
+    logistics:['dashboard','notifications','orders','logistics'],
     client:['client_status']
   };
 
@@ -41,21 +41,26 @@ const TSService=(()=>{
   let serviceOrderParts=[];
   let partsReservationReady=true;
   let serviceAppointments=[];
+  let supportNotifications=[];
+  let notificationsReady=true;
+  let activeView='dashboard';
+  let notificationChannel=null;
 
   const dateText=v=>v?new Date(v).toLocaleString('es-VE'):'Sin fecha';
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function toast(message,type='ok'){let el=document.getElementById('serviceToast');if(!el){el=document.createElement('div');el.id='serviceToast';document.body.appendChild(el)}el.className=`service-toast ${type}`;el.textContent=message;requestAnimationFrame(()=>el.classList.add('show'));clearTimeout(window.__serviceToast);window.__serviceToast=setTimeout(()=>el.classList.remove('show'),4200)}
-  function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
+  function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at,publicToken:row.public_token||''};}
   function mapNote(row,byId){const order=byId.get(row.order_id);return{id:row.id,orderId:row.order_id,orderCode:order?.code||'Sin orden',type:row.note_type||'Seguimiento',author:row.author_name||'Soporte ThinkStore',status:row.status_after||order?.status||'',detail:row.note||'',files:row.attachments||'',created:dateText(row.created_at)};}
   async function loadSupportData(){
-    const [orderRes,noteRes,photoRes,partsRes,movementsRes,appointmentsRes,orderPartsRes]=await Promise.all([
+    const [orderRes,noteRes,photoRes,partsRes,movementsRes,appointmentsRes,orderPartsRes,notificationsRes]=await Promise.all([
       supabaseClient.from('service_orders').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_order_notes').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_order_photos').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_parts').select('*').order('name',{ascending:true}),
       supabaseClient.from('service_part_movements').select('*').order('created_at',{ascending:false}).limit(300),
       supabaseClient.from('service_appointments').select('*').order('preferred_date',{ascending:true}).order('preferred_time',{ascending:true}),
-      supabaseClient.from('service_order_parts').select('*').order('updated_at',{ascending:false}).limit(3000)
+      supabaseClient.from('service_order_parts').select('*').order('updated_at',{ascending:false}).limit(3000),
+      supabaseClient.from('support_notifications').select('*').order('created_at',{ascending:false}).limit(300)
     ]);
     if(orderRes.error)throw new Error('No se pudieron cargar las órdenes: '+orderRes.error.message);
     if(noteRes.error)throw new Error('No se pudo cargar la bitácora: '+noteRes.error.message);
@@ -66,8 +71,10 @@ const TSService=(()=>{
     servicePhotos=photoRes.data||[];
     serviceParts=partsRes.data||[];partMovements=movementsRes.data||[];serviceAppointments=appointmentsRes.error?[]:(appointmentsRes.data||[]);
     partsReservationReady=!orderPartsRes.error;serviceOrderParts=orderPartsRes.error?[]:(orderPartsRes.data||[]);
+    notificationsReady=!notificationsRes.error;supportNotifications=notificationsRes.error?[]:(notificationsRes.data||[]);
     if(orderPartsRes.error)console.warn('Reservas de repuestos no disponibles. Ejecuta SQL Soporte V8.8.8:',orderPartsRes.error.message);
     if(appointmentsRes.error)console.warn('No se pudieron cargar citas web:',appointmentsRes.error.message);
+    if(notificationsRes.error)console.warn('Centro de notificaciones no disponible. Comprueba la migración V8.7.1:',notificationsRes.error.message);
   }
   async function audit(action,entityId,beforeData,afterData){try{await supabaseClient.from('service_audit_log').insert({actor_email:session?.email||null,actor_role:session?.role||null,action,entity_type:'service_order',entity_id:String(entityId||''),before_data:beforeData||null,after_data:afterData||null})}catch(_){}}
   function can(view){return session&&roles[session.role]?.includes(view)}
@@ -150,6 +157,7 @@ const TSService=(()=>{
 
   function menuItems(){return[
     {id:'dashboard',label:'Dashboard',icon:'⌂',group:'Resumen'},
+    {id:'notifications',label:'Notificaciones',icon:'◉',group:'Comunicación'},
     {id:'appointments',label:'Citas web',icon:'◷',group:'Operación'},
     {id:'orders',label:'Órdenes de servicio',icon:'▣',group:'Operación'},
     {id:'reception',label:'Recepción',icon:'⇥',group:'Operación'},
@@ -172,7 +180,8 @@ const TSService=(()=>{
     nav.innerHTML=items.map(i=>{
       const group=i.group!==lastGroup?`<span class="nav-group-label">${i.group}</span>`:'';
       lastGroup=i.group;
-      return `${group}<button type="button" class="support-nav-btn" data-view="${i.id}" onclick="TSService.renderPanel('${i.id}')"><span class="support-nav-icon" aria-hidden="true">${i.icon}</span><span>${i.label}</span></button>`;
+      const count=i.id==='notifications'?supportNotifications.filter(n=>!n.read_at).length:0;
+      return `${group}<button type="button" class="support-nav-btn" data-view="${i.id}" onclick="TSService.renderPanel('${i.id}')"><span class="support-nav-icon" aria-hidden="true">${i.icon}</span><span>${i.label}</span>${count?`<em class="support-nav-count">${count>99?'99+':count}</em>`:''}</button>`;
     }).join('');
   }
 
@@ -183,7 +192,7 @@ const TSService=(()=>{
     if(!dash||!nav)return;
     renderRoleMenu();
     const box=document.getElementById('panelContent');if(box)box.innerHTML='<div class="notice">Cargando datos reales de soporte…</div>';
-    try{await loadSupportData();await renderPanel('dashboard')}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
+    try{await loadSupportData();renderRoleMenu();startNotificationRealtime();await renderPanel('dashboard')}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
     dash.classList.remove('hidden');
     requestAnimationFrame(()=>{
       requestAnimationFrame(()=>{
@@ -261,6 +270,7 @@ const TSService=(()=>{
 
   async function renderPanel(view){
     if(!can(view)){alert('Tu rol no tiene permiso para esta sección');return}
+    activeView=view;
     document.querySelectorAll('#roleMenu .support-nav-btn').forEach(btn=>{
       const active=btn.dataset.view===view;
       btn.classList.toggle('active',active);
@@ -269,25 +279,27 @@ const TSService=(()=>{
     const title=document.getElementById('panelTitle');
     const box=document.getElementById('panelContent');
     const s=stats();
-    const titles={dashboard:'Dashboard',appointments:'Citas web',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',parts:'Inventario de repuestos',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
+    const titles={dashboard:'Dashboard',notifications:'Notificaciones',appointments:'Citas web',orders:'Órdenes de servicio',reception:'Recepción de equipos',technical:'Área técnica',bitacora:'Bitácora técnica',parts:'Inventario de repuestos',sales:'Ventas y cotizaciones',logistics:'Logística',clients:'Clientes',users:'Usuarios y roles',permissions:'Permisos',reports:'Reportes'};
     title.textContent=titles[view]||'Panel';
+
+    if(view==='notifications'){await renderNotifications(box);return}
 
     if(view==='dashboard'){
       const snap=serviceDashboardSnapshot(),w=snap.week,t=snap.todayRow;
       const activeOrders=orders.filter(o=>!['Entregado','Cancelado','No aprobado'].includes(o.status)).length;
       const lowParts=serviceParts.filter(p=>Number(p.quantity||0)<=Number(p.min_stock||p.minimum_stock||0)).length;
       const recentOrders=orders.slice(0,6);
-      const rows=snap.daily.map(d=>`<div class="support-day-row ${d.key===snap.today?'today':''}"><b>${esc(shortDayLabel(d.key))}</b><span>${d.received} recibido${d.received===1?'':'s'}</span><span>${d.appointments} cita${d.appointments===1?'':'s'}</span><span>${d.paid_count} cobro${d.paid_count===1?'':'s'}</span><strong>$${Number(d.collected||0).toFixed(2)}</strong><span>${d.delivered} entregado${d.delivered===1?'':'s'}</span></div>`).join('');
+      const rows=snap.daily.map(d=>`<div class="support-day-row ${d.key===snap.today?'today':''}"><b>${esc(shortDayLabel(d.key))}</b><span>${d.received} recibido${d.received===1?'':'s'}</span><span>${d.appointments} cita${d.appointments===1?'':'s'}</span><span>${d.paid_count} pago${d.paid_count===1?'':'s'}</span><strong>$${Number(d.collected||0).toFixed(2)}</strong><span>${d.delivered} entregado${d.delivered===1?'':'s'}</span></div>`).join('');
       box.innerHTML=`
         <section class="dash-hero support-v82-hero">
-          <div><span class="eyebrow">DATOS REALES · AMERICA/CARACAS</span><h2>Dashboard diario y semanal</h2><p>Órdenes, cobros, citas, entregas y servicios a domicilio conectados a ThinkStore-Soporte.</p></div>
+          <div><span class="eyebrow">DATOS REALES · AMERICA/CARACAS</span><h2>Dashboard diario y semanal</h2><p>Órdenes, pagos, citas, entregas y servicios a domicilio conectados a ThinkStore-Soporte.</p></div>
           <div class="dash-session"><span>Semana actual</span><b>${esc(shortDayLabel(snap.keys[0]))}</b><small>hasta ${esc(shortDayLabel(snap.keys[6]))}</small></div>
         </section>
-        ${snap.financeReady?'':`<div class="support-finance-warning"><b>Cobranza aún no activada en Supabase.</b><span>Ejecuta MIGRACION-SOPORTE-V8.2-COBRANZA-ENTERPRISE.sql para habilitar montos cobrados y Enterprise.</span></div>`}
+        ${snap.financeReady?'':`<div class="support-finance-warning"><b>Pagos aún no activados en Supabase.</b><span>Ejecuta MIGRACION-SOPORTE-V8.2-COBRANZA-ENTERPRISE.sql para habilitar pagos y Enterprise.</span></div>`}
         <div class="support-day-title"><div><b>Hoy</b><small>${esc(shortDayLabel(snap.today))}</small></div><button class="secondary" onclick="TSService.renderPanel('dashboard')">Actualizar</button></div>
         <div class="dash-grid support-daily-kpis">
           <button class="dash-kpi" onclick="TSService.renderPanel('orders')"><span>Recibidos hoy</span><b>${t.received}</b><small>Ingresos físicos / órdenes</small></button>
-          <button class="dash-kpi"><span>Cobrado hoy</span><b>$${Number(t.collected||0).toFixed(2)}</b><small>${t.paid_count} servicio(s) con cobro</small></button>
+          <button class="dash-kpi"><span>Pagado hoy</span><b>$${Number(t.collected||0).toFixed(2)}</b><small>${t.paid_count} servicio(s) pagado(s)</small></button>
           <button class="dash-kpi" onclick="TSService.renderPanel('appointments')"><span>Citas de hoy</span><b>${t.appointments}</b><small>Agenda real de soporte</small></button>
           <button class="dash-kpi" onclick="TSService.renderPanel('orders')"><span>Entregados hoy</span><b>${t.delivered}</b><small>${activeOrders} orden(es) aún abiertas</small></button>
         </div>
@@ -295,7 +307,7 @@ const TSService=(()=>{
         <div class="support-week-title"><div><span class="eyebrow">RESUMEN SEMANAL</span><h3>Operación de Servicio Técnico</h3></div><small>Actualizado ${new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'})}</small></div>
         <div class="support-week-grid">
           <div><span>Recibidos</span><b>${w.received}</b><small>Órdenes ingresadas</small></div>
-          <div><span>Cobrados</span><b>${w.collected_count}</b><small>$${Number(w.collected_amount||0).toFixed(2)}</small></div>
+          <div><span>Pagados</span><b>${w.collected_count}</b><small>$${Number(w.collected_amount||0).toFixed(2)}</small></div>
           <div><span>Pendientes por cobrar</span><b>${w.pending_count}</b><small>$${Number(w.pending_amount||0).toFixed(2)}</small></div>
           <div><span>Listos</span><b>${w.ready}</b><small>Listos para entregar</small></div>
           <div><span>Entregados</span><b>${w.delivered}</b><small>Entregas de la semana</small></div>
@@ -305,7 +317,7 @@ const TSService=(()=>{
         </div>
 
         <div class="support-split-panel">
-          <div class="support-split-copy"><span class="eyebrow">DISTRIBUCIÓN SEMANAL · SOBRE LO COBRADO</span><h3>$${Number(w.collected_amount||0).toFixed(2)}</h3><p>El reparto se calcula únicamente sobre cobros registrados; no incluye montos pendientes.</p></div>
+          <div class="support-split-copy"><span class="eyebrow">DISTRIBUCIÓN SEMANAL · SOBRE LO PAGADO</span><h3>$${Number(w.collected_amount||0).toFixed(2)}</h3><p>El reparto se calcula únicamente sobre pagos registrados; no incluye montos pendientes.</p></div>
           <div class="support-split-grid">
             <div><span>Empresa · 50%</span><b>$${snap.split.company.toFixed(2)}</b></div>
             <div><span>Socio A · 25%</span><b>$${snap.split.partner_a.toFixed(2)}</b></div>
@@ -321,7 +333,7 @@ const TSService=(()=>{
         </div>
 
         <div class="support-enterprise-link">
-          <div><b>Enterprise global</b><small>Ventas online + presenciales + citas + soporte + cobros + servicio a domicilio.</small></div>
+          <div><b>Enterprise global</b><small>Ventas online + presenciales + citas + soporte + pagos + servicio a domicilio.</small></div>
           <a href="https://enterprise.thinkstore.ve" target="_blank" rel="noopener">Abrir Enterprise ↗</a>
         </div>`;
       return;
@@ -469,7 +481,7 @@ const TSService=(()=>{
 
   function ordersTable(scope='orders'){
     const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
-    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Última carga ${new Date().toLocaleTimeString('es-VE')}</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id));return `<tr><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small></td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select>${/cobrado|pagado/i.test(String(o.paymentStatus||''))?'<div class="paid-badge">✓ Cobrado</div>':''}</td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
+    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Última carga ${new Date().toLocaleTimeString('es-VE')}</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id));return `<tr><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small></td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select>${/cobrado|pagado/i.test(String(o.paymentStatus||''))?'<div class="paid-badge">✓ Pagado</div>':''}</td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
 
   async function openOrderManager(id){
     const o=orders.find(x=>String(x.id)===String(id));if(!o)return;
@@ -485,7 +497,7 @@ const TSService=(()=>{
     const box=document.getElementById('mOrderParts');if(!box)return;
     const current=serviceOrderParts.filter(r=>String(r.order_code).toUpperCase()===String(orderCode).toUpperCase()&&r.status==='reserved');
     const used=new Map(current.map(r=>[String(r.part_id),r]));
-    if(!partsReservationReady){box.innerHTML='<div class="notice">Activa SQL Soporte V8.8.8 para reservar repuestos antes del cobro.</div>';return}
+    if(!partsReservationReady){box.innerHTML='<div class="notice">Activa SQL Soporte V8.8.8 para reservar repuestos antes del pago.</div>';return}
     if(!serviceParts.length){box.innerHTML='<small>No hay repuestos activos en inventario.</small>';return}
     box.innerHTML=`<div class="parts-reservation-list">${serviceParts.filter(p=>p.active!==false).map(p=>{const r=used.get(String(p.id));const reservedOther=serviceOrderParts.filter(x=>String(x.part_id)===String(p.id)&&x.status==='reserved'&&String(x.order_code).toUpperCase()!==String(orderCode).toUpperCase()).reduce((n,x)=>n+Math.max(0,Number(x.quantity_reserved||0)-Number(x.quantity_consumed||0)),0);const available=Math.max(0,Number(p.quantity||0)-reservedOther);return `<label class="part-reservation-row"><input type="checkbox" data-order-part-check="${esc(p.id)}" ${r?'checked':''}><span><b>${esc(p.name)}</b><small>${esc(p.sku||'')} · Disponible ${available}${reservedOther?` · ${reservedOther} reservado(s) en otras órdenes`:''}</small></span><input data-order-part-qty="${esc(p.id)}" type="number" min="1" max="${Math.max(1,available)}" value="${r?Number(r.quantity_reserved||1):1}" ${r?'':'disabled'}></label>`}).join('')}</div>`;
     box.querySelectorAll('[data-order-part-check]').forEach(ch=>ch.addEventListener('change',()=>{const q=box.querySelector(`[data-order-part-qty="${CSS.escape(ch.dataset.orderPartCheck)}"]`);if(q)q.disabled=!ch.checked}));
@@ -493,7 +505,7 @@ const TSService=(()=>{
   async function saveOrderParts(){
     const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o)return toast('Orden no encontrada.','error');
     if(!partsReservationReady)return toast('Primero ejecuta SQL Soporte V8.8.8 en Supabase de Soporte.','error');
-    if(/cobrado|pagado/i.test(String(o.paymentStatus||'')))return toast('La orden ya está cobrada; sus repuestos no se pueden cambiar.','error');
+    if(/cobrado|pagado/i.test(String(o.paymentStatus||'')))return toast('La orden ya está pagada; sus repuestos no se pueden cambiar.','error');
     const box=document.getElementById('mOrderParts');const parts=[...box.querySelectorAll('[data-order-part-check]:checked')].map(ch=>({part_id:ch.dataset.orderPartCheck,quantity:Number(box.querySelector(`[data-order-part-qty="${CSS.escape(ch.dataset.orderPartCheck)}"]`)?.value||0)})).filter(x=>x.quantity>0);
     const {data,error}=await supabaseClient.rpc('ts_save_service_order_parts',{p_order_code:o.code,p_parts:parts,p_actor_email:session?.email||null});
     if(error)return toast('No se pudieron guardar los repuestos: '+error.message,'error');
@@ -1075,7 +1087,7 @@ const TSService=(()=>{
     // El QR siempre apunta al portal público HTTPS, incluso cuando el panel se prueba en local.
     // Así la hoja/etiqueta impresa nunca entrega una URL 127.0.0.1 al cliente.
     const base=location.origin+'/soporte/seguimiento.html';
-    return `${base}?orden=${encodeURIComponent(order.code)}`;
+    return order.publicToken?`${base}?token=${encodeURIComponent(order.publicToken)}`:`${base}?orden=${encodeURIComponent(order.code)}`;
   }
   function cleanReceptionObservation(o){
     const raw=String(o?.technicalNotes||o?.visual||'').trim();
@@ -1235,6 +1247,112 @@ const TSService=(()=>{
   function printLabel(i){const o=orders[i];openLabelFormatSelector(o)}
   async function lookupOrder(e){e.preventDefault();const q=lookupCode.value.trim().toUpperCase();lookupResult.innerHTML='<p>Consultando…</p>';const {data,error}=await supabaseClient.rpc('lookup_service_order',{p_code:q});const o=Array.isArray(data)?data[0]:data;lookupResult.innerHTML=!error&&o?`<div class="metric"><b>${o.status}</b><p>${o.device_model}<br>Última actualización: ${dateText(o.updated_at)}</p></div>`:`<p>No encontré esa orden.</p>`}
 
+
+  function notificationTone(){
+    try{
+      const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;
+      const ctx=new Ctx(),osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.frequency.value=880;gain.gain.setValueAtTime(.035,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.16);
+      osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.17);setTimeout(()=>ctx.close?.(),260);
+    }catch(_){}
+  }
+  function notificationOrder(n){
+    const id=n?.order_id??(n?.entity_type==='order'?n?.entity_id:null);
+    return orders.find(o=>String(o.id)===String(id))||null;
+  }
+  function notificationLabel(n){
+    if(n?.event_type==='client_message')return 'Mensaje del cliente';
+    if(n?.event_type==='appointment_new')return 'Nueva cita';
+    if(n?.event_type==='appointment_updated')return 'Cita actualizada';
+    if(n?.event_type==='client_review')return 'Reseña del cliente';
+    if(n?.event_type==='quote_approved')return 'Cotización aprobada';
+    if(n?.event_type==='order_ready')return 'Equipo listo';
+    return 'Actualización';
+  }
+  async function renderNotifications(box){
+    if(!box)return;
+    if(!notificationsReady){
+      box.innerHTML=`<div class="support-notifications-shell"><div class="support-notifications-head"><div><span class="eyebrow">COMUNICACIÓN</span><h2>Notificaciones</h2><p>El centro de notificaciones no está disponible en este Supabase.</p></div></div><div class="support-notification-empty"><b>Falta la estructura V8.7.1</b><span>Si esta función ya estaba activa antes, verifica que estés conectado al Supabase de Soporte correcto. No ejecutes migraciones a ciegas.</span></div></div>`;
+      return;
+    }
+    const unread=supportNotifications.filter(n=>!n.read_at).length;
+    const cards=supportNotifications.map(n=>{
+      const o=notificationOrder(n),client=n?.metadata?.client_name||o?.client||'Cliente',code=n?.metadata?.order_code||o?.code||'';
+      return `<button class="support-notification-card ${n.read_at?'read':'unread'} severity-${esc(n.severity||'info')}" onclick="TSService.openNotification('${esc(n.id)}')">
+        <span class="support-notification-dot"></span>
+        <span class="support-notification-copy"><small>${esc(notificationLabel(n))}${code?' · '+esc(code):''}</small><b>${esc(n.title||client)}</b><span>${esc(n.message||'')}</span><em>${esc(dateText(n.created_at))}</em></span>
+        ${!n.read_at?'<strong>Nuevo</strong>':''}
+      </button>`;
+    }).join('');
+    box.innerHTML=`<section class="support-notifications-shell">
+      <div class="support-notifications-head"><div><span class="eyebrow">COMUNICACIÓN</span><h2>Notificaciones</h2><p>Mensajes del cliente, citas, cotizaciones, reseñas y cambios importantes por orden.</p></div><div class="support-notification-actions"><span>${unread} sin leer</span>${unread?'<button class="secondary" onclick="TSService.markAllNotificationsRead()">Marcar todas como leídas</button>':''}</div></div>
+      <div class="support-notification-list">${cards||'<div class="support-notification-empty"><b>Todo al día</b><span>No hay notificaciones registradas.</span></div>'}</div>
+    </section>`;
+  }
+  async function markNotificationRead(id){
+    const n=supportNotifications.find(x=>String(x.id)===String(id));if(!n||n.read_at)return;
+    const now=new Date().toISOString();
+    const {error}=await supabaseClient.from('support_notifications').update({read_at:now}).eq('id',id);
+    if(!error){n.read_at=now;renderRoleMenu()}
+  }
+  async function markAllNotificationsRead(){
+    const now=new Date().toISOString();
+    const {error}=await supabaseClient.from('support_notifications').update({read_at:now}).is('read_at',null);
+    if(error)return toast('No se pudieron actualizar las notificaciones: '+error.message,'error');
+    supportNotifications.forEach(n=>{if(!n.read_at)n.read_at=now});renderRoleMenu();await renderPanel('notifications');
+  }
+  async function openNotification(id){
+    const n=supportNotifications.find(x=>String(x.id)===String(id));if(!n)return;
+    await markNotificationRead(id);
+    const orderId=n.order_id??(n.entity_type==='order'?n.entity_id:null);
+    if(orderId){await openOrderConversation(orderId);return}
+    if(n.appointment_id){await renderPanel('appointments');return}
+    await renderPanel('notifications');
+  }
+  async function loadConversation(orderId){
+    const {data,error}=await supabaseClient.from('service_order_messages').select('*').eq('order_id',orderId).order('created_at',{ascending:true}).limit(300);
+    if(error)throw error;return data||[];
+  }
+  async function openOrderConversation(orderId){
+    activeView='notifications';
+    const box=document.getElementById('panelContent'),title=document.getElementById('panelTitle');if(!box)return;
+    const o=orders.find(x=>String(x.id)===String(orderId));
+    if(title)title.textContent='Conversación con cliente';
+    box.innerHTML='<div class="notice">Cargando conversación…</div>';
+    try{
+      const messages=await loadConversation(orderId);
+      const bubbles=messages.map(m=>`<div class="support-chat-row ${m.sender_type==='staff'?'staff':'client'}"><div class="support-chat-bubble"><small>${esc(m.sender_type==='staff'?(m.sender_name||'ThinkStore'):(m.sender_name||o?.client||'Cliente'))}</small><p>${esc(m.message)}</p><em>${esc(dateText(m.created_at))}</em></div></div>`).join('');
+      box.innerHTML=`<section class="support-conversation-shell">
+        <div class="support-conversation-head"><button class="secondary" onclick="TSService.renderPanel('notifications')">← Notificaciones</button><div><span class="eyebrow">${esc(o?.code||'ORDEN')}</span><h2>${esc(o?.client||'Cliente')}</h2><p>${esc(o?.device||'Equipo')} · ${esc(o?.status||'')}</p></div><button class="secondary" onclick="TSService.openOrderManager('${esc(orderId)}')">Gestionar orden</button></div>
+        <div class="support-chat-thread" id="supportChatThread">${bubbles||'<div class="support-notification-empty"><b>Sin mensajes todavía</b><span>Escribe al cliente para iniciar la conversación.</span></div>'}</div>
+        <form class="support-chat-compose" onsubmit="TSService.sendConversationMessage(event,'${esc(orderId)}')"><textarea id="supportChatInput" maxlength="2000" required placeholder="Escribe un mensaje al cliente…"></textarea><button type="submit">Enviar</button></form>
+      </section>`;
+      requestAnimationFrame(()=>{const thread=document.getElementById('supportChatThread');if(thread)thread.scrollTop=thread.scrollHeight});
+    }catch(err){
+      box.innerHTML=`<div class="support-notification-empty"><b>No se pudo abrir la conversación</b><span>${esc(err.message||'Comprueba la mensajería V8.5/V8.7 del Supabase de Soporte.')}</span><button class="secondary" onclick="TSService.renderPanel('notifications')">Volver</button></div>`;
+    }
+  }
+  async function sendConversationMessage(e,orderId){
+    e.preventDefault();const input=document.getElementById('supportChatInput');const message=String(input?.value||'').trim();if(!message)return;
+    const btn=e.submitter;if(btn){btn.disabled=true;btn.textContent='Enviando…'}
+    const {error}=await supabaseClient.from('service_order_messages').insert({order_id:orderId,sender_type:'staff',sender_name:session?.name||'ThinkStore',message,created_by_email:session?.email||null});
+    if(error){if(btn){btn.disabled=false;btn.textContent='Enviar'};return toast('No se pudo enviar el mensaje: '+error.message,'error')}
+    notificationTone();await openOrderConversation(orderId);
+  }
+  function startNotificationRealtime(){
+    if(notificationChannel||!notificationsReady)return;
+    try{
+      notificationChannel=supabaseClient.channel('thinkstore-support-notifications')
+        .on('postgres_changes',{event:'INSERT',schema:'public',table:'support_notifications'},payload=>{
+          if(payload?.new){
+            supportNotifications=[payload.new,...supportNotifications.filter(n=>String(n.id)!==String(payload.new.id))];
+            renderRoleMenu();notificationTone();
+            if(activeView==='notifications')renderPanel('notifications');
+          }
+        }).subscribe();
+    }catch(err){console.warn('Realtime de notificaciones no disponible',err)}
+  }
+
   async function initAuth(){
     const params=new URLSearchParams(location.hash.replace('#',''));
     const type=params.get('type');
@@ -1307,5 +1425,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,saveOrderParts,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,openNotification,openOrderConversation,sendConversationMessage,markAllNotificationsRead,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,openOrderManager,saveOrderManager,saveOrderParts,uploadOrderFile,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

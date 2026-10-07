@@ -1,4 +1,4 @@
-const CACHE="thinkstore-support-v8-8-10";
+const CACHE="thinkstore-support-v8-9-2";
 const CORE=["./panel.html", "./index.html", "./styles.css", "./app.js", "./offline-runtime.js", "./manifest.webmanifest", "./offline.html", "./favicon-192.png", "./favicon-512.png", "./assets/thinkstore-logo-white.png"];
 const OFFLINE="./offline.html";
 const NAV_ONLY=null;

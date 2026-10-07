@@ -27,7 +27,7 @@ test('Soporte permite guardar repuestos reservados',()=>{
   const html=read('soporte/panel.html');
   assert.match(app,/ts_save_service_order_parts/);
   assert.match(html,/Guardar repuestos/);
-  assert.match(app,/✓ Cobrado/);
+  assert.match(app,/✓ Pagado/);
 });
 
 test('Paquete incluye los cuatro SQL del flujo',()=>{
@@ -50,7 +50,7 @@ test('App Ventas recupera la pestaña clásica Reparaciones',()=>{
   const repairs=read('staff/repairs.js');
   assert.match(html,/>Reparaciones<\/span>/);
   assert.match(html,/Pendientes por cobrar/);
-  assert.match(html,/Cobradas/);
+  assert.match(html,/Pagadas/);
   assert.match(repairs,/Marcar pagado \+ Nota de Entrega/);
   assert.match(repairs,/Registrar abono/);
   assert.match(repairs,/Efectivo USD/);
@@ -67,4 +67,35 @@ test('Soporte muestra estado al iniciar y minimiza cuando queda online',()=>{
   assert.match(runtime,/classList\.add\('minimized'\)/);
   assert.match(runtime,/classList\.add\('offline'\)/);
   assert.doesNotMatch(runtime,/>Instalar<\/button>/);
+});
+
+
+test('Nota de Entrega de reparación conserva diseño limpio aprobado',()=>{
+  const tpl=read('netlify/functions/service-delivery-note-template.js');
+  assert.match(tpl,/logo-thinkstore-email-transparent\.png/);
+  assert.doesNotMatch(tpl,/Firma/i);
+  assert.doesNotMatch(tpl,/✓\s*(Pagado|Cobrado)/i);
+  assert.match(tpl,/Reparación realizada/);
+  assert.match(tpl,/Repuestos utilizados/);
+  assert.match(tpl,/Garantía/);
+  assert.match(tpl,/Referencia/);
+});
+
+test('Soporte restaura Notificaciones y conversación con el cliente',()=>{
+  const app=read('soporte/app.js');
+  const css=read('soporte/styles.css');
+  assert.match(app,/id:'notifications',label:'Notificaciones'/);
+  assert.match(app,/support_notifications/);
+  assert.match(app,/service_order_messages/);
+  assert.match(app,/sendConversationMessage/);
+  assert.match(css,/support-chat-bubble/);
+});
+
+test('Portal seguro del cliente permite responder mensajes',()=>{
+  const fn=read('netlify/functions/support-client-portal.js');
+  const page=read('soporte/seguimiento.html');
+  assert.match(fn,/send_message/);
+  assert.match(fn,/service_order_messages/);
+  assert.match(page,/Mensajes con ThinkStore/);
+  assert.match(page,/support-client-portal/);
 });

@@ -1,8 +1,8 @@
 {
   "name": "thinkstore",
-  "version": "14.89.0",
+  "version": "14.92.0",
   "private": true,
-  "description": "ThinkStore Main V14.89 · paquete completo acumulativo con Staff, ventas, BCV, pagos mixtos, fotos de perfil, Caja Staff y acceso unificado a Enterprise en enterprise.thinkstore.ve",
+  "description": "ThinkStore Main V14.92 · restaura Pagado, Nota de Entrega de Servicio Técnico y Notificaciones/Chat de Soporte sobre el Main unificado.",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4"
   }

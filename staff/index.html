@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="ThinkStore Staff">
 <meta name="robots" content="noindex,nofollow">
 <title>ThinkStore Staff</title>
-<link rel="stylesheet" href="app.css?v=14.90.0">
+<link rel="stylesheet" href="app.css?v=14.92.0">
 </head>
 <body>
 <div id="boot" class="boot"><div class="boot-logo"><img src="../logo-thinkstore.png" alt="ThinkStore"></div><span>Cargando ThinkStore Staff…</span></div>
@@ -165,7 +165,7 @@
 
 
     <!-- V14.90 · Reparaciones: interfaz clásica de App Ventas restaurada -->
-    <section id="view-repairs" class="view" aria-label="Reparaciones y cobros de Servicio Técnico">
+    <section id="view-repairs" class="view" aria-label="Reparaciones y pagos de Servicio Técnico">
       <div class="section-head repair-classic-head">
         <div><span class="eyebrow">SERVICIO TÉCNICO</span><h1>Reparaciones</h1><p>Cobra reparaciones, registra abonos y genera la Nota de Entrega sin crear una venta falsa.</p></div>
         <div class="repair-head-actions"><button id="repairsOpenSupport" class="secondary" type="button">Abrir Servicio Técnico ↗</button><button id="repairsRefresh" class="icon-button" type="button" title="Actualizar">↻</button></div>
@@ -174,13 +174,13 @@
       <div class="metric-grid repair-classic-metrics">
         <article class="metric-card"><span>Pendientes por cobrar</span><b id="repairsPendingTotal">$0.00</b><small id="repairsPendingCount">0 órdenes</small></article>
         <article class="metric-card"><span>Abonos registrados</span><b id="repairsPartialTotal">$0.00</b><small id="repairsPartialCount">0 con abono</small></article>
-        <article class="metric-card"><span>Cobradas</span><b id="repairsPaidTotal">$0.00</b><small id="repairsPaidCount">0 cobradas</small></article>
+        <article class="metric-card"><span>Pagadas</span><b id="repairsPaidTotal">$0.00</b><small id="repairsPaidCount">0 pagadas</small></article>
         <span id="repairsAllCount" class="hidden">0</span>
       </div>
       <div class="repair-classic-toolbar">
-        <div class="repair-filter-group" role="group" aria-label="Estado del cobro">
+        <div class="repair-filter-group" role="group" aria-label="Estado del pago">
           <button type="button" class="repairs-filter active" data-repair-filter="pending">Pendientes</button>
-          <button type="button" class="repairs-filter" data-repair-filter="paid">Cobradas</button>
+          <button type="button" class="repairs-filter" data-repair-filter="paid">Pagadas</button>
           <button type="button" class="repairs-filter" data-repair-filter="all">Todas</button>
         </div>
         <label class="repairs-search"><span class="sr-only">Buscar reparación</span><input id="repairsSearch" placeholder="Buscar orden, cliente o equipo…" autocomplete="off"></label>
@@ -290,8 +290,8 @@
 <script src="../data.js"></script>
 <script src="../ts-fx.js?v=14.78"></script>
 <script src="../ts-payment-split.js?v=14.79"></script>
-<script src="cash.js?v=14.90.0"></script>
-<script src="repairs.js?v=14.90.0"></script>
-<script src="app.js?v=14.90.0"></script>
+<script src="cash.js?v=14.92.0"></script>
+<script src="repairs.js?v=14.92.0"></script>
+<script src="app.js?v=14.92.0"></script>
 </body>
 </html>
