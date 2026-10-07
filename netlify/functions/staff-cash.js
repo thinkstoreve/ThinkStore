@@ -7,7 +7,7 @@ const uuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a
 const clean=(v,max=500)=>String(v??'').trim().slice(0,max);
 const num=(v,max=1e9)=>{if(v===''||v===null||v===undefined||!Number.isFinite(Number(v))||Number(v)<0||Number(v)>max||Math.abs(Number(v)*100-Math.round(Number(v)*100))>0.00001)throw Error('Monto inválido: usa valores positivos con máximo dos decimales.');return Number(v)};
 const rateNum=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0||n>1e9)throw Error('Tasa BCV inválida.');return n};
-const config=()=>({url:String(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||'').replace(/\/$/,''),key:process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||''});
+const config=()=>({url:String(process.env.MAIN_SUPABASE_URL||process.env.THINKSTORE_SUPABASE_URL||'https://clhnndxsgzqnihhtrout.supabase.co').replace(/\/$/,''),key:process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||''});
 async function rest(url,key,table,params={},opts={}){
  const address=new URL(url+'/rest/v1/'+table);
  for(const [k,v]of Object.entries(params))if(v!==undefined&&v!==null)address.searchParams.set(k,String(v));

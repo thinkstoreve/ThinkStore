@@ -6,7 +6,7 @@ exports.handler=async function(event){
   const {getRate}=require('./fx-rate-core');
   const {prepare:prepareMixed}=require('./pos-mixed-payment');
   const clean=v=>String(v??'').trim(), norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const url=clean(process.env.SUPABASE_URL).replace(/\/$/,''); const service=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const url=clean(process.env.MAIN_SUPABASE_URL||process.env.THINKSTORE_SUPABASE_URL||'https://clhnndxsgzqnihhtrout.supabase.co').replace(/\/$/,''); const service=clean(process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY);
   if(!url||!service)return r(501,{ok:false,error:'Faltan variables de Supabase'});
   const sh={apikey:service,Authorization:`Bearer ${service}`,'Content-Type':'application/json'};
 
@@ -18,7 +18,10 @@ exports.handler=async function(event){
     if(!token)return{ok:false};
     const ur=await fetch(`${url}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}}); const u=await ur.json().catch(()=>({}));
     if(!ur.ok||!u.id)return{ok:false};
-    let pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh}); const rows=await pr.json().catch(()=>[]),p=rows[0],role=norm(p?.role||p?.rol);
+    let pr=await fetch(`${url}/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh}); let rows=await pr.json().catch(()=>[]),p=rows[0];
+    if(!p){pr=await fetch(`${url}/rest/v1/profiles?select=*&user_id=eq.${encodeURIComponent(u.id)}&limit=1`,{headers:sh});rows=await pr.json().catch(()=>[]);p=rows[0];}
+    if(!p&&u.email){const rr=await fetch(`${url}/rest/v1/roles_usuarios?select=*&email=ilike.${encodeURIComponent(u.email)}&limit=1`,{headers:sh});const rd=await rr.json().catch(()=>[]),rp=rd[0];if(rp)p={id:u.id,role:rp.rol||rp.role||'vendedor',active:rp.activo??rp.active??true,is_internal:true};}
+    const role=norm(p?.role||p?.rol);
     if(!p||(p.active??p.activo??true)===false)return{ok:false};
     const uiRole=role==='super_admin'?'superadmin':(['administrator','gerente'].includes(role)?'admin':role);
     const defaultPerms={vendedor:['ventas'],admin:['*'],superadmin:['*']};

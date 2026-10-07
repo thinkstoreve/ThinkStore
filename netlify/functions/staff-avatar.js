@@ -48,7 +48,7 @@ async function deleteOld(url,secret,id,path){
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return {statusCode:204,headers:H,body:''};
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
-  const url=String(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||'').trim().replace(/\/$/,''),secret=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||'').trim();
+  const url=String(process.env.MAIN_SUPABASE_URL||process.env.THINKSTORE_SUPABASE_URL||'https://clhnndxsgzqnihhtrout.supabase.co').trim().replace(/\/$/,''),secret=String(process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||'').trim();
   if(!url||!secret)return r(503,{ok:false,error:'Falta configurar Supabase en Netlify'});
   let user;try{user=await authorizedUser(event,url,secret)}catch(e){console.error('staff-avatar auth',e);return r(502,{ok:false,error:'No se pudo verificar el usuario en Supabase'})}
   if(!user)return r(403,{ok:false,error:'Solo el vendedor o administrador autorizado puede cambiar su foto'});

@@ -31,8 +31,8 @@ const out=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS')return{statusCode:204,headers:H,body:''};
   if(event.httpMethod!=='GET')return out(405,{ok:false,error:'Método no permitido'});
-  const url=clean(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL).replace(/\/$/,'');
-  const service=clean(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY);
+  const url=clean(process.env.MAIN_SUPABASE_URL||process.env.THINKSTORE_SUPABASE_URL||'https://clhnndxsgzqnihhtrout.supabase.co').replace(/\/$/,'');
+  const service=clean(process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY);
   if(!url||!service)return out(500,{ok:false,error:'Supabase no está configurado'});
   const auth=await authenticate(event,url,service);
   if(!auth.ok)return out(401,{ok:false,error:'Inicia sesión con una cuenta interna de ThinkStore'});
@@ -75,6 +75,7 @@ async function authenticate(event,url,service){
   if(!ur.ok||!u?.id)return{ok:false};
   const paths=[
     `profiles?select=*&id=eq.${encodeURIComponent(u.id)}&limit=1`,
+    `profiles?select=*&user_id=eq.${encodeURIComponent(u.id)}&limit=1`,
     u.email?`profiles?select=*&email=eq.${encodeURIComponent(u.email)}&limit=1`:null,
     u.email?`profiles?select=*&correo=eq.${encodeURIComponent(u.email)}&limit=1`:null
   ].filter(Boolean);
@@ -82,7 +83,13 @@ async function authenticate(event,url,service){
   for(const path of paths){
     const pr=await fetch(`${url}/rest/v1/${path}`,{headers:svc(service)});if(!pr.ok)continue;const rows=await pr.json().catch(()=>[]);if(rows?.[0]){p=rows[0];break;}
   }
+  if(!p&&u.email){
+    const rr=await fetch(`${url}/rest/v1/roles_usuarios?select=*&email=ilike.${encodeURIComponent(u.email)}&limit=1`,{headers:svc(service)});
+    const rows=await rr.json().catch(()=>[]);const rp=rows?.[0];
+    if(rr.ok&&rp)p={id:u.id,user_id:u.id,email:u.email,role:rp.rol||rp.role||'vendedor',active:rp.activo??rp.active??true,is_internal:true,full_name:rp.nombre||rp.full_name||u.user_metadata?.full_name||u.email};
+  }
   if(!p||(p.active??p.activo??true)===false)return{ok:false};
+  if(p.is_internal!==true&&['admin','superadmin','vendedor','recepcion','soporte','tecnico','logistica'].includes(normRole(p.role||p.rol)))p.is_internal=true;
   return{ok:true,user_id:u.id,email:u.email||p.email||p.correo||'',role:normRole(p.role||p.rol),profile:p,auth_user:u};
 }
 

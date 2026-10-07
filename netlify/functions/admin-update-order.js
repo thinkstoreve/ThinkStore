@@ -15,8 +15,8 @@ exports.handler = async function(event) {
   const clean=v=>String(v??'').trim();
   const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const SUPABASE_URL=clean(process.env.SUPABASE_URL).replace(/\/$/,'');
-  const SERVICE=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const SUPABASE_URL=clean(process.env.MAIN_SUPABASE_URL||process.env.THINKSTORE_SUPABASE_URL||'https://clhnndxsgzqnihhtrout.supabase.co').replace(/\/$/,'');
+  const SERVICE=clean(process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY);
   if(!SUPABASE_URL||!SERVICE) return reply(501,{ok:false,error:'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Netlify.'});
 
   let body={};
