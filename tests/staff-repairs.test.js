@@ -23,3 +23,7 @@ test('no permite cobrar al técnico ni a Soporte sin permiso de pagos',()=>{cons
 test('Soporte con permiso pagos puede cobrar',()=>assert.equal(canAccessRepairs({ok:true,role:'soporte',profile:{is_internal:true,permission_overrides:{allow:['pagos']}}},true),true));
 test('permiso revocado impide ver y cobrar',()=>assert.equal(canAccessRepairs({ok:true,role:'vendedor',profile:{is_internal:true,permission_overrides:{deny:['staff.access']}}},false),false));
 test('admin interno puede gestionar reparaciones',()=>assert.equal(canAccessRepairs({ok:true,role:'admin',profile:{is_internal:true}},true),true));
+
+test('restaura USDT como método equivalente USD',()=>{const p=paymentPlan(order,{method:'USDT',amount:10,reference:'TX-1001'},null);assert.equal(p.currency,'USD');assert.equal(p.equivalent,10)});
+test('EUR permite registrar equivalente USD explícito',()=>{const p=paymentPlan(order,{method:'EUR',amount:9,usd_equivalent:10},null);assert.equal(p.currency,'EUR');assert.equal(p.equivalent,10)});
+test('Otro exige equivalente USD válido',()=>assert.throws(()=>paymentPlan(order,{method:'Otro',amount:12},null),/Equivalente USD/));

@@ -23,7 +23,7 @@ async function rest(conf,table,query={},options={}){
     return body;
   }finally{clearTimeout(timer)}
 }
-const FIELDS='id,code,client_name,client_phone,client_email,device_model,device_type,serial_imei,reported_issue,status,quote_amount,quote_currency,quote_status,payment_status,amount_paid,payment_method,payment_notes,paid_at,created_at,updated_at,delivered_at,warranty_days,delivery_method';
+const FIELDS='id,code,client_name,client_phone,client_email,device_model,device_type,serial_imei,reported_issue,status,quote_amount,quote_currency,quote_status,payment_status,amount_paid,payment_method,payment_notes,paid_at,created_at,updated_at,delivered_at,warranty_days,delivery_method,reserved_parts_cost,direct_parts_cost,delivery_note_generated_at';
 async function ordersList(conf){
   const orders=[];const chunk=350;const max=1750;
   for(let offset=0;offset<max;offset+=chunk){
@@ -33,6 +33,10 @@ async function ordersList(conf){
   return{orders,partial:orders.length>=max};
 }
 async function getOrder(conf,id){const rows=await rest(conf,'service_orders',{select:FIELDS,id:`eq.${id}`,limit:1});return rows?.[0]||null;}
+
+async function orderParts(conf,code){
+  try{return await rest(conf,'service_order_parts',{select:'id,order_code,quantity_reserved,quantity_consumed,unit_cost_snapshot,sale_price_snapshot,status,service_parts(name,sku,category)',order_code:`eq.${code}`,status:'neq.released',order:'created_at.asc',limit:100})||[]}catch(e){console.warn('No se pudo leer repuestos de la orden',e.message);return []}
+}
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return{statusCode:204,headers:H,body:''};
   if(!['GET','POST'].includes(event.httpMethod))return result(405,{ok:false,error:'Método no permitido'});
@@ -49,7 +53,7 @@ exports.handler=async event=>{
         if(!order)return result(404,{ok:false,error:'Orden no encontrada'});
         let events=[],historyAvailable=true;
         try{events=await rest(conf,'service_payment_events',{select:'id,event_type,amount_delta,balance_after,payment_method,reference,notes,occurred_at',service_order_id:`eq.${selectedId}`,order:'occurred_at.desc',limit:100})}catch(e){if([404,400].includes(e.status))historyAvailable=false;else throw e;}
-        return result(200,{ok:true,order,account:account(order),events,history_available:historyAvailable});
+        const parts=await orderParts(conf,order.code);return result(200,{ok:true,order,account:account(order),events,parts,history_available:historyAvailable});
       }
       const data=await ordersList(conf);
       return result(200,{ok:true,...data,refreshed_at:new Date().toISOString()});
@@ -90,6 +94,6 @@ exports.handler=async event=>{
     let emailSent=false;
     if(atomic?.fully_paid&&updated.client_email&&process.env.RESEND_API_KEY){
       try{const tracking=`https://thinkstore.com.ve/soporte/seguimiento.html?orden=${encodeURIComponent(updated.code)}`;const er=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.FROM_SOPORTE_EMAIL||'ThinkStore Soporte <soporte@thinkstore.com.ve>',to:updated.client_email,reply_to:process.env.REPLY_TO_SOPORTE||'soporte@thinkstore.com.ve',subject:`Pago recibido · ${updated.code} · ThinkStore`,html:`<div style="font-family:-apple-system,BlinkMacSystemFont,Arial;color:#1d1d1f;max-width:620px;margin:auto;padding:28px"><h2>Pago recibido</h2><p>Hola <b>${clean(updated.client_name,120)}</b>, el pago de la reparación <b>${clean(updated.code,80)}</b> fue completado correctamente.</p><p>Equipo: <b>${clean(updated.device_model,140)}</b></p><p>La reparación mantiene su estado técnico <b>${clean(updated.status,80)}</b>; el cobro no cambia automáticamente el equipo a listo para entregar.</p><p><a href="${tracking}">Consultar seguimiento</a></p></div>`})});emailSent=er.ok}catch(e){console.warn('Correo de pago de Soporte no enviado',e.message)}}
-    return result(200,{ok:true,payment:{...p,status:atomic?.payment_status||p.status,pending:Number(atomic?.pending??p.pending)},order:updated,note_saved:audited,fully_paid:Boolean(atomic?.fully_paid),inventory:atomic?.inventory||null,delivery_note_ready:Boolean(atomic?.delivery_note_ready),email_sent:emailSent});
+    const parts=await orderParts(conf,updated.code);return result(200,{ok:true,payment:{...p,status:atomic?.payment_status||p.status,pending:Number(atomic?.pending??p.pending)},order:updated,parts,note_saved:audited,fully_paid:Boolean(atomic?.fully_paid),inventory:atomic?.inventory||null,delivery_note_ready:Boolean(atomic?.delivery_note_ready),email_sent:emailSent});
   }catch(e){console.error('[staff-repairs]',e?.message);const code=e?.status>=400&&e.status<500?e.status:500;return result(code,{ok:false,error:clean(e?.message||'No se pudo consultar Soporte')})}
 };

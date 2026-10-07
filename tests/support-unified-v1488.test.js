@@ -44,12 +44,27 @@ test('SSO integrado usa token hash y Soporte consume verifyOtp',()=>{
   assert.match(app,/verifyOtp\(\{token_hash:ssoHash,type:ssoType\}\)/);
 });
 
-test('App Ventas recupera Servicio Cobros y abonos',()=>{
+test('App Ventas recupera la pestaña clásica Reparaciones',()=>{
   const html=read('staff/index.html');
   const app=read('staff/app.js');
-  assert.match(html,/Cobros y abonos/);
+  const repairs=read('staff/repairs.js');
+  assert.match(html,/>Reparaciones<\/span>/);
   assert.match(html,/Pendientes por cobrar/);
   assert.match(html,/Cobradas/);
-  assert.match(html,/Cobrar reparación/);
-  assert.match(app,/repairs:\['Servicio Técnico','Cobros y abonos'\]/);
+  assert.match(repairs,/Marcar pagado \+ Nota de Entrega/);
+  assert.match(repairs,/Registrar abono/);
+  assert.match(repairs,/Efectivo USD/);
+  assert.match(repairs,/EUR/);
+  assert.match(repairs,/USDT/);
+  assert.match(app,/repairs:\['Servicio Técnico','Reparaciones'\]/);
+});
+
+test('Soporte muestra estado al iniciar y minimiza cuando queda online',()=>{
+  const runtime=read('soporte/offline-runtime.js');
+  assert.match(runtime,/Conectando…/);
+  assert.match(runtime,/Sincronizando…/);
+  assert.match(runtime,/Online · sincronizado/);
+  assert.match(runtime,/classList\.add\('minimized'\)/);
+  assert.match(runtime,/classList\.add\('offline'\)/);
+  assert.doesNotMatch(runtime,/>Instalar<\/button>/);
 });

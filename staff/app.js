@@ -54,7 +54,7 @@ function navigate(view,push=true){
   const allowed=['home','sell','sales','repairs','cash','account'];if(!allowed.includes(view)||(view==='cash'&&!state.canSell)||(view==='repairs'&&!canUseRepairs()))view='home';
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+view));
   document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
-  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],repairs:['Servicio Técnico','Cobros y abonos'],cash:['Caja diaria','Caja Staff'],account:['Perfil','Mi cuenta']};
+  const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],repairs:['Servicio Técnico','Reparaciones'],cash:['Caja diaria','Caja Staff'],account:['Perfil','Mi cuenta']};
   $('headerContext').textContent=titles[view][0];$('headerTitle').textContent=titles[view][1];
   if(view==='cash'&&state.canSell)window.ThinkStoreCash?.load();if(view==='repairs')window.ThinkStoreRepairs?.load();if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell&&state.saleStep===2)setTimeout(()=>$('barcodeScanInput')?.focus(),80);
 }
