@@ -52,16 +52,23 @@
     </section>
   </main>
 
-  <div id="loginModal" class="modal">
-    <form class="card" onsubmit="TSService.login(event)">
-      <h2>Acceso privado</h2>
-      <p>Solo personal autorizado. Usa tu misma cuenta ThinkStore para entrar a Soporte.</p>
-      <a class="unified-access-btn" href="https://thinkstore.com.ve/sso-entry.html?platform=support">Ingresar con ThinkStore</a>
-      <div class="unified-access-divider"><span>o acceso local</span></div>
-      <label>Correo electrónico</label><input id="loginUser" type="email" required placeholder="soporte@thinkstore.com.ve" autocomplete="email" />
-      <label>Contraseña</label><input id="loginPass" type="password" required placeholder="Contraseña" autocomplete="current-password" />
-      <button>Ingresar</button>
-      <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+  <div id="loginModal" class="modal support-login-modal" role="dialog" aria-modal="true" aria-labelledby="supportLoginTitle">
+    <form class="card support-login-card" onsubmit="TSService.login(event)">
+      <div class="support-login-brand">
+        <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
+        <div><span>SERVICIO TÉCNICO</span><b>ThinkStore</b></div>
+      </div>
+      <h2 id="supportLoginTitle">Bienvenido a Soporte</h2>
+      <p class="support-login-copy">Acceso para personal autorizado. Si ya tienes una cuenta interna de ThinkStore, entra con la misma cuenta desde el acceso unificado.</p>
+      <a class="unified-access-btn" href="/sso-entry.html?platform=support">Ingresar con mi cuenta ThinkStore</a>
+      <div class="unified-access-divider"><span>o cuenta local de soporte</span></div>
+      <label>Correo electrónico<input id="loginUser" type="email" required placeholder="nombre@correo.com" autocomplete="email" inputmode="email" /></label>
+      <label>Contraseña<input id="loginPass" type="password" required placeholder="Contraseña" autocomplete="current-password" /></label>
+      <div class="support-login-actions">
+        <button class="support-login-submit">Ingresar</button>
+        <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+      </div>
+      <small class="support-login-help">Vendedores con acceso a Servicio Técnico pueden entrar como <b>Recepcionista</b> usando su misma cuenta ThinkStore.</small>
     </form>
   </div>
 

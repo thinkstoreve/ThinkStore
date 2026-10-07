@@ -27,6 +27,14 @@
       <span class="support-loader-line"><i></i></span>
     </div>
   </div>
+  <div id="supportWelcome" class="support-welcome" hidden aria-live="polite">
+    <div class="support-welcome-card">
+      <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
+      <span>THINKSTORE · SERVICIO TÉCNICO</span>
+      <h1 id="supportWelcomeTitle">Bienvenido</h1>
+      <p id="supportWelcomeRole">Preparando tu espacio de trabajo…</p>
+    </div>
+  </div>
   <main class="ts-service-app">
     <section class="hero">
       <img class="hero-logo" src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
@@ -62,14 +70,23 @@
     </section>
   </main>
 
-  <div id="loginModal" class="modal">
-    <form class="card" onsubmit="TSService.login(event)">
-      <h2>Acceso privado</h2>
-      <p>Solo personal autorizado. Los clientes consultan por código o QR.</p>
-      <label>Correo electrónico</label><input id="loginUser" type="email" required placeholder="soporte@thinkstore.com.ve" autocomplete="email" />
-      <label>Contraseña</label><input id="loginPass" type="password" required placeholder="Contraseña" autocomplete="current-password" />
-      <button>Ingresar</button>
-      <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+  <div id="loginModal" class="modal support-login-modal" role="dialog" aria-modal="true" aria-labelledby="supportLoginTitle">
+    <form class="card support-login-card" onsubmit="TSService.login(event)">
+      <div class="support-login-brand">
+        <img src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
+        <div><span>SERVICIO TÉCNICO</span><b>ThinkStore</b></div>
+      </div>
+      <h2 id="supportLoginTitle">Bienvenido a Soporte</h2>
+      <p class="support-login-copy">Acceso para personal autorizado. Si ya tienes una cuenta interna de ThinkStore, entra con la misma cuenta desde el acceso unificado.</p>
+      <a class="unified-access-btn" href="/sso-entry.html?platform=support">Ingresar con mi cuenta ThinkStore</a>
+      <div class="unified-access-divider"><span>o cuenta local de soporte</span></div>
+      <label>Correo electrónico<input id="loginUser" type="email" required placeholder="nombre@correo.com" autocomplete="email" inputmode="email" /></label>
+      <label>Contraseña<input id="loginPass" type="password" required placeholder="Contraseña" autocomplete="current-password" /></label>
+      <div class="support-login-actions">
+        <button class="support-login-submit">Ingresar</button>
+        <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+      </div>
+      <small class="support-login-help">Vendedores con acceso a Servicio Técnico pueden entrar como <b>Recepcionista</b> usando su misma cuenta ThinkStore.</small>
     </form>
   </div>
 
@@ -427,6 +444,7 @@
       <div class="reception-created-summary">
         <div><span>Número de orden</span><b id="rcCode">—</b></div>
         <div><span>Equipo</span><b id="rcDevice">—</b></div>
+        <div><span>Recibido por</span><b id="rcReceivedBy">—</b></div>
       </div>
       <div class="tracking-preview">
         <span>Seguimiento del cliente</span>

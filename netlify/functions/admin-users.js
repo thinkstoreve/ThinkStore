@@ -315,7 +315,7 @@ function defaultPlatformEnabled(role,key){
 function defaultPlatformRole(role,key){
   const r=normalizeUiRole(role);
   if(['admin','superadmin'].includes(r))return key==='support'?'superadmin':key==='inventory'?'admin':key==='enterprise'?'manager':key==='marketing'?'sender':r;
-  if(key==='support')return ({recepcion:'reception',soporte:'reception',tecnico:'technician',logistica:'logistics',vendedor:'sales'})[r]||'reception';
+  if(key==='support')return ({recepcion:'reception',soporte:'reception',tecnico:'technician',logistica:'logistics',vendedor:'reception'})[r]||'reception';
   if(key==='inventory')return 'viewer';
   if(key==='enterprise')return 'viewer';
   if(key==='marketing')return 'viewer';

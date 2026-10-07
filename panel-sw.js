@@ -1,4 +1,4 @@
-const CACHE="thinkstore-admin-v14-58";
+const CACHE="thinkstore-admin-v15-01";
 const CORE=["./panel.html", "./panel-login.html", "./panel.webmanifest", "./panel-offline.html", "./offline-runtime.js", "./data.js", "./supabase-config.js", "./ts-fx.js?v=14.1", "./logo-thinkstore.png", "./favicon-192.png", "./favicon-512.png", "./apple-touch-icon.png"];
 const OFFLINE="./panel-offline.html";
 const NAV_ONLY=["panel.html", "panel-login.html", "panel-offline.html"];

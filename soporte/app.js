@@ -7,7 +7,7 @@ const TSService=(()=>{
   const roles={
     superadmin:['dashboard','notifications','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','users','permissions','reports'],
     admin:['dashboard','notifications','appointments','orders','reception','technical','bitacora','parts','sales','logistics','clients','reports'],
-    reception:['dashboard','notifications','appointments','orders','reception','bitacora','parts','clients'],
+    reception:['dashboard','notifications','appointments','orders','reception','clients'],
     technician:['dashboard','notifications','orders','technical','bitacora','parts'],
     sales:['dashboard','notifications','orders','sales','parts','clients'],
     logistics:['dashboard','notifications','orders','logistics'],
@@ -17,7 +17,7 @@ const TSService=(()=>{
   const roleLabels={
     superadmin:'Super Admin',
     admin:'Admin',
-    reception:'Recepción',
+    reception:'Recepcionista',
     technician:'Técnico',
     sales:'Ventas',
     logistics:'Logística',
@@ -106,7 +106,7 @@ const TSService=(()=>{
   const dateText=v=>v?new Date(v).toLocaleString('es-VE'):'Sin fecha';
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function toast(message,type='ok'){let el=document.getElementById('serviceToast');if(!el){el=document.createElement('div');el.id='serviceToast';document.body.appendChild(el)}el.className=`service-toast ${type}`;el.textContent=message;requestAnimationFrame(()=>el.classList.add('show'));clearTimeout(window.__serviceToast);window.__serviceToast=setTimeout(()=>el.classList.remove('show'),4200)}
-  function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',quoteRepairDetails:row.quote_repair_details||'',quoteSentAt:row.quote_sent_at||'',quoteApprovedAt:row.quote_approved_at||'',quoteClientComment:row.quote_client_comment||'',quoteTermsVersion:row.quote_terms_version||'',quoteTermsAcceptedAt:row.quote_terms_accepted_at||'',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',publicToken:row.public_token||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
+  function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',quoteRepairDetails:row.quote_repair_details||'',quoteSentAt:row.quote_sent_at||'',quoteApprovedAt:row.quote_approved_at||'',quoteClientComment:row.quote_client_comment||'',quoteTermsVersion:row.quote_terms_version||'',quoteTermsAcceptedAt:row.quote_terms_accepted_at||'',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},receivedByName:checklist?.__meta?.received_by_name||row.created_by_email||'',receivedByEmail:checklist?.__meta?.received_by_email||row.created_by_email||'',receivedByRole:checklist?.__meta?.received_by_role||'',receivedAt:checklist?.__meta?.received_at||row.created_at||'',passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',publicToken:row.public_token||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
   function mapNote(row,byId){const order=byId.get(row.order_id);return{id:row.id,orderId:row.order_id,orderCode:order?.code||'Sin orden',type:row.note_type||'Seguimiento',author:row.author_name||'Soporte ThinkStore',status:row.status_after||order?.status||'',detail:row.note||'',files:row.attachments||'',visibility:row.visibility||'internal',clientTitle:row.client_title||'',diagnosis:row.diagnosis||'',workPerformed:row.work_performed||'',partsUsed:row.parts_used||'',testsPerformed:row.tests_performed||'',clientNotes:row.client_notes||'',created:dateText(row.created_at),created_at:row.created_at};}
 
   function clientVisibleNotesForOrder(orderId){
@@ -359,6 +359,7 @@ const TSService=(()=>{
       const profile=await getServiceProfile(email);
       session=canonicalizeSupportSession({name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email});
       localStorage.setItem('ts_service_session',JSON.stringify(session));
+      sessionStorage.setItem('ts_support_welcome_pending','1');
       closeModals();
       goToPanel();
     }catch(err){
@@ -387,6 +388,7 @@ const TSService=(()=>{
         const profile=await getServiceProfile(user.email);
         session=canonicalizeSupportSession({name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email});
         localStorage.setItem('ts_service_session',JSON.stringify(session));
+        sessionStorage.setItem('ts_support_welcome_pending','1');
         history.replaceState(null,'',location.pathname);
         closeModals();
         goToPanel();
@@ -435,6 +437,27 @@ const TSService=(()=>{
     }).join('');
   }
 
+  function supportGreeting(){
+    try{
+      const parts=new Intl.DateTimeFormat('es-VE',{timeZone:'America/Caracas',hour:'2-digit',hour12:false}).formatToParts(new Date());
+      const hour=Number(parts.find(x=>x.type==='hour')?.value||12);
+      return hour<12?'Buenos días':hour<19?'Buenas tardes':'Buenas noches';
+    }catch{
+      const hour=new Date().getHours();return hour<12?'Buenos días':hour<19?'Buenas tardes':'Buenas noches';
+    }
+  }
+  function showSupportWelcome(){
+    if(sessionStorage.getItem('ts_support_welcome_pending')!=='1'||!session)return;
+    sessionStorage.removeItem('ts_support_welcome_pending');
+    const host=document.getElementById('supportWelcome');if(!host)return;
+    const title=document.getElementById('supportWelcomeTitle'),role=document.getElementById('supportWelcomeRole');
+    const first=String(session.name||session.nombre||session.email||'').trim().split(/\s+/)[0]||'';
+    if(title)title.textContent=`${supportGreeting()}, ${first}`;
+    if(role)role.textContent=`${roleLabels[session.role]||session.role||'Soporte'} · Tu espacio de trabajo está listo`;
+    host.hidden=false;requestAnimationFrame(()=>host.classList.add('show'));
+    setTimeout(()=>{host.classList.remove('show');setTimeout(()=>{host.hidden=true},320)},1800);
+  }
+
   async function renderApp(){
     if(!session)return;
     const dash=document.getElementById('roleDashboard');
@@ -444,6 +467,7 @@ const TSService=(()=>{
     const box=document.getElementById('panelContent');if(box)box.innerHTML='<div class="notice">Cargando datos reales de soporte…</div>';
     try{await loadSupportData();await renderPanel('dashboard');startSupportAlertPolling()}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
     dash.classList.remove('hidden');
+    showSupportWelcome();
     requestAnimationFrame(()=>{
       requestAnimationFrame(()=>{
         document.body.classList.add('support-panel-ready');
@@ -813,7 +837,7 @@ ${summary}
 
   function ordersTable(scope='orders'){
     const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
-    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Última carga ${new Date().toLocaleTimeString('es-VE')}</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id));return `<tr><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small></td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
+    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Última carga ${new Date().toLocaleTimeString('es-VE')}</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id));return `<tr><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
 
   async function openOrderManager(id){
     const o=orders.find(x=>String(x.id)===String(id));if(!o)return;
@@ -1467,18 +1491,20 @@ ${summary}
   async function saveOrder(e){
     e.preventDefault();
     const device=receptionDeviceCategory==='apple'?findAppleDevice(oDevice.value):null;
+    const existingOrder=activeReceptionOrderId?orders.find(x=>String(x.id)===String(activeReceptionOrderId)):null;
+    const previousReceptionMeta=existingOrder?.checklist?.__meta||{};
     const checklist={};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
-    checklist.__meta={device_category:receptionDeviceCategory,quick_failures:receptionQuickFailures.slice(),reception_v2:true};
+    checklist.__meta={...previousReceptionMeta,device_category:receptionDeviceCategory,quick_failures:receptionQuickFailures.slice(),reception_v2:true,received_by_name:previousReceptionMeta.received_by_name||session?.name||'',received_by_email:previousReceptionMeta.received_by_email||session?.email||'',received_by_role:previousReceptionMeta.received_by_role||session?.role||'',received_at:previousReceptionMeta.received_at||new Date().toISOString(),last_reception_by_name:session?.name||'',last_reception_by_email:session?.email||'',last_reception_at:new Date().toISOString()};
     checklist.__client=collectReceptionClientMeta();
     const signatures={reception:sigReceptionName.value.trim()||session?.name||'',client:sigClientName.value.trim(),technician:sigTechName.value.trim(),supervisor:sigSupervisorName.value.trim()};
     const deviceType=receptionDeviceCategory==='apple'?(device?.category||oCategory.value||'Apple'):receptionDeviceCategory==='gaming'?`Gaming · ${oCategory.value||'Consola / control'}`:`Other · ${oCategory.value||'Otro equipo'}`;
     const base={client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:deviceType,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:oPasswordFlag.value==='Sí',priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:[oTechNotes.value.trim(),`Ingreso: ${document.getElementById('oIntakeSource')?.value||'Recepción directa'}`].filter(Boolean).join(' · ')||null,service_mode:document.getElementById('oServiceMode')?.value||'Presencial',reception_checklist:checklist,signatures,status:'Recibido'};
     if(activeReceptionOrderId){
-      const previous=orders.find(x=>String(x.id)===String(activeReceptionOrderId));
+      const previous=existingOrder;
       const {data,error}=await supabaseClient.from('service_orders').update(base).eq('id',activeReceptionOrderId).select('*').single();
       if(error){alert('No se pudo guardar la recepción: '+error.message);return}
       await uploadReceptionPhotos(activeReceptionOrderId);
-      await supabaseClient.from('service_order_notes').insert({order_id:activeReceptionOrderId,note:`Recepción V2 actualizada · ${receptionDeviceCategory}. Checklist, fotos y condición guardados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});
+      await supabaseClient.from('service_order_notes').insert({order_id:activeReceptionOrderId,note:`Recepción actualizada por ${session?.name||session?.email||'Recepción'} · ${receptionDeviceCategory}. Checklist, fotos y condición guardados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});
       await audit('update_reception',activeReceptionOrderId,previous||null,base);
       activeReceptionOrderId=null;await loadSupportData();closeModals();await renderPanel('orders');toast('Recepción V2 guardada en la orden '+(data?.code||previous?.code||''));return;
     }
@@ -1486,7 +1512,7 @@ ${summary}
     const {data,error}=await supabaseClient.from('service_orders').insert(row).select('*').single();
     if(error){alert('No se pudo crear la orden: '+error.message);return}
     await uploadReceptionPhotos(data.id);
-    await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:`Equipo recibido con Recepción V2 · ${receptionDeviceCategory}. Checklist y fotos registrados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,row);
+    await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:`Equipo recibido por ${session?.name||session?.email||'Recepción'} · ${receptionDeviceCategory}. Checklist y fotos registrados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,row);
     if(pendingAppointmentId)await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);
     const createdOrder=mapOrder(data);pendingAppointmentId=null;await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso V2 finalizado. Orden creada: '+row.code);
   }
@@ -1747,7 +1773,7 @@ ${summary}
   }
   function showReceptionComplete(o){
     const m=document.getElementById('receptionCompleteModal'); if(!m)return; m.dataset.orderId=o.id;
-    document.getElementById('rcCode').textContent=o.code;document.getElementById('rcDevice').textContent=o.device;document.getElementById('rcTracking').textContent='Enlace seguro disponible mediante QR';m.classList.add('open');
+    document.getElementById('rcCode').textContent=o.code;document.getElementById('rcDevice').textContent=o.device;const rb=document.getElementById('rcReceivedBy');if(rb)rb.textContent=o.receivedByName||session?.name||session?.email||'Recepción';document.getElementById('rcTracking').textContent='Enlace seguro disponible mediante QR';m.classList.add('open');
   }
   function completedOrder(){const id=document.getElementById('receptionCompleteModal')?.dataset.orderId;return orders.find(x=>String(x.id)===String(id))}
   function printCompletedReception(){printReceptionSheetByOrder(completedOrder())}
@@ -1766,6 +1792,7 @@ ${summary}
       try{
         const {error:ssoError}=await supabaseClient.auth.verifyOtp({token_hash:ssoToken,type:ssoType});
         if(ssoError)throw ssoError;
+        sessionStorage.setItem('ts_support_welcome_pending','1');
         const cleanUrl=new URL(location.href);
         ['sso_token_hash','sso_type','sso_v'].forEach(k=>cleanUrl.searchParams.delete(k));
         history.replaceState(null,'',cleanUrl.pathname+(cleanUrl.search||'')+(cleanUrl.hash||''));
