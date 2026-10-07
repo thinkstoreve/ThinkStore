@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Soporte ThinkStore | Service Center</title>
-  <link rel="stylesheet" href="styles.css?v=8.9.2" />
+  <link rel="stylesheet" href="styles.css" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -23,7 +23,7 @@
   <main class="ts-service-app">
     <section class="hero">
       <img class="hero-logo" src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
-      <p class="eyebrow">thinkstore.com.ve/soporte</p>
+      <p class="eyebrow">soporte.thinkstore.com.ve</p>
       <h1>ThinkStore Service Center</h1>
       <p>Extensión independiente para soporte técnico: recepción, diagnóstico, bitácora, presupuestos, archivos, correos y seguimiento por QR.</p>
       <div class="hero-actions">
@@ -55,7 +55,9 @@
   <div id="loginModal" class="modal">
     <form class="card" onsubmit="TSService.login(event)">
       <h2>Acceso privado</h2>
-      <p>Solo personal autorizado. Los clientes consultan por código o QR.</p>
+      <p>Solo personal autorizado. Usa tu misma cuenta ThinkStore para entrar a Soporte.</p>
+      <a class="unified-access-btn" href="https://thinkstore.com.ve/sso-entry.html?platform=support">Ingresar con ThinkStore</a>
+      <div class="unified-access-divider"><span>o acceso local</span></div>
       <label>Correo electrónico</label><input id="loginUser" type="email" required placeholder="soporte@thinkstore.com.ve" autocomplete="email" />
       <label>Contraseña</label><input id="loginPass" type="password" required placeholder="Contraseña" autocomplete="current-password" />
       <button>Ingresar</button>
@@ -271,8 +273,12 @@
         <label>Empresa de envío<input id="mTrackingCompany" placeholder="Empresa de envío"></label>
       </div>
       <label>Número de guía<input id="mTrackingCode" placeholder="Número de guía"></label>
-      <label>Diagnóstico y observaciones técnicas<textarea id="mTechnicalNotes" placeholder="Diagnóstico, piezas, pruebas y observaciones..."></textarea></label>
-      <div class="order-box reserved-parts-box"><div class="bitacora-header"><div><h3>Repuestos reservados</h3><p>Se reservan para esta orden y solo se descuentan físicamente cuando App Ventas completa el pago.</p></div><button type="button" onclick="TSService.saveOrderParts()">Guardar repuestos</button></div><div id="mOrderParts"><small>Cargando repuestos…</small></div></div>
+      <div class="manager-writing-grid single">
+        <section class="manager-note-card manager-note-card-lg">
+          <div class="manager-card-head"><span>ÁREA TÉCNICA</span><h3>Diagnóstico y observaciones</h3><p>Espacio interno para registrar el diagnóstico técnico y el seguimiento del trabajo. Los códigos de cita web ya no se mostrarán aquí.</p></div>
+          <label class="premium-field">Detalle técnico<textarea id="mTechnicalNotes" placeholder="Ej. Se detecta daño en pantalla, batería degradada y equipo pendiente de pruebas finales después del cambio de pieza."></textarea><small>Usa este espacio para notas internas del técnico.</small></label>
+        </section>
+      </div>
       <div class="order-box"><h3>Fotografías y archivos privados</h3><div class="file-actions"><input id="mOrderFile" type="file" accept="image/*,.pdf"><button type="button" onclick="TSService.uploadOrderFile()">Subir archivo</button></div><div id="mOrderFiles" class="order-files"></div></div>
       <div class="actions"><button>Guardar cambios</button><button type="button" class="secondary" onclick="TSService.notifyOrderClient()">Enviar actualización al cliente</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
     </form>
@@ -293,10 +299,10 @@
     </form>
   </div>
 
-  <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=8.8.10"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=8.9.2"></script>
+  <script src="app.js"></script>
 <script src="ts-fx.js?v=13.40"></script>
-<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=8.8.9").catch(()=>{}));}</script></body>
+<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

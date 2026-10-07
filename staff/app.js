@@ -9,23 +9,24 @@ const normalize=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
 const slug=v=>normalize(v).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,90)||'producto';
 const ROLE_LABELS={vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Administrador',superadmin:'Socio Administrador'};
 const PERM_LABELS={dashboard:'Dashboard',ventas:'Ventas',cotizaciones:'Cotizaciones',clientes:'Clientes / CRM',pagos:'Pagos',preordenes:'Preórdenes',crm:'CRM',recomendaciones:'Recomendaciones',comisiones:'Comisiones',recepcion:'Recepción',tickets:'Tickets',garantias:'Garantías',citas:'Citas',tecnico:'Técnico',diagnostico:'Diagnóstico',repuestos:'Repuestos',pruebas:'Pruebas',logistica:'Logística',guias:'Guías',entregas:'Entregas',pedidos:'Pedidos'};
-const state={user:null,canSell:false,variants:[],catalog:[],images:[],categories:[],recent:[],metrics:{},cart:[],category:'',query:'',selectedProduct:'',selectedVariantKey:'',payment:'Efectivo USD',saleStep:1,savedCode:'',loading:false,scanBusy:false};
+const state={user:null,canSell:false,variants:[],catalog:[],images:[],categories:[],recent:[],metrics:{},cart:[],category:'',query:'',selectedProduct:'',selectedVariantKey:'',payment:'Efectivo USD',saleStep:1,savedCode:'',loading:false,scanBusy:false,service:{orders:[],metrics:{},methods:[],events:[],canCharge:false,error:''},serviceNoteHtml:'',serviceNoteCode:''};
 let installPrompt=null,mixedStaff=null;
 
 function initials(name){const parts=String(name||'TS').trim().split(/\s+/).filter(Boolean);return(parts.slice(0,2).map(x=>x[0]).join('')||'TS').toUpperCase()}
 function firstName(name){return String(name||'').trim().split(/\s+/)[0]||'Usuario'}
 function canOpenSupport(){const u=state.user||{},p=Array.isArray(u.permissions)?u.permissions:[];return p.includes('*')||p.includes('platform.support')||['recepcion','soporte','tecnico','logistica','admin','superadmin'].includes(u.role)}
 function canUseRepairs(){const p=state.user?.permissions||[],r=state.user?.role;return ['admin','superadmin'].includes(r)|| (p.includes('pagos')&&p.includes('ventas')&&!p.includes('deny.reparaciones')) || (canOpenSupport()&&['recepcion','soporte'].includes(r))}
+function serviceAccessAllowed(){return canUseRepairs()||!!state.canSell}
 function openSupport(){if(!canOpenSupport())return toast('Tu cuenta no tiene habilitado Servicio Técnico');toast('Abriendo Servicio Técnico…',1200);setTimeout(()=>{location.href='../sso-entry.html?platform=support'},90)}
 function show(el,on=true){if(typeof el==='string')el=$(el);if(el)el.classList.toggle('hidden',!on)}
 function toast(msg,ms=2800){const el=$('toast');if(!el)return;el.textContent=msg;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,ms)}
-function setBusy(on){state.loading=on;['loginButton','holdSaleButton','confirmSaleButton','checkoutButton'].forEach(id=>{const el=$(id);if(el)el.disabled=on})}
+function setBusy(on){state.loading=on;['loginButton','holdSaleButton','confirmSaleButton','checkoutButton','servicePartialButton','servicePaidButton'].forEach(id=>{const el=$(id);if(el)el.disabled=on})}
 async function tokenHeaders(json=false){const h={};const {data}=await sb.auth.getSession();const t=data?.session?.access_token;if(t)h.Authorization='Bearer '+t;if(json)h['Content-Type']='application/json';return h}
 function openModal(id){const el=$(id);if(!el)return;el.classList.add('open');el.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}
 function closeModal(id){const el=$(id);if(!el)return;el.classList.remove('open');el.setAttribute('aria-hidden','true');if(!document.querySelector('.modal.open'))document.body.style.overflow=''}
 
 async function login(email,password){if(!sb)throw Error('Supabase no está configurado.');const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await bootstrap()}
-async function logout(){window.ThinkStoreRepairs?.reset();try{await sb?.auth?.signOut()}catch{}state.user=null;state.cart=[];window.ThinkStoreCash?.reset();show('appShell',false);show('loginScreen',true);$('loginPassword').value='';history.replaceState(null,'','/staff/')}
+async function logout(){try{await sb?.auth?.signOut()}catch{}state.user=null;state.cart=[];window.ThinkStoreCash?.reset();show('appShell',false);show('loginScreen',true);$('loginPassword').value='';history.replaceState(null,'','/staff/')}
 async function resetPassword(){const email=$('loginEmail').value.trim();if(!email||!email.includes('@'))return messageLogin('Escribe primero tu correo.');const redirect=(cfg.SITE_URL||location.origin).replace(/\/$/,'')+'/panel-login.html?view=recovery';const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:redirect});if(error)return messageLogin(error.message);messageLogin('Te enviamos un enlace para crear una nueva contraseña.',false)}
 function messageLogin(text,error=true){const m=$('loginMessage');m.hidden=false;m.textContent=text;m.style.background=error?'#fff4f4':'#edf9f3';m.style.color=error?'#a31b0b':'#006e52'}
 
@@ -39,7 +40,7 @@ async function bootstrap(){
     if(r.status===401){await sb.auth.signOut();throw Error(d.error||'Tu sesión venció. Inicia sesión nuevamente.');}
     if(r.status===403){await sb.auth.signOut();throw Error(d.error||'Esta cuenta no tiene acceso a ThinkStore Staff.');}
     if(!r.ok||!d.ok)throw Error(d.error||'No se pudo abrir ThinkStore Staff.');
-    state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};window.ThinkStoreRepairs?.setAuth(async()=>{const {data}=await sb.auth.getSession();return data?.session?.access_token});window.ThinkStoreRepairs?.setUser(state.user);
+    state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};
     show('loginScreen',false);show('appShell',true);show('boot',false);renderIdentity();renderHome();renderStore();renderSales();renderAccount();window.ThinkStoreCash?.setUser(state.user);navigate(location.hash.replace('#','')||'home',false);
   }catch(e){show('boot',false);show('appShell',false);show('loginScreen',true);messageLogin(e.message||String(e));}
 }
@@ -47,7 +48,7 @@ async function bootstrap(){
 async function refreshData(silent=false){
   const {data:{session}}=await sb.auth.getSession();if(!session)return logout();
   if(!silent)toast('Actualizando…',1200);
-  try{const r=await fetch('/.netlify/functions/staff-pos',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo actualizar');state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};window.ThinkStoreRepairs?.setAuth(async()=>{const {data}=await sb.auth.getSession();return data?.session?.access_token});window.ThinkStoreRepairs?.setUser(state.user);renderIdentity();renderHome();renderStore();renderSales();renderAccount();window.ThinkStoreCash?.setUser(state.user);if(document.querySelector('#view-cash.active'))window.ThinkStoreCash?.load();if(!silent)toast('Datos actualizados');}catch(e){if(!silent)toast(e.message||'No se pudo actualizar')}
+  try{const r=await fetch('/.netlify/functions/staff-pos',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo actualizar');state.user=d.user;state.canSell=!!d.can_sell;state.variants=d.variants||[];state.catalog=d.catalog_products||[];state.images=d.catalog_images||[];state.categories=d.catalog_categories||[];state.recent=d.recent_sales||[];state.metrics=d.metrics||{};renderIdentity();renderHome();renderStore();renderSales();renderAccount();window.ThinkStoreCash?.setUser(state.user);if(document.querySelector('#view-cash.active'))window.ThinkStoreCash?.load();if(document.querySelector('#view-repairs.active')){await refreshServiceData(true);renderRepairs()}if(!silent)toast('Datos actualizados');}catch(e){if(!silent)toast(e.message||'No se pudo actualizar')}
 }
 
 function navigate(view,push=true){
@@ -56,7 +57,7 @@ function navigate(view,push=true){
   document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
   const titles={home:['Inicio','ThinkStore Staff'],sell:['Punto de venta','Tienda interna'],sales:['Historial','Ventas'],repairs:['Servicio Técnico','Reparaciones'],cash:['Caja diaria','Caja Staff'],account:['Perfil','Mi cuenta']};
   $('headerContext').textContent=titles[view][0];$('headerTitle').textContent=titles[view][1];
-  if(view==='cash'&&state.canSell)window.ThinkStoreCash?.load();if(view==='repairs')window.ThinkStoreRepairs?.load();if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell&&state.saleStep===2)setTimeout(()=>$('barcodeScanInput')?.focus(),80);
+  if(view==='cash'&&state.canSell)window.ThinkStoreCash?.load();if(view==='repairs'){refreshServiceData(true).then(()=>renderRepairs());setTimeout(()=>$('repairSearch')?.focus(),80)}if(push)history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='sell'&&state.canSell&&state.saleStep===2)setTimeout(()=>$('barcodeScanInput')?.focus(),80);
 }
 
 function renderIdentity(){
@@ -122,6 +123,103 @@ async function updateProfilePhoto(file,remove=false){
   }catch(e){photoBusy(false,e.message||'No se pudo actualizar la foto.');toast(e.message||'Error al actualizar foto',4800)}
   finally{$('profilePhotoInput').value=''}
 }
+
+async function refreshServiceData(silent=false){
+  if(!serviceAccessAllowed()||!sb){state.service={orders:[],metrics:{},methods:[],events:[],canCharge:false,error:''};return}
+  try{
+    const h=await tokenHeaders();
+    const r=await fetch('/.netlify/functions/service-sales?action=bootstrap',{headers:h,cache:'no-store'}),d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok)throw Error(d.error||'No se pudo cargar Servicio Técnico');
+    state.service={orders:d.orders||[],metrics:d.metrics||{},methods:d.methods||[],events:d.events_today||[],canCharge:!!d.can_charge,error:''};
+  }catch(e){
+    state.service={...state.service,error:e.message||'Servicio Técnico no disponible'};
+    if(!silent)toast(state.service.error,4500);
+  }
+}
+function repairRows(){
+  const q=normalize($('repairSearch')?.value||''),filter=$('repairFilter')?.value||'pending';
+  return (state.service?.orders||[]).filter(o=>{
+    if(filter==='pending'&&!(Number(o.balance||0)>0))return false;
+    if(filter==='paid'&&!o.paid)return false;
+    if(q&&!normalize([o.code,o.client_name,o.client_email,o.client_phone,o.device_model,o.device_type,o.serial_imei,o.status,o.payment_method].join(' ')).includes(q))return false;
+    return true;
+  });
+}
+function renderRepairs(){
+  const box=$('repairList');if(!box)return;
+  const s=state.service||{},m=s.metrics||{};
+  if($('repairTodayTotal'))$('repairTodayTotal').textContent=money(m.service_collected_today||0);
+  if($('repairTodayCount'))$('repairTodayCount').textContent=`${Number(m.service_payments_today||0)} movimiento${Number(m.service_payments_today||0)===1?'':'s'}`;
+  if($('repairPendingTotal'))$('repairPendingTotal').textContent=money(m.service_pending_usd||0);
+  if($('repairPendingCount'))$('repairPendingCount').textContent=`${Number(m.service_pending_count||0)} reparación${Number(m.service_pending_count||0)===1?'':'es'}`;
+  if($('combinedTodayTotal'))$('combinedTodayTotal').textContent=money(m.combined_total_today||0);
+  renderRepairMethods();
+  if(s.error){box.innerHTML=`<div class="empty-state service-error"><b>No pude conectar la caja con Servicio Técnico.</b><br>${esc(s.error)}</div>`;return}
+  const rows=repairRows();
+  box.innerHTML=rows.length?rows.map(o=>{
+    const pct=o.quote_amount>0?Math.min(100,Math.max(0,Math.round(Number(o.amount_paid||0)/Number(o.quote_amount)*100))):0;
+    const status=o.paid?'Pagado':Number(o.amount_paid||0)>0?'Abono parcial':'Pendiente';
+    return `<article class="repair-row ${o.paid?'is-paid':''}"><div class="repair-order-main"><div class="repair-code"><b>${esc(o.code)}</b><span class="repair-status ${o.paid?'paid':''}">${esc(status)}</span></div><h3>${esc(o.device_model||o.device_type||'Equipo')}</h3><p>${esc(o.client_name||'Cliente')} · ${esc(o.client_phone||o.client_email||'Sin contacto')}</p><small>${esc(o.status||'Servicio')} · ${esc(o.serial_imei||'Serial no indicado')}</small></div><div class="repair-money"><span>Total</span><b>${money(o.quote_amount)}</b><small>Abonado ${money(o.amount_paid)}</small><div class="repair-progress"><i style="width:${pct}%"></i></div><strong>${o.paid?'Saldo pagado':`Pendiente ${money(o.balance)}`}</strong>${o.payment_method?`<em>${esc(o.payment_method)}</em>`:''}</div><div class="repair-actions">${o.paid?`<button class="secondary compact-button" data-note="${esc(o.code)}" type="button">Nota / imprimir</button><button class="text-action compact-button" data-resend="${esc(o.code)}" type="button">Reenviar correo</button>`:`<button class="primary compact-button" data-charge="${esc(o.code)}" type="button">Cobrar</button>`}</div></article>`;
+  }).join(''):'<div class="empty-state">No hay reparaciones que coincidan con este filtro.</div>';
+  box.querySelectorAll('[data-charge]').forEach(b=>b.addEventListener('click',()=>openServicePayment(b.dataset.charge)));
+  box.querySelectorAll('[data-note]').forEach(b=>b.addEventListener('click',()=>openServiceNote(b.dataset.note)));
+  box.querySelectorAll('[data-resend]').forEach(b=>b.addEventListener('click',()=>resendServiceNote(b.dataset.resend)));
+}
+function renderRepairMethods(){
+  const box=$('repairMethodSummary');if(!box)return;const rows=state.service?.methods||[],total=Number(state.service?.metrics?.combined_total_today||0);
+  box.innerHTML=rows.length?rows.map(x=>{const pct=total>0?Math.round(Number(x.total_usd||0)/total*100):0;return`<div class="method-row"><div><b>${esc(x.method)}</b><small>${esc(x.currency||'USD')} · ${Number(x.count||0)} mov.</small></div><div class="method-bar"><i style="width:${pct}%"></i></div><strong>${pct}% · ${money(x.total_usd)}</strong></div>`}).join(''):'<div class="empty-state compact-empty">Sin cobros confirmados hoy.</div>';
+}
+function currentRepair(code){return(state.service?.orders||[]).find(o=>String(o.code).toUpperCase()===String(code||'').toUpperCase())}
+function inferredCurrency(method){
+  const m=normalize(method);if(/pago movil|punto de venta|\bpos\b|efectivo bs|transferencia bs|bolivar/.test(m))return'VES';if(/eur|euro/.test(m))return'EUR';if(/usdt|binance|tether/.test(m))return'USDT';return'USD';
+}
+function syncServiceCurrency(){const cur=inferredCurrency($('servicePaymentMethod')?.value||'');if($('serviceCurrency'))$('serviceCurrency').value=cur}
+function openServicePayment(code){
+  const o=currentRepair(code);if(!o){toast('No encontré esa reparación.');return}
+  if(!state.service?.canCharge){toast('Tu rol no tiene permiso para cobrar reparaciones.');return}
+  $('servicePayCode').value=o.code;$('servicePayTitle').textContent=o.code;$('servicePaySubtitle').textContent=`${o.client_name||'Cliente'} · ${o.device_model||o.device_type||'Equipo'}`;$('serviceQuote').textContent=money(o.quote_amount);$('servicePaid').textContent=money(o.amount_paid);$('serviceBalance').textContent=money(o.balance);
+  $('serviceAmountUsd').value=Number(o.balance||0)>0?Number(o.balance).toFixed(2):'';$('servicePaymentMethod').value=o.payment_method||'Efectivo USD';syncServiceCurrency();$('serviceOriginalAmount').value='';$('servicePaymentRef').value='';$('servicePaymentNote').value='';
+  $('servicePaidButton').disabled=!(Number(o.balance||0)>0);openModal('servicePaymentModal');
+}
+function servicePaymentPayload(action){
+  const method=$('servicePaymentMethod').value,currency=$('serviceCurrency').value,code=$('servicePayCode').value;
+  return{action,code,payment_method:method,currency,amount_usd:Number($('serviceAmountUsd').value||0),original_amount:$('serviceOriginalAmount').value.trim(),reference:$('servicePaymentRef').value.trim(),notes:$('servicePaymentNote').value.trim()};
+}
+async function submitServicePayment(action){
+  const payload=servicePaymentPayload(action);if(action==='payment'&&!(payload.amount_usd>0))return toast('Indica el monto del abono.');
+  if(!/efectivo/i.test(payload.payment_method)&&!payload.reference)return toast('Indica la referencia o número de transacción.');
+  setBusy(true);
+  try{
+    const r=await fetch('/.netlify/functions/service-sales',{method:'POST',headers:await tokenHeaders(true),body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok)throw Error(d.error||'No se pudo registrar el pago');
+    closeModal('servicePaymentModal');await refreshServiceData(true);renderHome();renderRepairs();
+    if(d.payment?.paid){
+      const email=d.delivery_note_email||{};
+      toast(email.sent?'Reparación pagada. Nota enviada al correo del cliente.':'Reparación pagada. Nota generada; revisa el estado del correo.',4800);
+      if(d.note_html)openServiceNote(payload.code,d.note_html);
+    }else toast(`Abono registrado. Saldo pendiente ${money(d.payment?.balance_after||0)}.`);
+  }catch(e){toast(e.message||'No se pudo registrar el cobro',5200)}
+  finally{setBusy(false)}
+}
+async function openServiceNote(code,html){
+  try{
+    let noteHtml=html;
+    if(!noteHtml){const r=await fetch('/.netlify/functions/service-sales?action=note&code='+encodeURIComponent(code),{headers:await tokenHeaders(),cache:'no-store'}),d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo generar la nota');noteHtml=d.html}
+    state.serviceNoteHtml=noteHtml||'';state.serviceNoteCode=code;$('serviceNoteTitle').textContent=code;$('serviceNoteBody').innerHTML=state.serviceNoteHtml;openModal('serviceNoteModal');
+  }catch(e){toast(e.message||'No se pudo abrir la Nota de Entrega',4800)}
+}
+function printCurrentServiceNote(){
+  if(!state.serviceNoteHtml)return;const w=window.open('','_blank');if(!w)return toast('Permite ventanas emergentes para imprimir la nota.');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Nota de entrega ${esc(state.serviceNoteCode)}</title></head><body>${state.serviceNoteHtml}<script>setTimeout(function(){window.print()},250)<\/script></body></html>`);w.document.close();
+}
+async function resendServiceNote(code){
+  try{
+    const r=await fetch('/.netlify/functions/service-sales',{method:'POST',headers:await tokenHeaders(true),body:JSON.stringify({action:'resend_note',code})}),d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok)throw Error(d.error||d.email?.error||'No se pudo reenviar');
+    toast(`Nota reenviada a ${d.email?.to||'correo del cliente'}.`,4000);
+  }catch(e){toast(e.message||'No se pudo reenviar la nota',4800)}
+}
+
 
 function catFor(name){const cp=state.catalog.find(c=>normalize(c.product_name)===normalize(name));if(cp?.category)return cp.category;return /iphone/i.test(name)?'iPhone':/ipad/i.test(name)?'iPad':/airpod|audio/i.test(name)?'Audio':/watch/i.test(name)?'Apple Watch':/macbook/i.test(name)?'MacBook':/\bmac\b|mac mini|mac pro|imac/i.test(name)?'Mac':/acces|cable|pencil|mouse|keyboard|airtag|case|vidrio|cargador/i.test(name)?'Accesorios Apple':'Otro'}
 function staticProduct(name){try{return typeof PRODUCTS!=='undefined'&&Array.isArray(PRODUCTS)?PRODUCTS.find(p=>normalize(p.name||p.model)===normalize(name))||null:null}catch{return null}}
@@ -250,6 +348,13 @@ function wire(){
   mixedStaff=window.ThinkStoreSplit?.mount('staffSplitPayment',()=>discountSnapshot().total);
   $('paymentChoices').addEventListener('click',e=>{const b=e.target.closest('[data-payment]');if(!b)return;state.payment=b.dataset.payment;document.querySelectorAll('#paymentChoices [data-payment]').forEach(x=>x.classList.toggle('active',x===b));mixedStaff?.setVisible(state.payment==='Pago mixto');show('paymentRefWrap',state.payment!=='Pago mixto'&&!/efectivo/i.test(state.payment));if(state.payment==='Pago mixto'||/efectivo/i.test(state.payment))$('paymentRef').value='';updateCheckoutTotals()});
   $('deliveryMethod').addEventListener('change',()=>show('shippingWrap',$('deliveryMethod').value==='Envío nacional'));$('discountType').addEventListener('change',updateCheckoutTotals);$('discountValue').addEventListener('input',updateCheckoutTotals);$('checkoutForm').addEventListener('submit',confirmSale);$('holdSaleButton').addEventListener('click',holdSale);$('newSaleButton').addEventListener('click',resetSale);
+  $('refreshRepairs')?.addEventListener('click',async()=>{await refreshServiceData();renderRepairs()});
+  $('repairSearch')?.addEventListener('input',renderRepairs);
+  $('repairFilter')?.addEventListener('change',renderRepairs);
+  $('servicePaymentMethod')?.addEventListener('change',syncServiceCurrency);
+  $('servicePaymentForm')?.addEventListener('submit',e=>{e.preventDefault();submitServicePayment('payment')});
+  $('servicePaidButton')?.addEventListener('click',()=>submitServicePayment('mark_paid'));
+  $('printServiceNote')?.addEventListener('click',printCurrentServiceNote);
   $('installButton').addEventListener('click',async()=>{if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('installButton').textContent='App instalada / disponible';return}if(/iphone|ipad|ipod/i.test(navigator.userAgent))toast('En iPhone/iPad: Compartir → Añadir a pantalla de inicio',5000);else toast('Usa el menú del navegador → Instalar aplicación',4500)});
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e});
 }

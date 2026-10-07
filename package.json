@@ -1,8 +1,8 @@
 {
   "name": "thinkstore",
-  "version": "14.92.0",
+  "version": "14.93.0",
   "private": true,
-  "description": "ThinkStore Main V14.92 · restaura Pagado, Nota de Entrega de Servicio Técnico y Notificaciones/Chat de Soporte sobre el Main unificado.",
+  "description": "ThinkStore Main V14.93 · restauración exacta de Soporte V8.8.7 y App Ventas V14.84, conservando BCV automático y Enterprise V10.16.",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4"
   }

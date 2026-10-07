@@ -1,0 +1,15 @@
+ThinkStore Soporte V8.7.6
+Mejora del modal Gestionar orden
+
+INCLUYE
+- Se elimina del área técnica el código UUID de cita web.
+- Si la orden viene de cita web, ahora solo se sugiere la fecha y hora.
+- Las notas técnicas antiguas con "Origen: cita web ..." se limpian automáticamente al abrir y guardar.
+- Rediseño premium de:
+  * Nota de cobro
+  * Diagnóstico y observaciones
+  * Tarjeta de cotización
+  * Área de seguimiento visible al cliente
+  * Chat con cliente
+
+NO REQUIERE SQL.

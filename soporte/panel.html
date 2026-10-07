@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=8.9.2" />
+  <link rel="stylesheet" href="styles.css" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -30,7 +30,7 @@
   <main class="ts-service-app">
     <section class="hero">
       <img class="hero-logo" src="assets/thinkstore-logo-white.png" alt="ThinkStore" />
-      <p class="eyebrow">thinkstore.com.ve/soporte</p>
+      <p class="eyebrow">soporte.thinkstore.com.ve</p>
       <h1>ThinkStore Service Center</h1>
       <p>Extensión independiente para soporte técnico: recepción, diagnóstico, bitácora, presupuestos, archivos, correos y seguimiento por QR.</p>
       <div class="hero-actions">
@@ -55,7 +55,7 @@
             <p class="eyebrow">Centro de soporte</p>
             <h2 id="panelTitle">Dashboard</h2>
           </div>
-          <button class="topline-primary" onclick="TSService.openServiceOrder()"><span aria-hidden="true">＋</span> Nueva orden</button>
+          <div class="topline-actions"><button id="supportNotificationButton" class="support-notification-button" type="button" onclick="TSService.renderPanel('notifications')" title="Notificaciones"><span>●</span><b id="supportNotificationBadge" hidden>0</b></button><button class="topline-primary" onclick="TSService.openServiceOrder()"><span aria-hidden="true">＋</span> Nueva orden</button></div>
         </div>
         <div id="panelContent"></div>
       </section>
@@ -302,59 +302,102 @@
   </div>
 
   <div id="bitacoraModal" class="modal">
-    <form class="card wide bitacora-form" onsubmit="TSService.saveBitacora(event)">
-      <h2>Nueva entrada de bitácora</h2>
-      <p>Registra diagnóstico, pruebas, repuestos, presupuesto o seguimiento interno de una orden.</p>
+    <form class="card wide bitacora-form bitacora-client-form" onsubmit="TSService.saveBitacora(event)">
+      <div class="bitacora-header">
+        <div><h2>Nueva entrada de bitácora</h2><p>Registra el trabajo técnico y decide qué información puede consultar el cliente.</p></div>
+        <button type="button" class="secondary" onclick="TSService.closeModals()">Cerrar</button>
+      </div>
       <div class="grid2">
-        <label>Código de orden<input id="bOrderCode" required placeholder="TS-SVC-2026-0001" /></label>
+        <label>Código de orden<input id="bOrderCode" required placeholder="TS-SVC-2026-0001" oninput="TSService.renderBitacoraClientHistory(this.value)" /></label>
         <label>Tipo<select id="bType">
-          <option>Diagnóstico</option>
-          <option>Prueba realizada</option>
-          <option>Presupuesto</option>
-          <option>Repuesto</option>
-          <option>Seguimiento</option>
-          <option>Entrega</option>
-          <option>Nota interna</option>
+          <option>Diagnóstico</option><option>Reparación realizada</option><option>Prueba realizada</option><option>Presupuesto</option><option>Repuesto</option><option>Seguimiento</option><option>Entrega</option><option>Nota interna</option>
         </select></label>
         <label>Responsable<input id="bAuthor" placeholder="Técnico / Recepción" /></label>
         <label>Estado<select id="bStatus">
-          <option>Recibido</option>
-          <option>En diagnóstico</option>
-          <option>Cotización enviada</option>
-          <option>Aprobado por cliente</option>
-          <option>En reparación</option>
-          <option>Esperando repuesto</option>
-          <option>Listo para entregar</option>
-          <option>Entregado</option>
-          <option>No aprobado</option>
+          <option>Recibido</option><option>En diagnóstico</option><option>Cotización enviada</option><option>Aprobado por cliente</option><option>En reparación</option><option>Esperando repuesto</option><option>Listo para entregar</option><option>Entregado</option><option>No aprobado</option>
         </select></label>
       </div>
-      <label>Detalle<textarea id="bDetail" required placeholder="Describe lo realizado, hallazgos, pruebas, observaciones o acuerdos con el cliente..."></textarea></label>
-      <label>Archivos / fotos<textarea id="bFiles" placeholder="Enlaces de fotos, comprobantes o archivos separados por coma..."></textarea></label>
+      <label>Nota / resumen de la bitácora<textarea id="bDetail" placeholder="Resumen breve de lo ocurrido en esta etapa..."></textarea></label>
+      <div class="bitacora-visibility-card">
+        <label class="bitacora-toggle"><input id="bClientVisible" type="checkbox" onchange="TSService.syncBitacoraVisibility()"><span><b>Visible para el cliente</b><small>Publica esta actualización en el seguimiento de la orden.</small></span></label>
+        <label class="bitacora-toggle"><input id="bNotifyClient" type="checkbox" disabled><span><b>Enviar correo al guardar</b><small>Envía el reporte detallado al correo registrado en la orden.</small></span></label>
+      </div>
+      <section id="bClientFields" class="client-report-editor" hidden>
+        <div class="client-report-title"><span>REPORTE PARA EL CLIENTE</span><h3>¿Qué se le hizo al equipo?</h3><p>Escribe en lenguaje claro. Esta información aparecerá en el correo y en el seguimiento público.</p></div>
+        <label>Título de la actualización<input id="bClientTitle" placeholder="Ej. Reparación finalizada y equipo probado" /></label>
+        <div class="grid2">
+          <label>Diagnóstico encontrado<textarea id="bDiagnosis" placeholder="Ej. Se detectó batería degradada y flex de carga con falso contacto."></textarea></label>
+          <label>Trabajo realizado<textarea id="bWorkPerformed" placeholder="Ej. Se reemplazó la batería, se limpió el conector y se realizó mantenimiento interno."></textarea></label>
+          <label>Repuestos o piezas utilizadas<textarea id="bPartsUsed" placeholder="Ej. Batería calidad AAA · adhesivo de pantalla nuevo."></textarea></label>
+          <label>Pruebas finales<textarea id="bTestsPerformed" placeholder="Ej. Carga, cámaras, audio, Face ID, Wi‑Fi y batería verificados correctamente."></textarea></label>
+        </div>
+        <label>Observaciones / recomendaciones para el cliente<textarea id="bClientNotes" placeholder="Ej. Recomendamos evitar humedad durante las próximas 24 horas. Garantía de servicio: 90 días."></textarea></label>
+      </section>
+      <label>Archivos / fotos internas<textarea id="bFiles" placeholder="Enlaces de fotos, comprobantes o archivos separados por coma..."></textarea></label>
+      <div class="bitacora-client-history">
+        <div><b>Últimas actualizaciones visibles</b><small>Así podrás verificar qué información ya recibió el cliente.</small></div>
+        <div id="bClientHistory"><small>Selecciona una orden para consultar su historial público.</small></div>
+      </div>
       <div class="actions"><button>Guardar bitácora</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
     </form>
   </div>
-
   <div id="orderManagerModal" class="modal">
     <form class="card wide order-manager" onsubmit="TSService.saveOrderManager(event)">
-      <div class="bitacora-header"><div><h2 id="mOrderTitle">Gestionar orden</h2><p>Técnico, presupuesto, garantía, entrega y archivos privados.</p></div><button type="button" class="secondary" onclick="TSService.closeModals()">Cerrar</button></div>
+      <div class="bitacora-header"><div><h2 id="mOrderTitle">Gestionar orden</h2><p>Técnico, diagnóstico, fotos, mensajes y seguimiento del cliente.</p></div><button type="button" class="secondary" onclick="TSService.closeModals()">Cerrar</button></div>
       <div class="grid2">
         <label>Técnico responsable<select id="mTechnician"></select></label>
         <label>Estado del presupuesto<select id="mQuoteStatus"><option>Pendiente</option><option>Preparado</option><option>Enviado</option><option>Aprobado</option><option>Rechazado</option></select></label>
         <label>Monto del presupuesto<input id="mQuoteAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
-        <label>Estado de cobro<select id="mPaymentStatus"><option>Pendiente</option><option>Abono parcial</option><option>Cobrado</option></select></label>
-        <label>Monto cobrado USD<input id="mAmountPaid" type="number" min="0" step="0.01" placeholder="0.00"></label>
-        <label>Método de pago<select id="mPaymentMethod"><option value="">Sin definir</option><option>Efectivo USD</option><option>Zelle</option><option>Pago Móvil</option><option>Transferencia</option><option>Punto de Venta</option><option>Efectivo Bs</option><option>Otro</option></select></label>
+        <label class="span2">Detalle de la reparación propuesta<textarea id="mQuoteRepairDetails" placeholder="Describe claramente lo que se realizará si el cliente aprueba: reparación, piezas, mano de obra y alcance incluido."></textarea><small>Este texto será visible para el cliente antes de aprobar la cotización.</small></label>
+        <label>Estado de cobro<select id="mPaymentStatus" disabled><option>Pendiente</option><option>Abono parcial</option><option>Cobrado</option></select></label>
+        <label>Monto cobrado USD<input id="mAmountPaid" type="number" disabled min="0" step="0.01" placeholder="0.00"></label>
+        <label>Método de pago<select id="mPaymentMethod" disabled><option value="">Sin definir</option><option>Efectivo USD</option><option>Zelle</option><option>Pago Móvil</option><option>Transferencia</option><option>Punto de Venta</option><option>Efectivo Bs</option><option>Otro</option></select></label>
         <label>Modalidad del servicio<select id="mServiceMode"><option>Presencial</option><option>A domicilio</option><option>Envío nacional</option></select></label>
         <label>Garantía de reparación (días)<input id="mWarrantyDays" type="number" min="0" step="1" value="0"></label>
         <label>Método de entrega<input id="mDeliveryMethod" placeholder="Retiro, MRW, Zoom, Tealca..."></label>
         <label>Empresa de envío<input id="mTrackingCompany" placeholder="Empresa de envío"></label>
       </div>
       <label>Número de guía<input id="mTrackingCode" placeholder="Número de guía"></label>
-      <label>Nota de cobro<textarea id="mPaymentNotes" placeholder="Referencia, abono, observación o acuerdo de pago..."></textarea></label>
-      <label>Diagnóstico y observaciones técnicas<textarea id="mTechnicalNotes" placeholder="Diagnóstico, piezas, pruebas y observaciones..."></textarea></label>
-      <div class="order-box reserved-parts-box"><div class="bitacora-header"><div><h3>Repuestos reservados</h3><p>Se reservan para esta orden y solo se descuentan físicamente cuando App Ventas completa el pago.</p></div><button type="button" onclick="TSService.saveOrderParts()">Guardar repuestos</button></div><div id="mOrderParts"><small>Cargando repuestos…</small></div></div>
-      <div class="order-box"><h3>Fotografías y archivos privados</h3><div class="file-actions"><input id="mOrderFile" type="file" accept="image/*,.pdf"><button type="button" onclick="TSService.uploadOrderFile()">Subir archivo</button></div><div id="mOrderFiles" class="order-files"></div></div>
+      <section class="order-box support-cashier-card">
+        <div><span>CAJA CENTRALIZADA</span><h3>Cobranza desde App Ventas</h3><p>Los abonos, el método de pago y el cierre de esta reparación se registran desde Ventas. Al marcarla como pagada se genera la Nota de Entrega y se envía al cliente.</p></div>
+        <button type="button" onclick="TSService.openCashierForOrder()">Cobrar en App Ventas ↗</button>
+      </section>
+      <div class="manager-writing-grid">
+        <section class="manager-note-card">
+          <div class="manager-card-head"><span>COBRANZA</span><h3>Registro de caja</h3><p>Este resumen se actualiza desde App Ventas para evitar cobros duplicados.</p></div>
+          <label class="premium-field">Nota de cobro<textarea id="mPaymentNotes" readonly placeholder="Se actualiza automáticamente desde App Ventas"></textarea><small>Solo lectura. Los pagos se gestionan en App Ventas.</small></label>
+        </section>
+        <section class="manager-note-card manager-note-card-lg">
+          <div class="manager-card-head"><span>ÁREA TÉCNICA</span><h3>Diagnóstico y observaciones</h3><p>Espacio interno para registrar el diagnóstico técnico, pruebas realizadas, piezas involucradas y seguimiento del trabajo. Los códigos de cita web ya no se mostrarán aquí.</p></div>
+          <label class="premium-field">Detalle técnico<textarea id="mTechnicalNotes" placeholder="Ej. Se detecta daño en pantalla, batería degradada y equipo pendiente de pruebas finales después del cambio de pieza."></textarea><small>La información visible para el cliente debe publicarse desde la bitácora o desde el chat de esta orden.</small></label>
+        </section>
+      </div>
+      <section class="order-box repair-inventory-panel">
+        <div class="bitacora-header repair-inventory-head">
+          <div><h3>Inventario de la reparación</h3><p>Busca productos de Servicio Técnico, selecciona cantidades y descuéntalos directamente de esta orden.</p></div>
+          <span id="mPartOrderBadge" class="badge">Orden</span>
+        </div>
+        <div class="repair-part-search">
+          <span>⌕</span>
+          <input id="mPartSearch" type="search" autocomplete="off" placeholder="Buscar por nombre, SKU, categoría o modelo compatible..." oninput="TSService.filterRepairParts(this.value)">
+        </div>
+        <div id="mPartResults" class="repair-part-results"></div>
+        <div class="repair-part-cart">
+          <div class="repair-part-cart-head"><div><b>Productos seleccionados</b><small>El stock se descuenta solo al confirmar.</small></div><button id="mConsumePartsButton" type="button" onclick="TSService.commitRepairParts()" disabled>Descontar del inventario</button></div>
+          <div id="mPartSelection" class="repair-part-selection"></div>
+        </div>
+        <div id="mOrderPartHistory" class="repair-part-history"></div>
+      </section>
+      <div id="mQuoteApprovalState"></div>
+      <section class="quote-send-panel">
+        <div><span>COTIZACIÓN AL CLIENTE</span><b>Solicitar aprobación</b><small>El cliente recibirá un correo con enlace seguro, podrá hacer preguntas y aceptar las políticas antes de aprobar.</small></div>
+        <button type="button" onclick="TSService.sendQuoteToClient()">Enviar cotización al cliente</button>
+      </section>
+      <section class="order-client-timeline">
+        <div class="bitacora-header"><div><h3>Información visible para el cliente</h3><p>Últimos detalles publicados desde la bitácora técnica.</p></div><button type="button" class="secondary" onclick="TSService.openBitacora(document.getElementById('mOrderTitle').textContent.split(' · ')[0])">Añadir actualización</button></div>
+        <div id="mClientTimeline"><small>No hay actualizaciones públicas todavía.</small></div>
+      </section>
+      <div class="order-box"><div class="bitacora-header"><div><h3>Fotografías y archivos</h3><p>Publica únicamente las imágenes que quieras mostrar al cliente.</p></div></div><div class="client-file-upload"><input id="mOrderFile" type="file" accept="image/*,.pdf"><input id="mOrderFileCaption" placeholder="Descripción para el cliente, ej. Equipo después del mantenimiento"><label class="file-visible-toggle"><input id="mOrderFileVisible" type="checkbox"><span>Visible para el cliente</span></label><button type="button" onclick="TSService.uploadOrderFile()">Subir archivo</button></div><div id="mOrderFiles" class="order-files order-files-grid"></div></div><div class="order-box client-messages-admin"><div class="bitacora-header"><div><h3>Mensajes con el cliente</h3><p>La conversación aparece directamente en su seguimiento.</p></div></div><div id="mOrderMessages" class="staff-chat-thread"></div><div class="staff-chat-compose"><textarea id="mOrderMessage" maxlength="2000" placeholder="Escribe un mensaje para el cliente..."></textarea><button type="button" onclick="TSService.sendStaffOrderMessage()">Enviar mensaje</button></div></div>
       <div class="actions"><button>Guardar cambios</button><button type="button" class="secondary" onclick="TSService.notifyOrderClient()">Enviar actualización al cliente</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
     </form>
   </div>
@@ -387,19 +430,19 @@
       </div>
       <div class="tracking-preview">
         <span>Seguimiento del cliente</span>
-        <code id="rcTracking">—</code>
+        <code id="rcTracking">Enlace seguro disponible mediante QR</code>
       </div>
       <div class="reception-print-actions">
         <button type="button" onclick="TSService.printCompletedReception()">🧾 Imprimir hoja de recepción</button>
         <button type="button" class="secondary" onclick="TSService.printCompletedLabel()">🏷️ Etiqueta QR / HereLabel</button>
         <button type="button" class="secondary" onclick="TSService.openCompletedTracking()">↗ Ver seguimiento</button>
       </div>
-      <p class="reception-privacy-note">El QR contiene únicamente el enlace público de seguimiento y el número de orden; no incluye datos personales del cliente.</p>
+      <p class="reception-privacy-note">El QR abre el seguimiento seguro de esta orden. El enlace completo y su token no se muestran impresos.</p>
     </div>
   </div>
-<script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=8.8.10"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=8.9.2"></script>
-<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=8.8.9").catch(()=>{}));}</script></body>
+  <script src="app.js"></script>
+<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

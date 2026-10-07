@@ -1,0 +1,20 @@
+{
+  "version": "14.93.0",
+  "name": "Restauración exacta archivos usuario",
+  "restored_from": [
+    "ThinkStore-main-V14.84-Servicio-Ventas-Nota-Entrega",
+    "ThinkStore-Soporte-V8.8.7-Cobranza-App-Ventas"
+  ],
+  "preserved": [
+    "BCV automático V14.78",
+    "Enterprise V10.16",
+    "Caja Staff",
+    "autenticación actual",
+    "foto de perfil"
+  ],
+  "notes": [
+    "Soporte V8.8.7 visual/funcional restaurado",
+    "App Ventas Reparaciones V14.84 restaurada",
+    "SSO adaptado solo para /soporte/ integrado"
+  ]
+}

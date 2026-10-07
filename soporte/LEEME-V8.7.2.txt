@@ -1,0 +1,19 @@
+ThinkStore Soporte V8.7.2 COMPLETO
+
+Esta es la versión completa que debes usar.
+
+ANTES DEL DEPLOY
+Ejecuta en Supabase -> ThinkStore-Soporte, en este orden:
+
+1. SQL-V8.7.2/01-ESQUEMA-MENSAJERIA.sql
+2. SQL-V8.7.2/02-COTIZACION-RESEÑAS-NOTIFICACIONES.sql
+3. SQL-V8.7.2/03-TRIGGERS-NOTIFICACIONES.sql
+4. SQL-V8.7.2/04-LOOKUP-Y-VERIFICACION.sql
+
+Después de que los 4 terminen correctamente:
+- despliega este ZIP completo;
+- haz una recarga forzada del navegador;
+- no ejecutes SQL V8.5, V8.6 o V8.7 antiguos.
+
+La V8.7.2 incluye el código de V8.7.1 y alinea la numeración
+del deploy con las migraciones BIGINT divididas.

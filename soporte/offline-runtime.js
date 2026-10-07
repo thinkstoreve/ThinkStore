@@ -11,7 +11,7 @@
   const DB_NAME='thinkstore-offline-'+String(APP).toLowerCase().replace(/[^a-z0-9_-]+/g,'-');
   const DB_VERSION=1;
   const NATIVE_FETCH=window.fetch.bind(window);
-  let dbPromise=null,tokenProvider=null,syncing=false,lastOnline=navigator.onLine;
+  let dbPromise=null,tokenProvider=null,syncing=false,lastOnline=navigator.onLine,indicatorCompactTimer=null;
   const uuidTables=new Set(['service_orders','service_order_notes','service_order_photos','service_part_movements','service_parts','service_audit_log','service_appointments']);
   const now=()=>new Date().toISOString();
 
@@ -207,71 +207,46 @@
       window.dispatchEvent(new CustomEvent('thinkstore:offline-sync'));
     }
   }
-  // V8.8.10 / Main V14.91: indicador visible al iniciar/reconectar y minimizado al quedar sincronizado.
-  let indicatorMinimizeTimer=null;
   function installUi(){
     if(document.getElementById('tsOfflineIndicator'))return;
-    const el=document.createElement('button');
-    el.id='tsOfflineIndicator';
-    el.type='button';
-    el.setAttribute('aria-label','Estado de conexión');
-    el.innerHTML='<span class="ts-offline-dot"></span><b>Conectando…</b>';
-    const st=document.createElement('style');
-    st.textContent=`
-      #tsOfflineIndicator{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));z-index:99999;display:flex;align-items:center;gap:8px;min-height:34px;max-width:calc(100vw - 28px);border:1px solid #ffffff24;border-radius:999px;padding:8px 12px;background:rgba(24,76,131,.94);color:#fff;box-shadow:0 12px 34px #0004;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);font:800 11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:default;transition:width .28s ease,padding .28s ease,background .25s ease,box-shadow .25s ease,opacity .25s ease,transform .25s ease;white-space:nowrap;overflow:hidden}
-      #tsOfflineIndicator .ts-offline-dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:#7db8ff;box-shadow:0 0 0 4px rgba(125,184,255,.13);transition:background .2s ease,box-shadow .2s ease}
-      #tsOfflineIndicator.online{background:rgba(22,95,52,.94)}
-      #tsOfflineIndicator.online .ts-offline-dot{background:#6ee7a0;box-shadow:0 0 0 4px rgba(110,231,160,.13)}
-      #tsOfflineIndicator.offline{background:rgba(122,72,0,.96);cursor:default}
-      #tsOfflineIndicator.offline .ts-offline-dot{background:#ffbd59;box-shadow:0 0 0 4px rgba(255,189,89,.14)}
-      #tsOfflineIndicator.syncing{background:rgba(24,76,131,.94)}
-      #tsOfflineIndicator.minimized{width:30px;min-width:30px;height:30px;min-height:30px;padding:0;justify-content:center;gap:0;border-color:#ffffff20;background:rgba(22,95,52,.90);cursor:pointer}
-      #tsOfflineIndicator.minimized b{display:none}
-      #tsOfflineIndicator.minimized .ts-offline-dot{width:9px;height:9px;box-shadow:0 0 0 4px rgba(110,231,160,.12)}
-      #tsOfflineIndicator.minimized:hover,#tsOfflineIndicator.minimized:focus-visible{transform:scale(1.06);box-shadow:0 14px 36px #0005}
-      @media(max-width:600px){#tsOfflineIndicator{right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom))}}
-      @media(prefers-reduced-motion:reduce){#tsOfflineIndicator{transition:none}}
+    const el=document.createElement('div');el.id='tsOfflineIndicator';el.innerHTML='<span class="ts-offline-dot"></span><b></b><button type="button" hidden>Instalar</button>';
+    const style=document.createElement('style');style.textContent=`
+      #tsOfflineIndicator{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));z-index:99999;display:flex;align-items:center;gap:7px;background:rgba(20,20,23,.92);color:#fff;border:1px solid #ffffff22;border-radius:999px;padding:8px 11px;font:700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 10px 30px #0003;backdrop-filter:blur(18px);max-width:calc(100vw - 24px)}
+      #tsOfflineIndicator.online{background:rgba(22,95,52,.92)}#tsOfflineIndicator.offline{background:rgba(122,72,0,.94)}#tsOfflineIndicator.syncing{background:rgba(24,76,131,.94)}
+      #tsOfflineIndicator .ts-offline-dot{width:7px;height:7px;border-radius:50%;background:#6ee7a0}#tsOfflineIndicator.offline .ts-offline-dot{background:#ffbd59}#tsOfflineIndicator.syncing .ts-offline-dot{background:#7db8ff}
+      #tsOfflineIndicator button{border:0;border-radius:999px;padding:4px 7px;background:#fff;color:#111;font:800 10px inherit}
+      #tsOfflineIndicator.compact{width:30px;height:30px;padding:0;gap:0;justify-content:center;opacity:.82;cursor:pointer;transition:width .22s ease,padding .22s ease,opacity .22s ease,transform .22s ease}
+      #tsOfflineIndicator.compact b,#tsOfflineIndicator.compact button{display:none!important}
+      #tsOfflineIndicator.compact .ts-offline-dot{width:8px;height:8px;box-shadow:0 0 0 4px rgba(255,255,255,.08)}
+      #tsOfflineIndicator.compact:hover{opacity:1;transform:scale(1.04)}
+      @media(max-width:600px){#tsOfflineIndicator{left:10px;right:10px;bottom:max(8px,env(safe-area-inset-bottom));justify-content:center}#tsOfflineIndicator.compact{left:auto;right:max(10px,env(safe-area-inset-right));width:30px}}
     `;
-    document.head.appendChild(st);
-    document.body.appendChild(el);
-    el.addEventListener('click',()=>{
-      if(!el.classList.contains('minimized'))return;
-      el.classList.remove('minimized');
-      el.querySelector('b').textContent='Online · sincronizado';
-      clearTimeout(indicatorMinimizeTimer);
-      indicatorMinimizeTimer=setTimeout(()=>el.classList.add('minimized'),2200);
-    });
+    document.head.appendChild(style);document.body.appendChild(el);
+    if(APP==='support')el.addEventListener('click',()=>{if(!el.classList.contains('compact'))return;el.classList.remove('compact');scheduleIndicatorCompact(3000)});
+  }
+  function scheduleIndicatorCompact(delay=2400){
+    if(APP!=='support')return;
+    clearTimeout(indicatorCompactTimer);
+    indicatorCompactTimer=setTimeout(()=>{
+      const el=document.getElementById('tsOfflineIndicator');
+      if(el&&navigator.onLine&&!syncing&&el.classList.contains('online'))el.classList.add('compact');
+    },delay);
   }
   async function queueCount(){return (await all('queue').catch(()=>[])).length}
-  function scheduleIndicatorMinimize(el){
-    clearTimeout(indicatorMinimizeTimer);
-    indicatorMinimizeTimer=setTimeout(()=>{
-      if(navigator.onLine&&!syncing){el.classList.add('minimized')}
-    },2200);
-  }
   async function updateIndicator(isSync=false){
-    installUi();
-    const el=document.getElementById('tsOfflineIndicator'),b=el?.querySelector('b');
-    const pending=await queueCount();
-    if(!el||!b)return {online:navigator.onLine,syncing:Boolean(isSync),pending};
-    clearTimeout(indicatorMinimizeTimer);
-    el.classList.remove('online','offline','syncing','minimized');
-    if(!navigator.onLine){
-      el.classList.add('offline');
-      b.textContent=pending?`Offline · ${pending} cambio${pending===1?'':'s'} pendiente${pending===1?'':'s'}`:'Offline';
-    }else if(isSync||syncing){
-      el.classList.add('syncing');
-      b.textContent=pending?`Sincronizando · ${pending} pendiente${pending===1?'':'s'}`:'Sincronizando…';
-    }else{
-      el.classList.add('online');
-      b.textContent=pending?`Online · ${pending} pendiente${pending===1?'':'s'}`:'Online · sincronizado';
-      if(!pending)scheduleIndicatorMinimize(el);
-    }
-    return {online:navigator.onLine,syncing:Boolean(isSync||syncing),pending};
+    if(!document.body)return;
+    installUi();const el=document.getElementById('tsOfflineIndicator'),b=el?.querySelector('b');if(!el||!b)return;
+    clearTimeout(indicatorCompactTimer);el.classList.remove('compact');
+    const count=await queueCount();
+    el.classList.remove('online','offline','syncing');
+    if(isSync){el.classList.add('syncing');b.textContent='Sincronizando cambios…';return}
+    if(!navigator.onLine){el.classList.add('offline');b.textContent=count?`Sin conexión · ${count} cambio${count===1?'':'s'} pendiente${count===1?'':'s'}`:'Sin conexión · modo local';}
+    else if(count){el.classList.add('syncing');b.textContent=`Online · ${count} cambio${count===1?'':'s'} por sincronizar`;}
+    else{el.classList.add('online');b.textContent='Online · sincronizado';scheduleIndicatorCompact();}
   }
 
   let installPrompt=null;
-  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;setTimeout(()=>{installUi();const btn=document.querySelector('#tsOfflineIndicator button');if(btn){btn.hidden=false;btn.onclick=async()=>{await installPrompt.prompt();installPrompt=null;btn.hidden=true}}},0)});
   window.addEventListener('online',()=>{lastOnline=true;updateIndicator();setTimeout(sync,500)});
   window.addEventListener('offline',()=>{lastOnline=false;updateIndicator()});
   document.addEventListener('DOMContentLoaded',()=>{updateIndicator();if(navigator.onLine)setTimeout(sync,1200)});
