@@ -47,12 +47,14 @@ function commissionFor(entries,email,type){
     generated:money(matches.reduce((n,e)=>n+num(e.amount_usd),0)),
     entries:matches.length,
     rate_pct:matches.length?num(commissionMeta(matches[0]).rate_pct||0):null,
+    parts_rate_pct:matches.length?(commissionMeta(matches[0]).parts_rate_pct??null):null,
+    service_rate_pct:matches.length?(commissionMeta(matches[0]).service_rate_pct??commissionMeta(matches[0]).rate_pct??null):null,
     base:money(matches.reduce((n,e)=>n+num(commissionMeta(e).commission_base||0),0))
   };
 }
 function profileRate(profile,type){
   const keys=type==='technician'
-    ?['technician_commission_pct','tech_commission_pct','commission_pct','commission_rate_pct']
+    ?['technician_service_commission_pct','technician_commission_pct','tech_commission_pct','commission_pct','commission_rate_pct']
     :['seller_commission_pct','sales_commission_pct','commission_pct','commission_rate_pct'];
   for(const k of keys){if(profile&&profile[k]!==undefined&&profile[k]!==null&&profile[k]!==''){const v=num(profile[k]);if(v>=0&&v<=100)return v}}
   return null;
@@ -99,6 +101,8 @@ exports.handler=async event=>{
       const commission=commissionFor(finance,email,'technician');
       const configuredRate=profileRate(profile,'technician');
       if(commission.rate_pct===null)commission.rate_pct=configuredRate;
+      if(commission.parts_rate_pct===null)commission.parts_rate_pct=profile.technician_parts_commission_pct??null;
+      if(commission.service_rate_pct===null)commission.service_rate_pct=profile.technician_service_commission_pct??configuredRate;
       if(!commission.base)commission.base=money(mine.filter(paidService).reduce((n,o)=>n+Math.max(0,num(o.amount_paid||o.quote_amount)),0));
       return out(200,{ok:true,role,email,generated_at:new Date().toISOString(),metrics:{
         assigned:mine.length,

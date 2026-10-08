@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=15.20.0" />
+  <link rel="stylesheet" href="styles.css?v=15.23.0" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -54,7 +54,16 @@
           <div><h2>ThinkStore</h2><small>Service Center</small></div>
         </div>
         <div class="support-online"><i></i><span>Centro operativo</span></div>
+        <div class="support-user-card" id="supportUserCard">
+          <button type="button" class="support-user-profile" onclick="TSService.openProfilePhoto()" title="Cambiar foto de perfil">
+            <span class="support-user-avatar" id="supportProfileAvatarFallback">TS</span>
+            <img id="supportProfileAvatarImage" class="support-user-avatar-image" alt="Foto de perfil" hidden />
+            <span class="support-user-copy"><b id="supportProfileName">Usuario</b><small id="supportProfileRole">Soporte</small></span>
+            <span class="support-user-edit" aria-hidden="true">✎</span>
+          </button>
+        </div>
         <nav id="roleMenu" aria-label="Navegación de soporte"></nav>
+        <button id="supportBackMainTechnical" class="support-back-main" type="button" onclick="TSService.backToMainPanel()" hidden><span aria-hidden="true">←</span><span>Volver al Panel Técnico</span></button>
         <button class="logout" onclick="TSService.logout()"><span aria-hidden="true">↩</span> Cerrar sesión</button>
       </aside>
       <section class="workspace">
@@ -69,6 +78,32 @@
       </section>
     </section>
   </main>
+
+
+  <div id="profilePhotoModal" class="modal support-profile-modal" role="dialog" aria-modal="true" aria-labelledby="supportProfilePhotoTitle">
+    <form class="card support-profile-photo-card" onsubmit="TSService.saveProfilePhoto(event)">
+      <div class="support-profile-photo-head">
+        <div><span class="eyebrow">PERFIL DEL PERSONAL</span><h2 id="supportProfilePhotoTitle">Foto de perfil</h2><p>Tu foto se guarda en ThinkStore Soporte y se mostrará cada vez que abras tu sesión.</p></div>
+        <button type="button" class="order-close" onclick="TSService.closeModals()">×</button>
+      </div>
+      <div class="support-profile-photo-body">
+        <div class="support-profile-preview">
+          <span id="supportProfileModalFallback">TS</span>
+          <img id="supportProfileModalImage" alt="Vista previa de la foto" hidden />
+        </div>
+        <div class="support-profile-photo-controls">
+          <label class="support-profile-file-label" for="supportProfilePhotoFile"><span>Elegir foto</span><small>JPG, PNG o WebP · se ajusta automáticamente</small></label>
+          <input id="supportProfilePhotoFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="TSService.previewProfilePhoto(this)" />
+          <p class="support-profile-photo-note">La imagen se recorta en formato cuadrado y se optimiza antes de subirla.</p>
+        </div>
+      </div>
+      <div class="actions support-profile-photo-actions">
+        <button type="submit">Guardar foto</button>
+        <button id="supportRemoveProfilePhoto" type="button" class="secondary" onclick="TSService.removeProfilePhoto()">Quitar foto</button>
+        <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+      </div>
+    </form>
+  </div>
 
   <div id="loginModal" class="modal support-login-modal" role="dialog" aria-modal="true" aria-labelledby="supportLoginTitle">
     <form class="card support-login-card" onsubmit="TSService.login(event)">
@@ -436,7 +471,7 @@
     </form>
   </div>
 
-  <div id="partEditorModal" class="modal"><form class="card wide" onsubmit="TSService.savePart(event)"><h2>Repuesto</h2><input id="partId" type="hidden"><div class="grid2"><label>SKU<input id="partSku" required placeholder="BAT-IP15-PRO"></label><label>Nombre<input id="partName" required placeholder="Batería iPhone 15 Pro"></label><label>Categoría<input id="partCategory" placeholder="Batería, pantalla, conector..."></label><label>Stock mínimo<input id="partMin" type="number" min="0" value="0"></label><label>Costo unitario<input id="partCost" type="number" min="0" step="0.01"></label><label>Precio de venta<input id="partPrice" type="number" min="0" step="0.01"></label><label>Ubicación<input id="partLocation" placeholder="Estante A-2"></label><label>Modelos compatibles<input id="partModels" placeholder="iPhone 15 Pro, A2848..."></label></div><div class="actions"><button>Guardar repuesto</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div></form></div>
+  <div id="partEditorModal" class="modal"><form class="card wide" onsubmit="TSService.savePart(event)"><h2>Repuesto / servicio</h2><input id="partId" type="hidden"><div class="grid2"><label>SKU<input id="partSku" required placeholder="BAT-IP15-PRO"></label><label>Nombre<input id="partName" required placeholder="Batería iPhone 15 Pro"></label><label>Categoría<input id="partCategory" placeholder="Batería, pantalla, conector..."></label><label>Tipo financiero<select id="partFinancialType"><option value="part">Repuesto + instalación</option><option value="service_hardware">Servicio hardware</option><option value="service_software">Servicio software</option></select></label><label>Stock mínimo<input id="partMin" type="number" min="0" value="0"></label><label>Costo unitario<input id="partCost" type="number" min="0" step="0.01"></label><label>Precio de venta<input id="partPrice" type="number" min="0" step="0.01"></label><label>Ubicación<input id="partLocation" placeholder="Estante A-2"></label><label>Modelos compatibles<input id="partModels" placeholder="iPhone 15 Pro, A2848..."></label></div><div class="actions"><button>Guardar</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div></form></div>
 
   <div id="partMovementModal" class="modal"><form class="card" onsubmit="TSService.savePartMovement(event)"><h2 id="movementTitle">Movimiento de repuesto</h2><input id="movementPartId" type="hidden"><input id="movementDirection" type="hidden"><label>Cantidad<input id="movementQty" type="number" min="1" required value="1"></label><label>Código de orden (para consumo)<input id="movementOrder" placeholder="TS-SVC-2026-0001"></label><label>Nota<textarea id="movementNote" placeholder="Proveedor, factura, reparación o motivo del ajuste"></textarea></label><div class="actions"><button>Registrar movimiento</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div></form></div>
 
@@ -478,6 +513,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=15.20.0"></script>
+  <script src="app.js?v=15.23.0"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

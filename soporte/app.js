@@ -39,6 +39,8 @@ const TSService=(()=>{
     clients:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
     users:'<circle cx="9" cy="7" r="4"/><path d="M3 21a6 6 0 0 1 12 0M17 8h4M19 6v4"/>',
     permissions:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    profile:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    back:'<path d="M15 18l-6-6 6-6"/><path d="M9 12h11"/>',
     reports:'<path d="M4 19V9M10 19V4M16 19v-7M22 19V12"/>'
   };
   function supportIcon(id){const body=SUPPORT_ICONS[id]||SUPPORT_ICONS.dashboard;return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`}
@@ -546,10 +548,101 @@ const TSService=(()=>{
   function openPasswordSetup(){document.getElementById('passwordSetupModal').classList.add('open')}
   function closeModals(){stopOrderMessagePolling();document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'))}
 
+  function supportProfileInitials(value=session?.name||session?.email||'TS'){
+    const parts=String(value||'TS').trim().split(/\s+/).filter(Boolean);
+    return (parts.slice(0,2).map(x=>(x[0]||'').toUpperCase()).join('')||'TS').slice(0,2);
+  }
+  async function refreshSupportIdentity(){
+    const name=document.getElementById('supportProfileName'),role=document.getElementById('supportProfileRole');
+    const fallback=document.getElementById('supportProfileAvatarFallback'),img=document.getElementById('supportProfileAvatarImage');
+    const back=document.getElementById('supportBackMainTechnical');
+    const initials=supportProfileInitials();
+    if(name)name.textContent=session?.name||session?.email||'Usuario';
+    if(role)role.textContent=roleLabels[session?.role]||session?.role||'Soporte';
+    if(fallback){fallback.textContent=initials;fallback.hidden=false}
+    if(img){img.hidden=true;img.removeAttribute('src')}
+    if(back)back.hidden=session?.role!=='technician';
+    const path=String(session?.avatarPath||'').trim();
+    if(path&&navigator.onLine){
+      try{
+        const {data,error}=await supabaseClient.storage.from('support-profile-photos').createSignedUrl(path,3600);
+        if(error)throw error;
+        if(data?.signedUrl&&img){img.src=data.signedUrl;img.hidden=false;if(fallback)fallback.hidden=true}
+      }catch(err){console.warn('Avatar Soporte:',err?.message||err)}
+    }
+  }
+  function backToMainPanel(){
+    const host=String(location.hostname||'').toLowerCase();
+    const target=host==='support.thinkstore.com.ve'?'https://thinkstore.com.ve/panel.html':'/panel.html';
+    location.assign(target);
+  }
+  function openProfilePhoto(){
+    const modal=document.getElementById('profilePhotoModal');if(!modal)return;
+    const fallback=document.getElementById('supportProfileModalFallback'),img=document.getElementById('supportProfileModalImage');
+    const current=document.getElementById('supportProfileAvatarImage'),file=document.getElementById('supportProfilePhotoFile');
+    if(file)file.value='';
+    if(fallback){fallback.textContent=supportProfileInitials();fallback.hidden=false}
+    if(img){img.hidden=true;img.removeAttribute('src')}
+    if(current&&!current.hidden&&current.src&&img){img.src=current.src;img.hidden=false;if(fallback)fallback.hidden=true}
+    const remove=document.getElementById('supportRemoveProfilePhoto');if(remove)remove.hidden=!String(session?.avatarPath||'').trim();
+    modal.classList.add('open');
+  }
+  function previewProfilePhoto(input){
+    const file=input?.files?.[0];if(!file)return;
+    if(!['image/jpeg','image/png','image/webp'].includes(String(file.type||'').toLowerCase())){toast('Usa una imagen JPG, PNG o WebP.','error');input.value='';return}
+    if(file.size>8*1024*1024){toast('La foto original no puede superar 8 MB.','error');input.value='';return}
+    const img=document.getElementById('supportProfileModalImage'),fallback=document.getElementById('supportProfileModalFallback');
+    if(img){img.src=URL.createObjectURL(file);img.hidden=false;if(fallback)fallback.hidden=true;img.onload=()=>{try{URL.revokeObjectURL(img.src)}catch(_){}}}
+  }
+  async function optimizedProfileBlob(file){
+    if(!file)throw new Error('Selecciona una foto.');
+    if(!['image/jpeg','image/png','image/webp'].includes(String(file.type||'').toLowerCase()))throw new Error('Usa una imagen JPG, PNG o WebP.');
+    if(file.size>8*1024*1024)throw new Error('La foto original no puede superar 8 MB.');
+    const url=URL.createObjectURL(file);
+    try{
+      const source=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(new Error('No pude leer esa imagen.'));im.src=url});
+      const size=640,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
+      const ctx=canvas.getContext('2d');if(!ctx)throw new Error('No se pudo preparar la imagen.');
+      const side=Math.min(source.naturalWidth||source.width,source.naturalHeight||source.height),sx=((source.naturalWidth||source.width)-side)/2,sy=((source.naturalHeight||source.height)-side)/2;
+      ctx.drawImage(source,sx,sy,side,side,0,0,size,size);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.86));
+      if(!blob)throw new Error('No se pudo optimizar la foto.');
+      return blob;
+    }finally{URL.revokeObjectURL(url)}
+  }
+  async function saveProfilePhoto(e){
+    e?.preventDefault();
+    const input=document.getElementById('supportProfilePhotoFile'),file=input?.files?.[0];
+    if(!file){toast('Selecciona una foto primero.','error');return}
+    const submit=e?.submitter||document.querySelector('#profilePhotoModal button[type="submit"]');if(submit)submit.disabled=true;
+    try{
+      const {data:{user}}=await supabaseClient.auth.getUser();if(!user?.id)throw new Error('Tu sesión de Soporte expiró.');
+      const blob=await optimizedProfileBlob(file),path=`${user.id}/avatar.webp`;
+      const {error:upError}=await supabaseClient.storage.from('support-profile-photos').upload(path,blob,{contentType:'image/webp',cacheControl:'3600',upsert:true});
+      if(upError)throw upError;
+      const {data,error}=await supabaseClient.rpc('ts_update_own_service_avatar',{p_avatar_path:path});
+      if(error)throw error;
+      session=canonicalizeSupportSession({...session,avatarPath:String(data||path)});localStorage.setItem('ts_service_session',JSON.stringify(session));
+      closeModals();await refreshSupportIdentity();toast('Foto de perfil actualizada.');
+    }catch(err){toast(err?.message||'No se pudo actualizar la foto.','error')}
+    finally{if(submit)submit.disabled=false}
+  }
+  async function removeProfilePhoto(){
+    if(!String(session?.avatarPath||'').trim()){closeModals();return}
+    try{
+      const path=String(session.avatarPath).trim();
+      const {error}=await supabaseClient.rpc('ts_clear_own_service_avatar');if(error)throw error;
+      await supabaseClient.storage.from('support-profile-photos').remove([path]).catch(()=>{});
+      session=canonicalizeSupportSession({...session,avatarPath:''});localStorage.setItem('ts_service_session',JSON.stringify(session));
+      closeModals();await refreshSupportIdentity();toast('Foto de perfil eliminada.');
+    }catch(err){toast(err?.message||'No se pudo quitar la foto.','error')}
+  }
+
+
   async function getServiceProfile(email){
     const {data,error}=await supabaseClient
       .from('service_users')
-      .select('email,nombre,rol,activo')
+      .select('email,nombre,rol,activo,avatar_path')
       .eq('email',email.toLowerCase())
       .maybeSingle();
 
@@ -571,7 +664,7 @@ const TSService=(()=>{
 
     try{
       const profile=await getServiceProfile(email);
-      session=canonicalizeSupportSession({name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email});
+      session=canonicalizeSupportSession({name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email,avatarPath:profile.avatar_path||''});
       localStorage.setItem('ts_service_session',JSON.stringify(session));
       sessionStorage.setItem('ts_support_welcome_pending','1');
       closeModals();
@@ -600,7 +693,7 @@ const TSService=(()=>{
     if(user?.email){
       try{
         const profile=await getServiceProfile(user.email);
-        session=canonicalizeSupportSession({name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email});
+        session=canonicalizeSupportSession({name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email,avatarPath:profile.avatar_path||''});
         localStorage.setItem('ts_service_session',JSON.stringify(session));
         sessionStorage.setItem('ts_support_welcome_pending','1');
         history.replaceState(null,'',location.pathname);
@@ -678,6 +771,7 @@ const TSService=(()=>{
     const nav=document.getElementById('roleMenu');
     if(!dash||!nav)return;
     renderRoleMenu();
+    await refreshSupportIdentity();
     const box=document.getElementById('panelContent');if(box)box.innerHTML='<div class="notice">Cargando datos reales de soporte…</div>';
     try{await loadSupportData();await renderPanel('dashboard');startSupportAlertPolling();startSupportPaymentPolling()}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
     dash.classList.remove('hidden');
@@ -694,7 +788,7 @@ const TSService=(()=>{
   function stats(){return{total:orders.length,received:orders.filter(o=>o.status==='Recibido').length,diagnosis:orders.filter(o=>['En diagnóstico','Diagnóstico disponible'].includes(o.status)).length,ready:orders.filter(o=>o.status==='Listo para entregar').length}}
 
   async function loadServiceUsers(){
-    const {data,error}=await supabaseClient.from('service_users').select('email,nombre,rol,activo,created_at').order('created_at',{ascending:false});
+    const {data,error}=await supabaseClient.from('service_users').select('email,nombre,rol,activo,avatar_path,created_at').order('created_at',{ascending:false});
     if(error){return []}
     serviceUsers=data||[];
     return serviceUsers;
@@ -980,22 +1074,36 @@ const TSService=(()=>{
     <div class="cards bitacora-stats"><div class="metric"><span>Entradas</span><b>${bitacora.length}</b></div><div class="metric"><span>Visibles al cliente</span><b>${publicCount}</b></div><div class="metric"><span>Diagnósticos</span><b>${bitacora.filter(x=>x.type==='Diagnóstico').length}</b></div><div class="metric"><span>Reparaciones / pruebas</span><b>${bitacora.filter(x=>/Prueba|Repuesto|Entrega|Seguimiento|Reparación/i.test(x.type)).length}</b></div></div>
     <div class="tablewrap"><h3>Últimas entradas</h3>${recent.length?`<table><tr><th>Fecha</th><th>Orden</th><th>Visibilidad</th><th>Tipo</th><th>Responsable</th><th>Estado</th><th>Detalle</th></tr>${recent.map(b=>`<tr><td>${b.created}</td><td><b>${b.orderCode}</b></td><td><span class="badge ${b.visibility==='client'?'client-visible-badge':''}">${b.visibility==='client'?'Cliente':'Interna'}</span></td><td><span class="badge">${b.type}</span></td><td>${b.author}</td><td>${b.status}</td><td>${b.clientTitle?`<b>${esc(b.clientTitle)}</b><br>`:''}${esc(b.detail)}${b.workPerformed?`<br><small><b>Trabajo:</b> ${esc(b.workPerformed)}</small>`:''}${b.files?`<br><small>Archivos: ${esc(b.files)}</small>`:''}</td></tr>`).join('')}</table>`:'<p>Aún no hay entradas de bitácora.</p>'}</div>`;
   }
+  function partCatalogMeta(p){const d=p?.catalog_details&&typeof p.catalog_details==='object'?p.catalog_details:{};return{group:String(d.inventory_group||p.category||'General'),model:String(d.model||p.compatible_models||''),color:String(d.color||''),quality:String(d.quality||''),repair:String(d.repair||''),series:String(d.series||p.category||'')}}
+  function partAvailabilityState(p){const qty=Math.max(0,Number(p?.quantity||0)),min=Math.max(0,Number(p?.minimum_stock||0));if(qty<=0)return{key:'out',label:'Sin stock'};if(qty<=min)return{key:'low',label:'Stock bajo'};return{key:'ok',label:'Disponible'}}
+  function technicianPartCard(p){const meta=partCatalogMeta(p),state=partAvailabilityState(p),price=Number(p.sale_price||0),img=servicePartImage(p);return `<article class="tech-inventory-card" data-search="${esc([p.sku,p.name,p.category,p.compatible_models,meta.model,meta.color,meta.quality,meta.repair,meta.group,state.label].filter(Boolean).join(' ').toLowerCase())}" data-category="${esc(meta.group)}" data-status="${state.key}">
+    <div class="tech-inventory-card-top">${img?`<span class="tech-inventory-thumb"><img src="${esc(img)}" alt="" loading="lazy"></span>`:`<span class="tech-inventory-thumb empty">${supportIcon('parts')}</span>`}<div class="tech-inventory-title"><small>${esc(p.sku||'SIN SKU')}</small><h4>${esc(p.name||'Repuesto')}</h4><span class="inventory-stock-badge ${state.key}">${state.label}</span></div></div>
+    <div class="tech-inventory-specs"><div><span>Modelo</span><b>${esc(meta.model||'No indicado')}</b></div><div><span>Color / variante</span><b>${esc(meta.color||'No indicado')}</b></div><div><span>Calidad</span><b>${esc(meta.quality||'Estándar')}</b></div><div><span>Ubicación</span><b>${esc(p.location||'Servicio técnico')}</b></div></div>
+    <div class="tech-inventory-bottom"><div><span>Stock físico</span><b>${Math.max(0,Number(p.quantity||0))}</b><small>Mínimo ${Math.max(0,Number(p.minimum_stock||0))}</small></div><div><span>Precio instalado</span><b>${price>0?'$'+price.toFixed(2):'Por definir'}</b><small>${esc(meta.repair||'Precio de venta')}</small></div></div>
+  </article>`}
+  function filterTechnicianInventory(){const root=document.getElementById('techInventoryCatalog');if(!root)return;const q=String(document.getElementById('techInventorySearch')?.value||'').trim().toLowerCase(),cat=String(document.getElementById('techInventoryCategory')?.value||''),status=String(document.getElementById('techInventoryStatus')?.value||'');let visible=0;root.querySelectorAll('.tech-inventory-card').forEach(card=>{const ok=(!q||card.dataset.search.includes(q))&&(!cat||card.dataset.category===cat)&&(!status||card.dataset.status===status);card.hidden=!ok;if(ok)visible++});const count=document.getElementById('techInventoryVisibleCount');if(count)count.textContent=`${visible} referencia${visible===1?'':'s'}`;root.querySelectorAll('.tech-inventory-group').forEach(group=>{group.hidden=![...group.querySelectorAll('.tech-inventory-card')].some(card=>!card.hidden)})}
+  function technicianPartsPanel(){const active=serviceParts.filter(p=>p.active!==false),low=active.filter(p=>partAvailabilityState(p).key==='low'),out=active.filter(p=>partAvailabilityState(p).key==='out'),units=active.reduce((s,p)=>s+Math.max(0,Number(p.quantity||0)),0),groups=new Map();active.forEach(p=>{const key=partCatalogMeta(p).group||'General';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p)});const categories=[...groups.keys()].sort((a,b)=>a.localeCompare(b,'es'));const sections=categories.map(key=>`<section class="tech-inventory-group"><div class="tech-inventory-group-head"><div><span>GRUPO</span><h3>${esc(key)}</h3></div><small>${groups.get(key).length} referencia${groups.get(key).length===1?'':'s'}</small></div><div class="tech-inventory-grid">${groups.get(key).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es')).map(technicianPartCard).join('')}</div></section>`).join('');return `<section class="tech-inventory-readonly"><div class="tech-inventory-hero"><div><span class="eyebrow">INVENTARIO TÉCNICO · SOLO LECTURA</span><h2>Repuestos disponibles</h2><p>Consulta referencias, modelos, variantes, stock físico y precio instalado. Los movimientos y cambios de inventario se gestionan únicamente desde Inventory / Administración.</p></div><span class="readonly-pill">${supportIcon('permissions')} Solo lectura</span></div>
+    <div class="cards tech-inventory-metrics"><div class="metric"><span>Referencias activas</span><b>${active.length}</b></div><div class="metric"><span>Unidades físicas</span><b>${units}</b></div><div class="metric"><span>Stock bajo</span><b>${low.length}</b></div><div class="metric"><span>Sin stock</span><b>${out.length}</b></div></div>
+    <div class="tech-inventory-toolbar"><label class="tech-inventory-search">${supportIcon('parts')}<input id="techInventorySearch" type="search" placeholder="Buscar repuesto, modelo, color o SKU…" oninput="TSService.filterTechnicianInventory()"></label><select id="techInventoryCategory" onchange="TSService.filterTechnicianInventory()"><option value="">Todas las categorías</option>${categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select><select id="techInventoryStatus" onchange="TSService.filterTechnicianInventory()"><option value="">Todo el stock</option><option value="ok">Disponible</option><option value="low">Stock bajo</option><option value="out">Sin stock</option></select><span id="techInventoryVisibleCount" class="tech-inventory-count">${active.length} referencias</span></div>
+    <div id="techInventoryCatalog" class="tech-inventory-catalog">${sections||'<div class="empty-state"><h3>Sin referencias</h3><p>No hay repuestos activos para consultar.</p></div>'}</div></section>`}
   function partsPanel(){
+    if(session?.role==='technician')return technicianPartsPanel();
     const low=serviceParts.filter(p=>p.active!==false&&Number(p.quantity)<=Number(p.minimum_stock));
-    const rows=serviceParts.map(p=>`<tr><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}<br><small>${esc(p.compatible_models||'Compatibilidad no indicada')}</small></td><td>${esc(p.category||'General')}</td><td><b class="${Number(p.quantity)<=Number(p.minimum_stock)?'stock-low':''}">${Number(p.quantity||0)}</b><br><small>Mínimo ${Number(p.minimum_stock||0)}</small></td><td>${p.unit_cost!=null?'$'+Number(p.unit_cost).toFixed(2):'—'} / ${p.sale_price!=null?'$'+Number(p.sale_price).toFixed(2):'—'}</td><td>${esc(p.location||'—')}</td><td><button onclick="TSService.openPartMovement('${esc(p.id)}','in')">Entrada</button> <button class="secondary" onclick="TSService.openPartMovement('${esc(p.id)}','out')">Usar</button> <button class="secondary" onclick="TSService.openPartEditor('${esc(p.id)}')">Editar</button></td></tr>`).join('');
+    const rows=serviceParts.map(p=>`<tr><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}<br><small>${esc(p.compatible_models||'Compatibilidad no indicada')}</small></td><td>${esc(p.category||'General')}<br><small>${p.financial_type==='service_software'?'Servicio software':p.financial_type==='service_hardware'?'Servicio hardware':'Repuesto + instalación'}</small></td><td><b class="${Number(p.quantity)<=Number(p.minimum_stock)?'stock-low':''}">${Number(p.quantity||0)}</b><br><small>Mínimo ${Number(p.minimum_stock||0)}</small></td><td>${p.unit_cost!=null?'$'+Number(p.unit_cost).toFixed(2):'—'} / ${p.sale_price!=null?'$'+Number(p.sale_price).toFixed(2):'—'}</td><td>${esc(p.location||'—')}</td><td><button onclick="TSService.openPartMovement('${esc(p.id)}','in')">Entrada</button> <button class="secondary" onclick="TSService.openPartMovement('${esc(p.id)}','out')">Usar</button> <button class="secondary" onclick="TSService.openPartEditor('${esc(p.id)}')">Editar</button></td></tr>`).join('');
     const moves=partMovements.slice(0,20).map(m=>{const p=serviceParts.find(x=>x.id===m.part_id);return `<tr><td>${dateText(m.created_at)}</td><td>${esc(p?.name||m.part_id)}</td><td>${esc(m.movement_type)}</td><td>${m.quantity>0?'+':''}${m.quantity}</td><td>${m.balance_after}</td><td>${esc(m.order_id||m.note||'—')}</td></tr>`}).join('');
     return `<div class="cards"><div class="metric"><span>Repuestos activos</span><b>${serviceParts.filter(p=>p.active!==false).length}</b></div><div class="metric"><span>Unidades totales</span><b>${serviceParts.reduce((s,p)=>s+Number(p.quantity||0),0)}</b></div><div class="metric"><span>Stock bajo</span><b>${low.length}</b></div></div><div class="tablewrap"><div class="bitacora-header"><div><h3>Stock de repuestos</h3><p>Entradas, consumos por orden y alertas mínimas.</p></div><button onclick="TSService.openPartEditor()">Añadir repuesto</button></div><table><tr><th>SKU</th><th>Repuesto</th><th>Categoría</th><th>Stock</th><th>Costo / venta</th><th>Ubicación</th><th>Acciones</th></tr>${rows||'<tr><td colspan="7">Aún no hay repuestos registrados.</td></tr>'}</table></div><div class="tablewrap"><h3>Últimos movimientos</h3><table><tr><th>Fecha</th><th>Repuesto</th><th>Tipo</th><th>Cantidad</th><th>Saldo</th><th>Orden / nota</th></tr>${moves||'<tr><td colspan="6">Sin movimientos.</td></tr>'}</table></div>`;
   }
   function openPartEditor(id=''){
-    const p=serviceParts.find(x=>String(x.id)===String(id));partId.value=p?.id||'';partSku.value=p?.sku||'';partName.value=p?.name||'';partCategory.value=p?.category||'';partModels.value=p?.compatible_models||'';partMin.value=p?.minimum_stock||0;partCost.value=p?.unit_cost??'';partPrice.value=p?.sale_price??'';partLocation.value=p?.location||'';document.getElementById('partEditorModal').classList.add('open');
+    if(session?.role==='technician'){toast('Tu acceso al inventario es solo de lectura.','info');return}
+    const p=serviceParts.find(x=>String(x.id)===String(id));partId.value=p?.id||'';partSku.value=p?.sku||'';partName.value=p?.name||'';partCategory.value=p?.category||'';if(document.getElementById('partFinancialType'))partFinancialType.value=p?.financial_type||(/^Servicios · Software$/i.test(p?.category||'')?'service_software':/^Servicios/i.test(p?.category||'')?'service_hardware':'part');partModels.value=p?.compatible_models||'';partMin.value=p?.minimum_stock||0;partCost.value=p?.unit_cost??'';partPrice.value=p?.sale_price??'';partLocation.value=p?.location||'';document.getElementById('partEditorModal').classList.add('open');
   }
   async function savePart(e){
-    e.preventDefault();const id=partId.value;const row={sku:partSku.value.trim().toUpperCase(),name:partName.value.trim(),category:partCategory.value.trim()||null,compatible_models:partModels.value.trim()||null,minimum_stock:Number(partMin.value||0),unit_cost:partCost.value===''?null:Number(partCost.value),sale_price:partPrice.value===''?null:Number(partPrice.value),location:partLocation.value.trim()||null,active:true};
+    e.preventDefault();if(session?.role==='technician'){toast('Tu acceso al inventario es solo de lectura.','error');return}const id=partId.value;const row={sku:partSku.value.trim().toUpperCase(),name:partName.value.trim(),category:partCategory.value.trim()||null,financial_type:document.getElementById('partFinancialType')?.value||'part',compatible_models:partModels.value.trim()||null,minimum_stock:Number(partMin.value||0),unit_cost:partCost.value===''?null:Number(partCost.value),sale_price:partPrice.value===''?null:Number(partPrice.value),location:partLocation.value.trim()||null,active:true};
     const q=id?supabaseClient.from('service_parts').update(row).eq('id',id):supabaseClient.from('service_parts').insert({...row,quantity:0});const {error}=await q;if(error)return toast('No se pudo guardar: '+error.message,'error');await loadSupportData();closeModals();await renderPanel('parts');toast(id?'Repuesto actualizado.':'Repuesto creado; registra una entrada de stock.');
   }
-  function openPartMovement(id,direction){const p=serviceParts.find(x=>String(x.id)===String(id));if(!p)return;movementPartId.value=p.id;movementDirection.value=direction;movementTitle.textContent=`${direction==='in'?'Entrada':'Uso'} · ${p.name}`;movementQty.value=1;movementOrder.value='';movementNote.value='';document.getElementById('partMovementModal').classList.add('open')}
+  function openPartMovement(id,direction){if(session?.role==='technician'){toast('Los movimientos de inventario se gestionan desde Inventory / Administración.','info');return}const p=serviceParts.find(x=>String(x.id)===String(id));if(!p)return;movementPartId.value=p.id;movementDirection.value=direction;movementTitle.textContent=`${direction==='in'?'Entrada':'Uso'} · ${p.name}`;movementQty.value=1;movementOrder.value='';movementNote.value='';document.getElementById('partMovementModal').classList.add('open')}
   async function savePartMovement(e){
-    e.preventDefault();const direction=movementDirection.value;const qty=Math.abs(Number(movementQty.value||0))*(direction==='out'?-1:1);if(!qty)return toast('Indica una cantidad válida.','error');const orderCode=movementOrder.value.trim().toUpperCase();const {data,error}=await supabaseClient.rpc('adjust_service_part_stock',{p_part_id:movementPartId.value,p_quantity:qty,p_type:direction==='out'?'consumo_orden':'entrada',p_order_id:orderCode||null,p_note:movementNote.value.trim()||null});if(error)return toast(error.message,'error');if(direction==='out'&&orderCode){const order=orders.find(o=>o.code.toUpperCase()===orderCode);if(order)await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:`Repuesto utilizado: ${serviceParts.find(p=>p.id===movementPartId.value)?.name||'Repuesto'} · Cantidad ${Math.abs(qty)}`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Repuesto',status_after:order.status})}await loadSupportData();closeModals();await renderPanel('parts');toast(`Movimiento registrado. Stock actual: ${data?.quantity??data?.[0]?.quantity??'actualizado'}.`);
+    e.preventDefault();if(session?.role==='technician'){toast('Tu acceso al inventario es solo de lectura.','error');return}const direction=movementDirection.value;const qty=Math.abs(Number(movementQty.value||0))*(direction==='out'?-1:1);if(!qty)return toast('Indica una cantidad válida.','error');const orderCode=movementOrder.value.trim().toUpperCase();const {data,error}=await supabaseClient.rpc('adjust_service_part_stock',{p_part_id:movementPartId.value,p_quantity:qty,p_type:direction==='out'?'consumo_orden':'entrada',p_order_id:orderCode||null,p_note:movementNote.value.trim()||null});if(error)return toast(error.message,'error');if(direction==='out'&&orderCode){const order=orders.find(o=>o.code.toUpperCase()===orderCode);if(order)await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:`Repuesto utilizado: ${serviceParts.find(p=>p.id===movementPartId.value)?.name||'Repuesto'} · Cantidad ${Math.abs(qty)}`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Repuesto',status_after:order.status})}await loadSupportData();closeModals();await renderPanel('parts');toast(`Movimiento registrado. Stock actual: ${data?.quantity??data?.[0]?.quantity??'actualizado'}.`);
   }
 
 
@@ -2176,7 +2284,7 @@ const TSService=(()=>{
     if(sbSession?.user?.email){
       try{
         const profile=await getServiceProfile(sbSession.user.email);
-        session=canonicalizeSupportSession({name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email});
+        session=canonicalizeSupportSession({name:profile.nombre,role:profile.rol,email:profile.email,user:profile.email,avatarPath:profile.avatar_path||''});
         localStorage.setItem('ts_service_session',JSON.stringify(session));
         if(isPanelPage()) await renderApp(); else goToPanel();
       }catch(err){
@@ -2209,5 +2317,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,uploadOrderFile,toggleOrderFileVisibility,openOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,uploadOrderFile,toggleOrderFileVisibility,openOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

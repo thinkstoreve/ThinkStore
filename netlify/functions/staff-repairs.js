@@ -97,12 +97,12 @@ async function searchChargeCatalog(conf,q){
   const term=clean(q,80).toLowerCase();if(term.length<2)return[];
   const out=[];
   try{
-    const rows=await rest(conf,'service_parts',{select:'id,sku,name,category,sale_price,quantity,catalog_details',active:'eq.true',limit:5000});
+    const rows=await rest(conf,'service_parts',{select:'id,sku,name,category,sale_price,unit_cost,quantity,financial_type,catalog_details',active:'eq.true',limit:5000});
     for(const x of rows||[]){
       const meta=x.catalog_details||{},hay=[x.name,x.sku,x.category,meta.description,meta.repair].join(' ').toLowerCase();
       const isService=meta.item_type==='service'||meta.stock_managed===false||/servicio|mano de obra|instalaci[oó]n|software|mantenimiento|diagn[oó]stico|microsoldadura/.test([x.category,x.name].join(' ').toLowerCase());
       if(!isService||!hay.includes(term))continue;
-      const price=Number(x.sale_price||0);out.push({source:'support_service',source_id:String(x.id),item_type:/mano de obra|labor/.test(String(x.name||'').toLowerCase())?'labor':'service',name:x.name||'Servicio',sku:x.sku||'',price_usd:price,available:null,image_url:meta.image_url||'',hint:x.category||'Servicio técnico',can_add:price>0});
+      const price=Number(x.sale_price||0);out.push({source:'support_service',source_id:String(x.id),item_type:/mano de obra|labor/.test(String(x.name||'').toLowerCase())?'labor':'service',name:x.name||'Servicio',sku:x.sku||'',price_usd:price,available:null,image_url:meta.image_url||'',hint:x.category||'Servicio técnico',financial_type:x.financial_type||(/software|office|adobe|ios|macos/i.test([x.category,x.name].join(' '))?'service_software':'service_hardware'),unit_cost_usd:Number(x.unit_cost||0),can_add:price>0});
       if(out.length>=30)break;
     }
   }catch(e){console.warn('No se pudo buscar servicios de Soporte',e.message)}
@@ -117,6 +117,69 @@ async function searchChargeCatalog(conf,q){
   return out.slice(0,60);
 }
 async function mainRpc(name,body){const mc=mainConf();if(!mc.url||!mc.key)throw Error('El inventario principal no está configurado en Netlify.');return rest(mc,`rpc/${name}`,{}, {method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(body)})}
+
+function pctOrNull(v){if(v===null||v===undefined||v==='')return null;const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.min(100,n)):null}
+function finType(v,name='',category=''){
+  const t=String(v||'').toLowerCase();if(['part','service_hardware','service_software','product'].includes(t))return t;
+  const hay=`${name} ${category}`.toLowerCase();if(/software|office|adobe|ios|macos/.test(hay))return 'service_software';if(/servicio|mano de obra|mantenimiento|diagn|microsoldadura|hardware/.test(hay))return 'service_hardware';return 'part';
+}
+async function storeVariantCost(mc,variantId,sku=''){
+  try{
+    const vr=await rest(mc,'inventory_variants',{select:'*',id:`eq.${variantId}`,limit:1});const v=vr?.[0]||{};
+    for(const k of ['unit_cost_usd','purchase_price','purchase_price_usd','cost_usd','cost']){const n=Number(v[k]);if(Number.isFinite(n)&&n>0)return n}
+    let bridge=[];try{bridge=await rest(mc,'thinkstore_inventory_bridge',{select:'inventory_product_id,variant_id,sku',or:`(variant_id.eq.${variantId}${sku?`,sku.eq.${sku}`:''})`,limit:2})}catch(_){}
+    const pid=bridge?.[0]?.inventory_product_id;if(pid){const pr=await rest(mc,'thinkstore_inventory_products',{select:'id,data',id:`eq.${pid}`,workspace_key:'eq.main',limit:1});const d=pr?.[0]?.data||{};for(const k of ['purchase_price','purchase_price_usd','unit_cost','cost_usd','cost']){const n=Number(d[k]);if(Number.isFinite(n)&&n>0)return n}}
+  }catch(e){console.warn('Costo producto tienda no resuelto',e.message)}
+  return 0;
+}
+async function upsertFinanceCommission(mc,type,amount,order,actor,counterparty,metadata){
+  const rows=await rest(mc,'enterprise_finance_entries',{select:'id,status',source_system:'eq.support_auto',source_code:`eq.${order.code}`,entry_type:`eq.${type}`,status:'neq.void',limit:1});
+  const row={occurred_at:order.paid_at||new Date().toISOString(),entry_type:type,category:type==='seller_commission'?'Ventas':'Servicio Técnico',description:type==='seller_commission'?`Comisión vendedor · ${order.code}`:`Comisión técnica automática · ${order.code}`,amount_usd:round(amount),currency:'USD',counterparty:counterparty||null,funded_by:'company',source_system:'support_auto',source_id:String(order.id||''),source_code:order.code,status:'pending',metadata,created_by_email:actor.email||null,created_by_name:actor.profile?.full_name||actor.email||'Staff'};
+  if(rows?.[0])return rest(mc,'enterprise_finance_entries',{id:`eq.${rows[0].id}`},{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({...row,updated_at:new Date().toISOString()})});
+  return rest(mc,'enterprise_finance_entries',{}, {method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
+}
+async function syncEnterpriseServiceSettlement(order,parts,extras,billing,actor){
+  const mc=mainConf();if(!mc.url||!mc.key)throw Error('Enterprise no tiene conexión al Supabase principal.');
+  const techEmail=clean(order.assigned_technician_email,320).toLowerCase();
+  let techProfile=null,sellerProfile=null,settings={};
+  try{if(techEmail){const r=await rest(mc,'profiles',{select:'*',email:`ilike.${techEmail}`,limit:1});techProfile=r?.[0]||null}}catch(e){console.warn('Perfil técnico no disponible',e.message)}
+  try{const r=await rest(mc,'enterprise_finance_settings',{select:'*',id:'eq.default',limit:1});settings=r?.[0]||{}}catch(e){console.warn('Configuración financiera no disponible',e.message)}
+  const sellerEmail=actor.role==='vendedor'?clean(actor.email,320).toLowerCase():'';
+  try{if(sellerEmail){const r=await rest(mc,'profiles',{select:'*',email:`ilike.${sellerEmail}`,limit:1});sellerProfile=r?.[0]||actor.profile||null}}catch(_){sellerProfile=actor.profile||null}
+
+  const subtotal=Math.max(0,Number(billing?.subtotal_usd||order.subtotal_usd||order.quote_amount||0));
+  const finalTotal=Math.max(0,Number(billing?.invoice_total||order.quote_amount||0));
+  const factor=subtotal>0?Math.max(0,Math.min(1,finalTotal/subtotal)):1;
+  let partGross=0,partCost=0;
+  for(const r of parts||[]){const q=Math.max(0,Number(r.quantity_consumed||r.quantity_reserved||r.quantity||0)),sale=Math.max(0,Number(r.sale_price_snapshot||r.service_parts?.sale_price||0)),cost=Math.max(0,Number(r.unit_cost_snapshot||r.service_parts?.unit_cost||0));partGross+=q*sale;partCost+=q*cost}
+  let hardwareGross=0,softwareGross=0,hardwareCost=0,softwareCost=0,productGross=0,productCost=0;
+  for(const x of (extras||[]).filter(x=>x.status!=='removed')){
+    const q=Math.max(1,Number(x.quantity||1)),gross=q*Math.max(0,Number(x.unit_price_usd||0)),type=finType(x.financial_type,x.name,x.metadata?.category),cost=q*Math.max(0,Number(x.unit_cost_usd||0));
+    if(type==='product'||x.source==='main_inventory') {productGross+=gross;productCost+=await storeVariantCost(mc,String(x.source_id||''),x.sku||'')*q}
+    else if(type==='service_software'){softwareGross+=gross;softwareCost+=cost}
+    else {hardwareGross+=gross;hardwareCost+=cost}
+  }
+  const represented=partGross+hardwareGross+softwareGross+productGross;
+  const baseOther=Math.max(0,subtotal-represented);hardwareGross+=baseOther;
+  const partRevenue=round(partGross*factor),hardwareRevenue=round(hardwareGross*factor),softwareRevenue=round(softwareGross*factor),productRevenue=round(productGross*factor);
+  const partMargin=Math.max(0,round(partRevenue-partCost));
+  const hardwareBase=Math.max(0,round(hardwareRevenue-hardwareCost)),softwareBase=Math.max(0,round(softwareRevenue-softwareCost));
+  const productMargin=Math.max(0,round(productRevenue-productCost));
+  const partRate=pctOrNull(techProfile?.technician_parts_commission_pct)??pctOrNull(settings.technician_parts_default_pct);
+  const serviceBaseRate=pctOrNull(techProfile?.technician_service_commission_pct)??pctOrNull(settings.technician_service_default_pct);
+  const hardwareRate=pctOrNull(techProfile?.technician_hardware_commission_pct)??pctOrNull(settings.technician_hardware_default_pct)??serviceBaseRate;
+  const softwareRate=pctOrNull(techProfile?.technician_software_commission_pct)??pctOrNull(settings.technician_software_default_pct)??serviceBaseRate;
+  const sellerRate=pctOrNull(sellerProfile?.seller_commission_pct)??pctOrNull(settings.seller_default_pct);
+  const partCommission=partRate===null?0:round(partMargin*partRate/100),hardwareCommission=hardwareRate===null?0:round(hardwareBase*hardwareRate/100),softwareCommission=softwareRate===null?0:round(softwareBase*softwareRate/100);
+  const serviceCommission=round(hardwareCommission+softwareCommission),techCommission=round(partCommission+serviceCommission),sellerCommission=sellerRate===null?0:round(productMargin*sellerRate/100);
+  const inventoryRecovery=round(partCost+productCost),directServiceCost=round(hardwareCost+softwareCost),companyProfit=Math.max(0,round(finalTotal-inventoryRecovery-directServiceCost-techCommission-sellerCommission));
+  const totalBase=round(partMargin+hardwareBase+softwareBase),effectiveRate=totalBase>0?round(techCommission/totalBase*100):null;
+  const settlement={order_code:order.code,service_order_id:String(order.id||''),technician_email:techEmail||null,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail||null,salesperson_email:sellerEmail||null,subtotal_usd:round(subtotal),discount_usd:round(subtotal-finalTotal),collected_usd:round(finalTotal),parts_revenue_usd:partRevenue,parts_cost_usd:round(partCost),parts_margin_usd:partMargin,parts_rate_pct:partRate,parts_commission_usd:partCommission,hardware_service_revenue_usd:hardwareRevenue,software_service_revenue_usd:softwareRevenue,service_direct_cost_usd:directServiceCost,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,service_commission_usd:serviceCommission,store_product_revenue_usd:productRevenue,store_product_cost_usd:round(productCost),seller_rate_pct:sellerRate,seller_commission_usd:sellerCommission,inventory_recovery_usd:inventoryRecovery,total_commission_usd:round(techCommission+sellerCommission),company_profit_usd:companyProfit,metadata:{discount_factor:factor,base_other_service_usd:round(baseOther),part_commission_base:partMargin,hardware_commission_base:hardwareBase,software_commission_base:softwareBase,product_margin_usd:productMargin,parts_rate_defined:partRate!==null,service_rate_defined:hardwareRate!==null||softwareRate!==null},settled_at:order.paid_at||new Date().toISOString(),updated_at:new Date().toISOString()};
+  const saved=await rest(mc,'enterprise_service_settlements',{on_conflict:'order_code'},{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(settlement)});
+  if(techEmail&&techCommission>0){await upsertFinanceCommission(mc,'technician_commission',techCommission,order,actor,techProfile?.full_name||techEmail,{technician_email:techEmail,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail,commission_base:totalBase,rate_pct:effectiveRate,parts_rate_pct:partRate,service_rate_pct:serviceBaseRate,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,parts_commission:partCommission,service_commission:serviceCommission,parts_cost:round(partCost),direct_cost:directServiceCost,gross_service_amount:round(partRevenue+hardwareRevenue+softwareRevenue),settlement_model:'v15.21'})}
+  if(sellerEmail&&sellerCommission>0){await upsertFinanceCommission(mc,'seller_commission',sellerCommission,order,actor,sellerProfile?.full_name||sellerEmail,{salesperson_email:sellerEmail,commission_base:productMargin,rate_pct:sellerRate,store_product_revenue:productRevenue,store_product_cost:round(productCost),settlement_model:'v15.21'})}
+  return saved?.[0]||settlement;
+}
 
 async function orderNotes(conf,id){
   try{return await rest(conf,'service_order_notes',{select:'id,note,note_type,work_performed,diagnosis,parts_used,client_notes,visibility,created_at',order_id:`eq.${id}`,order:'created_at.desc',limit:100})||[]}catch(e){console.warn('No se pudo leer detalle técnico de la orden',e.message);return []}
@@ -201,16 +264,16 @@ exports.handler=async event=>{
       if(!['support_service','main_inventory'].includes(source)||!sourceId)return result(400,{ok:false,error:'Producto o servicio inválido.'});
       let item=null,reserved=false;
       if(source==='support_service'){
-        const rows=await rest(conf,'service_parts',{select:'id,sku,name,category,sale_price,catalog_details',id:`eq.${sourceId}`,active:'eq.true',limit:1});const x=rows?.[0];
+        const rows=await rest(conf,'service_parts',{select:'id,sku,name,category,sale_price,unit_cost,financial_type,catalog_details',id:`eq.${sourceId}`,active:'eq.true',limit:1});const x=rows?.[0];
         if(!x)return result(404,{ok:false,error:'Servicio no encontrado en Inventory.'});const price=Number(x.sale_price||0);if(!(price>0))return result(409,{ok:false,error:'Este servicio no tiene precio de venta configurado en Inventory.'});
-        const meta=x.catalog_details||{};item={source,source_id:String(x.id),item_type:/mano de obra|labor/i.test(x.name||'')?'labor':'service',sku:x.sku||'',name:x.name||'Servicio',quantity:qty,unit_price_usd:price,image_url:meta.image_url||'',stock_managed:false,metadata:{category:x.category||'',description:meta.description||''}};
+        const meta=x.catalog_details||{};item={source,source_id:String(x.id),item_type:/mano de obra|labor/i.test(x.name||'')?'labor':'service',financial_type:x.financial_type||(/software|office|adobe|ios|macos/i.test([x.category,x.name].join(' '))?'service_software':'service_hardware'),sku:x.sku||'',name:x.name||'Servicio',quantity:qty,unit_price_usd:price,unit_cost_usd:Number(x.unit_cost||0),image_url:meta.image_url||'',stock_managed:false,metadata:{category:x.category||'',description:meta.description||''}};
       }else{
         const mc=mainConf();if(!mc.url||!mc.key)return result(503,{ok:false,error:'El inventario principal no está configurado.'});
         const rows=await rest(mc,'inventory_variants',{select:'id,sku,product_name,model,color,capacity,condition,stock_on_hand,stock_reserved,price_usd,active',id:`eq.${sourceId}`,active:'eq.true',limit:1});const v=rows?.[0];
         if(!v)return result(404,{ok:false,error:'Producto no encontrado en Inventory.'});const price=Number(v.price_usd||0),available=Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0));if(!(price>0))return result(409,{ok:false,error:'Este producto no tiene precio configurado.'});
         const existing=(await orderExtras(conf,current.code)).find(x=>x.status==='active'&&x.source==='main_inventory'&&String(x.source_id)===String(sourceId));const targetQty=(existing?Number(existing.quantity||0):0)+qty;
         try{await mainRpc('ts_service_reserve_store_variant',{p_order_code:current.code,p_variant_id:String(v.id),p_quantity:targetQty,p_actor_email:actor.email||''});reserved=true}catch(e){if(/function|schema cache|does not exist/i.test(String(e.message||'')))return result(409,{ok:false,error:'Falta ejecutar MIGRACION-MAIN-V15.17-RESERVA-PRODUCTOS-SERVICIO.sql en el Supabase principal.'});throw e}
-        item={source,source_id:String(v.id),item_type:'product',sku:v.sku||'',name:v.product_name||'Producto',quantity:targetQty,unit_price_usd:price,image_url:'',stock_managed:true,metadata:{model:v.model||'',color:v.color||'',capacity:v.capacity||'',condition:v.condition||'',available_before:available}};
+        item={source,source_id:String(v.id),item_type:'product',financial_type:'product',sku:v.sku||'',name:v.product_name||'Producto',quantity:targetQty,unit_price_usd:price,unit_cost_usd:0,image_url:'',stock_managed:true,metadata:{model:v.model||'',color:v.color||'',capacity:v.capacity||'',condition:v.condition||'',available_before:available}};
       }
       try{
         const allExtras=await orderExtras(conf,current.code);const existing=allExtras.find(x=>x.status==='active'&&x.source===source&&String(x.source_id)===String(sourceId));
@@ -339,6 +402,8 @@ exports.handler=async event=>{
     let parts=await orderParts(conf,updated.code);
     if(!parts.length)parts=parsePartsFallback(notes);
     const extras=await orderExtras(conf,updated.code);
-    return result(200,{ok:true,payment:{...p,status:atomicState.fully_paid?'Pagado':(atomicState.payment_status||p.status),pending:Number(atomicState.pending??p.pending)},order:updated,billing:billingSummary(updated,parts,extras),parts,extras,notes,note_saved:audited,fully_paid:Boolean(atomicState.fully_paid),inventory:atomicState.inventory||null,store_inventory:storeInventory,delivery_note_ready:Boolean(atomicState.delivery_note_ready),email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail});
+    let financeSettlement=null,financeWarning='';
+    if(atomicState.fully_paid){try{financeSettlement=await syncEnterpriseServiceSettlement(updated,parts,extras,billingSummary(updated,parts,extras),actor)}catch(e){financeWarning=e.message||'No se pudo sincronizar Enterprise';console.warn('Liquidación Enterprise',financeWarning)}}
+    return result(200,{ok:true,payment:{...p,status:atomicState.fully_paid?'Pagado':(atomicState.payment_status||p.status),pending:Number(atomicState.pending??p.pending)},order:updated,billing:billingSummary(updated,parts,extras),parts,extras,notes,note_saved:audited,fully_paid:Boolean(atomicState.fully_paid),inventory:atomicState.inventory||null,store_inventory:storeInventory,delivery_note_ready:Boolean(atomicState.delivery_note_ready),email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail,finance_settlement:financeSettlement,finance_warning:financeWarning});
   }catch(e){console.error('[staff-repairs]',e?.message);const code=e?.status>=400&&e.status<500?e.status:500;return result(code,{ok:false,error:clean(e?.message||'No se pudo consultar Soporte')})}
 };

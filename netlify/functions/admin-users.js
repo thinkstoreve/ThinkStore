@@ -170,6 +170,9 @@ exports.handler=async(event)=>{
     // instalaciones históricas con rol/activo. Select=* nos permite detectar en
     // tiempo real qué columnas existen y actualizar únicamente esas columnas.
     const patch=profileUpdatePatch(target,{dbRole,active,custom,overrides});
+    const pct=v=>v===null||v===undefined||v===''?null:Math.max(0,Math.min(100,Number(v)||0));
+    if(nextUi==='tecnico'){patch.technician_parts_commission_pct=pct(body.technician_parts_commission_pct);patch.technician_service_commission_pct=pct(body.technician_service_commission_pct);patch.technician_hardware_commission_pct=pct(body.technician_hardware_commission_pct);patch.technician_software_commission_pct=pct(body.technician_software_commission_pct)}
+    if(nextUi==='vendedor')patch.seller_commission_pct=pct(body.seller_commission_pct);
     const rr=await fetch(`${url}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...svc(service),Prefer:'return=representation'},body:JSON.stringify(patch)});
     const rows=await rr.json().catch(()=>[]);
     if(!rr.ok){

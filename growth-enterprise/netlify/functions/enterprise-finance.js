@@ -79,7 +79,7 @@ function movementSigned(row,valueFn=m=>m.amount){return (clean(row?.direction)==
 
 async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const errors=[];
-  let orders=[],orderItems=[],receipts=[],entries=[],settings=[],audits=[],reconciliations=[],orderPayments=[],staffCashSessions=[],staffCashMovements=[],pettyAccounts=[],pettyMovements=[],pettyAudits=[];
+  let orders=[],orderItems=[],receipts=[],entries=[],settings=[],settlements=[],audits=[],reconciliations=[],orderPayments=[],staffCashSessions=[],staffCashMovements=[],pettyAccounts=[],pettyMovements=[],pettyAudits=[];
   let invProductsRaw=[],invSuppliersRaw=[],invPurchasesRaw=[],invStockRaw=[],invUnitsRaw=[],invBridge=[];
   let supportOrders=[],supportEvents=[],supportParts=[],supportPartMoves=[];
   try{orders=await req(mainUrl,mainKey,'pedidos?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('ventas: '+e.message)}
@@ -87,6 +87,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   try{receipts=await optionalReq(mainUrl,mainKey,'comprobantes?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('comprobantes: '+e.message)}
   try{entries=await optionalReq(mainUrl,mainKey,'enterprise_finance_entries?select=*&order=occurred_at.desc&limit=5000')}catch(e){errors.push('finanzas: '+e.message)}
   try{settings=await optionalReq(mainUrl,mainKey,'enterprise_finance_settings?select=*&id=eq.default&limit=1')}catch(e){errors.push('configuración financiera: '+e.message)}
+  try{settlements=await optionalReq(mainUrl,mainKey,'enterprise_service_settlements?select=*&order=settled_at.desc&limit=3000')}catch(e){errors.push('liquidaciones de servicio: '+e.message)}
   try{audits=await optionalReq(mainUrl,mainKey,'enterprise_weekly_audits?select=*&order=week_start.desc&limit=20')}catch(e){errors.push('auditorías: '+e.message)}
   try{reconciliations=await optionalReq(mainUrl,mainKey,'enterprise_reconciliations?select=*&order=period_start.desc&limit=30')}catch(e){errors.push('conciliaciones: '+e.message)}
   try{orderPayments=await optionalReq(mainUrl,mainKey,'ts_order_payments?select=*&status=eq.confirmed&order=confirmed_at.desc&limit=10000')}catch(e){errors.push('pagos mixtos: '+e.message)}
@@ -117,7 +118,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const bridgeByVariant=new Map(),bridgeBySku=new Map();
   invBridge.forEach(b=>{if(b.variant_id)bridgeByVariant.set(String(b.variant_id),b);if(b.sku)bridgeBySku.set(norm(b.sku),b)});
 
-  const cfg=settings?.[0]||{company_share_pct:50,freddy_share_pct:25,nelson_share_pct:25,technician_default_pct:50};
+  const cfg=settings?.[0]||{company_share_pct:50,freddy_share_pct:25,nelson_share_pct:25,technician_default_pct:50,technician_parts_default_pct:null,technician_service_default_pct:null,seller_default_pct:null};
   const weekEntries=entries.filter(e=>entryActive(e)&&inRange(entryDate(e),range));
   const activeEntries=entries.filter(entryActive);
   const paidSales=orders.filter(o=>paymentApproved(o)&&inRange(orderPaidDate(o),range));
@@ -203,14 +204,19 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const operatingExpenses=money(sum(weekEntries.filter(e=>isOperatingExpenseType(e.entry_type)),e=>e.amount_usd)+staffOperatingExpenses+pettyOperatingNet);
   const manualPurchaseCash=sum(weekEntries.filter(e=>e.entry_type==='purchase'),e=>e.amount_usd);
   const techAccrued=sum(weekEntries.filter(e=>e.entry_type==='technician_commission'),e=>e.amount_usd);
+  const sellerAccrued=sum(weekEntries.filter(e=>e.entry_type==='seller_commission'),e=>e.amount_usd);
   const commissionEntries=weekEntries.filter(e=>e.entry_type==='technician_commission');
   const supportDirectCosts=sum(commissionEntries,e=>e.metadata?.direct_cost);
   const supportPartsFallback=sum(commissionEntries.filter(e=>{
     const sid=String(e.source_id||'');const code=String(e.source_code||'');return !(realPartsByOrder.get(sid)||realPartsByOrder.get(code));
   }),e=>e.metadata?.parts_cost);
   const supportPartsCost=money(supportPartsActual+supportPartsFallback);
+  const weekSettlements=(settlements||[]).filter(x=>inRange(x.settled_at||x.updated_at,range));
+  const supportStoreProductCost=sum(weekSettlements,x=>x.store_product_cost_usd);
+  const inventoryRecoveryWeek=sum(weekSettlements,x=>x.inventory_recovery_usd);
+  const serviceCompanyProfitWeek=sum(weekSettlements,x=>x.company_profit_usd);
 
-  const distributableRaw=money(shopCollected-storeCogs+supportCollected-supportPartsCost-supportDirectCosts+otherIncome-operatingExpenses-techAccrued);
+  const distributableRaw=money(shopCollected-storeCogs+supportCollected-supportPartsCost-supportStoreProductCost-supportDirectCosts+otherIncome-operatingExpenses-techAccrued-sellerAccrued);
   const distributable=Math.max(0,distributableRaw);
   const grossCollected=money(shopCollected+supportCollected+otherIncome);
 
@@ -357,16 +363,16 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const staffClosedWeek=staffCashSessions.filter(x=>x.status==='closed'&&inRange(x.closed_at||x.updated_at||x.opened_at,range));
 
   const enrichedSupport=supportOrders.slice(0,250).map(o=>({id:o.id,code:o.code,client_name:o.client_name,device_model:o.device_model,service_type:o.service_type,quote_amount:num(o.quote_amount),amount_paid:num(o.amount_paid),payment_method:o.payment_method,assigned_technician_email:o.assigned_technician_email,status:o.status,created_at:o.created_at,updated_at:o.updated_at,parts_cost:money(realPartsByOrder.get(String(o.id))||realPartsByOrder.get(String(o.code))||0)}));
-  const pnlCosts=money(storeCogs+supportPartsCost+supportDirectCosts+operatingExpenses+techAccrued);
+  const pnlCosts=money(storeCogs+supportPartsCost+supportStoreProductCost+supportDirectCosts+operatingExpenses+techAccrued+sellerAccrued);
   const costCoverage=paidItems.length?money(costedLines/paidItems.length*100):100;
 
   return{
     ok:true,generated_at:new Date().toISOString(),timezone:'America/Caracas',period:{start:range.start,end:range.end},
-    settings:{company_pct:num(cfg.company_share_pct)||50,freddy_pct:num(cfg.freddy_share_pct)||25,nelson_pct:num(cfg.nelson_share_pct)||25,technician_pct:num(cfg.technician_default_pct)||50},
+    settings:{company_pct:num(cfg.company_share_pct)||50,freddy_pct:num(cfg.freddy_share_pct)||25,nelson_pct:num(cfg.nelson_share_pct)||25,technician_pct:num(cfg.technician_default_pct)||50,technician_parts_pct:cfg.technician_parts_default_pct??null,technician_service_pct:cfg.technician_service_default_pct??null,technician_hardware_pct:cfg.technician_hardware_default_pct??null,technician_software_pct:cfg.technician_software_default_pct??null,seller_pct:cfg.seller_default_pct??null},
     collections:{shop:shopCollected,support:supportCollected,other:otherIncome,gross:grossCollected},
     outflows:{
-      operating_expenses:operatingExpenses,store_cogs:storeCogs,support_parts:supportPartsCost,support_direct:supportDirectCosts,
-      technician_commissions:techAccrued,expenses_and_purchases:money(operatingExpenses+storeCogs+supportPartsCost+supportDirectCosts),
+      operating_expenses:operatingExpenses,store_cogs:storeCogs,support_parts:supportPartsCost,support_store_products:supportStoreProductCost,support_direct:supportDirectCosts,
+      technician_commissions:techAccrued,seller_commissions:sellerAccrued,expenses_and_purchases:money(operatingExpenses+storeCogs+supportPartsCost+supportStoreProductCost+supportDirectCosts),
       inventory_purchase_cash:purchaseCashWeek,inventory_purchase_value:purchaseValueWeek,manual_purchase_cash:manualPurchaseCash,total:pnlCosts
     },
     result:{net:distributableRaw,distributable,company:shareCompany,freddy:shareFreddy,nelson:shareNelson,loss_carry:distributableRaw<0?Math.abs(distributableRaw):0},
@@ -378,6 +384,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
       purchase_value_week:purchaseValueWeek,purchase_cash_week:purchaseCashWeek,supplier_payable:supplierPayable,products_count:invProducts.length,supplier_count:invSuppliers.length,
       cost_coverage_pct:costCoverage,costed_lines:costedLines,missing_cost_lines:missingCostLines,purchases:activePurchases.slice(0,100),payables:payablePurchases.slice(0,100),suppliers:invSuppliers.slice(0,100)
     },
+    treasury_allocations:{inventory_recovery_week:inventoryRecoveryWeek,service_company_profit_week:serviceCompanyProfitWeek,technician_commissions_week:techAccrued,seller_commissions_week:sellerAccrued,settlements_week:weekSettlements.length,settlements:weekSettlements.slice(0,100)},
     payment_methods:paymentMethods,purchase_payment_methods:purchasePaymentMethods,
     mixed_payments:{connected:Array.isArray(orderPayments),lines_week:weekOrderPayments.slice(0,500),count_week:weekOrderPayments.length},
     staff_cash:{
@@ -414,7 +421,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   };
 }
 async function insertEntry(mainUrl,mainKey,auth,body){
-  const allowed=['expense','purchase','refund','fee','warranty_cost','other_income','receivable','receivable_collection','partner_advance','partner_repayment','technician_commission','technician_payment','cash_adjustment'];
+  const allowed=['expense','purchase','refund','fee','warranty_cost','other_income','receivable','receivable_collection','partner_advance','partner_repayment','technician_commission','technician_payment','seller_commission','seller_payment','cash_adjustment'];
   const type=clean(body.entry_type);
   if(!allowed.includes(type))throw Object.assign(new Error('Tipo de movimiento no permitido'),{status:400});
   let amount=money(body.amount_usd);if(amount<0)amount=Math.abs(amount);if(!(amount>0))throw Object.assign(new Error('Indica un monto mayor que cero'),{status:400});
@@ -488,11 +495,19 @@ exports.handler=async event=>{
       return out(200,{ok:true,account:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
 
+    if(action==='save_commission_settings'){
+      const pct=v=>v===null||v===undefined||v===''?null:Math.max(0,Math.min(100,num(v)));
+      const patch={technician_parts_default_pct:pct(body.technician_parts_default_pct),technician_service_default_pct:pct(body.technician_service_default_pct),technician_hardware_default_pct:pct(body.technician_hardware_default_pct),technician_software_default_pct:pct(body.technician_software_default_pct),seller_default_pct:pct(body.seller_default_pct),updated_at:new Date().toISOString()};
+      const data=await req(mainUrl,mainKey,'enterprise_finance_settings?id=eq.default',{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(patch)});
+      return out(200,{ok:true,settings:data?.[0]||patch,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+    }
     if(action==='create_entry'){
       const entry=await insertEntry(mainUrl,mainKey,auth,body);
       return out(200,{ok:true,entry,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
     if(action==='create_technician_commission'){
+      const sourceCode=clean(body.source_code);
+      if(sourceCode){const auto=await optionalReq(mainUrl,mainKey,`enterprise_finance_entries?select=id&source_system=eq.support_auto&source_code=eq.${encodeURIComponent(sourceCode)}&entry_type=eq.technician_commission&status=neq.void&limit=1`);if(auto?.[0])return out(409,{ok:false,error:'Esta reparación ya generó su comisión automáticamente al cobrar. Usa la liquidación automática para evitar duplicados.'})}
       const gross=money(body.gross_service_amount),parts=money(body.parts_cost),direct=money(body.direct_cost),rate=Math.min(100,Math.max(0,num(body.rate_pct||50)));
       const base=Math.max(0,money(gross-parts-direct)),commission=money(base*rate/100);
       if(!(gross>0))return out(400,{ok:false,error:'Indica el valor cobrado del servicio'});
