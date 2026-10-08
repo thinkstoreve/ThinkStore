@@ -377,6 +377,33 @@ body.client-mode .client-section-head{margin-top:0}.client-mode .client-order-ca
 @media(max-width:560px){.ts-client-kpi-grid{grid-template-columns:1fr 1fr}.ts-client-shortcut-grid{grid-template-columns:1fr}.ts-client-welcome-copy{padding:17px}.ts-client-welcome-copy h1{font-size:24px}.ts-client-welcome-copy p{font-size:12px}.ts-client-welcome-actions{width:100%}.ts-client-welcome-actions .ts-primary,.ts-client-welcome-actions .ts-secondary{flex:1;justify-content:center}.ts-client-profile-mini{grid-template-columns:1fr}.ts-client-alert{align-items:flex-start;flex-direction:column}.ts-client-activity-row{grid-template-columns:8px 1fr}.ts-client-activity-row time{grid-column:2}.ts-client-loyalty-stats{grid-template-columns:1fr 1fr}}
 </style>
 
+
+<style id="thinkstoreRoleDashboardV1519">
+.ts-role-dashboard{padding-bottom:24px}.ts-role-dashboard .ts-welcome-role-badge{position:absolute;right:22px;bottom:20px;background:rgba(255,255,255,.94);color:#111;border:1px solid rgba(0,0,0,.08);border-radius:999px;padding:9px 14px;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.ts-role-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:14px 0}.ts-role-kpi{min-height:104px;border:1px solid #e2e4e8;border-radius:18px;background:#fff;padding:14px;display:grid;grid-template-columns:36px 1fr;gap:10px;align-items:start;box-shadow:0 8px 22px rgba(0,0,0,.025)}.ts-role-kpi>i{width:36px;height:36px;border-radius:11px;background:#eef6ff;color:#0878ff;display:grid;place-items:center}.ts-role-kpi small,.ts-role-kpi em{display:block;color:#7a7d85;font-size:10px;font-style:normal}.ts-role-kpi b{display:block;font-size:24px;letter-spacing:-.04em;margin:3px 0 2px;color:#1b1d21}.ts-role-commission{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr);gap:18px;align-items:center;background:linear-gradient(135deg,#0e1118,#1a2537);color:#fff;border-radius:22px;padding:22px;margin:14px 0}.ts-role-commission h3{font-size:38px;margin:7px 0;letter-spacing:-.05em}.ts-role-commission p{color:#c8d0db;margin:0;max-width:650px}.ts-role-commission-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.ts-role-commission-grid>div{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:13px}.ts-role-commission-grid small{display:block;color:#aeb9c8;font-size:9px;text-transform:uppercase;letter-spacing:.08em}.ts-role-commission-grid b{display:block;font-size:18px;margin-top:5px}.ts-role-panel{background:#fff;border:1px solid #e2e4e8;border-radius:22px;padding:18px;margin-top:14px}.ts-role-panel>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.ts-role-panel>header h3{margin:0;font-size:18px}.ts-role-panel>header small{color:#858890}.ts-role-list{display:grid;gap:8px}.ts-role-list>article{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:12px 14px;border:1px solid #eceef1;border-radius:15px;background:#fbfbfc}.ts-role-list>article>div:first-child{display:grid;gap:2px}.ts-role-list>article small,.ts-role-list>article em{color:#81858d;font-size:10px;font-style:normal}.ts-role-list>article b{font-size:14px}.ts-role-list-state{display:grid;justify-items:end;gap:4px}.ts-role-list-state strong{font-size:14px}.ts-role-dashboard-loading{min-height:360px;display:grid;place-items:center;align-content:center;gap:10px;text-align:center;color:#5f6269}.ts-role-dashboard-loading .spinner{width:34px;height:34px;border:3px solid #e6e8eb;border-top-color:#0878ff;border-radius:50%;animation:tsRoleSpin .8s linear infinite}@keyframes tsRoleSpin{to{transform:rotate(360deg)}}
+@media(max-width:1180px){.ts-role-kpi-grid{grid-template-columns:repeat(3,1fr)}.ts-role-commission{grid-template-columns:1fr}}
+@media(max-width:720px){.ts-role-kpi-grid{grid-template-columns:repeat(2,1fr)}.ts-role-commission-grid{grid-template-columns:1fr}.ts-role-panel>header{align-items:flex-start;flex-direction:column}.ts-role-list>article{grid-template-columns:1fr}.ts-role-list-state{justify-items:start}}
+</style>
+
+
+<style id="ts-v1520-role-menu-style">
+.ts-internal-role-nav{display:grid!important;gap:10px!important}
+.ts-internal-role-nav .ts-side-nav-item{display:grid!important;grid-template-columns:42px 1fr auto;align-items:center;gap:12px;text-align:left;min-height:62px;padding:10px 14px!important;border-radius:18px!important}
+.ts-internal-role-nav .ts-side-nav-item>span:first-child{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#f4f7fb;color:#0a66d8}
+.ts-internal-role-nav .ts-side-nav-item .ts-line-icon{width:21px;height:21px}
+.ts-internal-role-nav .ts-side-nav-item b{font-size:14px;letter-spacing:-.01em}
+.ts-internal-role-nav .ts-side-nav-item.active,.ts-internal-role-nav .ts-side-nav-item:hover{background:#111;color:#fff}
+.ts-internal-role-nav .ts-side-nav-item.active>span:first-child,.ts-internal-role-nav .ts-side-nav-item:hover>span:first-child{background:#fff;color:#111}
+.ts-internal-role-nav .ts-side-service-center{margin-top:6px;border:1px solid #cfe2ff!important;background:linear-gradient(135deg,#eef6ff,#fff)!important;color:#0759b7!important}
+.ts-internal-role-nav .ts-side-service-center:hover{background:#0a72e8!important;color:#fff!important}
+.ts-tech-workspace .client-section-head{align-items:center;margin-bottom:16px}
+.ts-tech-workspace .client-section-head .actions{display:flex;gap:10px;flex-wrap:wrap}
+.ts-tech-workspace .client-section-head .btn svg{width:18px;height:18px;vertical-align:-4px;margin-right:5px}
+.ts-tech-order-row p,.ts-tech-diagnosis-list p{margin:8px 0 0;color:#6e6e73;font-size:13px;line-height:1.45}
+.ts-inline-link{border:0;background:transparent;color:#0676e8;font-weight:800;cursor:pointer;padding:5px 0}
+.ts-tech-part-groups{display:grid;gap:14px}.ts-tech-part-groups>section{border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;background:#fff}.ts-tech-part-groups>section>header{display:flex;justify-content:space-between;padding:14px 16px;background:#f7f8fa}.ts-tech-part-row{display:flex;justify-content:space-between;gap:16px;padding:14px 16px;border-top:1px solid #eee}.ts-tech-part-row span{display:grid;gap:3px}.ts-tech-part-row span:last-child{text-align:right}.ts-tech-part-row small{color:#7b818a}
+@media(max-width:760px){.ts-internal-role-nav .ts-side-nav-item{grid-template-columns:38px 1fr auto}.ts-tech-workspace .client-section-head{align-items:flex-start}.ts-tech-workspace .client-section-head .actions{width:100%}}
+</style>
 </head>
 <body>
 <div id="panelBoot" class="panel-boot" aria-live="polite"><div class="panel-boot-card"><img class="panel-boot-logo" src="logo-thinkstore.png" alt="ThinkStore"><div id="panelBootText">Preparando tu cuenta…</div><div class="panel-boot-bar"><i></i></div></div></div>
@@ -427,8 +454,8 @@ window.tsPanelSupabase = (window.supabase && tsPanelCfg.SUPABASE_URL && tsPanelC
 const LS_USER='ts_current_user';
 const ADMIN_SECRET_KEY='thinkstore_admin_secret';
 const ROLE_LABELS={cliente:'Cliente',vendedor:'Vendedor',recepcion:'Recepción / Soporte',soporte:'Soporte',tecnico:'Técnico',logistica:'Logística',admin:'Admin',superadmin:'Super Admin'};
-const ROLE_HOME={cliente:'cuenta',vendedor:'ventas',recepcion:'recepcion',soporte:'recepcion',tecnico:'tecnico',logistica:'logistica',admin:'dashboard',superadmin:'dashboard'};
-const PERMS={cliente:['cuenta','mis_pedidos','mis_preordenes','favoritos','direcciones','mis_reparaciones','garantias','tradein_cliente','puntos'],vendedor:['dashboard','ventas','cotizaciones','clientes','pagos','preordenes','crm','recomendaciones'],recepcion:['dashboard','recepcion','clientes','tickets','garantias','citas'],soporte:['dashboard','recepcion','clientes','tickets','garantias','citas'],tecnico:['dashboard','tecnico','diagnostico','repuestos','pruebas','garantias'],logistica:['dashboard','logistica','guias','entregas','pedidos','preordenes'],admin:['*'],superadmin:['*']};
+const ROLE_HOME={cliente:'cuenta',vendedor:'dashboard',recepcion:'dashboard',soporte:'dashboard',tecnico:'dashboard',logistica:'dashboard',admin:'dashboard',superadmin:'dashboard'};
+const PERMS={cliente:['cuenta','mis_pedidos','mis_preordenes','favoritos','direcciones','mis_reparaciones','garantias','tradein_cliente','puntos'],vendedor:['dashboard','ventas','cotizaciones','clientes','pagos','preordenes','crm','recomendaciones','comisiones'],recepcion:['dashboard','recepcion','clientes','tickets','garantias','citas','centro_servicio'],soporte:['dashboard','recepcion','clientes','tickets','garantias','citas','centro_servicio'],tecnico:['dashboard','tecnico','diagnostico','repuestos','garantias','centro_servicio'],logistica:['dashboard','logistica','guias','entregas','pedidos','preordenes'],admin:['*'],superadmin:['*']};
 
 const TS_PREMIUM_ICONS={
  dashboard:'<path d="M4 4h6v6H4z"/><path d="M14 4h6v10h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 18h6v2h-6z"/>',
@@ -447,6 +474,17 @@ const TS_PREMIUM_ICONS={
  permisos:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
  auditoria:'<path d="M6 2h9l4 4v16H6zM14 2v5h5M9 13h6M9 17h6M9 9h2"/>',
  comisiones:'<circle cx="12" cy="12" r="9"/><path d="M15 8.5c-.7-.7-1.6-1-3-1-2 0-3.5 1-3.5 2.5s1.1 2.2 3.5 2.5c2.4.3 3.5 1 3.5 2.5S14 17.5 12 17.5c-1.5 0-2.6-.4-3.5-1.2M12 5.5v13"/>',
+ tecnico:'<path d="M14.7 6.3a4 4 0 0 0-5-5L7 4l3 3 2.7-2.7a4 4 0 0 0 2 5L7 17l-2 5 5-2 7.7-7.7a4 4 0 0 0 5-5L20 10l-3-3-2.3 2.3"/>',
+ diagnostico:'<path d="M10 2v6l-5 9a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 17l-5-9V2"/><path d="M8 13h8"/>',
+ repuestos:'<path d="M9 3h6l1 4 4 1v6l-4 1-1 4H9l-1-4-4-1V8l4-1 1-4Z"/><circle cx="12" cy="11" r="2"/>',
+ garantias:'<path d="M12 2 19 5v6c0 5-3 8-7 11-4-3-7-6-7-11V5l7-3Z"/><path d="m9 12 2 2 4-4"/>',
+ centro_servicio:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 9h8M8 13h5"/><path d="M17 16h.01"/>',
+ cotizaciones:'<path d="M6 2h9l3 3v17H6z"/><path d="M14 2v5h5M9 11h6M9 15h6"/>',
+ recepcion:'<path d="M4 4h16v16H4z"/><path d="M12 3v11m0 0-4-4m4 4 4-4"/>',
+ tickets:'<path d="M4 6h16v5a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4V6Z"/><path d="M12 8v8"/>',
+ citas:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/>',
+ crm:'<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M17 8h4M19 6v4"/>',
+ recomendaciones:'<path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3Z"/><path d="M9 22h6"/>',
  cuenta:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
  generic:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'
 };
@@ -478,6 +516,7 @@ const MODULES=[
 {id:'tecnico',icon:'🔧',title:'Panel técnico',desc:'Diagnóstico, reparación y pruebas.'},
 {id:'diagnostico',icon:'🧪',title:'Diagnóstico',desc:'Reporte técnico y checklist.'},
 {id:'repuestos',icon:'🧩',title:'Repuestos',desc:'Solicitud y uso de piezas.'},
+{id:'centro_servicio',icon:'🛠️',title:'Centro de Servicio Técnico',desc:'Acceso directo al panel de Soporte con tu sesión ThinkStore.'},
 {id:'guias',icon:'🏷️',title:'Guías',desc:'Registro de empresa y número de guía.'},
 {id:'entregas',icon:'✅',title:'Entregas',desc:'Control de retiro y entrega final.'},
 {id:'garantias',icon:'🛡️',title:'Garantías',desc:'Garantías digitales y seriales.'},
@@ -1242,6 +1281,95 @@ function hydratePremiumDashboard(data,baseAlerts=[]){
   const bars=$('weeklyBars');if(bars){const max=Math.max(1,...daily.map(d=>Number(d.global_collected||0)));bars.innerHTML=daily.map(d=>`<div class="${d.date===data.period?.today?'today':''}"><span><i style="height:${Math.max(5,Number(d.global_collected||0)/max*100)}%"></i></span><b>${esc(enterpriseDay(d.date).split(' ')[0])}</b><small>${enterpriseMoney(d.global_collected||0)}</small></div>`).join('')}
   const alerts=[...baseAlerts];if(Number(p.pending_collection_count||0)>0)alerts.push({level:'warn',icon:'servicio',title:`${p.pending_collection_count} servicio${p.pending_collection_count===1?'':'s'} pendiente${p.pending_collection_count===1?'':'s'} por cobrar`,detail:enterpriseMoney(p.pending_collection_amount||0),external:'support'});if(Number(p.ready||0)>0)alerts.push({level:'info',icon:'pedidos',title:`${p.ready} equipo${p.ready===1?'':'s'} listo${p.ready===1?'':'s'} para entregar`,detail:'Servicio Técnico',external:'support'});setPanelNotifications(alerts)
 }
+
+let tsRoleDashboardCache=null;
+let tsRoleDashboardLoadedAt=0;
+function tsRoleDashboardMoney(v){const n=Number(v||0);return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function tsRoleStatusBadge(v=''){const t=String(v||'').toLowerCase();const cls=/pagado|cobrado|entregado|listo|aprobado/.test(t)?'success':/no aprobado|rechaz|cancel|no repar/.test(t)?'danger':/repar|diagn|esperando|cotiz|pendiente/.test(t)?'warn':'';return `<span class="badge ${cls}">${esc(v||'—')}</span>`}
+async function tsLoadRoleDashboard(force=false){
+  if(!force&&tsRoleDashboardCache&&Date.now()-tsRoleDashboardLoadedAt<15000)return tsRoleDashboardCache;
+  const headers=await adminApiHeaders({},{requireAuth:true});
+  const res=await fetch('/.netlify/functions/role-dashboard',{headers,cache:'no-store'});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||!data.ok)throw new Error(data.error||'No se pudieron cargar tus estadísticas');
+  tsRoleDashboardCache=data;tsRoleDashboardLoadedAt=Date.now();return data;
+}
+function tsRoleKpi(icon,label,value,detail=''){
+  return `<article class="ts-role-kpi"><i>${tsPremiumIcon(icon)}</i><div><small>${esc(label)}</small><b>${esc(value)}</b><em>${esc(detail)}</em></div></article>`;
+}
+function tsRoleCommissionCard(c={},kind='Técnico'){
+  const rate=(c.rate_pct===null||c.rate_pct===undefined)?'Por definir':`${Number(c.rate_pct||0).toLocaleString('es-VE',{maximumFractionDigits:2})}%`;
+  return `<article class="ts-role-commission"><div><span class="client-eyebrow">COMISIÓN PERSONAL</span><h3>${tsRoleDashboardMoney(c.generated||0)}</h3><p>Comisión generada para ${esc(kind.toLowerCase())}. El porcentaje puede definirse después desde Administración.</p></div><div class="ts-role-commission-grid"><div><small>Base comisionable</small><b>${tsRoleDashboardMoney(c.base||0)}</b></div><div><small>Porcentaje</small><b>${esc(rate)}</b></div><div><small>Movimientos</small><b>${Number(c.entries||0)}</b></div></div></article>`;
+}
+function tsRoleRecentTech(rows=[]){return `<div class="ts-role-list">${rows.length?rows.map(o=>`<article><div><small>${esc(o.code||'Orden')}</small><b>${esc(o.device_model||'Equipo')}</b><em>${esc(o.client_name||'Cliente')}</em></div><div class="ts-role-list-state">${tsRoleStatusBadge(o.status)}<small>${esc(o.payment_status||'Pendiente de cobro')}</small></div></article>`).join(''):'<div class="ts-empty">No tienes órdenes asignadas todavía.</div>'}</div>`}
+function tsRoleRecentSales(rows=[]){return `<div class="ts-role-list">${rows.length?rows.map(o=>`<article><div><small>${esc(o.code||'Venta')}</small><b>${esc(o.customer||'Cliente')}</b><em>${esc(fmtDate(o.created_at||o.updated_at||''))}</em></div><div class="ts-role-list-state">${tsRoleStatusBadge(o.status)}<strong>${tsRoleDashboardMoney(o.total_usd||0)}</strong></div></article>`).join(''):'<div class="ts-empty">Todavía no tienes ventas registradas.</div>'}</div>`}
+function tsRoleRecentReception(rows=[]){return `<div class="ts-role-list">${rows.length?rows.map(o=>`<article><div><small>${esc(o.code||'Orden')}</small><b>${esc(o.device_model||'Equipo')}</b><em>${esc(o.client_name||'Cliente')}</em></div><div class="ts-role-list-state">${tsRoleStatusBadge(o.status)}<small>${esc(o.payment_status||'Pendiente')}</small></div></article>`).join(''):'<div class="ts-empty">No tienes recepciones registradas a tu nombre.</div>'}</div>`}
+
+function tsTechOrderCards(rows=[],empty='No hay órdenes en esta sección.'){
+  return `<div class="ts-role-list ts-tech-detail-list">${rows.length?rows.map(o=>`<article class="ts-tech-order-row"><div><small>${esc(o.code||'Orden')}</small><b>${esc(o.device_model||'Equipo')}</b><em>${esc(o.client_name||'Cliente')}${o.serial_imei?` · ${esc(o.serial_imei)}`:''}</em>${o.quote_repair_details?`<p>${esc(o.quote_repair_details)}</p>`:''}</div><div class="ts-role-list-state">${tsRoleStatusBadge(o.status)}<small>${esc(o.payment_status||'Pendiente de cobro')}</small><button class="ts-inline-link" onclick="openSupportCenter()">Gestionar ↗</button></div></article>`).join(''):`<div class="ts-empty">${esc(empty)}</div>`}</div>`;
+}
+function tsTechPartRows(rows=[]){
+  if(!rows.length)return '<div class="ts-empty">Todavía no hay repuestos vinculados a tus órdenes.</div>';
+  const byOrder=new Map();rows.forEach(r=>{const k=String(r.order_code||'Sin orden');if(!byOrder.has(k))byOrder.set(k,[]);byOrder.get(k).push(r)});
+  return `<div class="ts-tech-part-groups">${[...byOrder.entries()].map(([code,list])=>`<section><header><b>${esc(code)}</b><small>${list.length} referencia${list.length===1?'':'s'}</small></header>${list.map(r=>`<div class="ts-tech-part-row"><span><b>${esc(r.name||'Repuesto')}</b><small>${esc(r.sku||'Sin SKU')} · ${esc(r.status||'reservado')}</small></span><span><b>${Number(r.quantity_reserved||0)}</b><small>${tsRoleDashboardMoney(Number(r.unit_price||0)*Number(r.quantity_reserved||0))}</small></span></div>`).join('')}</section>`).join('')}</div>`;
+}
+function tsTechDiagnosisRows(d={}){
+  const notes=Array.isArray(d.diagnostics)?d.diagnostics:[];
+  const orders=Array.isArray(d.orders)?d.orders:[];
+  const codeById=new Map(orders.map(o=>[String(o.id),o.code]));
+  if(!notes.length){
+    const active=orders.filter(o=>/diagn|repar|esperando|listo|no repar/i.test(String(o.status||'')));
+    return tsTechOrderCards(active,'No tienes diagnósticos o reparaciones activas.');
+  }
+  return `<div class="ts-role-list ts-tech-diagnosis-list">${notes.map(n=>`<article><div><small>${esc(codeById.get(String(n.order_id))||'Orden técnica')}</small><b>${esc(n.note_type||n.status_after||'Actualización técnica')}</b><em>${esc(n.diagnosis||n.work_performed||n.note||'Registro técnico')}</em>${n.tests_performed?`<p>Pruebas: ${esc(n.tests_performed)}</p>`:''}</div><div class="ts-role-list-state"><small>${esc(fmtDate(n.created_at||''))}</small></div></article>`).join('')}</div>`;
+}
+async function renderTechnicianWorkspace(mode='orders'){
+  $('content').innerHTML='<div class="ts-role-dashboard-loading"><div class="spinner"></div><b>Cargando tu información técnica…</b><small>Solo órdenes asignadas a tu usuario.</small></div>';
+  try{
+    const d=await tsLoadRoleDashboard();
+    const orders=Array.isArray(d.orders)?d.orders:[];
+    let title='Mis órdenes asignadas',subtitle='Equipos que están bajo tu responsabilidad',body=tsTechOrderCards(orders);
+    if(mode==='diagnosis'){
+      title='Diagnóstico y reparación';subtitle='Bitácora técnica y órdenes que requieren trabajo';body=tsTechDiagnosisRows(d);
+    }else if(mode==='parts'){
+      title='Repuestos de mis reparaciones';subtitle='Piezas reservadas o consumidas únicamente en tus órdenes';body=tsTechPartRows(Array.isArray(d.parts)?d.parts:[]);
+    }else if(mode==='warranty'){
+      const warranty=orders.filter(o=>Number(o.warranty_days||0)>0);
+      title='Garantías de mis reparaciones';subtitle='Órdenes técnicas con garantía registrada';
+      body=warranty.length?`<div class="ts-role-list">${warranty.map(o=>`<article><div><small>${esc(o.code||'Orden')}</small><b>${esc(o.device_model||'Equipo')}</b><em>${esc(o.client_name||'Cliente')}</em></div><div class="ts-role-list-state"><b>${Number(o.warranty_days||0)} días</b>${tsRoleStatusBadge(o.status)}</div></article>`).join('')}</div>`:'<div class="ts-empty">No tienes reparaciones con garantía registrada todavía.</div>';
+    }
+    $('content').innerHTML=`<div class="ts-premium-dashboard ts-role-dashboard ts-tech-workspace"><div class="client-section-head"><div><span class="client-eyebrow">ÁREA TÉCNICA · PERSONAL</span><h2>${esc(title)}</h2><p>${esc(subtitle)}.</p></div><div class="actions"><button class="btn ghost" onclick="tsRoleDashboardCache=null;renderTechnicianWorkspace('${esc(mode)}')">Actualizar</button><button class="btn blue" onclick="openSupportCenter()">${tsPremiumIcon('centro_servicio')} Centro de Servicio Técnico ↗</button></div></div><section class="ts-role-panel">${body}</section></div>`;
+  }catch(e){$('content').innerHTML=`<div class="module"><div class="notice critical"><b>No se pudo cargar tu información técnica.</b><br>${esc(e.message||e)}</div><button class="btn" onclick="renderTechnicianWorkspace('${esc(mode)}')">Reintentar</button></div>`}
+}
+async function renderPersonalStaffDashboard(){
+  const r=role();
+  $('content').innerHTML=`<div class="ts-role-dashboard-loading"><div class="spinner"></div><b>Cargando tus estadísticas…</b><small>Solo verás información asociada a tu usuario.</small></div>`;
+  try{
+    const d=await tsLoadRoleDashboard();const m=d.metrics||{},c=d.commission||{};
+    let kpis='',title='Mi actividad',subtitle='Resultados personales',body='',actions='';
+    if(r==='tecnico'){
+      title='Mi panel técnico';subtitle='Únicamente tus reparaciones y resultados asignados';
+      kpis=[tsRoleKpi('servicio','Equipos asignados',m.assigned||0,'Órdenes a tu nombre'),tsRoleKpi('servicio','Reparados',m.repaired||0,'Listos / entregados'),tsRoleKpi('servicio','No reparados',m.not_repaired||0,'Sin reparación'),tsRoleKpi('pagos','Cobrados',m.paid||0,tsRoleDashboardMoney(m.collected||0)),tsRoleKpi('dashboard','Aprobados',m.approved||0,'Por el cliente'),tsRoleKpi('generic','No aprobados',m.not_approved||0,'Cotizaciones rechazadas')].join('');
+      body=tsRoleCommissionCard(c,'Técnico')+`<section class="ts-role-panel"><header><div><h3>Mis órdenes asignadas</h3><small>${Number(m.open||0)} actualmente abiertas</small></div><button class="btn ghost" onclick="openSupportApp()">Abrir Servicio Técnico ↗</button></header>${tsRoleRecentTech(d.orders||[])}</section>`;
+      actions='<button class="ts-primary" onclick="openSupportApp()">'+tsPremiumIcon('servicio')+' Abrir Servicio Técnico <em>›</em></button>';
+    }else if(r==='vendedor'){
+      title='Mi panel de ventas';subtitle='Tus ventas, cobros y comisión personal';
+      kpis=[tsRoleKpi('ventas','Ventas realizadas',m.sales||0,'Registradas a tu usuario'),tsRoleKpi('pagos','Ventas cobradas',m.paid||0,tsRoleDashboardMoney(m.collected||0)),tsRoleKpi('generic','Pendientes',m.pending||0,'Pendientes de pago'),tsRoleKpi('ventas','Monto vendido',tsRoleDashboardMoney(m.sold_amount||0),'Ventas activas'),tsRoleKpi('generic','Canceladas',m.cancelled||0,'Rechazadas / anuladas')].join('');
+      body=tsRoleCommissionCard(c,'Vendedor')+`<section class="ts-role-panel"><header><div><h3>Mis ventas recientes</h3><small>Solo operaciones asociadas a tu usuario</small></div><button class="btn blue" onclick="openPosSale()">＋ Nueva venta</button></header>${tsRoleRecentSales(d.orders||[])}</section>`;
+      actions='<button class="ts-primary" onclick="openPosSale()">'+tsPremiumIcon('ventas')+' Nueva venta <em>›</em></button>';
+    }else if(r==='recepcion'||r==='soporte'){
+      title=r==='recepcion'?'Mi panel de recepción':'Mi panel de soporte';subtitle='Equipos gestionados desde tu usuario';
+      kpis=[tsRoleKpi('servicio','Equipos recibidos',m.received||0,'Registrados por ti'),tsRoleKpi('servicio','En proceso',m.in_progress||0,'Diagnóstico / reparación'),tsRoleKpi('pedidos','Listos',m.ready||0,'Listos para entregar'),tsRoleKpi('entregas','Entregados',m.delivered||0,'Finalizados'),tsRoleKpi('pagos','Cobrados',m.paid||0,tsRoleDashboardMoney(m.collected||0))].join('');
+      body=`<section class="ts-role-panel"><header><div><h3>Mis recepciones recientes</h3><small>Actividad asociada a tu usuario</small></div><button class="btn ghost" onclick="openSupportApp()">Abrir Soporte ↗</button></header>${tsRoleRecentReception(d.orders||[])}</section>`;
+      actions='<button class="ts-primary" onclick="openSupportApp()">'+tsPremiumIcon('servicio')+' Abrir Soporte <em>›</em></button>';
+    }else{
+      title='Mi panel';subtitle='Actividad asociada a tu usuario';
+      kpis=[tsRoleKpi('dashboard','Asignados',m.assigned||0,'Operaciones personales'),tsRoleKpi('pedidos','Listos',m.ready||0,'Listos'),tsRoleKpi('logistica','Enviados',m.shipped||0,'En tránsito'),tsRoleKpi('entregas','Entregados',m.delivered||0,'Finalizados')].join('');
+      body='<section class="ts-role-panel"><div class="ts-empty">Tus estadísticas personales aparecerán aquí cuando existan operaciones asignadas.</div></section>';
+    }
+    $('content').innerHTML=`<div class="ts-premium-dashboard ts-role-dashboard"><section class="ts-welcome-card"><div class="ts-welcome-copy"><span>INICIO · HOLA, ${esc(panelFirstName().toUpperCase())}</span><h1>${esc(title)}</h1><p>${esc(subtitle)}. Ningún empleado ve estadísticas globales desde esta pantalla.</p><div>${actions}<button class="ts-secondary" onclick="tsRoleDashboardCache=null;renderPersonalStaffDashboard()">Actualizar</button></div></div><div class="ts-welcome-image"><img src="assets/thinkstore_portada_nueva.jpeg" alt="ThinkStore"><div class="ts-welcome-role-badge">${esc(ROLE_LABELS[r]||r)}</div></div></section><section class="ts-role-kpi-grid">${kpis}</section>${body}</div>`;
+  }catch(e){$('content').innerHTML=`<div class="module"><div class="notice critical"><b>No se pudieron cargar tus estadísticas.</b><br>${esc(e.message)}</div><div class="actions"><button class="btn" onclick="tsRoleDashboardCache=null;renderPersonalStaffDashboard()">Reintentar</button></div></div>`}
+}
 const views={
  generic(id){
    if(isAdminRole()&&id!=='dashboard'){
@@ -1251,6 +1379,7 @@ const views={
    $('content').innerHTML=`<div class="notice warn">Este módulo conserva la interfaz Multi-Rol. Su integración profunda se mantiene separada del panel administrativo real.</div>`;
  },
  async dashboard(){
+  if(!isAdminRole())return renderPersonalStaffDashboard();
   const all=orders(),clients=customers(),now=Date.now();
   const todayKey=(()=>{try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}catch{return new Date().toISOString().slice(0,10)}})();
   const dayKey=v=>{try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v||Date.now()))}catch{return String(v||'').slice(0,10)}};
@@ -1411,17 +1540,17 @@ const views={
  },
  tradein_cliente(){location.href='trade-in.html'},
 
- ventas(){renderSalesDashboard()},
+ ventas(){return role()==='vendedor'?renderPersonalStaffDashboard():renderSalesDashboard()},
  cotizaciones(){$('content').innerHTML=`<div class="form"><label>Cliente<input id="qClient"></label><label>Producto<input id="qProduct"></label><label>Precio USD<input id="qPrice" type="number"></label></div><div class="actions"><button class="btn" onclick="result('qResult','Cotización ThinkStore\\nCliente: '+val('qClient')+'\\nProducto: '+val('qProduct')+'\\nPrecio: '+money(val('qPrice')))">Generar</button></div><pre id="qResult" class="result"></pre>`},
- recepcion(){$('content').innerHTML=`<div class="notice">Servicio Técnico está integrado en este Main en <b>/soporte/</b>. Su base de datos continúa aislada en el Supabase de Soporte.</div>`},
+ recepcion(){return renderPersonalStaffDashboard()},
  tickets(){const list=tickets().map(t=>`<b>${esc(t.code||'Ticket')}</b> · ${esc(t.status||'Abierto')}<br>${esc(t.client||t.customer||'Cliente')}`);$('content').innerHTML=rows(list,'Sin tickets locales en este navegador. El soporte real está en Service Center.')},
- tecnico(){views.recepcion()},diagnostico(){views.recepcion()},repuestos(){views.recepcion()},
- garantias(){const u=user();const mine=orders().filter(o=>{const c=orderClient(o);return normalizeEmail(c.email)===normalizeEmail(u.email)||String(o.cliente_id||'')===String(u.id||'')});const eligible=mine.filter(o=>/entregado|disponible|enviado/i.test(orderStatus(o)));$('content').innerHTML=`<div class="client-section-head"><div><span class="client-eyebrow">PROTECCIÓN</span><h2>Garantías</h2><p>Consulta tus compras elegibles y solicita asistencia.</p></div></div>${eligible.length?`<div class="client-orders-grid">${eligible.map(o=>`<div class="client-order-card"><h3>${esc(orderCode(o))}</h3><p>${orderItems(o).map(i=>esc(i.product||i.name||'Equipo')).join(' · ')}</p><span class="badge">Compra registrada</span><div class="actions"><a class="btn ghost" href="/soporte/seguimiento.html" target="_blank">Solicitar soporte</a></div></div>`).join('')}</div>`:`<div class="client-empty"><b>Aún no hay garantías visibles.</b><small>Las compras elegibles aparecerán aquí cuando sean entregadas.</small></div>`}`},
+ tecnico(){return renderTechnicianWorkspace('orders')},diagnostico(){return renderTechnicianWorkspace('diagnosis')},repuestos(){return renderTechnicianWorkspace('parts')},centro_servicio(){return openSupportCenter()},
+ garantias(){if(role()==='tecnico')return renderTechnicianWorkspace('warranty');const u=user();const mine=orders().filter(o=>{const c=orderClient(o);return normalizeEmail(c.email)===normalizeEmail(u.email)||String(o.cliente_id||'')===String(u.id||'')});const eligible=mine.filter(o=>/entregado|disponible|enviado/i.test(orderStatus(o)));$('content').innerHTML=`<div class="client-section-head"><div><span class="client-eyebrow">PROTECCIÓN</span><h2>Garantías</h2><p>Consulta tus compras elegibles y solicita asistencia.</p></div></div>${eligible.length?`<div class="client-orders-grid">${eligible.map(o=>`<div class="client-order-card"><h3>${esc(orderCode(o))}</h3><p>${orderItems(o).map(i=>esc(i.product||i.name||'Equipo')).join(' · ')}</p><span class="badge">Compra registrada</span><div class="actions"><a class="btn ghost" href="/soporte/seguimiento.html" target="_blank">Solicitar soporte</a></div></div>`).join('')}</div>`:`<div class="client-empty"><b>Aún no hay garantías visibles.</b><small>Las compras elegibles aparecerán aquí cuando sean entregadas.</small></div>`}`},
  citas(){$('content').innerHTML=`<div class="notice">Citas: integración preparada en las funciones del proyecto; se mantiene sin mezclar con la base de Soporte.</div>`},
  puntos(){const l=clientLoyalty();$('content').innerHTML=`<div class="vip-card"><span class="client-eyebrow">THINKSTORE VIP</span><h2>${l.points} puntos</h2><p>Valor equivalente actual: <b>${money(l.value)}</b></p><div class="loyalty-rule"><b>Regla de acumulación</b><span>Por cada $100 en compras aprobadas recibes 10 puntos = $1.</span></div><div class="vip-levels"><span class="active">🥉 Bronce</span><span>🥈 Plata</span><span>🥇 Oro</span><span>💎 Platino</span></div><div class="vip-bar"><i style="width:${Math.min(100,Math.max(3,(l.points%250)/2.5))}%"></i></div><small>${l.eligibleOrders} compra(s) elegible(s) · ${money(l.spent)} acumulados para puntos.</small></div>`},
  recomendaciones(){$('content').innerHTML=`<div class="notice">Asistente comercial y recomendaciones disponibles en las funciones inteligentes del proyecto.</div>`},
  auditoria(){$('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Actividad y auditoría</h2><small>Cambios administrativos persistentes: pedidos, pagos, inventario, caja, CRM y usuarios.</small></div><button class="btn ghost" onclick="loadAuditPersistent()">Actualizar</button></div><div class="toolbar"><input id="auditSearch" placeholder="Buscar usuario, acción, pedido, SKU…" oninput="loadAuditPersistent()"><select id="auditEntity" onchange="loadAuditPersistent()"><option value="">Todas las entidades</option><option value="pedido">Pedidos</option><option value="inventory_variant">Inventario</option><option value="cash_closure">Caja</option><option value="customer">CRM</option><option value="user">Usuarios</option></select></div><div id="auditBox"><div class="result">Cargando auditoría…</div></div>`;loadAuditPersistent()},
- comisiones(){$('content').innerHTML=`<div class="notice">Comisiones conserva la matriz de roles del Panel Multi-Rol. Los datos de ventas se alimentarán de pedidos reales.</div>`}
+ comisiones(){return ['vendedor','tecnico'].includes(role())?renderPersonalStaffDashboard():($('content').innerHTML=`<div class="notice">Las comisiones se administran desde Enterprise.</div>`) }
 };
 
 
@@ -2015,7 +2144,21 @@ function downloadCSV(filename,rows){const csv=rows.map(r=>r.map(x=>`"${String(x?
 // Vista heredada de perfiles eliminada en V14.1.
 
 let tsPremiumNotifications=[];
-function openSupportApp(){openPlatformApp('support')}
+async function openSupportCenter(){
+  const supportRoleAllowed=['tecnico','recepcion','soporte','logistica','admin','superadmin'].includes(role());
+  if(!tsPlatformAllowed('support')&&!supportRoleAllowed){alert('Tu cuenta no tiene acceso al Centro de Servicio Técnico.');return}
+  try{
+    const headers=await adminApiHeaders({'Content-Type':'application/json'},{requireAuth:true});
+    const res=await fetch('/.netlify/functions/admin-sso',{method:'POST',headers,body:JSON.stringify({platform:'support'}),cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok||!data.url)throw new Error(data.error||'No se pudo abrir el Centro de Servicio Técnico');
+    location.assign(data.url);
+  }catch(e){
+    console.warn('Acceso directo a Soporte:',e);
+    location.assign('sso-entry.html?platform=support');
+  }
+}
+function openSupportApp(){return openSupportCenter()}
 function openPanelAppLauncher(){const cards=[['staff','ventas','App Ventas','Ventas presenciales'],['support','servicio','Soporte','Recepción y reparaciones'],['inventory','inventario','Inventory','Stock y movimientos'],['enterprise','enterprise','Enterprise','Resumen global'],['marketing','marketing','Marketing','Campañas y correos']].filter(([k])=>tsPlatformAllowed(k));showClientModal(`<div class="client-modal-head"><div><span class="client-eyebrow">ACCESO UNIFICADO</span><h2>ThinkStore</h2><p class="muted">Una cuenta. Todas tus plataformas autorizadas.</p></div><button class="client-modal-close" onclick="closeClientModal()">×</button></div><div class="ts-app-launcher ts-unified-launcher">${cards.map(([k,icon,title,desc])=>`<button onclick="openPlatformApp('${k}')">${tsPremiumIcon(icon)}<b>${title}</b><small>${desc}</small></button>`).join('')}</div>`)}
 function togglePanelUserMenu(e){e?.stopPropagation();const el=$('panelUserMenu');if(!el)return;el.hidden=!el.hidden;if(!el.hidden&&$('panelNotificationPopover'))$('panelNotificationPopover').hidden=true}
 function setPanelNotifications(items=[]){tsPremiumNotifications=Array.isArray(items)?items.filter(Boolean):[];const c=$('panelNotificationCount'),l=$('panelNotificationList'),s=$('panelNotificationSubtitle');if(c){c.textContent=String(tsPremiumNotifications.length);c.hidden=!tsPremiumNotifications.length}if(s)s.textContent=tsPremiumNotifications.length?`${tsPremiumNotifications.length} pendiente${tsPremiumNotifications.length===1?'':'s'}`:'Todo al día';if(l)l.innerHTML=tsPremiumNotifications.length?tsPremiumNotifications.map((x,i)=>`<button type="button" onclick="runPanelNotification(${i})"><span class="ts-notice-icon ${esc(x.level||'info')}">${tsPremiumIcon(x.icon||'generic')}</span><span><b>${esc(x.title||'Alerta')}</b><small>${esc(x.detail||'')}</small></span><em>›</em></button>`).join(''):'<div class="ts-empty">No hay alertas pendientes.</div>'}
@@ -2081,7 +2224,23 @@ function renderSide(){
     side.innerHTML=`<div class="ts-side-brand"><img src="assets/thinkstore-logo-note.png" alt="ThinkStore"></div><div class="ts-side-scroll"><nav class="ts-side-nav">${main}</nav></div><button class="ts-client-side-shop" onclick="location.href='index.html'"><span>${tsPremiumIcon('productos')}</span><span><b>Ir a la tienda</b><small>Catálogo ThinkStore</small></span><em>›</em></button><button class="ts-side-user" onclick="togglePanelUserMenu(event)"><span class="panel-user-avatar" id="sideUserAvatar">${panelInitials()}</span><span><b id="sideUserName">${esc(panelDisplayName())}</b><small id="sideUserRole">Cliente</small></span><em>⌄</em></button>`;
     return;
   }
-  if(!isAdminRole()){side.innerHTML=allowed.map(m=>`<button data-module="${m.id}" onclick="openModule('${m.id}',{fromMenu:true})">${m.icon} ${m.title}</button>`).join('');return}
+  if(!isAdminRole()){
+    const roleMenus={
+      tecnico:[['dashboard','Dashboard','dashboard'],['tecnico','Panel técnico','tecnico'],['diagnostico','Diagnóstico','diagnostico'],['repuestos','Repuestos','repuestos'],['garantias','Garantías','garantias'],['centro_servicio','Centro de Servicio Técnico','centro_servicio']],
+      vendedor:[['dashboard','Dashboard','dashboard'],['ventas','Mis ventas','ventas'],['cotizaciones','Cotizaciones','cotizaciones'],['clientes','Clientes','clientes'],['crm','CRM','crm'],['comisiones','Comisiones','comisiones']],
+      recepcion:[['dashboard','Dashboard','dashboard'],['recepcion','Recepción','recepcion'],['citas','Citas','citas'],['clientes','Clientes','clientes'],['tickets','Tickets','tickets'],['centro_servicio','Centro de Servicio Técnico','centro_servicio']],
+      soporte:[['dashboard','Dashboard','dashboard'],['recepcion','Recepción','recepcion'],['citas','Citas','citas'],['clientes','Clientes','clientes'],['tickets','Tickets','tickets'],['centro_servicio','Centro de Servicio Técnico','centro_servicio']],
+      logistica:[['dashboard','Dashboard','dashboard'],['logistica','Logística','logistica'],['guias','Guías','logistica'],['entregas','Entregas','pedidos'],['pedidos','Pedidos','pedidos']]
+    };
+    const spec=roleMenus[currentRole]||allowed.map(m=>[m.id,m.title,m.id]);
+    const permitted=new Set(allowed.map(m=>m.id));
+    const buttons=spec.filter(([id])=>permitted.has(id)).map(([id,label,icon])=>{
+      const external=id==='centro_servicio';
+      return `<button class="ts-side-nav-item ${external?'ts-side-service-center':''}" data-module="${id}" onclick="${external?'openSupportCenter()':`openModule('${id}',{fromMenu:true})`}"><span>${tsPremiumIcon(icon||id)}</span><b>${esc(label)}</b>${external?'<em>↗</em>':''}</button>`;
+    }).join('');
+    side.innerHTML=`<div class="ts-side-brand"><img src="assets/thinkstore-logo-note.png" alt="ThinkStore"></div><div class="ts-side-scroll"><nav class="ts-side-nav ts-internal-role-nav">${buttons}</nav></div><button class="ts-side-user" onclick="togglePanelUserMenu(event)"><span class="panel-user-avatar" id="sideUserAvatar">${panelInitials()}</span><span><b id="sideUserName">${esc(panelDisplayName())}</b><small id="sideUserRole">${esc(ROLE_LABELS[currentRole]||currentRole)}</small></span><em>⌄</em></button>`;
+    return
+  }
   const by=id=>allowed.find(m=>m.id===id);const nav=(id,label)=>{const m=by(id);if(!m)return'';return `<button class="ts-side-nav-item" data-module="${id}" onclick="openModule('${id}',{fromMenu:true})"><span>${tsPremiumIcon(id)}</span><b>${esc(label||tsPremiumLabel(id,m.title))}</b></button>`};
   const main=[nav('dashboard','Inicio')||`<button class="ts-side-nav-item" data-module="dashboard" onclick="openModule('dashboard',{fromMenu:true})"><span>${tsPremiumIcon('dashboard')}</span><b>Inicio</b></button>`,nav('ventas','Ventas'),nav('pedidos','Pedidos'),`<button class="ts-side-nav-item" onclick="openPlatformApp('inventory')"><span>${tsPremiumIcon('inventario')}</span><b>Inventory</b><em>↗</em></button>`,`<button class="ts-side-nav-item" onclick="openSupportApp()"><span>${tsPremiumIcon('servicio')}</span><b>Servicio Técnico</b><em>↗</em></button>`,nav('enterprise','Enterprise'),nav('clientes','Clientes'),nav('marketing','Marketing'),nav('configuracion','Ajustes')].join('');
   const more=['productos','pagos','preordenes','logistica','permisos','auditoria','comisiones'].map(id=>nav(id)).join('');
@@ -2119,7 +2278,7 @@ async function openModule(id,opts={}){
 
   const hero=document.querySelector('.main-card>.hero');
   if(hero){
-    hero.classList.toggle('panel-section-hero-hidden',!isHome||(isAdminRole()&&id==='dashboard'));
+    hero.classList.toggle('panel-section-hero-hidden',!isHome||(id==='dashboard'&&role()!=='cliente'));
     hero.classList.remove('admin-dashboard-hero-hidden');
     const kpis=hero.querySelector('.kpis');
     if(kpis)kpis.style.display=(isHome&&role()==='cliente')?'grid':'none';
@@ -2786,7 +2945,7 @@ function tsPlatformAccessForProfile(profile){const out={};Object.keys(TS_PLATFOR
 function tsPlatformEditor(profile){return `<div class="ts-platform-grid">${Object.entries(TS_PLATFORMS).map(([key,d])=>{const st=tsPlatformState(profile,key);return `<label class="ts-platform-card ${st.enabled?'on':''}" id="editPlatformCard-${key}"><span class="ts-platform-card-head"><span><b>${d.label}</b><small>${d.desc}</small></span><input class="ts-platform-toggle edit-platform-toggle" data-platform="${key}" id="editPlatform-${key}" type="checkbox" ${st.enabled?'checked':''} onchange="document.getElementById('editPlatformCard-${key}').classList.toggle('on',this.checked)"></span><select id="editPlatformRole-${key}">${d.roles.map(([v,l])=>`<option value="${v}" ${v===st.role?'selected':''}>${l}</option>`).join('')}</select></label>`}).join('')}</div>`}
 function tsEditedPlatformAccess(){const out={};Object.keys(TS_PLATFORMS).forEach(k=>out[k]={enabled:Boolean($(`editPlatform-${k}`)?.checked),role:val(`editPlatformRole-${k}`)||TS_PLATFORMS[k].roles[0][0]});return out}
 function tsPlatformAllowed(key){if(['admin','superadmin'].includes(role()))return true;const p=TS_EFFECTIVE_ACCESS?.platforms?.[key];return p?Boolean(p.enabled):false}
-async function openPlatformApp(platform){if(!tsPlatformAllowed(platform)){alert('Tu cuenta no tiene acceso a esta plataforma.');return}window.open(`sso-entry.html?platform=${encodeURIComponent(platform)}`,'_blank','noopener')}
+async function openPlatformApp(platform){if(!tsPlatformAllowed(platform)){alert('Tu cuenta no tiene acceso a esta plataforma.');return}if(platform==='support')return openSupportCenter();window.open(`sso-entry.html?platform=${encodeURIComponent(platform)}`,'_blank','noopener')}
 function showInternalInvite(){
   if(!['admin','superadmin'].includes(role()))return alert('No tienes permiso para invitar usuarios internos.');
   const options=internalRoleChoices().map((r,i)=>`<option value="${esc(r.value)}" ${i===0?'selected':''}>${esc(r.label)}</option>`).join('');
