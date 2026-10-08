@@ -106,7 +106,7 @@ const TSService=(()=>{
     // a JPEG antes de guardarlo en R2. Así Chrome no necesita decodificarlo.
     if((file.size||0)>5.5*1024*1024)throw new Error('La foto original supera 5,5 MB. Usa una foto más liviana o expórtala como JPG.');
     const base64=await supportBlobToBase64(file);
-    const r=await supportSecureAction({action:'file_upload_r2',order_id:String(orderId),file_name:file.name||'imagen',mime:file.type||'',base64,allow_server_convert:true});
+    const r=await supportR2Upload({order_id:String(orderId),file_name:file.name||'imagen',mime:file.type||'',base64,allow_server_convert:true});
     if(!r?.storage_path)throw new Error('Cloudflare R2 no devolvió la ruta de la imagen');
     return {storage_path:r.storage_path,file_url:'private:r2',mime:r.mime||file.type||'',size:Number(r.size||file.size||0),provider:'r2',converted:Boolean(r.converted)};
   }
@@ -118,7 +118,7 @@ const TSService=(()=>{
     if(normalized){
       const base64=await supportBlobToBase64(normalized.blob);
       try{
-        const r=await supportSecureAction({action:'file_upload_r2',order_id:String(orderId),file_name:normalized.original_name,mime:normalized.mime,base64});
+        const r=await supportR2Upload({order_id:String(orderId),file_name:normalized.original_name,mime:normalized.mime,base64});
         if(r?.storage_path)return {storage_path:r.storage_path,file_url:'private:r2',mime:r.mime||normalized.mime,size:Number(r.size||normalized.blob.size),provider:'r2',converted:Boolean(r.converted)};
         throw new Error('Cloudflare R2 no devolvió la ruta del archivo.');
       }catch(error){
@@ -236,6 +236,21 @@ const TSService=(()=>{
     finally{clearTimeout(timer)}
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||`No se pudo completar la operación segura de Soporte (${res.status}).`);
+    return data;
+  }
+
+  async function supportR2Upload(payload={}){
+    const {data:{session:sb}}=await supabaseClient.auth.getSession();
+    const token=sb?.access_token||'';
+    if(!token)throw new Error('Tu sesión de Servicio Técnico expiró. Vuelve a iniciar sesión.');
+    const nativeFetch=window.ThinkStoreOffline?.nativeFetch||window.fetch.bind(window);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),60000);
+    let res;
+    try{res=await nativeFetch('/.netlify/functions/support-r2-upload',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload),cache:'no-store',signal:controller.signal});}
+    catch(error){if(error?.name==='AbortError')throw new Error('La imagen tardó demasiado en subir. Revisa la conexión e inténtalo nuevamente.');throw error}
+    finally{clearTimeout(timer)}
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok){const extra=data?.details?` · ${String(data.details).slice(0,180)}`:'';throw new Error((data?.error||`No se pudo subir la imagen (${res.status})`)+extra)}
     return data;
   }
 
@@ -1452,7 +1467,9 @@ const TSService=(()=>{
       const visible=(p.visibility||'internal')==='client';
       const likelyImage=SUPPORT_IMAGE_RE.test(supportFileDescriptor(p))||String(p.file_url||'').includes('private:r2')||String(p.storage_path||'').startsWith('r2:');
       const preview=likelyImage?`<button type="button" id="${orderFilePreviewId(p.id)}" class="order-file-preview image-preview loading" aria-label="Cargando vista previa"><span class="order-file-preview-loader"></span><small>Cargando imagen…</small></button>`:`<div class="order-file-preview document-preview"><span class="file-doc">ARCHIVO</span></div>`;
-      return `<article class="order-file-card">${preview}<div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button><button type="button" class="order-file-delete" onclick="TSService.confirmDeleteOrderFile('${esc(p.id)}')" aria-label="Eliminar imagen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5M14 11v5"></path></svg><span>Eliminar</span></button></div></article>`;
+      const safeId=String(p.id||'').replace(/[^a-zA-Z0-9_-]/g,'');
+      const trash=`<button type="button" class="order-file-trash" onclick="event.stopPropagation();TSService.confirmDeleteOrderFile('${esc(p.id)}')" aria-label="Eliminar imagen" title="Eliminar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5M14 11v5"></path></svg></button>`;
+      return `<article id="order-file-card-${safeId}" class="order-file-card"><div class="order-file-media-wrap">${preview}${trash}</div><div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button></div></article>`;
     }).join('')||'<small>Sin fotografías o archivos.</small>';
     files.filter(p=>SUPPORT_IMAGE_RE.test(supportFileDescriptor(p))||String(p.file_url||'').includes('private:r2')||String(p.storage_path||'').startsWith('r2:')).forEach(p=>hydrateOrderFilePreview(p.id));
   }
@@ -1494,7 +1511,8 @@ const TSService=(()=>{
   }
   async function deleteOrderFile(id){
     const row=servicePhotos.find(p=>String(p.id)===String(id));if(!row)throw new Error('La imagen ya no existe.');
-    await supportSecureAction({action:'delete_order_file',file_id:String(id)});
+    const card=document.getElementById('order-file-card-'+String(id).replace(/[^a-zA-Z0-9_-]/g,''));if(card)card.classList.add('deleting');
+    try{await supportSecureAction({action:'delete_order_file',file_id:String(id)})}catch(error){if(card)card.classList.remove('deleting');throw error}
     const cacheKey=String(row.id||row.storage_path||row.file_url||'');orderFileUrlCache.delete(cacheKey);orderFileUrlCache.delete('data:'+cacheKey);
     const orderId=row.order_id;await loadSupportData();await renderOrderFiles(orderId);
     toast('Imagen eliminada correctamente.');
