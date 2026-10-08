@@ -2,6 +2,10 @@
 const {statusClientEmail,sendResend}=require('./support-mail-ui');
 const reply=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'POST, OPTIONS'},body:JSON.stringify(body)});
 const clean=v=>String(v??'').trim();
+const IMAGE_MIME_BY_EXT={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',gif:'image/gif',bmp:'image/bmp',avif:'image/avif',heic:'image/heic',heif:'image/heif',tif:'image/tiff',tiff:'image/tiff'};
+const inferredMime=path=>IMAGE_MIME_BY_EXT[(String(path||'').split('.').pop()||'').toLowerCase()]||'';
+const isGenericMime=m=>!m||m==='application/octet-stream'||m==='binary/octet-stream'||m==='application/binary';
+const absoluteSigned=(base,raw)=>raw.startsWith('http')?raw:raw.startsWith('/storage/v1')?`${base}${raw}`:raw.startsWith('/object/')||raw.startsWith('/render/')?`${base}/storage/v1${raw}`:raw?`${base}/storage/v1/${raw.replace(/^\//,'')}`:'';
 
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return reply(200,{ok:true});
@@ -28,37 +32,52 @@ exports.handler=async event=>{
       return reply(200,{ok:true,orders:Array.isArray(rows)?rows:[]});
     }
 
-    if(action==='file_url'||action==='file_data'){
+    if(action==='file_url'||action==='file_data'||action==='file_preview'){
       const storagePath=clean(body.storage_path);
       if(!storagePath)return reply(400,{ok:false,error:'Falta la ruta del archivo'});
       const photoRows=await req(`service_order_photos?select=id,order_id,storage_path,label&storage_path=eq.${encodeURIComponent(storagePath)}&limit=1`);
       if(!photoRows?.[0])return reply(404,{ok:false,error:'Archivo no registrado en esta orden'});
       const encodePath=v=>String(v||'').split('/').map(encodeURIComponent).join('/');
-      const encoded=encodePath(storagePath);
+      const encoded=encodePath(storagePath),expectedMime=inferredMime(storagePath);
+      const sign=async(transform=null,expiresIn=3600)=>{
+        const payload={expiresIn,...(transform?{transform}:{})};
+        const sr=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encoded}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const sd=await sr.json().catch(()=>({}));
+        const signed=absoluteSigned(url,clean(sd.signedURL||sd.signedUrl));
+        if(!sr.ok||!signed){const e=new Error(sd?.message||sd?.error||'No se pudo generar el enlace seguro');e.status=sr.status;throw e}
+        return signed;
+      };
+      if(action==='file_preview'){
+        if(!expectedMime)return reply(415,{ok:false,error:'Este archivo no es una imagen compatible con vista previa'});
+        try{
+          const signed=await sign({width:1800,height:1800,resize:'contain',quality:84},3600);
+          const check=await fetch(signed,{cache:'no-store'});
+          const ct=clean((check.headers.get('content-type')||'').split(';')[0]).toLowerCase();
+          if(!check.ok||!ct.startsWith('image/')){try{await check.body?.cancel?.()}catch(_){};const e=new Error('La transformación de imagen no está disponible en este proyecto');e.status=409;throw e}
+          try{await check.body?.cancel?.()}catch(_){}
+          return reply(200,{ok:true,url:signed,preview:true,transformed:true,mime:ct,expires_in:3600});
+        }catch(error){return reply(error.status||409,{ok:false,error:error.message||'La vista previa transformada no está disponible'})}
+      }
       if(action==='file_data'){
         let fr=await fetch(`${url}/storage/v1/object/authenticated/service-order-files/${encoded}`,{headers:{apikey:key,Authorization:`Bearer ${key}`}});
         if(!fr.ok){
-          const sr=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encoded}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:300})});
-          const sd=await sr.json().catch(()=>({}));
-          const raw=clean(sd.signedURL||sd.signedUrl);
-          const signed=raw.startsWith('http')?raw:raw.startsWith('/storage/v1')?`${url}${raw}`:raw.startsWith('/object/')?`${url}/storage/v1${raw}`:raw?`${url}/storage/v1/${raw.replace(/^\//,'')}`:'';
-          if(!sr.ok||!signed)return reply(sr.status||500,{ok:false,error:sd?.message||sd?.error||'No se pudo recuperar la imagen'});
+          let signed;try{signed=await sign(null,300)}catch(error){return reply(error.status||500,{ok:false,error:error.message||'No se pudo recuperar la imagen'})}
           fr=await fetch(signed);
         }
         if(!fr.ok)return reply(fr.status,{ok:false,error:'No se pudo leer el archivo privado'});
         const ab=await fr.arrayBuffer();
-        if(ab.byteLength>5*1024*1024)return reply(413,{ok:false,error:'La imagen supera 5 MB. Usa una imagen más ligera.'});
-        const mime=clean(fr.headers.get('content-type'))||'application/octet-stream';
+        if(ab.byteLength>5*1024*1024)return reply(413,{ok:false,error:'La imagen supera 5 MB. Se intentará una vista previa optimizada.'});
+        const serverMime=clean((fr.headers.get('content-type')||'').split(';')[0]).toLowerCase();
+        const mime=(serverMime.startsWith('image/')&&!isGenericMime(serverMime)?serverMime:expectedMime)||serverMime||'application/octet-stream';
         const dataUrl=`data:${mime};base64,${Buffer.from(ab).toString('base64')}`;
-        return reply(200,{ok:true,data_url:dataUrl,mime,size:ab.byteLength});
+        return reply(200,{ok:true,data_url:dataUrl,mime,size:ab.byteLength,inferred_mime:expectedMime||null});
       }
       const sr=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encoded}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
       const sd=await sr.json().catch(()=>({}));
       if(!sr.ok)return reply(sr.status,{ok:false,error:sd?.message||sd?.error||'No se pudo generar el enlace seguro'});
-      const raw=clean(sd.signedURL||sd.signedUrl);
-      const signed=raw.startsWith('http')?raw:raw.startsWith('/storage/v1')?`${url}${raw}`:raw.startsWith('/object/')?`${url}/storage/v1${raw}`:raw?`${url}/storage/v1/${raw.replace(/^\//,'')}`:'';
+      const signed=absoluteSigned(url,clean(sd.signedURL||sd.signedUrl));
       if(!signed)return reply(500,{ok:false,error:'Supabase no devolvió una URL firmada'});
-      return reply(200,{ok:true,url:signed,expires_in:3600});
+      return reply(200,{ok:true,url:signed,expires_in:3600,inline:true});
     }
 
     if(action!=='notify_client')return reply(400,{ok:false,error:'Acción no válida'});

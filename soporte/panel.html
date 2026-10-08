@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=15.12.0" />
+  <link rel="stylesheet" href="styles.css?v=15.14.0" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -417,7 +417,7 @@
         </div>
         <div id="mPartResults" class="repair-part-results"></div>
         <div class="repair-part-cart">
-          <div class="repair-part-cart-head"><div><b>Productos seleccionados</b><small>El stock se descuenta solo al confirmar.</small></div><button id="mConsumePartsButton" type="button" onclick="TSService.commitRepairParts()" disabled>Descontar del inventario</button></div>
+          <div class="repair-part-cart-head"><div><b>Repuestos de la reparación</b><small>Se preparan para esta orden y solo se descuentan al quedar Pagada.</small></div><button id="mConsumePartsButton" type="button" onclick="TSService.commitRepairParts()" disabled>Agregar repuesto</button></div>
           <div id="mPartSelection" class="repair-part-selection"></div>
         </div>
         <div id="mOrderPartHistory" class="repair-part-history"></div>
@@ -478,6 +478,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=15.12.0"></script>
+  <script src="app.js?v=15.14.0"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

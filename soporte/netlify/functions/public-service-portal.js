@@ -148,8 +148,15 @@ exports.handler=async event=>{
       if(o.status!=='Cotización enviada'&&o.quote_status!=='Enviado'&&o.status!=='No aprobado')return reply(409,{ok:false,error:'No hay una cotización pendiente para rechazar.'});
       const comment=clean(body.comment,1200);const now=new Date().toISOString();
       const patch={status:'No aprobado',quote_status:'No aprobado',quote_client_comment:comment||null,updated_at:now};
-      await req(`service_orders?id=eq.${encodeURIComponent(String(o.id))}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(patch)});
+      try{
+        await req('rpc/ts_save_service_order_parts',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_order_code:o.code,p_parts:[],p_actor_email:o.client_email||'client'})});
+      }catch(releaseErr){
+        console.warn('No se pudo liberar la reserva por RPC:',releaseErr.message);
+        try{await req(`service_order_parts?order_code=eq.${encodeURIComponent(o.code)}&status=eq.reserved`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'released',updated_at:now})})}catch(_){}
+      }
+      await req(`service_orders?id=eq.${encodeURIComponent(String(o.id))}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({...patch,reserved_parts_cost:0})});
       await req('service_order_notes',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({order_id:o.id,note:comment?`El cliente no aprobó la cotización. Comentario: ${comment}`:'El cliente decidió no aprobar la cotización.',visibility:'client',author_name:o.client_name||'Cliente',note_type:'Decisión de cotización',status_after:'No aprobado',client_title:'Cotización no aprobada'})});
+      try{await req('service_order_notes',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({order_id:o.id,note:'Los repuestos preparados fueron liberados automáticamente al no aprobarse la cotización.',visibility:'internal',author_name:'Sistema ThinkStore',note_type:'Repuesto',status_after:'No aprobado'})})}catch(_){}
       await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:o.client_email||null,actor_role:'client',action:'quote_rejected_client',entity_type:'service_order',entity_id:String(o.id),before_data:{status:o.status,quote_status:o.quote_status},after_data:{...patch,verification_method:verificationMethod}})});
       const updatedOrder={...o,...patch};
       try{await sendClientEvent({eventType:'quote_rejected',order:updatedOrder,comment,req})}catch(mailErr){console.error('support email quote_rejected staff',mailErr)}

@@ -48,6 +48,10 @@ const TSService=(()=>{
   let serviceUsers=[];
   let servicePhotos=[];
   const orderFileUrlCache=new Map();
+  const SUPPORT_IMAGE_RE=/\.(png|jpe?g|webp|gif|bmp|avif|heic|heif|tif|tiff)(?:$|[?#])/i;
+  const SUPPORT_HEIC_RE=/\.(heic|heif)(?:$|[?#])/i;
+  function supportFileDescriptor(p={}){return `${String(p.label||'')} ${String(p.storage_path||'')} ${String(p.file_url||'')}`}
+  function supportUploadOptions(file){const opts={upsert:false,cacheControl:'3600'};if(file?.type)opts.contentType=file.type;return opts}
   let activeOrderId=null;
   let orderMessagePollTimer=null;
   const orderMessageLastKey=new Map();
@@ -96,6 +100,7 @@ const TSService=(()=>{
   let activeReceptionOrderId=null;
   let pendingAppointmentId=null;
   let serviceParts=[];
+  let serviceOrderParts=[];
   let partMovements=[];
   let repairPartSelection=new Map();
   let serviceAppointments=[];
@@ -479,11 +484,12 @@ const TSService=(()=>{
     supportPaymentTimer=setInterval(()=>refreshExternalPaymentStates().catch(()=>{}),6000);
   }
   async function loadSupportData(){
-    const [orderRes,noteRes,photoRes,partsRes,movementsRes,appointmentsRes]=await Promise.all([
+    const [orderRes,noteRes,photoRes,partsRes,orderPartsRes,movementsRes,appointmentsRes]=await Promise.all([
       supabaseClient.from('service_orders').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_order_notes').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_order_photos').select('*').order('created_at',{ascending:false}),
       supabaseClient.from('service_parts').select('*').order('name',{ascending:true}),
+      supabaseClient.from('service_order_parts').select('*').order('created_at',{ascending:false}).limit(2000),
       supabaseClient.from('service_part_movements').select('*').order('created_at',{ascending:false}).limit(300),
       supabaseClient.from('service_appointments').select('*').order('preferred_date',{ascending:true}).order('preferred_time',{ascending:true})
     ]);
@@ -494,7 +500,8 @@ const TSService=(()=>{
     const byId=new Map(orders.map(o=>[o.id,o]));
     bitacora=(noteRes.data||[]).map(row=>mapNote(row,byId));
     servicePhotos=photoRes.data||[];
-    serviceParts=partsRes.data||[];partMovements=movementsRes.data||[];serviceAppointments=appointmentsRes.error?[]:(appointmentsRes.data||[]);
+    serviceParts=partsRes.data||[];serviceOrderParts=orderPartsRes.error?[]:(orderPartsRes.data||[]);partMovements=movementsRes.data||[];serviceAppointments=appointmentsRes.error?[]:(appointmentsRes.data||[]);
+    if(orderPartsRes.error)console.warn('No se pudieron cargar repuestos preparados por orden:',orderPartsRes.error.message);
     if(appointmentsRes.error)console.warn('No se pudieron cargar citas web:',appointmentsRes.error.message);
     refreshReceptionClientDirectory();
     loadRegisteredClients().then(()=>refreshReceptionClientDirectory()).catch(()=>{});
@@ -943,6 +950,35 @@ const TSService=(()=>{
   }
 
 
+  function orderPartRowsForOrder(order){
+    if(!order)return [];
+    return serviceOrderParts.filter(r=>String(r.order_code||'').toUpperCase()===String(order.code||'').toUpperCase()&&r.status!=='released');
+  }
+  function reservedOtherQty(partId,orderCode){
+    return serviceOrderParts.reduce((sum,r)=>{
+      if(String(r.part_id)!==String(partId)||r.status!=='reserved'||String(r.order_code||'').toUpperCase()===String(orderCode||'').toUpperCase())return sum;
+      return sum+Math.max(0,Number(r.quantity_reserved||0)-Number(r.quantity_consumed||0));
+    },0);
+  }
+  function availablePartQty(part,order){return Math.max(0,Number(part?.quantity||0)-reservedOtherQty(part?.id,order?.code));}
+  function servicePartImage(part){
+    const url=String(part?.catalog_details?.image_url||part?.image_url||'').trim();
+    return /^(https?:|data:image\/)/i.test(url)?url:'';
+  }
+  function partThumbHtml(part){const url=servicePartImage(part);return `<span class="repair-part-thumb ${url?'has-image':''}">${url?`<img src="${esc(url)}" alt="" loading="lazy">`:'<span>▦</span>'}</span>`}
+  function existingReservedRow(order,partId){return orderPartRowsForOrder(order).find(r=>String(r.part_id)===String(partId)&&r.status==='reserved')||null}
+  async function releasePreparedParts(order,reason='Liberación de repuestos'){
+    if(!order)return;
+    try{
+      const {error}=await supabaseClient.rpc('ts_save_service_order_parts',{p_order_code:order.code,p_parts:[],p_actor_email:session?.email||null});
+      if(error)throw error;
+    }catch(err){
+      console.warn('RPC de liberación no disponible, usando fallback:',err?.message||err);
+      await supabaseClient.from('service_order_parts').update({status:'released',updated_at:new Date().toISOString()}).eq('order_code',order.code).eq('status','reserved');
+      await supabaseClient.from('service_orders').update({reserved_parts_cost:0}).eq('id',order.id);
+    }
+    await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:`${reason}. Los repuestos preparados volvieron a estar disponibles.`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Repuesto',status_after:order.status});
+  }
   function repairPartMovementsForOrder(order){
     if(!order)return [];
     return partMovements.filter(m=>String(m.order_id||'').toUpperCase()===String(order.code||'').toUpperCase()&&Number(m.quantity)<0);
@@ -956,57 +992,54 @@ const TSService=(()=>{
     if(!order||!results||!selected||!history)return;
     if(badge)badge.textContent=order.code||'Orden';
     const q=String(query||document.getElementById('mPartSearch')?.value||'').trim().toLowerCase();
+    const paid=orderPaymentState(order).key==='paid';
     const available=serviceParts.filter(p=>p.active!==false&&(!q||repairPartSearchText(p).includes(q)));
     results.innerHTML=available.length?available.map(p=>{
-      const stock=Number(p.quantity||0),low=stock<=Number(p.minimum_stock||0),inCart=repairPartSelection.has(String(p.id));
-      return `<button type="button" class="repair-part-result ${stock<=0?'is-empty':''} ${inCart?'is-selected':''}" ${stock<=0?'disabled':''} onclick="TSService.addRepairPart('${esc(p.id)}')"><span><b>${esc(p.name)}</b><small>${esc(p.sku||'Sin SKU')} · ${esc(p.category||'General')}${p.compatible_models?` · ${esc(p.compatible_models)}`:''}${p.sale_price!=null?` · Venta $${Number(p.sale_price).toFixed(2)}`:' · Sin precio de venta'}</small></span><span class="repair-part-stock ${low?'stock-low':''}"><b>${stock}</b><small>disponible${stock===1?'':'s'}</small></span></button>`;
+      const stock=availablePartQty(p,order),low=stock<=Number(p.minimum_stock||0),inCart=repairPartSelection.has(String(p.id)),prepared=!!existingReservedRow(order,p.id),price=Number(p.sale_price||0);
+      return `<button type="button" class="repair-part-result ${stock<=0&&!inCart?'is-empty':''} ${inCart?'is-selected':''} ${prepared?'is-prepared':''}" ${paid||stock<=0&&!inCart?'disabled':''} onclick="TSService.addRepairPart('${esc(p.id)}')">${partThumbHtml(p)}<span class="repair-part-result-copy"><b>${esc(p.name)}</b><small>${esc(p.sku||'Sin SKU')} · ${esc(p.category||'General')}${p.compatible_models?` · ${esc(p.compatible_models)}`:''}</small><small class="repair-part-price">${price>0?`Cobro $${price.toFixed(2)}`:'Precio no configurado'}${prepared?' · Preparado':''}</small></span><span class="repair-part-stock ${low?'stock-low':''}"><b>${stock}</b><small>disponible${stock===1?'':'s'}</small></span></button>`;
     }).join(''):`<div class="repair-part-empty">${q?'No encontré productos con esa búsqueda.':'No hay productos activos en inventario.'}</div>`;
 
     const entries=[...repairPartSelection.entries()].map(([id,qty])=>({part:serviceParts.find(p=>String(p.id)===String(id)),qty:Number(qty||1)})).filter(x=>x.part);
-    selected.innerHTML=entries.length?entries.map(({part,qty})=>`<article class="repair-part-selected"><div><b>${esc(part.name)}</b><small>${esc(part.sku||'')} · Stock ${Number(part.quantity||0)}${part.sale_price!=null?` · Venta $${Number(part.sale_price).toFixed(2)}`:' · Sin precio de venta'}${part.unit_cost!=null?` · Costo $${Number(part.unit_cost).toFixed(2)}`:''}</small></div><div class="repair-part-stepper"><button type="button" onclick="TSService.changeRepairPartQty('${esc(part.id)}',-1)">−</button><input type="number" min="1" max="${Math.max(1,Number(part.quantity||0))}" value="${qty}" onchange="TSService.setRepairPartQty('${esc(part.id)}',this.value)"><button type="button" onclick="TSService.changeRepairPartQty('${esc(part.id)}',1)">+</button><button type="button" class="repair-part-remove" onclick="TSService.removeRepairPart('${esc(part.id)}')">×</button></div></article>`).join(''):'<div class="repair-part-empty">Selecciona uno o varios productos para esta reparación.</div>';
+    const selectedTotal=entries.reduce((sum,{part,qty})=>sum+(Number(existingReservedRow(order,part.id)?.sale_price_snapshot||part.sale_price||0)*qty),0);
+    selected.innerHTML=entries.length?entries.map(({part,qty})=>{const saved=existingReservedRow(order,part.id),price=Number(saved?.sale_price_snapshot||part.sale_price||0),subtotal=price*qty,stock=availablePartQty(part,order);return `<article class="repair-part-selected ${saved?'is-prepared':'is-draft'}">${partThumbHtml(part)}<div class="repair-part-selected-copy"><div class="repair-part-selected-title"><b>${esc(part.name)}</b><span class="repair-part-status ${saved?'prepared':'draft'}">${saved?'Preparado':'Por agregar'}</span></div><small>${esc(part.sku||'')} · Disponible ${stock}${price>0?` · Precio $${price.toFixed(2)}`:' · Precio no configurado'}</small><strong>${price>0?`A cobrar: $${subtotal.toFixed(2)}`:'Sin precio de venta'}</strong></div><div class="repair-part-stepper"><button type="button" ${paid?'disabled':''} onclick="TSService.changeRepairPartQty('${esc(part.id)}',-1)">−</button><input type="number" min="1" max="${Math.max(1,stock)}" value="${qty}" ${paid?'disabled':''} onchange="TSService.setRepairPartQty('${esc(part.id)}',this.value)"><button type="button" ${paid?'disabled':''} onclick="TSService.changeRepairPartQty('${esc(part.id)}',1)">+</button><button type="button" class="repair-part-remove" ${paid?'disabled':''} onclick="TSService.removeRepairPart('${esc(part.id)}')">×</button></div></article>`}).join('')+`<div class="repair-part-selection-total"><span>Total repuestos a cobrar</span><b>$${selectedTotal.toFixed(2)}</b></div>`:'<div class="repair-part-empty">Selecciona uno o varios repuestos para preparar esta reparación.</div>';
+    const existingReserved=orderPartRowsForOrder(order).some(r=>r.status==='reserved');
     const consumeButton=document.getElementById('mConsumePartsButton');
-    if(consumeButton){consumeButton.disabled=!entries.length;consumeButton.textContent=entries.length?`Descontar ${entries.reduce((s,x)=>s+x.qty,0)} unidad${entries.reduce((s,x)=>s+x.qty,0)===1?'':'es'} del inventario`:'Descontar del inventario';}
+    if(consumeButton){consumeButton.disabled=paid||(!entries.length&&!existingReserved);consumeButton.textContent=entries.length?'Agregar repuesto':existingReserved?'Guardar cambios':'Agregar repuesto';}
 
-    const used=repairPartMovementsForOrder(order).slice(0,30);
-    history.innerHTML=used.length?`<div class="repair-part-history-head"><b>Consumido en esta reparación</b><small>${used.length} movimiento${used.length===1?'':'s'}</small></div><div class="repair-part-history-list">${used.map(m=>{const p=serviceParts.find(x=>String(x.id)===String(m.part_id));return `<span><b>${Math.abs(Number(m.quantity||0))}×</b> ${esc(p?.name||'Producto')}<small>${dateText(m.created_at)}</small></span>`}).join('')}</div>`:'<small class="repair-part-history-empty">Todavía no se ha descontado inventario en esta orden.</small>';
+    const linked=orderPartRowsForOrder(order).slice(0,30);
+    history.innerHTML=linked.length?`<div class="repair-part-history-head"><b>Repuestos de esta reparación</b><small>${linked.length} registro${linked.length===1?'':'s'}</small></div><div class="repair-part-order-list">${linked.map(r=>{const p=serviceParts.find(x=>String(x.id)===String(r.part_id)),qty=r.status==='consumed'?Number(r.quantity_consumed||r.quantity_reserved||0):Number(r.quantity_reserved||0),price=Number(r.sale_price_snapshot||p?.sale_price||0),state=r.status==='consumed'?'Consumido':'Preparado';return `<article class="repair-part-order-card ${r.status==='reserved'?'prepared':'consumed'}">${partThumbHtml(p)}<div><b>${esc(p?.name||'Repuesto')}</b><small>${qty}× · ${price>0?`$${price.toFixed(2)} c/u · $${(qty*price).toFixed(2)}`:'Precio no configurado'}</small></div><span>${state}</span></article>`}).join('')}</div>`:'<small class="repair-part-history-empty">Todavía no hay repuestos preparados para esta orden.</small>';
+    if(paid&&consumeButton){consumeButton.disabled=true;consumeButton.textContent='Repuestos consumidos al pagar'}
   }
   function filterRepairParts(value){renderOrderPartPicker(value)}
   function addRepairPart(id){
-    const p=serviceParts.find(x=>String(x.id)===String(id));if(!p)return;
-    const stock=Number(p.quantity||0);if(stock<=0)return toast('Este producto está agotado.','error');
-    const key=String(p.id),next=Math.min(stock,Number(repairPartSelection.get(key)||0)+1);repairPartSelection.set(key,next);renderOrderPartPicker();
+    const order=orders.find(x=>String(x.id)===String(activeOrderId)),p=serviceParts.find(x=>String(x.id)===String(id));if(!p||!order)return;
+    const stock=availablePartQty(p,order);if(stock<=0&&!repairPartSelection.has(String(id)))return toast('Este repuesto no tiene unidades disponibles.','error');
+    const key=String(p.id),next=Math.min(Math.max(1,stock),Number(repairPartSelection.get(key)||0)+1);repairPartSelection.set(key,next);renderOrderPartPicker();
   }
   function setRepairPartQty(id,value){
-    const p=serviceParts.find(x=>String(x.id)===String(id));if(!p)return;
-    const stock=Number(p.quantity||0),qty=Math.max(1,Math.min(stock,Math.floor(Number(value)||1)));repairPartSelection.set(String(id),qty);renderOrderPartPicker();
+    const order=orders.find(x=>String(x.id)===String(activeOrderId)),p=serviceParts.find(x=>String(x.id)===String(id));if(!p||!order)return;
+    const stock=availablePartQty(p,order),qty=Math.max(1,Math.min(Math.max(1,stock),Math.floor(Number(value)||1)));repairPartSelection.set(String(id),qty);renderOrderPartPicker();
   }
-  function changeRepairPartQty(id,delta){
-    const current=Number(repairPartSelection.get(String(id))||1);setRepairPartQty(id,current+Number(delta||0));
-  }
+  function changeRepairPartQty(id,delta){const current=Number(repairPartSelection.get(String(id))||1);setRepairPartQty(id,current+Number(delta||0))}
   function removeRepairPart(id){repairPartSelection.delete(String(id));renderOrderPartPicker()}
   async function commitRepairParts(){
     const order=orders.find(x=>String(x.id)===String(activeOrderId));if(!order)return toast('No hay una orden activa.','error');
+    if(orderPaymentState(order).key==='paid')return toast('La orden ya está pagada; los repuestos ya no pueden modificarse.','error');
     const items=[...repairPartSelection.entries()].map(([id,qty])=>({part:serviceParts.find(p=>String(p.id)===String(id)),qty:Number(qty||0)})).filter(x=>x.part&&x.qty>0);
-    if(!items.length)return toast('Selecciona al menos un producto.','error');
-    const invalid=items.find(x=>x.qty>Number(x.part.quantity||0));if(invalid)return toast(`Stock insuficiente para ${invalid.part.name}. Disponible: ${Number(invalid.part.quantity||0)}.`,'error');
-    const summary=items.map(x=>`${x.qty}× ${x.part.name}`).join(', ');
-    if(!confirm(`Se descontará del inventario para ${order.code}:
-
-${summary}
-
-¿Continuar?`))return;
-    const btn=document.getElementById('mConsumePartsButton');if(btn){btn.disabled=true;btn.textContent='Descontando inventario…'}
-    const consumed=[];
-    for(const item of items){
-      const {error}=await supabaseClient.rpc('adjust_service_part_stock',{p_part_id:item.part.id,p_quantity:-Math.abs(item.qty),p_type:'consumo_orden',p_order_id:order.code,p_note:`Reparación ${order.code} · ${order.device}`});
-      if(error){await loadSupportData();repairPartSelection.clear();renderOrderPartPicker();toast(`No se pudo completar el consumo: ${error.message}${consumed.length?' · Algunos productos ya fueron descontados.':''}`,'error');return}
-      consumed.push(item);
-    }
-    const totalCost=consumed.reduce((s,x)=>s+(Number(x.part.unit_cost||0)*x.qty),0);
-    const partsText=consumed.map(x=>`${x.qty}× ${x.part.name}`).join(', ');
-    await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:`Inventario descontado para la reparación: ${partsText}${totalCost?` · Costo directo registrado $${totalCost.toFixed(2)}`:''}`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Repuesto',status_after:order.status,parts_used:partsText});
-    await audit('consume_repair_inventory',order.id,null,{order_code:order.code,items:consumed.map(x=>({part_id:x.part.id,sku:x.part.sku,name:x.part.name,quantity:x.qty,unit_cost:x.part.unit_cost??null})),total_cost:totalCost});
-    repairPartSelection.clear();await loadSupportData();renderOrderPartPicker();toast('Inventario descontado y vinculado a la reparación.');
+    for(const item of items){const available=availablePartQty(item.part,order);if(item.qty>available)return toast(`Stock insuficiente para ${item.part.name}. Disponible real: ${available}.`,'error')}
+    const existingReserved=orderPartRowsForOrder(order).filter(r=>r.status==='reserved');
+    if(!items.length&&!existingReserved.length)return toast('Selecciona al menos un repuesto.','error');
+    const summary=items.length?items.map(x=>`${x.qty}× ${x.part.name}${Number(x.part.sale_price||0)>0?` ($${Number(x.part.sale_price).toFixed(2)} c/u)`:''}`).join(', '):'Liberar todos los repuestos preparados';
+    if(!confirm(`${items.length?'Se prepararán estos repuestos para':'Se liberarán los repuestos preparados de'} ${order.code}:\n\n${summary}\n\nEl stock físico NO se descontará hasta que la orden quede Pagada. ¿Continuar?`))return;
+    const btn=document.getElementById('mConsumePartsButton');if(btn){btn.disabled=true;btn.textContent=items.length?'Preparando…':'Liberando…'}
+    const payload=items.map(x=>({part_id:x.part.id,quantity:x.qty}));
+    const {error}=await supabaseClient.rpc('ts_save_service_order_parts',{p_order_code:order.code,p_parts:payload,p_actor_email:session?.email||null});
+    if(error){renderOrderPartPicker();return toast('No se pudieron preparar los repuestos: '+error.message,'error')}
+    const saleTotal=items.reduce((s,x)=>s+Number(x.part.sale_price||0)*x.qty,0);
+    const note=items.length?`Repuestos preparados para la reparación: ${summary}${saleTotal?` · Valor de repuestos $${saleTotal.toFixed(2)}`:''}. El inventario se descontará únicamente al completar el pago.`:'Repuestos preparados liberados; vuelven a estar disponibles para otras reparaciones.';
+    await supabaseClient.from('service_order_notes').insert({order_id:order.id,note,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Repuesto',status_after:order.status,parts_used:items.map(x=>`${x.qty}× ${x.part.name}`).join(', ')||null});
+    await audit(items.length?'prepare_repair_inventory':'release_repair_inventory',order.id,null,{order_code:order.code,items:items.map(x=>({part_id:x.part.id,sku:x.part.sku,name:x.part.name,quantity:x.qty,sale_price:x.part.sale_price??null})),sale_total:saleTotal});
+    await loadSupportData();repairPartSelection.clear();orderPartRowsForOrder(order).filter(r=>r.status==='reserved').forEach(r=>repairPartSelection.set(String(r.part_id),Number(r.quantity_reserved||1)));renderOrderPartPicker();toast(items.length?'Repuesto preparado. Se descontará del inventario solo cuando la orden quede Pagada.':'Repuestos liberados y nuevamente disponibles.');
   }
 
 
@@ -1021,7 +1054,7 @@ ${summary}
     document.getElementById('mOrderTitle').textContent=`${o.code} · ${o.device}`;
     document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
     mQuoteAmount.value=o.quoteAmount||'';mQuoteStatus.value=o.quote;mQuoteRepairDetails.value=o.quoteRepairDetails||'';mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=sanitizeTechnicalNotes(o.technicalNotes||'');const qa=document.getElementById('mQuoteApprovalState');if(qa)qa.innerHTML=o.quoteApprovedAt?`<div class="notice success"><b>Cotización aprobada por el cliente</b><small>${dateText(o.quoteApprovedAt)}${o.quoteClientComment?` · Comentario: ${esc(o.quoteClientComment)}`:''}</small></div>`:o.quoteSentAt?`<div class="notice"><b>Cotización enviada</b><small>${dateText(o.quoteSentAt)} · En espera de aprobación.</small></div>`:'';
-    repairPartSelection.clear();const partSearch=document.getElementById('mPartSearch');if(partSearch)partSearch.value='';renderOrderPartPicker('');
+    repairPartSelection.clear();orderPartRowsForOrder(o).filter(r=>r.status==='reserved').forEach(r=>repairPartSelection.set(String(r.part_id),Number(r.quantity_reserved||1)));const partSearch=document.getElementById('mPartSearch');if(partSearch)partSearch.value='';renderOrderPartPicker('');
     await renderOrderFiles(o.id);await renderOrderMessages(o.id,{initial:true});startOrderMessagePolling(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');
   }
   async function resolveOrderFileUrl(p={}){
@@ -1029,13 +1062,20 @@ ${summary}
     const cached=orderFileUrlCache.get(key);
     if(cached&&cached.expires>Date.now()&&cached.url)return cached.url;
     let url='';
-    const isImage=/\.(png|jpe?g|webp|gif|bmp)$/i.test(String(p.label||p.storage_path||''));
+    const descriptor=supportFileDescriptor(p),isImage=SUPPORT_IMAGE_RE.test(descriptor),isHeic=SUPPORT_HEIC_RE.test(descriptor);
     if(p.storage_path){
-      if(isImage){
+      if(isImage&&isHeic){
+        try{const secure=await supportSecureAction({action:'file_preview',storage_path:p.storage_path});url=String(secure.url||'').trim()}catch(error){console.warn('Vista previa HEIC:',error?.message||error)}
+      }
+      if(isImage&&!url){
         try{
           const secure=await supportSecureAction({action:'file_data',storage_path:p.storage_path});
-          url=String(secure.data_url||'').trim();
+          const candidate=String(secure.data_url||'').trim();
+          if(/^data:image\//i.test(candidate))url=candidate;
         }catch(error){console.warn('Datos seguros de imagen:',error?.message||error)}
+      }
+      if(isImage&&!url){
+        try{const secure=await supportSecureAction({action:'file_preview',storage_path:p.storage_path});url=String(secure.url||'').trim()}catch(error){console.warn('Vista previa optimizada:',error?.message||error)}
       }
       if(!url){
         try{
@@ -1071,7 +1111,7 @@ ${summary}
     const rows=await Promise.all(files.map(async p=>{
       const url=await resolveOrderFileUrl(p);
       const visible=(p.visibility||'internal')==='client';
-      const isImage=/\.(png|jpe?g|webp|gif|heic|heif)$/i.test(String(p.label||p.storage_path||''));
+      const isImage=SUPPORT_IMAGE_RE.test(supportFileDescriptor(p));
       const preview=isImage
         ?(url?`<button type="button" class="order-file-preview image-preview" onclick="TSService.openOrderImage('${esc(p.id)}')" title="Ampliar imagen"><img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen')}" loading="lazy"><span class="order-file-zoom">⌕</span></button>`:`<div class="order-file-preview broken"><span class="file-doc">IMAGEN NO DISPONIBLE</span></div>`)
         :(url?`<a class="order-file-preview" href="${esc(url)}" target="_blank" rel="noopener"><span class="file-doc">ABRIR ARCHIVO</span></a>`:`<div class="order-file-preview broken"><span class="file-doc">ARCHIVO NO DISPONIBLE</span></div>`);
@@ -1083,7 +1123,7 @@ ${summary}
     const input=document.getElementById('mOrderFile'),file=input?.files?.[0],o=orders.find(x=>String(x.id)===String(activeOrderId));if(!file||!o)return toast('Selecciona una fotografía o archivo.','error');
     if(file.size>8*1024*1024)return toast('El archivo supera el límite de 8 MB.','error');
     const ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'');const path=`${o.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,{upsert:false});if(upError)return toast('No se pudo subir: '+upError.message,'error');
+    const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,supportUploadOptions(file));if(upError)return toast('No se pudo subir: '+upError.message,'error');
     const visibility=document.getElementById('mOrderFileVisible')?.checked?'client':'internal';
     const caption=document.getElementById('mOrderFileCaption')?.value.trim()||file.name;
     const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:'private',storage_path:path,label:file.name,client_caption:caption,visibility,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
@@ -1146,6 +1186,7 @@ ${summary}
     const cleanTechnicalNotes=sanitizeTechnicalNotes(mTechnicalNotes.value.trim());
     const changes={assigned_technician_email:mTechnician.value||null,quote_amount:quoteAmount||null,quote_status:mQuoteStatus.value,quote_repair_details:mQuoteRepairDetails.value.trim()||null,service_mode:mServiceMode.value||'Presencial',warranty_days:Number(mWarrantyDays.value||0),delivery_method:mDeliveryMethod.value.trim()||null,tracking_company:mTrackingCompany.value.trim()||null,tracking_code:mTrackingCode.value.trim()||null,technical_notes:cleanTechnicalNotes||null};
     const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',o.id);if(error){toast('No se pudo guardar: '+error.message,'error');return}
+    if(mQuoteStatus.value==='Rechazado')await releasePreparedParts(o,'Cotización marcada como rechazada');
     await supabaseClient.from('service_order_notes').insert({order_id:o.id,note:`Datos operativos actualizados: técnico, presupuesto, garantía, entrega y diagnóstico. La cobranza se gestiona desde App Ventas.`,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Gestión de orden',status_after:o.status});await audit('update_order_details',o.id,o,changes);
     await loadSupportData();closeModals();await renderPanel('orders');toast('Orden actualizada correctamente.');
   }
@@ -1637,7 +1678,7 @@ ${summary}
       try{
         if(file.size>8*1024*1024)continue;
         const ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,''),path=`${orderId}/reception-${slot}-${Date.now()}-${crypto.randomUUID()}.${ext}`;
-        const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,{upsert:false});if(upError){console.warn(upError);continue}
+        const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,supportUploadOptions(file));if(upError){console.warn(upError);continue}
         await supabaseClient.from('service_order_photos').insert({order_id:orderId,file_url:'private',storage_path:path,label:`Recepción · ${slot==='front'?'Frontal':slot==='back'?'Trasera':'Detalle'}`,created_by_email:session?.email||null});
       }catch(err){console.warn('Reception photo',err)}
     }
@@ -1766,6 +1807,7 @@ ${summary}
     const changes={status};if(status==='Entregado')changes.delivered_at=new Date().toISOString();
     const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',order.id);
     if(error){alert('No se pudo actualizar el estado: '+error.message);await renderPanel('orders');return}
+    if(['No aprobado','Cancelado'].includes(status))await releasePreparedParts(order,status==='No aprobado'?'Cotización no aprobada':'Orden cancelada');
     await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:publicStatusMessage(status),visibility:'client',author_name:session?.name||'Soporte ThinkStore',note_type:'Cambio de estado',status_after:status,client_title:status});
     await audit('update_status',order.id,{status:previous},{status});await loadSupportData();await renderPanel('orders');toast('Estado actualizado y registrado en el seguimiento.');
     const autoEmailStates=new Set(['Diagnóstico disponible','Aprobado por cliente','En reparación','Listo para entregar','Entregado','No aprobado']);

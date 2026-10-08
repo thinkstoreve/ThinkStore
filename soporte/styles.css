@@ -1691,3 +1691,30 @@ button,input,select,textarea{font-size:16px}
 @media(max-width:620px){.order-image-lightbox{padding:10px}.order-image-lightbox-card{width:98vw;border-radius:16px}.order-image-lightbox-stage{padding:8px;min-height:220px}.order-image-lightbox-caption{align-items:flex-start;flex-direction:column;gap:4px}}
 
 .support-order-tech-label{font-size:9px;color:#8a8f97;font-weight:750;letter-spacing:.04em;text-transform:uppercase;margin:1px 0 -3px 2px}
+
+/* ThinkStore V15.14 · Repuestos preparados por orden */
+.repair-part-result{justify-content:flex-start!important}
+.repair-part-result-copy{min-width:0;display:grid;gap:3px;flex:1}
+.repair-part-result-copy .repair-part-price{font-weight:750;color:#374151}
+.repair-part-thumb{width:54px;height:54px;border-radius:13px;background:#f4f5f7;border:1px solid #e4e7eb;display:grid;place-items:center;overflow:hidden;flex:0 0 auto;color:#9ca3af;font-size:20px}
+.repair-part-thumb.has-image{background:#fff}
+.repair-part-thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.repair-part-result.is-prepared{border-color:#e7b94a!important;background:#fffaf0!important;box-shadow:0 7px 24px rgba(217,163,33,.13)!important}
+.repair-part-selected{position:relative;justify-content:flex-start!important;transition:.18s ease}
+.repair-part-selected.is-prepared{background:linear-gradient(135deg,#fffdf7,#fff7d8);box-shadow:inset 4px 0 0 #eab308,0 8px 22px rgba(202,138,4,.10)}
+.repair-part-selected.is-draft{background:#fff}
+.repair-part-selected-copy{display:grid;gap:4px;min-width:0;flex:1}
+.repair-part-selected-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.repair-part-selected-copy strong{font-size:12px;color:#111827}
+.repair-part-status{font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;border-radius:999px;padding:4px 7px}
+.repair-part-status.prepared{background:#fef3c7;color:#92400e;border:1px solid #f5d566}
+.repair-part-status.draft{background:#eef4ff;color:#285bb8;border:1px solid #cfdcff}
+.repair-part-order-list{display:grid;gap:8px}
+.repair-part-order-card{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff}
+.repair-part-order-card>div{display:grid;gap:3px;min-width:0;flex:1}.repair-part-order-card>div b{font-size:12px}.repair-part-order-card>div small{font-size:10px;color:var(--muted)}
+.repair-part-order-card>span:last-child{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;border-radius:999px;padding:6px 8px}
+.repair-part-order-card.prepared{border-color:#efcf73;background:#fffaf0;box-shadow:0 7px 22px rgba(202,138,4,.11)}
+.repair-part-order-card.prepared>span:last-child{background:#fef3c7;color:#92400e}
+.repair-part-order-card.consumed{border-color:#bfe4d1;background:#f6fcf9}.repair-part-order-card.consumed>span:last-child{background:#dcfce7;color:#166534}
+@media(max-width:780px){.repair-part-thumb{width:48px;height:48px}.repair-part-selected{align-items:flex-start!important}.repair-part-selected .repair-part-stepper{margin-left:58px;width:calc(100% - 58px)}.repair-part-order-card{align-items:flex-start}.repair-part-order-card>span:last-child{margin-left:auto}}
+.repair-part-selection-total{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#111;color:#fff}.repair-part-selection-total span{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}.repair-part-selection-total b{font-size:16px}
