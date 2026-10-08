@@ -35,8 +35,32 @@ async function ordersList(conf){
 }
 async function getOrder(conf,id){const rows=await rest(conf,'service_orders',{select:FIELDS,id:`eq.${id}`,limit:1});return rows?.[0]||null;}
 
+async function movementParts(conf,code){
+  try{
+    const [moves,catalog]=await Promise.all([
+      rest(conf,'service_part_movements',{select:'id,part_id,quantity,created_at,note',order_id:`eq.${code}`,quantity:'lt.0',order:'created_at.asc',limit:200}),
+      rest(conf,'service_parts',{select:'id,sku,name,category,unit_cost,sale_price',limit:5000})
+    ]);
+    const byId=new Map((catalog||[]).map(p=>[String(p.id),p]));
+    const grouped=new Map();
+    for(const m of moves||[]){
+      const id=String(m.part_id||'');if(!id)continue;
+      const p=byId.get(id)||{};const qty=Math.abs(Number(m.quantity||0));if(!qty)continue;
+      const prev=grouped.get(id)||{id:`move-${id}`,part_id:id,order_code:code,quantity_reserved:0,quantity_consumed:0,unit_cost_snapshot:Number(p.unit_cost||0),sale_price_snapshot:Number(p.sale_price||0),status:'consumed',service_parts:{name:p.name||'Repuesto',sku:p.sku||'',category:p.category||'',sale_price:Number(p.sale_price||0),unit_cost:Number(p.unit_cost||0)},movement_source:true};
+      prev.quantity_consumed+=qty;grouped.set(id,prev);
+    }
+    return [...grouped.values()];
+  }catch(e){console.warn('No se pudieron resolver movimientos de repuestos',e.message);return []}
+}
 async function orderParts(conf,code){
-  try{return await rest(conf,'service_order_parts',{select:'id,order_code,quantity_reserved,quantity_consumed,unit_cost_snapshot,sale_price_snapshot,status,service_parts(name,sku,category)',order_code:`eq.${code}`,status:'neq.released',order:'created_at.asc',limit:100})||[]}catch(e){console.warn('No se pudo leer repuestos de la orden',e.message);return []}
+  let rows=[];
+  try{rows=await rest(conf,'service_order_parts',{select:'id,part_id,order_code,quantity_reserved,quantity_consumed,unit_cost_snapshot,sale_price_snapshot,status,service_parts(name,sku,category,sale_price,unit_cost)',order_code:`eq.${code}`,status:'neq.released',order:'created_at.asc',limit:100})||[]}catch(e){console.warn('No se pudo leer repuestos de la orden',e.message)}
+  rows=(rows||[]).map(r=>({...r,sale_price_snapshot:Number(r.sale_price_snapshot||0)>0?Number(r.sale_price_snapshot):Number(r.service_parts?.sale_price||0),unit_cost_snapshot:Number(r.unit_cost_snapshot||0)>0?Number(r.unit_cost_snapshot):Number(r.service_parts?.unit_cost||0)}));
+  const moves=await movementParts(conf,code);
+  if(!rows.length)return moves;
+  const ids=new Set(rows.map(r=>String(r.part_id||'')));
+  for(const m of moves)if(!ids.has(String(m.part_id||'')))rows.push(m);
+  return rows;
 }
 
 async function orderNotes(conf,id){

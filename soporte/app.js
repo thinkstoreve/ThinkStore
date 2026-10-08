@@ -959,11 +959,11 @@ const TSService=(()=>{
     const available=serviceParts.filter(p=>p.active!==false&&(!q||repairPartSearchText(p).includes(q)));
     results.innerHTML=available.length?available.map(p=>{
       const stock=Number(p.quantity||0),low=stock<=Number(p.minimum_stock||0),inCart=repairPartSelection.has(String(p.id));
-      return `<button type="button" class="repair-part-result ${stock<=0?'is-empty':''} ${inCart?'is-selected':''}" ${stock<=0?'disabled':''} onclick="TSService.addRepairPart('${esc(p.id)}')"><span><b>${esc(p.name)}</b><small>${esc(p.sku||'Sin SKU')} · ${esc(p.category||'General')}${p.compatible_models?` · ${esc(p.compatible_models)}`:''}</small></span><span class="repair-part-stock ${low?'stock-low':''}"><b>${stock}</b><small>disponible${stock===1?'':'s'}</small></span></button>`;
+      return `<button type="button" class="repair-part-result ${stock<=0?'is-empty':''} ${inCart?'is-selected':''}" ${stock<=0?'disabled':''} onclick="TSService.addRepairPart('${esc(p.id)}')"><span><b>${esc(p.name)}</b><small>${esc(p.sku||'Sin SKU')} · ${esc(p.category||'General')}${p.compatible_models?` · ${esc(p.compatible_models)}`:''}${p.sale_price!=null?` · Venta $${Number(p.sale_price).toFixed(2)}`:' · Sin precio de venta'}</small></span><span class="repair-part-stock ${low?'stock-low':''}"><b>${stock}</b><small>disponible${stock===1?'':'s'}</small></span></button>`;
     }).join(''):`<div class="repair-part-empty">${q?'No encontré productos con esa búsqueda.':'No hay productos activos en inventario.'}</div>`;
 
     const entries=[...repairPartSelection.entries()].map(([id,qty])=>({part:serviceParts.find(p=>String(p.id)===String(id)),qty:Number(qty||1)})).filter(x=>x.part);
-    selected.innerHTML=entries.length?entries.map(({part,qty})=>`<article class="repair-part-selected"><div><b>${esc(part.name)}</b><small>${esc(part.sku||'')} · Stock ${Number(part.quantity||0)}${part.unit_cost!=null?` · Costo $${Number(part.unit_cost).toFixed(2)}`:''}</small></div><div class="repair-part-stepper"><button type="button" onclick="TSService.changeRepairPartQty('${esc(part.id)}',-1)">−</button><input type="number" min="1" max="${Math.max(1,Number(part.quantity||0))}" value="${qty}" onchange="TSService.setRepairPartQty('${esc(part.id)}',this.value)"><button type="button" onclick="TSService.changeRepairPartQty('${esc(part.id)}',1)">+</button><button type="button" class="repair-part-remove" onclick="TSService.removeRepairPart('${esc(part.id)}')">×</button></div></article>`).join(''):'<div class="repair-part-empty">Selecciona uno o varios productos para esta reparación.</div>';
+    selected.innerHTML=entries.length?entries.map(({part,qty})=>`<article class="repair-part-selected"><div><b>${esc(part.name)}</b><small>${esc(part.sku||'')} · Stock ${Number(part.quantity||0)}${part.sale_price!=null?` · Venta $${Number(part.sale_price).toFixed(2)}`:' · Sin precio de venta'}${part.unit_cost!=null?` · Costo $${Number(part.unit_cost).toFixed(2)}`:''}</small></div><div class="repair-part-stepper"><button type="button" onclick="TSService.changeRepairPartQty('${esc(part.id)}',-1)">−</button><input type="number" min="1" max="${Math.max(1,Number(part.quantity||0))}" value="${qty}" onchange="TSService.setRepairPartQty('${esc(part.id)}',this.value)"><button type="button" onclick="TSService.changeRepairPartQty('${esc(part.id)}',1)">+</button><button type="button" class="repair-part-remove" onclick="TSService.removeRepairPart('${esc(part.id)}')">×</button></div></article>`).join(''):'<div class="repair-part-empty">Selecciona uno o varios productos para esta reparación.</div>';
     const consumeButton=document.getElementById('mConsumePartsButton');
     if(consumeButton){consumeButton.disabled=!entries.length;consumeButton.textContent=entries.length?`Descontar ${entries.reduce((s,x)=>s+x.qty,0)} unidad${entries.reduce((s,x)=>s+x.qty,0)===1?'':'es'} del inventario`:'Descontar del inventario';}
 
@@ -1029,20 +1029,29 @@ ${summary}
     const cached=orderFileUrlCache.get(key);
     if(cached&&cached.expires>Date.now()&&cached.url)return cached.url;
     let url='';
+    const isImage=/\.(png|jpe?g|webp|gif|bmp)$/i.test(String(p.label||p.storage_path||''));
     if(p.storage_path){
-      try{
-        const secure=await supportSecureAction({action:'file_url',storage_path:p.storage_path});
-        url=String(secure.url||'').trim();
-      }catch(error){
-        console.warn('URL segura de archivo:',error?.message||error);
+      if(isImage){
         try{
-          const {data,error:signError}=await supabaseClient.storage.from('service-order-files').createSignedUrl(p.storage_path,3600);
-          if(!signError)url=String(data?.signedUrl||'').trim();
-        }catch(_){}
+          const secure=await supportSecureAction({action:'file_data',storage_path:p.storage_path});
+          url=String(secure.data_url||'').trim();
+        }catch(error){console.warn('Datos seguros de imagen:',error?.message||error)}
+      }
+      if(!url){
+        try{
+          const secure=await supportSecureAction({action:'file_url',storage_path:p.storage_path});
+          url=String(secure.url||'').trim();
+        }catch(error){
+          console.warn('URL segura de archivo:',error?.message||error);
+          try{
+            const {data,error:signError}=await supabaseClient.storage.from('service-order-files').createSignedUrl(p.storage_path,3600);
+            if(!signError)url=String(data?.signedUrl||'').trim();
+          }catch(_){}
+        }
       }
     }
     if(!url&&/^https?:\/\//i.test(String(p.file_url||'')))url=String(p.file_url).trim();
-    if(url)orderFileUrlCache.set(key,{url,expires:Date.now()+50*60*1000});
+    if(url)orderFileUrlCache.set(key,{url,expires:Date.now()+(url.startsWith('data:')?15*60*1000:50*60*1000)});
     return url;
   }
   async function openOrderImage(fileId){

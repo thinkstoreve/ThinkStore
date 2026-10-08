@@ -28,13 +28,31 @@ exports.handler=async event=>{
       return reply(200,{ok:true,orders:Array.isArray(rows)?rows:[]});
     }
 
-    if(action==='file_url'){
+    if(action==='file_url'||action==='file_data'){
       const storagePath=clean(body.storage_path);
       if(!storagePath)return reply(400,{ok:false,error:'Falta la ruta del archivo'});
-      const photoRows=await req(`service_order_photos?select=id,order_id,storage_path&storage_path=eq.${encodeURIComponent(storagePath)}&limit=1`);
+      const photoRows=await req(`service_order_photos?select=id,order_id,storage_path,label&storage_path=eq.${encodeURIComponent(storagePath)}&limit=1`);
       if(!photoRows?.[0])return reply(404,{ok:false,error:'Archivo no registrado en esta orden'});
       const encodePath=v=>String(v||'').split('/').map(encodeURIComponent).join('/');
-      const sr=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encodePath(storagePath)}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
+      const encoded=encodePath(storagePath);
+      if(action==='file_data'){
+        let fr=await fetch(`${url}/storage/v1/object/authenticated/service-order-files/${encoded}`,{headers:{apikey:key,Authorization:`Bearer ${key}`}});
+        if(!fr.ok){
+          const sr=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encoded}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:300})});
+          const sd=await sr.json().catch(()=>({}));
+          const raw=clean(sd.signedURL||sd.signedUrl);
+          const signed=raw.startsWith('http')?raw:raw.startsWith('/storage/v1')?`${url}${raw}`:raw.startsWith('/object/')?`${url}/storage/v1${raw}`:raw?`${url}/storage/v1/${raw.replace(/^\//,'')}`:'';
+          if(!sr.ok||!signed)return reply(sr.status||500,{ok:false,error:sd?.message||sd?.error||'No se pudo recuperar la imagen'});
+          fr=await fetch(signed);
+        }
+        if(!fr.ok)return reply(fr.status,{ok:false,error:'No se pudo leer el archivo privado'});
+        const ab=await fr.arrayBuffer();
+        if(ab.byteLength>5*1024*1024)return reply(413,{ok:false,error:'La imagen supera 5 MB. Usa una imagen más ligera.'});
+        const mime=clean(fr.headers.get('content-type'))||'application/octet-stream';
+        const dataUrl=`data:${mime};base64,${Buffer.from(ab).toString('base64')}`;
+        return reply(200,{ok:true,data_url:dataUrl,mime,size:ab.byteLength});
+      }
+      const sr=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encoded}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
       const sd=await sr.json().catch(()=>({}));
       if(!sr.ok)return reply(sr.status,{ok:false,error:sd?.message||sd?.error||'No se pudo generar el enlace seguro'});
       const raw=clean(sd.signedURL||sd.signedUrl);

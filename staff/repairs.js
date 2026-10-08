@@ -1,4 +1,4 @@
-/* ThinkStore V15.11 — App Ventas · Reparaciones · Repuestos visibles + cobro premium simplificado. */
+/* ThinkStore V15.12 — App Ventas · precio automático de repuestos + cobro premium. */
 (() => {
 'use strict';
 const $=id=>document.getElementById(id);
@@ -60,7 +60,20 @@ async function load(force=false){
   catch(e){notice(e.message);if(!initialized)$('repairsList').innerHTML='<div class="empty-state">No se pudieron cargar las reparaciones desde Soporte.</div>'}
   finally{loading=false;if($('repairsRefresh'))$('repairsRefresh').disabled=false}
 }
-function partRows(){if(!parts.length)return '<div class="repair-no-parts">No hay repuestos asociados a esta orden.</div>';const total=parts.reduce((n,p)=>n+(Number(p.quantity_consumed||p.quantity_reserved||0)*Number(p.sale_price_snapshot||0)),0);return `<div class="repair-parts-list">${parts.map(p=>{const name=p.service_parts?.name||p.part_name||p.name||'Repuesto';const qty=Number(p.quantity_consumed||p.quantity_reserved||p.quantity||1);const unit=Number(p.sale_price_snapshot||p.sale_price||0);const subtotal=qty*unit;const status=p.status==='consumed'?'Consumido':p.status==='reserved'?'Reservado':(p.note_source?'Reportado por técnico':'Asociado');return `<div><span><b>${esc(name)}</b><small>${esc(p.service_parts?.sku||p.sku||'')} ${status?`· ${esc(status)}`:''} ${qty?`· Cant. ${esc(qty)}`:''}</small></span><b>${usd(subtotal)}</b></div>`}).join('')}</div><div class="repair-parts-total"><span>Total repuestos</span><b>${usd(total)}</b></div>`}
+function partRows(){
+  if(!parts.length)return '<div class="repair-no-parts">No hay repuestos asociados a esta orden.</div>';
+  const total=parts.reduce((n,p)=>{const qty=Number(p.quantity_consumed||p.quantity_reserved||p.quantity||1),unit=Number(p.sale_price_snapshot||p.service_parts?.sale_price||p.sale_price||0);return n+(unit>0?qty*unit:0)},0);
+  const priced=parts.filter(p=>Number(p.sale_price_snapshot||p.service_parts?.sale_price||p.sale_price||0)>0).length;
+  return `<div class="repair-parts-list">${parts.map(p=>{
+    const name=p.service_parts?.name||p.part_name||p.name||'Repuesto';
+    const qty=Number(p.quantity_consumed||p.quantity_reserved||p.quantity||1);
+    const unit=Number(p.sale_price_snapshot||p.service_parts?.sale_price||p.sale_price||0);
+    const subtotal=qty*unit;
+    const status=p.status==='consumed'?'Consumido':p.status==='reserved'?'Reservado':(p.movement_source?'Consumido':p.note_source?'Reportado por técnico':'Asociado');
+    return `<div><span><b>${esc(name)}</b><small>${esc(p.service_parts?.sku||p.sku||'')} ${status?`· ${esc(status)}`:''} · Cant. ${esc(qty)}${unit>0?` · Precio ${usd(unit)}`:' · Precio no configurado'}</small></span><b>${unit>0?usd(subtotal):'Sin precio'}</b></div>`
+  }).join('')}</div><div class="repair-parts-total"><span>Total repuestos${priced<parts.length?' · parcial':''}</span><b>${usd(total)}</b></div>`
+}
+
 function historyRows(){return events.length?events.map(e=>`<div class="repair-history-row"><span><b>${esc(e.event_type==='payment'?'Pago / abono':e.event_type||'Movimiento')}</b><small>${date(e.occurred_at)} · ${esc(e.payment_method||'')}</small></span><b>${usd(e.amount_delta)}</b></div>`).join(''):'<div class="repair-no-parts">Sin movimientos previos.</div>'}
 function methodGroup(){return PAYMENT_GROUPS.find(g=>g.methods.includes(selectedMethod))||PAYMENT_GROUPS[0]}
 function subMethodLabel(m){if(m==='Efectivo USD'||m==='Transferencia USD')return 'USD';if(m==='Efectivo Bs'||m==='Transferencia Bs')return 'Bolívares';return m}
