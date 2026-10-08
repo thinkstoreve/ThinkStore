@@ -1,0 +1,10 @@
+{
+  "version": "8.8.23",
+  "title": "Vista interna de imágenes corregida",
+  "cache": "15.27.0",
+  "changes": [
+    "La vista del técnico usa primero el proxy binario privado de ThinkStore",
+    "Fallback base64 solo si el proxy no puede renderizar",
+    "Miniaturas y lightbox mejorados sin tocar R2 ni el portal cliente"
+  ]
+}

@@ -111,6 +111,34 @@ exports.handler=async event=>{
 
     if(action==='r2_status')return reply(200,{ok:true,enabled:Boolean(cfg),bucket:cfg?.bucket||null,provider:cfg?'cloudflare-r2-private':'supabase-fallback'});
 
+    if(action==='delete_order_file'){
+      const fileId=clean(body.file_id);if(!fileId)return reply(400,{ok:false,error:'Falta el archivo'});
+      const rows=await req(`service_order_photos?select=id,order_id,storage_path,file_url,label,client_caption,visibility&id=eq.${encodeURIComponent(fileId)}&limit=1`);
+      const photo=rows?.[0];if(!photo)return reply(404,{ok:false,error:'La imagen ya no existe'});
+      await ensureOrderAccess(photo.order_id);
+      const role=clean(profile.rol).toLowerCase();
+      if(!['superadmin','admin','reception','technician'].includes(role))return reply(403,{ok:false,error:'Tu rol no puede eliminar fotografías de una orden'});
+      const storagePath=clean(photo.storage_path);
+      let provider='metadata-only';
+      if(storagePath){
+        if(R2.isR2Path(storagePath)){
+          if(!cfg)return reply(503,{ok:false,error:'La foto está en R2 pero falta la configuración privada de Cloudflare'});
+          const objectKey=R2.keyFromStoragePath(storagePath);
+          const dr=await R2.request(cfg,'DELETE',objectKey,Buffer.alloc(0),'application/octet-stream');
+          if(!dr.ok&&dr.status!==404){const t=await dr.text().catch(()=>'');return reply(dr.status,{ok:false,error:'No se pudo borrar la imagen de Cloudflare R2',details:t.slice(0,240)})}
+          provider='cloudflare-r2-private';
+        }else{
+          const encoded=encodePath(storagePath);
+          const dr=await fetch(`${url}/storage/v1/object/service-order-files/${encoded}`,{method:'DELETE',headers:{apikey:key,Authorization:`Bearer ${key}`}});
+          if(!dr.ok&&dr.status!==404){const t=await dr.text().catch(()=>'');return reply(dr.status,{ok:false,error:'No se pudo borrar la imagen antigua de Supabase Storage',details:t.slice(0,240)})}
+          provider='supabase-storage';
+        }
+      }
+      await req(`service_order_photos?id=eq.${encodeURIComponent(fileId)}`,{method:'DELETE',headers:{Prefer:'return=minimal'}});
+      await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action:'delete_order_file',entity_type:'service_order',entity_id:String(photo.order_id),before_data:{file_id:photo.id,label:photo.label||null,client_caption:photo.client_caption||null,visibility:photo.visibility||null,storage_path:storagePath||null,provider},after_data:{deleted:true}})}).catch(()=>{});
+      return reply(200,{ok:true,deleted:true,file_id:fileId,order_id:photo.order_id,provider});
+    }
+
     if(action==='file_upload_r2'){
       if(!cfg)return reply(501,{ok:false,error:'Cloudflare R2 privado de Soporte todavía no está configurado'});
       const orderId=clean(body.order_id);if(!orderId)return reply(400,{ok:false,error:'Falta la orden'});

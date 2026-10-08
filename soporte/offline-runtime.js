@@ -69,8 +69,12 @@
     if(!['POST','PATCH','PUT','DELETE'].includes(req.method))return false;
     const u=req.url;
     if(isAuth(u)||isRealtime(u))return false;
+    const parsed=new URL(u,location.href);
+    // Functions y cargas binarias deben responder ahora; nunca se encolan.
+    if(parsed.origin===location.origin&&(parsed.pathname.includes('/.netlify/functions/')||parsed.pathname.startsWith('/api/')))return false;
+    if(/\/storage\/v1\/object\//i.test(u))return false;
     if(/\/storage\/v1\//i.test(u)&&isReadLikeStorage(u,req.method))return false;
-    return /supabase\.co\/(rest|storage)\/v1\//i.test(u)||new URL(u).origin===location.origin;
+    return /supabase\.co\/rest\/v1\//i.test(u);
   }
   function isCacheable(req){
     if(!['GET','HEAD'].includes(req.method)||isAuth(req.url)||isRealtime(req.url))return false;
@@ -198,14 +202,28 @@
         try{
           const res=await NATIVE_FETCH(item.url,{method:item.method,headers,body:['GET','HEAD'].includes(item.method)?undefined:item.body});
           if(res.ok){await del('queue',item.id);continue}
+          // Errores de validación permanentes no deben bloquear toda la cola.
+          if([400,404,409,413,415,422].includes(res.status)){await del('queue',item.id);continue}
+          item.attempts=(item.attempts||0)+1;item.last_error='HTTP '+res.status;
+          if((item.attempts||0)>=4){await del('queue',item.id);continue}
+          await put('queue',item);
           if([401,403].includes(res.status))break;
-          item.attempts=(item.attempts||0)+1;item.last_error='HTTP '+res.status;await put('queue',item);break;
-        }catch(e){item.attempts=(item.attempts||0)+1;item.last_error=String(e?.message||e);await put('queue',item);break}
+        }catch(e){item.attempts=(item.attempts||0)+1;item.last_error=String(e?.message||e);if((item.attempts||0)>=4){await del('queue',item.id);continue}await put('queue',item)}
       }
     }finally{
       syncing=false;await updateIndicator();
       window.dispatchEvent(new CustomEvent('thinkstore:offline-sync'));
     }
+  }
+  async function purgeLegacyMediaQueue(){
+    if(APP!=='support')return 0;
+    const rows=await all('queue').catch(()=>[]);let removed=0;
+    for(const item of rows){
+      const u=String(item.url||'');
+      if(u.includes('/.netlify/functions/support-actions')||/\/storage\/v1\/object\//i.test(u)){await del('queue',item.id);removed++}
+    }
+    if(removed)window.dispatchEvent(new CustomEvent('thinkstore:offline-media-cleaned',{detail:{removed}}));
+    return removed;
   }
   function installUi(){
     if(document.getElementById('tsOfflineIndicator'))return;
@@ -249,12 +267,14 @@
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;setTimeout(()=>{installUi();const btn=document.querySelector('#tsOfflineIndicator button');if(btn){btn.hidden=false;btn.onclick=async()=>{await installPrompt.prompt();installPrompt=null;btn.hidden=true}}},0)});
   window.addEventListener('online',()=>{lastOnline=true;updateIndicator();setTimeout(sync,500)});
   window.addEventListener('offline',()=>{lastOnline=false;updateIndicator()});
-  document.addEventListener('DOMContentLoaded',()=>{updateIndicator();if(navigator.onLine)setTimeout(sync,1200)});
+  document.addEventListener('DOMContentLoaded',async()=>{await purgeLegacyMediaQueue().catch(()=>0);await updateIndicator();if(navigator.onLine)setTimeout(sync,700)});
+  setInterval(async()=>{if(!navigator.onLine||syncing)return;const count=await queueCount().catch(()=>0);if(count)sync()},30000);
 
   window.ThinkStoreOffline={
     fetch:fetchOffline,
     nativeFetch:NATIVE_FETCH,
     sync,
+    purgeLegacyMediaQueue,
     setTokenProvider(fn){tokenProvider=fn},
     pending:queueCount,
     status:updateIndicator,

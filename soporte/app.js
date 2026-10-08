@@ -120,11 +120,11 @@ const TSService=(()=>{
       try{
         const r=await supportSecureAction({action:'file_upload_r2',order_id:String(orderId),file_name:normalized.original_name,mime:normalized.mime,base64});
         if(r?.storage_path)return {storage_path:r.storage_path,file_url:'private:r2',mime:r.mime||normalized.mime,size:Number(r.size||normalized.blob.size),provider:'r2',converted:Boolean(r.converted)};
-      }catch(error){console.warn('R2 privado no disponible para imagen optimizada:',error?.message||error)}
-      const path=`${orderId}/${prefix}-${Date.now()}-${crypto.randomUUID()}.${normalized.ext}`;
-      const uploadFile=new File([normalized.blob],normalized.name,{type:normalized.mime});
-      const {error}=await supabaseClient.storage.from('service-order-files').upload(path,uploadFile,supportUploadOptions(uploadFile));if(error)throw error;
-      return {storage_path:path,file_url:'private',mime:normalized.mime,size:normalized.blob.size,provider:'supabase'};
+        throw new Error('Cloudflare R2 no devolvió la ruta del archivo.');
+      }catch(error){
+        console.error('R2 privado no disponible:',error);
+        throw new Error('No se pudo guardar la imagen en Cloudflare R2: '+(error?.message||error));
+      }
     }
     if(isImage){
       // Si el navegador no pudo decodificar (caso típico HEIC/HEIF), no fallamos:
@@ -226,9 +226,16 @@ const TSService=(()=>{
     const {data:{session:sb}}=await supabaseClient.auth.getSession();
     const token=sb?.access_token||'';
     if(!token)throw new Error('Tu sesión de Soporte expiró. Vuelve a iniciar sesión.');
-    const res=await fetch('/.netlify/functions/support-actions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload),cache:'no-store'});
+    // Operaciones seguras (R2, correo y previews) NO deben pasar por la cola offline.
+    // Si fallan, mostramos el error real para no dejar falsos "cambios por sincronizar".
+    const nativeFetch=window.ThinkStoreOffline?.nativeFetch||window.fetch.bind(window);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
+    let res;
+    try{res=await nativeFetch('/.netlify/functions/support-actions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload),cache:'no-store',signal:controller.signal});}
+    catch(error){if(error?.name==='AbortError')throw new Error('La operación tardó demasiado. Revisa la conexión e inténtalo nuevamente.');throw error}
+    finally{clearTimeout(timer)}
     const data=await res.json().catch(()=>({}));
-    if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo completar la operación segura de Soporte.');
+    if(!res.ok||!data.ok)throw new Error(data.error||`No se pudo completar la operación segura de Soporte (${res.status}).`);
     return data;
   }
 
@@ -1138,11 +1145,12 @@ const TSService=(()=>{
       diagnostic:{type:'Diagnóstico',status:'Diagnóstico disponible',title:'Diagnóstico de tu equipo disponible',detail:'Completamos la revisión técnica de tu equipo.'},
       repairing:{type:'Seguimiento',status:'En reparación',title:'Tu reparación está en proceso',detail:'Nuestro técnico continúa trabajando en la reparación autorizada.'},
       waiting:{type:'Repuesto',status:'Esperando repuesto',title:'Estamos esperando un repuesto para continuar',detail:'La orden sigue activa y continuaremos apenas el repuesto esté disponible.'},
-      testing:{type:'Prueba realizada',status:'Listo para entregar',title:'Reparación finalizada y pruebas completadas',detail:'Finalizamos el trabajo técnico y realizamos las pruebas de funcionamiento.'}
+      testing:{type:'Prueba realizada',status:'Listo para entregar',title:'Reparación finalizada y pruebas completadas',detail:'Finalizamos el trabajo técnico y realizamos las pruebas de funcionamiento.'},
+      completed:{type:'Entrega',status:'Listo para entregar',title:'Tu equipo está listo para entregar',detail:'La reparación fue completada y el equipo superó las pruebas finales de funcionamiento.'}
     };
     const t=map[key];if(!t)return;
     bType.value=t.type;bStatus.value=t.status;if(!bClientTitle.value.trim())bClientTitle.value=t.title;if(!bDetail.value.trim())bDetail.value=t.detail;
-    bClientVisible.checked=true;syncBitacoraVisibility();renderBitacoraPreview();
+    bClientVisible.checked=true;const order=bitacoraOrder();if(bNotifyClient)bNotifyClient.checked=Boolean(order?.email);syncBitacoraVisibility();renderBitacoraPreview();
   }
   function renderBitacoraPreview(){
     const box=document.getElementById('bClientPreview');if(!box)return;
@@ -1374,57 +1382,122 @@ const TSService=(()=>{
     return media;
   }
   async function resolveOrderFileUrl(p={}){return (await resolveOrderFileMedia(p)).url||''}
+  async function orderFileDataMedia(p={}){
+    const key='data:'+String(p.id||p.storage_path||p.file_url||'');
+    const cached=orderFileUrlCache.get(key);
+    if(cached&&cached.expires>Date.now()&&cached.url)return cached;
+    if(!p.storage_path)throw new Error('Esta imagen no tiene una ruta privada válida.');
+    const secure=await supportSecureAction({action:'file_data',storage_path:p.storage_path});
+    const url=String(secure.data_url||'').trim(),mime=String(secure.mime||'').toLowerCase();
+    if(!url||!/^data:image\//i.test(url))throw new Error('El servidor no devolvió una imagen compatible.');
+    const media={url,mime,isImage:true,source:String(secure.provider||'private-data'),expires:Date.now()+12*60*1000};
+    orderFileUrlCache.set(key,media);return media;
+  }
+  function orderFilePreviewId(fileId){return 'orderFilePreview-'+String(fileId||'').replace(/[^a-zA-Z0-9_-]/g,'')}
+  async function testImageUrl(url){
+    if(!url)throw new Error('La imagen no tiene una URL válida.');
+    return await new Promise((resolve,reject)=>{
+      const img=new Image();
+      img.onload=()=>resolve(url);
+      img.onerror=()=>reject(new Error('El navegador no pudo mostrar la imagen privada.'));
+      img.src=url;
+    });
+  }
+  async function orderFileDisplayMedia(p={}){
+    // Preferimos el proxy privado binario de ThinkStore. Evita meter imágenes grandes
+    // dentro de JSON/base64 y mantiene las credenciales de R2 fuera del navegador.
+    let firstError=null;
+    try{
+      const media=await resolveOrderFileMedia(p);
+      if(media?.url&&media?.isImage!==false){await testImageUrl(media.url);return media}
+    }catch(error){firstError=error;console.warn('Proxy privado de imagen:',error?.message||error)}
+    try{
+      const fallback=await orderFileDataMedia(p);
+      await testImageUrl(fallback.url);return fallback;
+    }catch(error){
+      console.warn('Fallback de imagen:',error?.message||error);
+      throw firstError||error;
+    }
+  }
+  async function hydrateOrderFilePreview(fileId){
+    const p=servicePhotos.find(x=>String(x.id)===String(fileId)),holder=document.getElementById(orderFilePreviewId(fileId));if(!p||!holder)return;
+    holder.classList.add('loading');holder.classList.remove('broken','ready');holder.onclick=null;
+    try{
+      const media=await orderFileDisplayMedia(p);
+      holder.innerHTML=`<img src="${esc(media.url)}" alt="${esc(p.client_caption||p.label||'Imagen de la reparación')}"><span class="order-file-zoom-label">Ver imagen</span><button type="button" class="order-file-zoom" aria-label="Ampliar imagen" title="Ampliar imagen"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.8"></circle><path d="m15 15 5 5"></path><path d="M10.5 7.8v5.4M7.8 10.5h5.4"></path></svg></button>`;
+      holder.classList.remove('loading');holder.classList.add('ready');holder.onclick=()=>openOrderImage(fileId);
+    }catch(error){
+      console.warn('Miniatura no disponible:',error?.message||error);
+      holder.classList.remove('loading');holder.classList.add('broken');holder.innerHTML=`<div class="order-file-preview-error"><span>Vista previa no disponible</span><small>${esc(error?.message||'No se pudo leer la imagen')}</small><button type="button" class="secondary">Reintentar</button></div>`;
+      holder.querySelector('button')?.addEventListener('click',e=>{e.stopPropagation();const cacheKey=String(p.id||p.storage_path||p.file_url||'');orderFileUrlCache.delete(cacheKey);orderFileUrlCache.delete('data:'+cacheKey);hydrateOrderFilePreview(fileId)});
+    }
+  }
   async function openOrderImage(fileId){
     const p=servicePhotos.find(x=>String(x.id)===String(fileId));if(!p)return toast('No encontré la imagen seleccionada.','error');
-    const media=await resolveOrderFileMedia(p),url=media.url;if(!url||!media.isImage)return toast('Este archivo no tiene una vista previa de imagen disponible.','error');
+    let media;try{media=await orderFileDisplayMedia(p)}catch(error){return toast('No se pudo abrir la imagen: '+(error?.message||error),'error')}
+    const url=media.url;if(!url)return toast('Este archivo no tiene una vista previa disponible.','error');
     document.getElementById('orderImageLightbox')?.remove();
     const modal=document.createElement('div');modal.id='orderImageLightbox';modal.className='order-image-lightbox';
-    modal.innerHTML=`<div class="order-image-lightbox-backdrop" data-close-image></div><div class="order-image-lightbox-card"><button type="button" class="order-image-lightbox-close" data-close-image aria-label="Cerrar">×</button><div class="order-image-lightbox-stage"><img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen de la orden')}"></div><div class="order-image-lightbox-caption"><b>${esc(p.client_caption||p.label||'Imagen de la orden')}</b><span>${dateText(p.created_at)}</span></div></div>`;
+    modal.innerHTML=`<div class="order-image-lightbox-backdrop" data-close-image></div><div class="order-image-lightbox-card"><button type="button" class="order-image-lightbox-close" data-close-image aria-label="Cerrar vista previa"><span>×</span><small>Cerrar</small></button><div class="order-image-lightbox-stage"><img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen de la orden')}"></div><div class="order-image-lightbox-caption"><div><b>${esc(p.client_caption||p.label||'Imagen de la orden')}</b><small>Vista privada del Centro de Servicio Técnico</small></div><span>${dateText(p.created_at)}</span></div></div>`;
     document.body.appendChild(modal);document.body.classList.add('order-image-open');
-    const close=()=>{modal.remove();document.body.classList.remove('order-image-open')};
+    const close=()=>{modal.remove();document.body.classList.remove('order-image-open');document.removeEventListener('keydown',key)};
     modal.querySelectorAll('[data-close-image]').forEach(el=>el.addEventListener('click',close));
-    const key=e=>{if(e.key==='Escape'){close();document.removeEventListener('keydown',key)}};document.addEventListener('keydown',key);
+    const key=e=>{if(e.key==='Escape')close()};document.addEventListener('keydown',key);
   }
-  async function retryOrderImage(img,fileId){
-    if(!img||img.dataset.retrying==='1'||img.dataset.retryDone==='1')return;
-    img.dataset.retrying='1';
-    const p=servicePhotos.find(x=>String(x.id)===String(fileId));
-    try{
-      if(!p?.storage_path)throw new Error('Ruta no disponible');
-      const secure=await supportSecureAction({action:'file_data',storage_path:p.storage_path});
-      const data=String(secure.data_url||'');if(!/^data:image\//i.test(data))throw new Error('Vista previa no disponible');
-      img.dataset.retryDone='1';img.src=data;img.closest('.order-file-preview')?.classList.remove('broken');
-    }catch(error){console.warn('Fallback vista previa',error?.message||error);img.dataset.retryDone='1';img.closest('.order-file-preview')?.classList.add('broken')}
-    finally{delete img.dataset.retrying}
-  }
+  async function retryOrderImage(img,fileId){return hydrateOrderFilePreview(fileId)}
   async function renderOrderFiles(orderId){
     const box=document.getElementById('mOrderFiles');if(!box)return;
     const files=servicePhotos.filter(p=>String(p.order_id)===String(orderId));
-    const rows=await Promise.all(files.map(async p=>{
-      const media=await resolveOrderFileMedia(p),url=media.url;
+    box.innerHTML=files.map(p=>{
       const visible=(p.visibility||'internal')==='client';
-      const isImage=media.isImage;
-      const preview=isImage
-        ?(url?`<button type="button" class="order-file-preview image-preview" onclick="TSService.openOrderImage('${esc(p.id)}')" title="Ampliar imagen"><img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen')}" loading="lazy" onerror="TSService.retryOrderImage(this,'${esc(p.id)}')"><span class="order-file-zoom" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4.5 4.5"></path><path d="M11 8v6M8 11h6"></path></svg></span><span class="order-file-zoom-label">Ampliar</span></button>`:`<button type="button" class="order-file-preview broken image-retry" onclick="TSService.openOrderImage('${esc(p.id)}')"><span class="order-file-empty-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4.5 4.5"></path></svg></span><span class="file-doc">CARGAR VISTA PREVIA</span></button>`)
-        :(url?`<a class="order-file-preview" href="${esc(url)}" target="_blank" rel="noopener"><span class="file-doc">ABRIR ARCHIVO</span></a>`:`<div class="order-file-preview broken"><span class="file-doc">ARCHIVO NO DISPONIBLE</span></div>`);
-      return `<article class="order-file-card">${preview}<div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button></div></article>`;
-    }));
-    box.innerHTML=rows.join('')||'<small>Sin fotografías o archivos.</small>';
+      const likelyImage=SUPPORT_IMAGE_RE.test(supportFileDescriptor(p))||String(p.file_url||'').includes('private:r2')||String(p.storage_path||'').startsWith('r2:');
+      const preview=likelyImage?`<button type="button" id="${orderFilePreviewId(p.id)}" class="order-file-preview image-preview loading" aria-label="Cargando vista previa"><span class="order-file-preview-loader"></span><small>Cargando imagen…</small></button>`:`<div class="order-file-preview document-preview"><span class="file-doc">ARCHIVO</span></div>`;
+      return `<article class="order-file-card">${preview}<div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button><button type="button" class="order-file-delete" onclick="TSService.confirmDeleteOrderFile('${esc(p.id)}')" aria-label="Eliminar imagen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5M14 11v5"></path></svg><span>Eliminar</span></button></div></article>`;
+    }).join('')||'<small>Sin fotografías o archivos.</small>';
+    files.filter(p=>SUPPORT_IMAGE_RE.test(supportFileDescriptor(p))||String(p.file_url||'').includes('private:r2')||String(p.storage_path||'').startsWith('r2:')).forEach(p=>hydrateOrderFilePreview(p.id));
   }
   async function uploadOrderFile(){
-    const input=document.getElementById('mOrderFile'),file=input?.files?.[0],o=orders.find(x=>String(x.id)===String(activeOrderId));if(!file||!o)return toast('Selecciona una fotografía o archivo.','error');
+    const input=document.getElementById('mOrderFile'),file=input?.files?.[0],o=orders.find(x=>String(x.id)===String(activeOrderId)),button=document.getElementById('mOrderFileUploadBtn'),status=document.getElementById('mOrderFileUploadStatus');
+    if(!file||!o)return toast('Selecciona una fotografía o archivo.','error');
     if(file.size>8*1024*1024)return toast('El archivo supera el límite de 8 MB.','error');
-    let stored;try{stored=await storeSupportFile(file,o.id,'orden')}catch(error){return toast('No se pudo subir: '+(error?.message||error),'error')}
-    const visibility=document.getElementById('mOrderFileVisible')?.checked?'client':'internal';
-    const caption=document.getElementById('mOrderFileCaption')?.value.trim()||file.name;
-    const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:stored.file_url,storage_path:stored.storage_path,label:file.name,client_caption:caption,visibility,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
-    orderFileUrlCache.clear();
-    await audit('upload_order_file',o.id,null,{label:file.name,storage_path:stored.storage_path,storage_provider:stored.provider,mime:stored.mime,visibility,client_caption:caption});await loadSupportData();await renderOrderFiles(o.id);input.value='';if(document.getElementById('mOrderFileCaption'))document.getElementById('mOrderFileCaption').value='';toast(visibility==='client'?'Imagen publicada para el cliente.':stored.provider==='r2'?'Imagen guardada de forma privada en Cloudflare R2.':'Archivo guardado de forma interna.');
+    const oldLabel=button?.textContent||'Subir archivo';if(button){button.disabled=true;button.textContent='Subiendo…'}if(status){status.hidden=false;status.className='order-file-upload-status working';status.textContent='Preparando y guardando la imagen de forma privada…'}
+    try{
+      const stored=await storeSupportFile(file,o.id,'orden');
+      const visibility=document.getElementById('mOrderFileVisible')?.checked?'client':'internal';
+      const caption=document.getElementById('mOrderFileCaption')?.value.trim()||file.name;
+      const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:stored.file_url,storage_path:stored.storage_path,label:file.name,client_caption:caption,visibility,created_by_email:session?.email||null});
+      if(error)throw new Error('La imagen llegó a R2, pero no se pudo registrar en la orden: '+error.message);
+      orderFileUrlCache.clear();
+      await audit('upload_order_file',o.id,null,{label:file.name,storage_path:stored.storage_path,storage_provider:stored.provider,mime:stored.mime,visibility,client_caption:caption});
+      await loadSupportData();await renderOrderFiles(o.id);input.value='';if(document.getElementById('mOrderFileCaption'))document.getElementById('mOrderFileCaption').value='';
+      if(status){status.className='order-file-upload-status success';status.textContent='Imagen subida correctamente.'}
+      toast(visibility==='client'?'Imagen publicada para el cliente.':'Imagen guardada de forma privada en Cloudflare R2.');
+    }catch(error){
+      console.error('Subida de imagen:',error);if(status){status.className='order-file-upload-status error';status.textContent=error?.message||'No se pudo subir la imagen.'}toast('No se pudo subir: '+(error?.message||error),'error');
+    }finally{if(button){button.disabled=false;button.textContent=oldLabel}}
   }
   async function toggleOrderFileVisibility(id,visibility){
     const row=servicePhotos.find(p=>String(p.id)===String(id));if(!row)return;
     const {error}=await supabaseClient.from('service_order_photos').update({visibility}).eq('id',id);if(error)return toast('No se pudo cambiar la visibilidad: '+error.message,'error');
     await audit('update_file_visibility',row.order_id,{visibility:row.visibility},{visibility});await loadSupportData();await renderOrderFiles(row.order_id);toast(visibility==='client'?'Imagen publicada para el cliente.':'Imagen ocultada del portal.');
+  }
+  function confirmDeleteOrderFile(id){
+    const row=servicePhotos.find(p=>String(p.id)===String(id));if(!row)return toast('No encontré la imagen seleccionada.','error');
+    document.getElementById('orderFileDeleteModal')?.remove();
+    const visible=(row.visibility||'internal')==='client';
+    const modal=document.createElement('div');modal.id='orderFileDeleteModal';modal.className='order-file-delete-modal';
+    modal.innerHTML=`<div class="order-file-delete-backdrop" data-cancel-delete></div><div class="order-file-delete-card"><div class="order-file-delete-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5M14 11v5"></path></svg></div><h3>¿Eliminar esta imagen?</h3><p><b>${esc(row.client_caption||row.label||'Imagen de la reparación')}</b></p><small>${visible?'Está publicada para el cliente. Al eliminarla también desaparecerá de su seguimiento.':'Se eliminará definitivamente de esta orden y del almacenamiento privado.'}</small><div class="order-file-delete-buttons"><button type="button" class="secondary" data-cancel-delete>Cancelar</button><button type="button" class="danger" data-confirm-delete>Eliminar definitivamente</button></div></div>`;
+    document.body.appendChild(modal);document.body.classList.add('order-file-delete-open');
+    const close=()=>{modal.remove();document.body.classList.remove('order-file-delete-open')};
+    modal.querySelectorAll('[data-cancel-delete]').forEach(el=>el.addEventListener('click',close));
+    modal.querySelector('[data-confirm-delete]')?.addEventListener('click',async e=>{const btn=e.currentTarget;btn.disabled=true;btn.textContent='Eliminando…';try{await deleteOrderFile(id);close()}catch(error){btn.disabled=false;btn.textContent='Eliminar definitivamente';toast('No se pudo eliminar: '+(error?.message||error),'error')}});
+  }
+  async function deleteOrderFile(id){
+    const row=servicePhotos.find(p=>String(p.id)===String(id));if(!row)throw new Error('La imagen ya no existe.');
+    await supportSecureAction({action:'delete_order_file',file_id:String(id)});
+    const cacheKey=String(row.id||row.storage_path||row.file_url||'');orderFileUrlCache.delete(cacheKey);orderFileUrlCache.delete('data:'+cacheKey);
+    const orderId=row.order_id;await loadSupportData();await renderOrderFiles(orderId);
+    toast('Imagen eliminada correctamente.');
   }
   async function renderOrderMessages(orderId,options={}){
     const box=document.getElementById('mOrderMessages');if(!box)return;
@@ -2437,5 +2510,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,uploadOrderFile,toggleOrderFileVisibility,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

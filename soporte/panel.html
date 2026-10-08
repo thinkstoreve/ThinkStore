@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=15.25.0" />
+  <link rel="stylesheet" href="styles.css?v=15.28.0" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -373,7 +373,7 @@
   <div id="bitacoraModal" class="modal">
     <form class="card wide bitacora-form bitacora-client-form" onsubmit="TSService.saveBitacora(event)">
       <div class="bitacora-header">
-        <div><span class="bitacora-eyebrow">ACTUALIZACIÓN TÉCNICA</span><h2>Nueva entrada de bitácora</h2><p>Documenta el trabajo y publica al cliente únicamente la información que quieras compartir.</p></div>
+        <div><span class="bitacora-eyebrow">ACTUALIZACIÓN TÉCNICA</span><h2>Nueva entrada de bitácora</h2><p>Registra el avance de la reparación y envía al cliente una actualización clara firmada por el técnico.</p></div>
         <button type="button" class="secondary" onclick="TSService.closeModals()">Cerrar</button>
       </div>
       <div id="bOrderContext" class="bitacora-order-context"><small>Selecciona una orden para preparar la actualización.</small></div>
@@ -382,7 +382,7 @@
         <button type="button" onclick="TSService.applyBitacoraTemplate('diagnostic')">Diagnóstico listo</button>
         <button type="button" onclick="TSService.applyBitacoraTemplate('repairing')">En reparación</button>
         <button type="button" onclick="TSService.applyBitacoraTemplate('waiting')">Esperando repuesto</button>
-        <button type="button" onclick="TSService.applyBitacoraTemplate('testing')">Pruebas finales</button>
+        <button type="button" onclick="TSService.applyBitacoraTemplate('testing')">Pruebas finales</button><button type="button" onclick="TSService.applyBitacoraTemplate('completed')">Equipo listo</button>
       </div>
       <div class="grid2">
         <label>Código de orden<input id="bOrderCode" required placeholder="TS-SVC-2026-0001" oninput="TSService.renderBitacoraClientHistory(this.value);TSService.renderBitacoraPreview()" /></label>
@@ -479,7 +479,7 @@
         <div class="bitacora-header"><div><h3>Información visible para el cliente</h3><p>Últimos detalles publicados desde la bitácora técnica.</p></div><button type="button" class="secondary" onclick="TSService.openBitacora(document.getElementById('mOrderTitle').textContent.split(' · ')[0])">Añadir actualización</button></div>
         <div id="mClientTimeline"><small>No hay actualizaciones públicas todavía.</small></div>
       </section>
-      <div class="order-box"><div class="bitacora-header"><div><h3>Fotografías y archivos</h3><p>Publica únicamente las imágenes que quieras mostrar al cliente.</p></div></div><div class="client-file-upload"><input id="mOrderFile" type="file" accept="image/*,.pdf"><input id="mOrderFileCaption" placeholder="Descripción para el cliente, ej. Equipo después del mantenimiento"><label class="file-visible-toggle"><input id="mOrderFileVisible" type="checkbox"><span>Visible para el cliente</span></label><button type="button" onclick="TSService.uploadOrderFile()">Subir archivo</button></div><div id="mOrderFiles" class="order-files order-files-grid"></div></div><div class="order-box client-messages-admin"><div class="bitacora-header"><div><h3>Mensajes con el cliente</h3><p>La conversación aparece directamente en su seguimiento.</p></div></div><div id="mOrderMessages" class="staff-chat-thread"></div><div class="staff-chat-compose"><textarea id="mOrderMessage" maxlength="2000" placeholder="Escribe un mensaje para el cliente..."></textarea><button type="button" onclick="TSService.sendStaffOrderMessage()">Enviar mensaje</button></div></div>
+      <div class="order-box"><div class="bitacora-header"><div><h3>Fotografías y archivos</h3><p>Documenta el trabajo técnico. Las imágenes marcadas como visibles aparecerán en el seguimiento privado del cliente.</p></div></div><div class="client-file-upload"><input id="mOrderFile" type="file" accept="image/*,.pdf"><input id="mOrderFileCaption" placeholder="Descripción, ej. Estado del equipo después de la reparación"><label class="file-visible-toggle"><input id="mOrderFileVisible" type="checkbox"><span>Visible para el cliente</span></label><button id="mOrderFileUploadBtn" type="button" onclick="TSService.uploadOrderFile()">Subir archivo</button></div><div id="mOrderFileUploadStatus" class="order-file-upload-status" hidden></div><div id="mOrderFiles" class="order-files order-files-grid"></div></div><div class="order-box client-messages-admin"><div class="bitacora-header"><div><h3>Mensajes con el cliente</h3><p>La conversación aparece directamente en su seguimiento.</p></div></div><div id="mOrderMessages" class="staff-chat-thread"></div><div class="staff-chat-compose"><textarea id="mOrderMessage" maxlength="2000" placeholder="Escribe un mensaje para el cliente..."></textarea><button type="button" onclick="TSService.sendStaffOrderMessage()">Enviar mensaje</button></div></div>
       <div class="actions"><button>Guardar cambios</button><button type="button" class="secondary" onclick="TSService.notifyOrderClient()">Enviar actualización al cliente</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
     </form>
   </div>
@@ -523,9 +523,9 @@
       <p class="reception-privacy-note">El QR abre el seguimiento seguro de esta orden. El enlace completo y su token no se muestran impresos.</p>
     </div>
   </div>
-<script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=2.0.0"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=15.25.0"></script>
+  <script src="app.js?v=15.28.0"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>
