@@ -79,10 +79,17 @@ const TSService=(()=>{
     const safeType=String(file.type||'').toLowerCase();
     let bitmap=null,url='';
     try{
-      if('createImageBitmap' in window)bitmap=await createImageBitmap(file);
+      // Algunos navegadores exponen createImageBitmap pero no pueden decodificar
+      // ciertos JPEG/HEIC. Si falla, probamos el decodificador <img> antes de
+      // delegar la conversión al backend/R2.
+      if('createImageBitmap' in window){try{bitmap=await createImageBitmap(file)}catch(error){console.warn('createImageBitmap no pudo decodificar; usando alternativa:',error?.message||error)}}
       let width=bitmap?.width||0,height=bitmap?.height||0,img=null;
-      if(!width||!height){url=URL.createObjectURL(file);img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('Este formato de imagen no puede convertirse en este navegador'));i.src=url});width=img.naturalWidth||img.width;height=img.naturalHeight||img.height;bitmap=img}
-      if(!width||!height)throw new Error('No se pudieron leer las dimensiones de la imagen');
+      if(!width||!height){
+        url=URL.createObjectURL(file);
+        try{img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('BROWSER_IMAGE_DECODE_FAILED'));i.src=url});width=img.naturalWidth||img.width;height=img.naturalHeight||img.height;bitmap=img}
+        catch(error){throw error}
+      }
+      if(!width||!height)throw new Error('BROWSER_IMAGE_DECODE_FAILED');
       const max=1800,scale=Math.min(1,max/Math.max(width,height)),cw=Math.max(1,Math.round(width*scale)),ch=Math.max(1,Math.round(height*scale));
       const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;const ctx=canvas.getContext('2d',{alpha:false});ctx.fillStyle='#fff';ctx.fillRect(0,0,cw,ch);ctx.drawImage(bitmap,0,0,cw,ch);
       let blob=await new Promise(r=>canvas.toBlob(r,'image/webp',.84));let mime='image/webp',ext='webp';
@@ -93,19 +100,42 @@ const TSService=(()=>{
       return {blob,mime,ext,name:`foto-${Date.now()}.${ext}`,original_type:safeType,original_name:file.name||'imagen'};
     }finally{try{bitmap?.close?.()}catch(_){}if(url)URL.revokeObjectURL(url)}
   }
+  async function uploadOriginalImageToR2(file,orderId){
+    if(!file)throw new Error('Archivo requerido');
+    // El backend detecta el formato real por magic bytes y convierte HEIC/HEIF
+    // a JPEG antes de guardarlo en R2. Así Chrome no necesita decodificarlo.
+    if((file.size||0)>5.5*1024*1024)throw new Error('La foto original supera 5,5 MB. Usa una foto más liviana o expórtala como JPG.');
+    const base64=await supportBlobToBase64(file);
+    const r=await supportSecureAction({action:'file_upload_r2',order_id:String(orderId),file_name:file.name||'imagen',mime:file.type||'',base64,allow_server_convert:true});
+    if(!r?.storage_path)throw new Error('Cloudflare R2 no devolvió la ruta de la imagen');
+    return {storage_path:r.storage_path,file_url:'private:r2',mime:r.mime||file.type||'',size:Number(r.size||file.size||0),provider:'r2',converted:Boolean(r.converted)};
+  }
   async function storeSupportFile(file,orderId,prefix='order'){
     if(!file)throw new Error('Archivo requerido');
-    const normalized=await normalizeSupportImage(file).catch(error=>{if(String(file.type||'').toLowerCase().startsWith('image/'))throw error;return null});
+    const isImage=String(file.type||'').toLowerCase().startsWith('image/')||/\.(heic|heif|jpe?g|png|webp|gif|bmp|avif|tiff?)$/i.test(String(file.name||''));
+    let normalized=null,decodeError=null;
+    if(isImage){try{normalized=await normalizeSupportImage(file)}catch(error){decodeError=error;console.warn('La imagen se convertirá en el servidor:',error?.message||error)}}
     if(normalized){
       const base64=await supportBlobToBase64(normalized.blob);
       try{
         const r=await supportSecureAction({action:'file_upload_r2',order_id:String(orderId),file_name:normalized.original_name,mime:normalized.mime,base64});
-        if(r?.storage_path)return {storage_path:r.storage_path,file_url:'private:r2',mime:normalized.mime,size:normalized.blob.size,provider:'r2'};
-      }catch(error){console.warn('R2 privado no disponible; usando respaldo Supabase:',error?.message||error)}
+        if(r?.storage_path)return {storage_path:r.storage_path,file_url:'private:r2',mime:r.mime||normalized.mime,size:Number(r.size||normalized.blob.size),provider:'r2',converted:Boolean(r.converted)};
+      }catch(error){console.warn('R2 privado no disponible para imagen optimizada:',error?.message||error)}
       const path=`${orderId}/${prefix}-${Date.now()}-${crypto.randomUUID()}.${normalized.ext}`;
       const uploadFile=new File([normalized.blob],normalized.name,{type:normalized.mime});
       const {error}=await supabaseClient.storage.from('service-order-files').upload(path,uploadFile,supportUploadOptions(uploadFile));if(error)throw error;
       return {storage_path:path,file_url:'private',mime:normalized.mime,size:normalized.blob.size,provider:'supabase'};
+    }
+    if(isImage){
+      // Si el navegador no pudo decodificar (caso típico HEIC/HEIF), no fallamos:
+      // enviamos el original al backend para conversión y almacenamiento privado.
+      try{return await uploadOriginalImageToR2(file,orderId)}catch(error){
+        const msg=error?.message||String(error||'');
+        if(decodeError&&/BROWSER_IMAGE_DECODE_FAILED|source image could not be decoded/i.test(String(decodeError?.message||decodeError))){
+          throw new Error(msg||'No se pudo convertir esta imagen. Intenta exportarla como JPG o PNG.')
+        }
+        throw error
+      }
     }
     const ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'')||'bin',path=`${orderId}/${prefix}-${Date.now()}-${crypto.randomUUID()}.${ext}`;
     const {error}=await supabaseClient.storage.from('service-order-files').upload(path,file,supportUploadOptions(file));if(error)throw error;

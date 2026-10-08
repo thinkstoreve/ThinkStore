@@ -101,15 +101,29 @@ exports.handler=async event=>{
       if(!cfg)return reply(501,{ok:false,error:'Cloudflare R2 privado de Soporte todavía no está configurado'});
       const orderId=clean(body.order_id);if(!orderId)return reply(400,{ok:false,error:'Falta la orden'});
       await ensureOrderAccess(orderId);
-      const mime=clean(body.mime).toLowerCase();
-      if(!['image/jpeg','image/png','image/webp'].includes(mime))return reply(400,{ok:false,error:'Para vista previa usa JPG, PNG o WEBP'});
+      const declaredMime=clean(body.mime).toLowerCase(),fileName=clean(body.file_name);
       const base64=clean(body.base64).replace(/^data:[^;]+;base64,/i,'');if(!base64)return reply(400,{ok:false,error:'Falta la imagen'});
-      const bytes=Buffer.from(base64,'base64');if(!bytes.length||bytes.length>4*1024*1024)return reply(413,{ok:false,error:'La imagen optimizada debe pesar máximo 4 MB'});
-      const detected=sniffImageMime(bytes)||mime;if(!detected.startsWith('image/'))return reply(400,{ok:false,error:'El archivo no parece una imagen válida'});
-      const objectKey=R2.objectKeyFor(orderId,detected);
-      const up=await R2.request(cfg,'PUT',objectKey,bytes,detected);
+      let bytes=Buffer.from(base64,'base64');
+      if(!bytes.length||bytes.length>5.5*1024*1024)return reply(413,{ok:false,error:'La imagen original debe pesar máximo 5,5 MB'});
+      let detected=sniffImageMime(bytes)||inferredMime(fileName)||declaredMime;
+      if(!detected.startsWith('image/'))return reply(400,{ok:false,error:'El archivo no parece una imagen válida'});
+      let storedMime=detected,converted=false;
+      if(['image/heic','image/heif'].includes(detected)){
+        try{
+          const convert=require('heic-convert');
+          bytes=Buffer.from(await convert({buffer:bytes,format:'JPEG',quality:.88}));
+          storedMime='image/jpeg';converted=true;
+        }catch(error){
+          console.error('HEIC conversion failed',error);
+          return reply(415,{ok:false,error:'No se pudo convertir la foto HEIC/HEIF. Vuelve a intentar o expórtala como JPG.',details:clean(error?.message).slice(0,240)});
+        }
+      }
+      if(!['image/jpeg','image/png','image/webp','image/gif','image/avif'].includes(storedMime))return reply(415,{ok:false,error:'Formato de imagen no compatible. Usa JPG, PNG, WebP o HEIC/HEIF.'});
+      if(!bytes.length||bytes.length>8*1024*1024)return reply(413,{ok:false,error:'La imagen convertida supera 8 MB'});
+      const objectKey=R2.objectKeyFor(orderId,storedMime);
+      const up=await R2.request(cfg,'PUT',objectKey,bytes,storedMime);
       if(!up.ok){const t=await up.text().catch(()=>'');return reply(up.status,{ok:false,error:'No se pudo guardar la imagen en Cloudflare R2',details:t.slice(0,300)})}
-      return reply(200,{ok:true,provider:'cloudflare-r2-private',storage_path:`r2:${objectKey}`,object_key:objectKey,mime:detected,size:bytes.length,url:R2.presignedGet(cfg,objectKey,3600)});
+      return reply(200,{ok:true,provider:'cloudflare-r2-private',storage_path:`r2:${objectKey}`,object_key:objectKey,mime:storedMime,source_mime:detected,converted,size:bytes.length,url:R2.presignedGet(cfg,objectKey,3600)});
     }
 
     if(action==='payment_states'){

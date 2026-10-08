@@ -1,0 +1,8 @@
+{
+  "name": "thinkstore-support",
+  "private": true,
+  "version": "8.8.20",
+  "dependencies": {
+    "heic-convert": "2.1.0"
+  }
+}

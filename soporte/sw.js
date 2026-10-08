@@ -1,5 +1,5 @@
-const CACHE="thinkstore-support-v8-8-19-r1524a";
-const CORE=["./panel.html", "./index.html", "./styles.css?v=15.24.1", "./app.js?v=15.24.1", "./offline-runtime.js", "./manifest.webmanifest", "./offline.html", "./favicon-192.png", "./favicon-512.png", "./assets/thinkstore-logo-white.png"];
+const CACHE="thinkstore-support-v8-8-20-r1524b";
+const CORE=["./panel.html", "./index.html", "./styles.css?v=15.24.2", "./app.js?v=15.24.2", "./offline-runtime.js", "./manifest.webmanifest", "./offline.html", "./favicon-192.png", "./favicon-512.png", "./assets/thinkstore-logo-white.png"];
 const OFFLINE="./offline.html";
 const NAV_ONLY=null;
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(async c=>{for(const u of CORE){try{const r=await fetch(u,{cache:'reload'});if(r.ok||r.type==='opaque')await c.put(u,r.clone())}catch{}}}).then(()=>self.skipWaiting()))});
