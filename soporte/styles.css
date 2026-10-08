@@ -1852,3 +1852,20 @@ button,input,select,textarea{font-size:16px}
 .order-file-delete-card{gap:9px!important}
 .order-file-delete-icon{display:none!important}
 @media(max-width:560px){.order-file-trash{top:8px!important;right:8px!important;width:32px!important;height:32px!important;min-width:32px!important}}
+
+/* V8.8.26 · Upload R2 por support-actions + papelera anclada a cada tarjeta */
+.order-file-card{position:relative!important}
+.order-file-media-wrap{position:relative!important}
+.order-file-trash{
+  position:absolute!important;top:10px!important;right:10px!important;z-index:12!important;
+  width:30px!important;height:30px!important;min-width:30px!important;max-width:30px!important;
+  padding:0!important;margin:0!important;border-radius:50%!important;
+  border:1px solid rgba(255,255,255,.42)!important;background:rgba(17,24,39,.38)!important;
+  color:#fff!important;display:grid!important;place-items:center!important;
+  box-shadow:0 6px 16px rgba(15,23,42,.16)!important;backdrop-filter:blur(9px)!important;
+  opacity:.82!important;transition:transform .16s ease,background .16s ease,opacity .16s ease,box-shadow .16s ease!important;
+}
+.order-file-trash svg{width:14px!important;height:14px!important}
+.order-file-trash:hover,.order-file-trash:focus-visible{background:rgba(185,32,46,.88)!important;opacity:1!important;transform:scale(1.08)!important;box-shadow:0 7px 18px rgba(185,32,46,.24)!important}
+.order-file-trash:active{transform:scale(.9)!important}
+@media(max-width:560px){.order-file-trash{top:8px!important;right:8px!important;width:29px!important;height:29px!important;min-width:29px!important;max-width:29px!important}}

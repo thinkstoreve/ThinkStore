@@ -240,18 +240,14 @@ const TSService=(()=>{
   }
 
   async function supportR2Upload(payload={}){
-    const {data:{session:sb}}=await supabaseClient.auth.getSession();
-    const token=sb?.access_token||'';
-    if(!token)throw new Error('Tu sesión de Servicio Técnico expiró. Vuelve a iniciar sesión.');
-    const nativeFetch=window.ThinkStoreOffline?.nativeFetch||window.fetch.bind(window);
-    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),60000);
-    let res;
-    try{res=await nativeFetch('/.netlify/functions/support-r2-upload',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload),cache:'no-store',signal:controller.signal});}
-    catch(error){if(error?.name==='AbortError')throw new Error('La imagen tardó demasiado en subir. Revisa la conexión e inténtalo nuevamente.');throw error}
-    finally{clearTimeout(timer)}
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok||!data.ok){const extra=data?.details?` · ${String(data.details).slice(0,180)}`:'';throw new Error((data?.error||`No se pudo subir la imagen (${res.status})`)+extra)}
-    return data;
+    // V8.8.26: usamos la Function support-actions, ya publicada y comprobada en producción.
+    // Evita depender de una Function separada que Netlify puede no exponer en este sitio.
+    try{
+      return await supportSecureAction({action:'file_upload_r2',...payload});
+    }catch(error){
+      const msg=String(error?.message||error||'No se pudo subir la imagen.');
+      throw new Error(msg);
+    }
   }
 
 
@@ -1469,7 +1465,7 @@ const TSService=(()=>{
       const preview=likelyImage?`<button type="button" id="${orderFilePreviewId(p.id)}" class="order-file-preview image-preview loading" aria-label="Cargando vista previa"><span class="order-file-preview-loader"></span><small>Cargando imagen…</small></button>`:`<div class="order-file-preview document-preview"><span class="file-doc">ARCHIVO</span></div>`;
       const safeId=String(p.id||'').replace(/[^a-zA-Z0-9_-]/g,'');
       const trash=`<button type="button" class="order-file-trash" onclick="event.stopPropagation();TSService.confirmDeleteOrderFile('${esc(p.id)}')" aria-label="Eliminar imagen" title="Eliminar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5M14 11v5"></path></svg></button>`;
-      return `<article id="order-file-card-${safeId}" class="order-file-card"><div class="order-file-media-wrap">${preview}${trash}</div><div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button></div></article>`;
+      return `<article id="order-file-card-${safeId}" class="order-file-card">${trash}<div class="order-file-media-wrap">${preview}</div><div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button></div></article>`;
     }).join('')||'<small>Sin fotografías o archivos.</small>';
     files.filter(p=>SUPPORT_IMAGE_RE.test(supportFileDescriptor(p))||String(p.file_url||'').includes('private:r2')||String(p.storage_path||'').startsWith('r2:')).forEach(p=>hydrateOrderFilePreview(p.id));
   }
