@@ -21,7 +21,29 @@ exports.handler=async event=>{
     const profile=profiles?.[0];
     if(!profile||profile.activo===false)return reply(403,{ok:false,error:'Usuario de soporte no autorizado'});
     const body=JSON.parse(event.body||'{}');
-    if(clean(body.action)!=='notify_client')return reply(400,{ok:false,error:'Acción no válida'});
+    const action=clean(body.action);
+
+    if(action==='payment_states'){
+      const rows=await req('service_orders?select=id,payment_status,amount_paid,payment_method,payment_notes,paid_at,quote_amount,quote_currency,updated_at&order=updated_at.desc&limit=5000');
+      return reply(200,{ok:true,orders:Array.isArray(rows)?rows:[]});
+    }
+
+    if(action==='file_url'){
+      const storagePath=clean(body.storage_path);
+      if(!storagePath)return reply(400,{ok:false,error:'Falta la ruta del archivo'});
+      const photoRows=await req(`service_order_photos?select=id,order_id,storage_path&storage_path=eq.${encodeURIComponent(storagePath)}&limit=1`);
+      if(!photoRows?.[0])return reply(404,{ok:false,error:'Archivo no registrado en esta orden'});
+      const encodePath=v=>String(v||'').split('/').map(encodeURIComponent).join('/');
+      const sr=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encodePath(storagePath)}`,{method:'POST',headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:3600})});
+      const sd=await sr.json().catch(()=>({}));
+      if(!sr.ok)return reply(sr.status,{ok:false,error:sd?.message||sd?.error||'No se pudo generar el enlace seguro'});
+      const raw=clean(sd.signedURL||sd.signedUrl);
+      const signed=raw.startsWith('http')?raw:raw.startsWith('/storage/v1')?`${url}${raw}`:raw.startsWith('/object/')?`${url}/storage/v1${raw}`:raw?`${url}/storage/v1/${raw.replace(/^\//,'')}`:'';
+      if(!signed)return reply(500,{ok:false,error:'Supabase no devolvió una URL firmada'});
+      return reply(200,{ok:true,url:signed,expires_in:3600});
+    }
+
+    if(action!=='notify_client')return reply(400,{ok:false,error:'Acción no válida'});
     const rows=await req(`service_orders?select=*&id=eq.${encodeURIComponent(clean(body.order_id))}&limit=1`);
     const o=rows?.[0];
     if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});

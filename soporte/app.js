@@ -47,6 +47,7 @@ const TSService=(()=>{
   let bitacora=[];
   let serviceUsers=[];
   let servicePhotos=[];
+  const orderFileUrlCache=new Map();
   let activeOrderId=null;
   let orderMessagePollTimer=null;
   const orderMessageLastKey=new Map();
@@ -112,7 +113,10 @@ const TSService=(()=>{
   const dateText=v=>v?new Date(v).toLocaleString('es-VE'):'Sin fecha';
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function toast(message,type='ok'){let el=document.getElementById('serviceToast');if(!el){el=document.createElement('div');el.id='serviceToast';document.body.appendChild(el)}el.className=`service-toast ${type}`;el.textContent=message;requestAnimationFrame(()=>el.classList.add('show'));clearTimeout(window.__serviceToast);window.__serviceToast=setTimeout(()=>el.classList.remove('show'),4200)}
-  function mapOrder(row){const checklist=row.reception_checklist||{};return{id:row.id,code:row.code,client:row.client_name,phone:row.client_phone,email:row.client_email||'',clientMeta:checklist.__client||{},device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',quoteRepairDetails:row.quote_repair_details||'',quoteSentAt:row.quote_sent_at||'',quoteApprovedAt:row.quote_approved_at||'',quoteClientComment:row.quote_client_comment||'',quoteTermsVersion:row.quote_terms_version||'',quoteTermsAcceptedAt:row.quote_terms_accepted_at||'',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},receivedByName:checklist?.__meta?.received_by_name||row.created_by_email||'',receivedByEmail:checklist?.__meta?.received_by_email||row.created_by_email||'',receivedByRole:checklist?.__meta?.received_by_role||'',receivedAt:checklist?.__meta?.received_at||row.created_at||'',passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',publicToken:row.public_token||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
+  function mapOrder(row){
+    const checklist=row.reception_checklist||{},clientMeta=checklist.__client||{};
+    const clientName=String(row.client_name||clientMeta.name||clientMeta.full_name||clientMeta.customer_name||row.customer_name||'').trim()||'Cliente';
+    return{id:row.id,code:row.code,client:clientName,phone:row.client_phone||clientMeta.phone||'',email:row.client_email||clientMeta.email||'',clientMeta,device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',quoteRepairDetails:row.quote_repair_details||'',quoteSentAt:row.quote_sent_at||'',quoteApprovedAt:row.quote_approved_at||'',quoteClientComment:row.quote_client_comment||'',quoteTermsVersion:row.quote_terms_version||'',quoteTermsAcceptedAt:row.quote_terms_accepted_at||'',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},receivedByName:checklist?.__meta?.received_by_name||row.created_by_email||'',receivedByEmail:checklist?.__meta?.received_by_email||row.created_by_email||'',receivedByRole:checklist?.__meta?.received_by_role||'',receivedAt:checklist?.__meta?.received_at||row.created_at||'',passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',publicToken:row.public_token||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
   function orderPaymentState(o={}){
     const quote=Math.max(0,Number(o.quoteAmount||0)),paid=Math.max(0,Number(o.amountPaid||0)),raw=String(o.paymentStatus||'').toLowerCase();
     const paidOff=/pagado|cobrado/.test(raw)||(quote>0&&paid+0.0001>=quote);
@@ -120,6 +124,19 @@ const TSService=(()=>{
     return paidOff?{key:'paid',label:'Pagado',detail:paid?`$${paid.toFixed(2)}`:''}:partial?{key:'partial',label:'Abono parcial',detail:paid?`$${paid.toFixed(2)}`:''}:{key:'pending',label:'Pendiente',detail:quote>0?`$${Math.max(0,quote-paid).toFixed(2)}`:''};
   }
   function paymentBadgeHtml(o={}){const p=orderPaymentState(o);return `<span class="support-payment-badge ${p.key}"><i>${p.key==='paid'?'✓':p.key==='partial'?'◐':'$'}</i><span>${esc(p.label)}</span>${p.detail?`<small>${esc(p.detail)}</small>`:''}</span>`}
+  function orderClientName(o={}){
+    const m=o.clientMeta||o.checklist?.__client||{};
+    return String(o.client||o.client_name||m.name||m.full_name||m.customer_name||o.signatures?.client||'').trim()||'Cliente';
+  }
+  async function supportSecureAction(payload={}){
+    const {data:{session:sb}}=await supabaseClient.auth.getSession();
+    const token=sb?.access_token||'';
+    if(!token)throw new Error('Tu sesión de Soporte expiró. Vuelve a iniciar sesión.');
+    const res=await fetch('/.netlify/functions/support-actions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(payload),cache:'no-store'});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo completar la operación segura de Soporte.');
+    return data;
+  }
 
 
   function cleanClientSearchValue(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
@@ -436,10 +453,18 @@ const TSService=(()=>{
   }
   async function refreshExternalPaymentStates(){
     if(!session)return;
-    const {data,error}=await supabaseClient.from('service_orders').select('id,payment_status,amount_paid,payment_method,payment_notes,paid_at,quote_amount,quote_currency,updated_at');
-    if(error)return;
+    let rows=[];
+    try{
+      const secure=await supportSecureAction({action:'payment_states'});
+      rows=Array.isArray(secure.orders)?secure.orders:[];
+    }catch(error){
+      console.warn('Sincronización de pagos por servidor:',error?.message||error);
+      const fallback=await supabaseClient.from('service_orders').select('id,payment_status,amount_paid,payment_method,payment_notes,paid_at,quote_amount,quote_currency,updated_at');
+      if(fallback.error)return;
+      rows=fallback.data||[];
+    }
     let changed=false;
-    for(const row of data||[]){
+    for(const row of rows){
       const o=orders.find(x=>String(x.id)===String(row.id));if(!o)continue;
       const nextStatus=row.payment_status||'Pendiente',nextPaid=Number(row.amount_paid||0),nextQuote=Number(row.quote_amount||0),nextPaidAt=row.paid_at||'';
       if(String(o.paymentStatus)!==String(nextStatus)||Number(o.amountPaid)!==nextPaid||Number(o.quoteAmount)!==nextQuote||String(o.paidAt||'')!==String(nextPaidAt)){
@@ -987,7 +1012,7 @@ ${summary}
 
   function ordersTable(scope='orders'){
     const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Diagnóstico disponible','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
-    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Los pagos de App Ventas se sincronizan automáticamente</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id)),pay=orderPaymentState(o);return `<tr class="${pay.key==='paid'?'support-order-paid':''}"><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><div class="support-order-state"><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Diagnóstico disponible','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select>${paymentBadgeHtml(o)}</div></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
+    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Los pagos de App Ventas se sincronizan automáticamente</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado técnico / pago</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id)),pay=orderPaymentState(o);return `<tr class="${pay.key==='paid'?'support-order-paid':''}"><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><div class="support-order-state">${paymentBadgeHtml(o)}<small class="support-order-tech-label">Estado técnico</small><select onchange="TSService.updateStatus(${i},this.value)">${['Solicitud web','Recibido','En diagnóstico','Diagnóstico disponible','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'].map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></div></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> <button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button> <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
 
   async function openOrderManager(id){
     const o=orders.find(x=>String(x.id)===String(id));if(!o)return;
@@ -999,15 +1024,49 @@ ${summary}
     repairPartSelection.clear();const partSearch=document.getElementById('mPartSearch');if(partSearch)partSearch.value='';renderOrderPartPicker('');
     await renderOrderFiles(o.id);await renderOrderMessages(o.id,{initial:true});startOrderMessagePolling(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');
   }
+  async function resolveOrderFileUrl(p={}){
+    const key=String(p.id||p.storage_path||p.file_url||'');
+    const cached=orderFileUrlCache.get(key);
+    if(cached&&cached.expires>Date.now()&&cached.url)return cached.url;
+    let url='';
+    if(p.storage_path){
+      try{
+        const secure=await supportSecureAction({action:'file_url',storage_path:p.storage_path});
+        url=String(secure.url||'').trim();
+      }catch(error){
+        console.warn('URL segura de archivo:',error?.message||error);
+        try{
+          const {data,error:signError}=await supabaseClient.storage.from('service-order-files').createSignedUrl(p.storage_path,3600);
+          if(!signError)url=String(data?.signedUrl||'').trim();
+        }catch(_){}
+      }
+    }
+    if(!url&&/^https?:\/\//i.test(String(p.file_url||'')))url=String(p.file_url).trim();
+    if(url)orderFileUrlCache.set(key,{url,expires:Date.now()+50*60*1000});
+    return url;
+  }
+  async function openOrderImage(fileId){
+    const p=servicePhotos.find(x=>String(x.id)===String(fileId));if(!p)return toast('No encontré la imagen seleccionada.','error');
+    const url=await resolveOrderFileUrl(p);if(!url)return toast('No se pudo generar el enlace seguro de la imagen.','error');
+    document.getElementById('orderImageLightbox')?.remove();
+    const modal=document.createElement('div');modal.id='orderImageLightbox';modal.className='order-image-lightbox';
+    modal.innerHTML=`<div class="order-image-lightbox-backdrop" data-close-image></div><div class="order-image-lightbox-card"><button type="button" class="order-image-lightbox-close" data-close-image aria-label="Cerrar">×</button><div class="order-image-lightbox-stage"><img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen de la orden')}"></div><div class="order-image-lightbox-caption"><b>${esc(p.client_caption||p.label||'Imagen de la orden')}</b><span>${dateText(p.created_at)}</span></div></div>`;
+    document.body.appendChild(modal);document.body.classList.add('order-image-open');
+    const close=()=>{modal.remove();document.body.classList.remove('order-image-open')};
+    modal.querySelectorAll('[data-close-image]').forEach(el=>el.addEventListener('click',close));
+    const key=e=>{if(e.key==='Escape'){close();document.removeEventListener('keydown',key)}};document.addEventListener('keydown',key);
+  }
   async function renderOrderFiles(orderId){
     const box=document.getElementById('mOrderFiles');if(!box)return;
     const files=servicePhotos.filter(p=>String(p.order_id)===String(orderId));
     const rows=await Promise.all(files.map(async p=>{
-      let url=p.file_url;
-      if(p.storage_path){const {data}=await supabaseClient.storage.from('service-order-files').createSignedUrl(p.storage_path,3600);url=data?.signedUrl||url}
+      const url=await resolveOrderFileUrl(p);
       const visible=(p.visibility||'internal')==='client';
       const isImage=/\.(png|jpe?g|webp|gif|heic|heif)$/i.test(String(p.label||p.storage_path||''));
-      return `<article class="order-file-card"><a class="order-file-preview" href="${esc(url)}" target="_blank" rel="noopener">${isImage?`<img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen')}">`:'<span class="file-doc">ARCHIVO</span>'}</a><div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button></div></article>`;
+      const preview=isImage
+        ?(url?`<button type="button" class="order-file-preview image-preview" onclick="TSService.openOrderImage('${esc(p.id)}')" title="Ampliar imagen"><img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen')}" loading="lazy"><span class="order-file-zoom">⌕</span></button>`:`<div class="order-file-preview broken"><span class="file-doc">IMAGEN NO DISPONIBLE</span></div>`)
+        :(url?`<a class="order-file-preview" href="${esc(url)}" target="_blank" rel="noopener"><span class="file-doc">ABRIR ARCHIVO</span></a>`:`<div class="order-file-preview broken"><span class="file-doc">ARCHIVO NO DISPONIBLE</span></div>`);
+      return `<article class="order-file-card">${preview}<div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button></div></article>`;
     }));
     box.innerHTML=rows.join('')||'<small>Sin fotografías o archivos.</small>';
   }
@@ -1019,6 +1078,7 @@ ${summary}
     const visibility=document.getElementById('mOrderFileVisible')?.checked?'client':'internal';
     const caption=document.getElementById('mOrderFileCaption')?.value.trim()||file.name;
     const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:'private',storage_path:path,label:file.name,client_caption:caption,visibility,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
+    orderFileUrlCache.clear();
     await audit('upload_order_file',o.id,null,{label:file.name,storage_path:path,visibility,client_caption:caption});await loadSupportData();await renderOrderFiles(o.id);input.value='';if(document.getElementById('mOrderFileCaption'))document.getElementById('mOrderFileCaption').value='';toast(visibility==='client'?'Imagen publicada para el cliente.':'Archivo guardado de forma interna.');
   }
   async function toggleOrderFileVisibility(id,visibility){
@@ -1129,7 +1189,8 @@ ${summary}
     await sendOrderEmail(o,false);
   }
   async function sendOrderEmail(o,silent=true){
-    const {data:{session:sb}}=await supabaseClient.auth.getSession();const res=await fetch('/.netlify/functions/support-actions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${sb?.access_token||''}`},body:JSON.stringify({action:'notify_client',order_id:o.id})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok){if(!silent)toast(data.error||'No se pudo enviar el correo.','error');throw new Error(data.error||'No se pudo enviar el correo.')}if(!silent)toast('Correo enviado al cliente.');return data;
+    try{const data=await supportSecureAction({action:'notify_client',order_id:o.id});if(!silent)toast('Correo enviado al cliente.');return data}
+    catch(error){if(!silent)toast(error.message||'No se pudo enviar el correo.','error');throw error}
   }
 
 
@@ -1405,6 +1466,9 @@ ${summary}
 
   function collectReceptionClientMeta(){
     return{
+      name:document.getElementById('oClient')?.value?.trim()||'',
+      phone:document.getElementById('oPhone')?.value?.trim()||'',
+      email:document.getElementById('oEmail')?.value?.trim()||'',
       type:document.getElementById('oClientType')?.value||'Particular',
       document:document.getElementById('oClientDocument')?.value?.trim()||'',
       phone_alt:document.getElementById('oPhoneAlt')?.value?.trim()||'',
@@ -1736,8 +1800,8 @@ ${summary}
     <div class="signatures"><div class="sign">Firma del cliente<br>${esc(o.signatures?.client||o.client||'')}</div><div class="sign">Firma de recepción<br>${esc(o.signatures?.reception||session?.name||'')}</div></div><div class="foot">ThinkStore · Tecnología. Todo en un solo lugar.</div></div>`);
   }
   function label40x60Markup(o,qr){
-    const clientName=String(o?.client||'Cliente').trim()||'Cliente';
-    return `<div style="width:40mm;height:60mm;padding:2.5mm 2.6mm 2.2mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#fff;color:#111"><div style="width:100%;text-align:center;border-bottom:.35mm solid #111;padding-bottom:1.4mm"><b style="font-size:12.4pt;letter-spacing:-.25pt">ThinkStore</b><div style="font-size:6.5pt;margin-top:.35mm">Servicio Técnico</div></div><div style="width:100%;text-align:center;margin-top:1.35mm"><b style="display:block;font-size:9.8pt;line-height:1.05">${esc(o.code)}</b><div style="font-size:7pt;font-weight:800;line-height:1.1;margin-top:1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cliente: ${esc(clientName)}</div><div style="font-size:7.2pt;font-weight:700;line-height:1.1;margin-top:1mm;max-height:7mm;overflow:hidden">${esc(o.device)}</div>${o.color?`<div style="font-size:6.2pt;margin-top:.55mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(o.color)}</div>`:''}</div><img src="${qr}" style="width:20.5mm;height:20.5mm;margin-top:1.25mm" alt="QR"><div style="font-size:5.9pt;text-align:center;line-height:1.15;margin-top:1mm">Escanea para ver el estado</div></div>`;
+    const clientName=orderClientName(o);
+    return `<div style="width:40mm;height:60mm;padding:2.3mm 2.5mm 2mm;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#fff;color:#111"><div style="width:100%;text-align:center;border-bottom:.35mm solid #111;padding-bottom:1.1mm"><b style="font-size:12.2pt;letter-spacing:-.25pt">ThinkStore</b><div style="font-size:6.2pt;margin-top:.25mm">Servicio Técnico</div></div><div style="width:100%;text-align:center;margin-top:1.1mm"><b style="display:block;font-size:9.5pt;line-height:1.05">${esc(o.code)}</b><div style="font-size:5.2pt;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-top:.85mm">Cliente</div><div style="font-size:8.1pt;font-weight:900;line-height:1.05;margin-top:.15mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(clientName)}</div><div style="font-size:7pt;font-weight:700;line-height:1.08;margin-top:.8mm;max-height:6.2mm;overflow:hidden">${esc(o.device)}</div>${o.color?`<div style="font-size:6pt;margin-top:.4mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(o.color)}</div>`:''}</div><img src="${qr}" style="width:19.5mm;height:19.5mm;margin-top:1mm" alt="QR"><div style="font-size:5.7pt;text-align:center;line-height:1.1;margin-top:.7mm">Escanea para ver el estado</div></div>`;
   }
   function labelLegacyMarkup(o,qr){
     // Formato anterior ORIGINAL: 76x50 mm, escalado completo sin
@@ -1748,7 +1812,7 @@ ${summary}
         <b style="font-size:13pt">ThinkStore</b>
         <div style="font-size:7pt;margin-bottom:3mm">Servicio Técnico</div>
         <b style="font-size:11pt">${esc(o.code)}</b>
-        <div style="font-size:8pt;font-weight:700;margin-top:1.4mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cliente: ${esc(o.client||'Cliente')}</div>
+        <div style="font-size:5.8pt;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-top:1.2mm">Cliente</div><div style="font-size:9pt;font-weight:900;margin-top:.25mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(orderClientName(o))}</div>
         <div style="font-size:8.5pt;margin-top:1.3mm">${esc(o.device)}</div>
         <div style="font-size:7.5pt">${esc(o.color||'')}</div>
         <div style="font-size:6.2pt;margin-top:1.5mm">Escanea para ver el estado</div>
@@ -1840,15 +1904,20 @@ ${summary}
       doc.setFontSize(9.8);
       doc.text(String(o.code||''),20,15.7,{align:'center'});
 
+      const clientName=orderClientName(o);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(5.2);
+      doc.text('CLIENTE',20,18.7,{align:'center'});
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8.1);
+      const clientLine=doc.splitTextToSize(clientName,33).slice(0,1);
+      doc.text(clientLine,20,21.4,{align:'center'});
+
       doc.setFontSize(7);
-      const clientLine=doc.splitTextToSize(`Cliente: ${String(o.client||'Cliente')}`,33).slice(0,1);
-      doc.text(clientLine,20,19.2,{align:'center'});
-
-      doc.setFontSize(7.2);
       const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),34).slice(0,2);
-      doc.text(deviceLines,20,22.6,{align:'center',lineHeightFactor:1.02});
+      doc.text(deviceLines,20,24.6,{align:'center',lineHeightFactor:1.02});
 
-      let colorY=22.6+(deviceLines.length*3.05)+.15;
+      let colorY=24.6+(deviceLines.length*3.0)+.1;
       if(o.color){
         doc.setFont('helvetica','normal');
         doc.setFontSize(6.2);
@@ -1885,19 +1954,23 @@ ${summary}
       doc.setFontSize(11*S);
       doc.text(String(o.code||''),sx(4),sy(17));
 
-      doc.setFontSize(8*S);
-      const clientLine=doc.splitTextToSize(`Cliente: ${String(o.client||'Cliente')}`,38*S).slice(0,1);
-      doc.text(clientLine,sx(4),sy(21));
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(5.8*S);
+      doc.text('CLIENTE',sx(4),sy(20.2));
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(9*S);
+      const clientLine=doc.splitTextToSize(orderClientName(o),38*S).slice(0,1);
+      doc.text(clientLine,sx(4),sy(24));
 
       doc.setFontSize(8.2*S);
       const deviceWidth=38*S;
       const deviceLines=doc.splitTextToSize(String(o.device||'Equipo'),deviceWidth).slice(0,2);
-      doc.text(deviceLines,sx(4),sy(25),{lineHeightFactor:1.05});
+      doc.text(deviceLines,sx(4),sy(28),{lineHeightFactor:1.05});
 
       if(o.color){
         doc.setFont('helvetica','normal');
         doc.setFontSize(6.8*S);
-        doc.text(doc.splitTextToSize(String(o.color),38*S).slice(0,1),sx(4),sy(34));
+        doc.text(doc.splitTextToSize(String(o.color),38*S).slice(0,1),sx(4),sy(37));
       }
 
       doc.setFontSize(6*S);
@@ -2021,5 +2094,5 @@ ${summary}
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,uploadOrderFile,toggleOrderFileVisibility,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,uploadOrderFile,toggleOrderFileVisibility,openOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

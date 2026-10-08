@@ -1,4 +1,4 @@
-/* ThinkStore V15.08 — App Ventas · Reparaciones · Cobro + sincronización Pagado. */
+/* ThinkStore V15.11 — App Ventas · Reparaciones · Repuestos visibles + cobro premium simplificado. */
 (() => {
 'use strict';
 const $=id=>document.getElementById(id);
@@ -60,7 +60,7 @@ async function load(force=false){
   catch(e){notice(e.message);if(!initialized)$('repairsList').innerHTML='<div class="empty-state">No se pudieron cargar las reparaciones desde Soporte.</div>'}
   finally{loading=false;if($('repairsRefresh'))$('repairsRefresh').disabled=false}
 }
-function partRows(){if(!parts.length)return '<div class="repair-no-parts">No hay repuestos asociados a esta orden.</div>';return `<div class="repair-parts-list">${parts.map(p=>{const name=p.service_parts?.name||p.part_name||'Repuesto';const qty=Number(p.quantity_consumed||p.quantity_reserved||0);return `<div><span><b>${esc(name)}</b><small>${esc(p.service_parts?.sku||'')} ${p.status==='consumed'?'· Consumido':'· Reservado'}</small></span><b>${qty} × ${usd(p.sale_price_snapshot||0)}</b></div>`}).join('')}</div>`}
+function partRows(){if(!parts.length)return '<div class="repair-no-parts">No hay repuestos asociados a esta orden.</div>';const total=parts.reduce((n,p)=>n+(Number(p.quantity_consumed||p.quantity_reserved||0)*Number(p.sale_price_snapshot||0)),0);return `<div class="repair-parts-list">${parts.map(p=>{const name=p.service_parts?.name||p.part_name||p.name||'Repuesto';const qty=Number(p.quantity_consumed||p.quantity_reserved||p.quantity||1);const unit=Number(p.sale_price_snapshot||p.sale_price||0);const subtotal=qty*unit;const status=p.status==='consumed'?'Consumido':p.status==='reserved'?'Reservado':(p.note_source?'Reportado por técnico':'Asociado');return `<div><span><b>${esc(name)}</b><small>${esc(p.service_parts?.sku||p.sku||'')} ${status?`· ${esc(status)}`:''} ${qty?`· Cant. ${esc(qty)}`:''}</small></span><b>${usd(subtotal)}</b></div>`}).join('')}</div><div class="repair-parts-total"><span>Total repuestos</span><b>${usd(total)}</b></div>`}
 function historyRows(){return events.length?events.map(e=>`<div class="repair-history-row"><span><b>${esc(e.event_type==='payment'?'Pago / abono':e.event_type||'Movimiento')}</b><small>${date(e.occurred_at)} · ${esc(e.payment_method||'')}</small></span><b>${usd(e.amount_delta)}</b></div>`).join(''):'<div class="repair-no-parts">Sin movimientos previos.</div>'}
 function methodGroup(){return PAYMENT_GROUPS.find(g=>g.methods.includes(selectedMethod))||PAYMENT_GROUPS[0]}
 function subMethodLabel(m){if(m==='Efectivo USD'||m==='Transferencia USD')return 'USD';if(m==='Efectivo Bs'||m==='Transferencia Bs')return 'Bolívares';return m}
@@ -82,11 +82,11 @@ function detail(){
       <div><span>Abonado</span><b>${fmt(a.paid,o)}</b></div>
       <div class="grand"><span>Saldo pendiente</span><b>${a.budget>0?fmt(a.pending,o):'Por definir'}</b></div>
     </div>
-    <div class="form-section repair-form-section"><div class="repair-section-title"><h3>Repuestos</h3><small>Reservados o consumidos en esta orden</small></div>${partRows()}</div>
+    <div class="form-section repair-form-section"><div class="repair-section-title"><h3>Repuestos</h3><small>Usados por el técnico para esta reparación</small></div>${partRows()}</div>
     <div class="form-section repair-form-section"><div class="repair-section-title"><h3>Historial de pagos</h3><small>Cada abono queda ligado a la reparación</small></div><div id="repairsEvents" class="repair-history-list">${historyRows()}</div></div>
     ${paid?`<div class="form-section repair-paid-panel"><div><div><h3>Reparación pagada</h3><p>El saldo está completo. La Nota de Entrega está disponible sin cambiar el estado técnico del equipo.</p></div></div><div class="repair-final-actions"><button class="primary" id="repairsDeliveryNote" type="button">Ver / imprimir Nota de Entrega</button><button class="secondary" id="repairsResendDeliveryNote" type="button">Reenviar al correo</button><button class="secondary" id="repairsOpenTechnical" type="button">Abrir Servicio Técnico ↗</button></div></div>`:`
     <form id="repairsPayForm" class="form-section repair-payment-form">
-      <div class="repair-section-title"><h3>Registrar pago</h3><small>${a.budget>0?'Abono parcial o pago total':'Indica el total final y cobra en un solo paso'}</small></div>
+      <div class="repair-section-title"><h3>Registrar pago</h3><small>${a.budget>0?'Elige el método y confirma el cobro':'Indica el total final y confirma el cobro'}</small></div>
       ${a.budget<=0?'<div class="repair-no-quote-hint"><b>Esta orden aún no tiene un total definido.</b><span>Escribe el monto recibido y ThinkStore lo guardará como total final al cobrar.</span></div>':''}
       <div class="choice-grid repair-method-grid" id="repairMethodChoices">${methodChoices()}</div>
       <div id="repairMethodSubchoices">${methodSubchoices()}</div>
@@ -97,8 +97,8 @@ function detail(){
         <label class="span2">Observación<textarea id="repairsPayNote" maxlength="300" placeholder="Observación opcional"></textarea></label>
       </div>
       <div id="repairsBcvBox" class="fx-box hidden"></div>
-      ${a.budget>0?`<div class="repair-payment-actions"><button class="secondary repair-action-btn" id="repairsPaySave" type="submit">Registrar abono</button><button class="primary repair-action-btn repair-charge-btn" id="repairsMarkPaid" type="button">Cobrar saldo + Nota de Entrega</button></div>`:`<div class="repair-payment-actions single"><button class="primary repair-action-btn repair-charge-btn" id="repairsMarkPaid" type="button">Indica el monto para cobrar</button></div>`}
-      <p class="repair-payment-foot">El pago final consume los repuestos reservados en la misma operación. Si el stock no alcanza, el pago no se confirma.</p>
+      ${a.budget>0?`<div class="repair-payment-actions"><button class="secondary repair-action-btn" id="repairsPaySave" type="submit">Registrar abono</button><button class="primary repair-action-btn repair-charge-btn" id="repairsMarkPaid" type="button">Cobrar saldo</button></div>`:`<div class="repair-payment-actions single"><button class="primary repair-action-btn repair-charge-btn" id="repairsMarkPaid" type="button">Indica el monto para cobrar</button></div>`}
+      <p class="repair-payment-foot">El pago final consume los repuestos reservados en la misma operación. Si la orden queda pagada, la Nota de Entrega se crea automáticamente y se envía al cliente.</p>
     </form>
     <div class="repair-final-actions"><button class="secondary" id="repairsOpenTechnical" type="button">Abrir Servicio Técnico ↗</button></div>`}`;
   bindDetail();updatePaymentUi();
@@ -124,7 +124,7 @@ function updatePaymentUi(){
   const refWrap=$('repairsPayRefWrap');if(refWrap)refWrap.classList.toggle('hidden',!NEEDS_REF.has(method));if($('repairsPayReference'))$('repairsPayReference').required=NEEDS_REF.has(method);
   $('repairsBcvBox')?.classList.toggle('hidden',!isBs);
   if(isBs){const q=window.ThinkStoreFX?.snapshot(1);$('repairsBcvBox').textContent=q?`${ves(amount)} ≈ ${usd(round(amount/q.rate))} · BCV ${q.rate} · ${q.effective_date}${q.stale?' · SIN VERIFICAR':''}`:'Tasa BCV no disponible. No se permitirá cobrar en bolívares hasta verificarla.'}
-  const charge=$('repairsMarkPaid');if(charge){if(noQuote){charge.disabled=!(amount>0);const shown=isBs?ves(amount):method==='EUR'?`EUR ${amount.toFixed(2)}`:method==='USDT'?`${amount.toFixed(2)} USDT`:usd(amount);charge.textContent=amount>0?`Cobrar ${shown} + Nota de Entrega`:'Indica el monto para cobrar'}else{charge.disabled=a.pending<=0;charge.textContent=a.pending>0?`Cobrar saldo ${fmt(a.pending,active)} + Nota de Entrega`:'Saldo completado'}}
+  const charge=$('repairsMarkPaid');if(charge){if(noQuote){charge.disabled=!(amount>0);const shown=isBs?ves(amount):method==='EUR'?`EUR ${amount.toFixed(2)}`:method==='USDT'?`${amount.toFixed(2)} USDT`:usd(amount);charge.textContent=amount>0?`Cobrar ${shown}`:'Indica el monto para cobrar'}else{charge.disabled=a.pending<=0;charge.textContent=a.pending>0?`Cobrar saldo ${fmt(a.pending,active)}`:'Saldo completado'}}
 }
 
 async function fullAmountForMethod(){
@@ -149,12 +149,12 @@ async function savePayment(e,markPaid){
   const reference=$('repairsPayReference')?.value.trim()||'',note=$('repairsPayNote')?.value.trim()||'';
   if(!Number.isFinite(amount)||amount<=0)return alert('Indica un monto válido.');if(CUSTOM_EQ.has(selectedMethod)&&(!Number.isFinite(usdEquivalent)||usdEquivalent<=0))return alert('Indica el equivalente aplicado en USD.');
   if(IS_BS.has(selectedMethod)){try{await window.ThinkStoreFX?.requireFresh()}catch(err){return alert(err.message||'No está disponible la tasa BCV.')}}
-  const label=finalizeNoQuote?'cobrar este monto como total final y generar la Nota de Entrega':markPaid?'cobrar el saldo total y generar la Nota de Entrega':'registrar este abono';if(!confirm(`¿Confirmar ${label} mediante ${selectedMethod} para la orden ${active.code}?`))return;
+  const label=finalizeNoQuote?'cobrar este monto como total final':markPaid?'cobrar el saldo total':'registrar este abono';if(!confirm(`¿Confirmar ${label} mediante ${selectedMethod} para la orden ${active.code}?`))return;
   const btn=markPaid?$('repairsMarkPaid'):$('repairsPaySave');if(btn){btn.classList.add('is-loading');btn.disabled=true;btn.textContent=markPaid?'Cobrando…':'Registrando…'}
   try{
     const res=await api('POST',{action:'pay',order_id:id,method:selectedMethod,amount,usd_equivalent:usdEquivalent,reference,note,finalize_no_quote:finalizeNoQuote});await load(true);
     const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];detail();
-    if(res.fully_paid)alert(finalizeNoQuote?'Cobro completado. El monto quedó guardado como total final y la Nota de Entrega está disponible.':'Pago completado. La reparación quedó Pagada, los repuestos reservados fueron consumidos y la Nota de Entrega está disponible.');else alert('Abono registrado correctamente.');
+    if(res.fully_paid){const deliveryMsg=res.email_sent?'Se creó la Nota de Entrega y fue enviada al cliente.':'Se creó la Nota de Entrega.';alert(finalizeNoQuote?`Cobro completado. El monto quedó guardado como total final. ${deliveryMsg}`:`Pago completado. La reparación quedó Pagada. ${deliveryMsg}`)}else alert('Abono registrado correctamente.');
   }catch(err){alert(err.message||'No se pudo registrar el pago.');detail()}
 }
 

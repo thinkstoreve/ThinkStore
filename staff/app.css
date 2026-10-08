@@ -261,3 +261,17 @@
 @media(max-width:600px){.repair-method-grid{grid-template-columns:1fr 1fr}.repair-method-grid .repair-method-choice{min-height:70px;padding:8px}.repair-method-logo{width:48px;height:32px}.repair-method-copy b{font-size:11px!important}.repair-method-copy small{font-size:8px}.repair-method-subchoices{width:100%}.repair-method-subchoices button{flex:1;padding:8px 7px}}
 .repair-action-btn.is-loading::after{content:"";display:inline-block;width:13px;height:13px;margin-left:9px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:repairSpin .65s linear infinite}
 @keyframes repairSpin{to{transform:rotate(360deg)}}
+
+
+/* V15.11 · Repuestos visibles + cobro premium simplificado */
+.repair-parts-total{display:flex;justify-content:space-between;align-items:center;margin-top:9px;padding:12px 14px;border-radius:12px;background:#111;color:#fff}
+.repair-parts-total span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.82;font-weight:800}
+.repair-parts-total b{font-size:15px}
+.repair-method-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.repair-method-grid .repair-method-choice{min-height:84px}
+.repair-method-grid .repair-method-choice.tap-pop{animation:repairMethodTap .22s ease}
+.repair-charge-btn.is-loading,.repair-action-btn.is-loading{transform:scale(.985)}
+.repair-no-quote-hint{display:flex;flex-direction:column;gap:6px;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:12px 14px;color:#9a3412;margin:0 0 12px}
+.repair-no-quote-hint b{font-size:12px}
+.repair-no-quote-hint span{font-size:11px;line-height:1.4}
+@media(max-width:600px){.repair-method-grid{grid-template-columns:1fr}.repair-method-grid .repair-method-choice{min-height:72px}}
