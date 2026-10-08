@@ -1,6 +1,6 @@
 'use strict';
 const crypto=require('crypto');
-const {statusClientEmail,sendResend}=require('./support-mail-ui');
+const {statusClientEmail,repairUpdateEmail,sendResend}=require('./support-mail-ui');
 const R2=require('./support-r2');
 const reply=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'POST, OPTIONS'},body:JSON.stringify(body)});
 const clean=v=>String(v??'').trim();
@@ -24,6 +24,15 @@ const sniffImageMime=buffer=>{
 const isGenericMime=m=>!m||m==='application/octet-stream'||m==='binary/octet-stream'||m==='application/binary';
 const absoluteSigned=(base,raw)=>raw.startsWith('http')?raw:raw.startsWith('/storage/v1')?`${base}${raw}`:raw.startsWith('/object/')||raw.startsWith('/render/')?`${base}/storage/v1${raw}`:raw?`${base}/storage/v1/${raw.replace(/^\//,'')}`:'';
 const encodePath=v=>String(v||'').split('/').map(encodeURIComponent).join('/');
+
+const mediaSigningSecret=()=>clean(process.env.SUPPORT_MEDIA_SIGNING_SECRET||process.env.SUPPORT_R2_SECRET_ACCESS_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY);
+const mediaProxyUrl=(storagePath,ttl=3600)=>{
+  const secret=mediaSigningSecret();if(!secret)return '';
+  const exp=Math.floor(Date.now()/1000)+Math.max(60,Math.min(3600,Number(ttl)||3600));
+  const p=Buffer.from(clean(storagePath)).toString('base64url');
+  const sig=crypto.createHmac('sha256',secret).update(`${p}.${exp}`).digest('hex');
+  return `/.netlify/functions/support-media?p=${encodeURIComponent(p)}&e=${exp}&s=${sig}`;
+};
 
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return reply(200,{ok:true});
@@ -76,12 +85,17 @@ exports.handler=async event=>{
       try{
         const src=await fetchSupabaseObject(photo.storage_path);
         if(!src.bytes.length||src.bytes.length>8*1024*1024||!src.mime.startsWith('image/'))return null;
-        const objectKey=R2.objectKeyFor(photo.order_id,src.mime);
-        const up=await R2.request(cfg,'PUT',objectKey,src.bytes,src.mime);
+        let bytes=src.bytes,mime=src.mime;
+        if(['image/heic','image/heif'].includes(mime)){
+          try{const convert=require('heic-convert');bytes=Buffer.from(await convert({buffer:bytes,format:'JPEG',quality:.9}));mime='image/jpeg'}
+          catch(error){console.warn('Legacy HEIC migration skipped',error?.message||error);return null}
+        }
+        const objectKey=R2.objectKeyFor(photo.order_id,mime);
+        const up=await R2.request(cfg,'PUT',objectKey,bytes,mime);
         if(!up.ok)return null;
         const newPath=`r2:${objectKey}`;
         await req(`service_order_photos?id=eq.${encodeURIComponent(String(photo.id))}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({storage_path:newPath,file_url:'private:r2'})});
-        return {storage_path:newPath,key:objectKey,mime:src.mime,bytes:src.bytes};
+        return {storage_path:newPath,key:objectKey,mime,bytes};
       }catch(e){console.warn('R2 lazy migration skipped',e?.message||e);return null}
     };
     const resolvePhoto=async storagePath=>{
@@ -136,16 +150,23 @@ exports.handler=async event=>{
       const photo=await resolvePhoto(storagePath);if(!photo)return reply(404,{ok:false,error:'Archivo no registrado en esta orden'});
       if(R2.isR2Path(photo.storage_path)){
         if(!cfg)return reply(503,{ok:false,error:'La foto está en R2 pero falta la configuración privada de Cloudflare'});
-        const objectKey=R2.keyFromStoragePath(photo.storage_path),mime=inferredMime(objectKey)||'image/webp';
+        const objectKey=R2.keyFromStoragePath(photo.storage_path),mime=inferredMime(objectKey)||'image/jpeg';
+        if(action==='file_preview'){
+          const proxied=mediaProxyUrl(photo.storage_path,3600);
+          if(proxied)return reply(200,{ok:true,url:proxied,preview:true,transformed:false,mime,is_image:true,expires_in:3600,provider:'thinkstore-private-proxy'});
+        }
         if(action==='file_data'){
           const fr=await R2.request(cfg,'GET',objectKey,Buffer.alloc(0),'application/octet-stream');
           if(!fr.ok)return reply(fr.status,{ok:false,error:'No se pudo leer la imagen privada de R2'});
-          const bytes=Buffer.from(await fr.arrayBuffer());const magic=sniffImageMime(bytes);const finalMime=magic||mime;
+          let bytes=Buffer.from(await fr.arrayBuffer());let finalMime=sniffImageMime(bytes)||mime;
+          if(['image/heic','image/heif'].includes(finalMime)){
+            try{const convert=require('heic-convert');bytes=Buffer.from(await convert({buffer:bytes,format:'JPEG',quality:.9}));finalMime='image/jpeg'}catch(_){}
+          }
           if(bytes.length>8*1024*1024)return reply(413,{ok:false,error:'La imagen supera 8 MB',is_image:finalMime.startsWith('image/'),mime:finalMime});
           return reply(200,{ok:true,data_url:`data:${finalMime};base64,${bytes.toString('base64')}`,mime:finalMime,size:bytes.length,is_image:finalMime.startsWith('image/'),provider:'cloudflare-r2-private'});
         }
         const signed=R2.presignedGet(cfg,objectKey,3600);
-        return reply(200,{ok:true,url:signed,preview:action==='file_preview',transformed:false,mime,is_image:true,expires_in:3600,provider:'cloudflare-r2-private'});
+        return reply(200,{ok:true,url:signed,preview:false,transformed:false,mime,is_image:true,expires_in:3600,provider:'cloudflare-r2-private'});
       }
 
       const encoded=encodePath(photo.storage_path),expectedMime=inferredMime(photo.storage_path);
@@ -156,6 +177,8 @@ exports.handler=async event=>{
         if(!sr.ok||!signed){const e=new Error(sd?.message||sd?.error||'No se pudo generar el enlace seguro');e.status=sr.status;throw e}return signed;
       };
       if(action==='file_preview'){
+        const proxied=mediaProxyUrl(photo.storage_path,3600);
+        if(proxied)return reply(200,{ok:true,url:proxied,preview:true,transformed:false,mime:expectedMime||'image/jpeg',is_image:true,expires_in:3600,provider:'thinkstore-private-proxy'});
         try{const signed=await sign(null,3600);return reply(200,{ok:true,url:signed,preview:true,transformed:false,mime:expectedMime||'image/jpeg',expires_in:3600,provider:'supabase'});}catch(error){return reply(error.status||409,{ok:false,error:error.message||'Vista previa no disponible'})}
       }
       if(action==='file_data'){
@@ -165,6 +188,17 @@ exports.handler=async event=>{
       const signed=await sign(null,3600);return reply(200,{ok:true,url:signed,expires_in:3600,inline:true,provider:'supabase'});
     }
 
+    if(action==='notify_repair_update'){
+      const orderId=clean(body.order_id);if(!orderId)return reply(400,{ok:false,error:'Falta la orden'});
+      await ensureOrderAccess(orderId);
+      const rows=await req(`service_orders?select=*&id=eq.${encodeURIComponent(orderId)}&limit=1`);
+      const o=rows?.[0];if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});if(!o.client_email)return reply(400,{ok:false,error:'La orden no tiene correo del cliente'});
+      const update=body.update&&typeof body.update==='object'?body.update:{};
+      const mail=repairUpdateEmail(o,{title:clean(update.title),summary:clean(update.summary),diagnosis:clean(update.diagnosis),work_performed:clean(update.work_performed),parts_used:clean(update.parts_used),tests_performed:clean(update.tests_performed),client_notes:clean(update.client_notes),status:clean(update.status),author:clean(update.author)||clean(profile.nombre)||clean(user.email)});
+      const ed=await sendResend({to:o.client_email,subject:mail.subject,html:mail.html,text:mail.text});
+      await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action:'notify_repair_update',entity_type:'service_order',entity_id:String(o.id),after_data:{recipient:o.client_email,provider_id:ed.id||null,title:clean(update.title),status:clean(update.status)||o.status}})});
+      return reply(200,{ok:true,email:{sent:true,id:ed.id||null,subject:mail.subject}});
+    }
     if(action!=='notify_client')return reply(400,{ok:false,error:'Acción no válida'});
     const rows=await req(`service_orders?select=*&id=eq.${encodeURIComponent(clean(body.order_id))}&limit=1`);
     const o=rows?.[0];if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});if(!o.client_email)return reply(400,{ok:false,error:'La orden no tiene correo del cliente'});

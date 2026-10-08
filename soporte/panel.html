@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=15.24.2" />
+  <link rel="stylesheet" href="styles.css?v=15.25.0" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -373,41 +373,54 @@
   <div id="bitacoraModal" class="modal">
     <form class="card wide bitacora-form bitacora-client-form" onsubmit="TSService.saveBitacora(event)">
       <div class="bitacora-header">
-        <div><h2>Nueva entrada de bitácora</h2><p>Registra el trabajo técnico y decide qué información puede consultar el cliente.</p></div>
+        <div><span class="bitacora-eyebrow">ACTUALIZACIÓN TÉCNICA</span><h2>Nueva entrada de bitácora</h2><p>Documenta el trabajo y publica al cliente únicamente la información que quieras compartir.</p></div>
         <button type="button" class="secondary" onclick="TSService.closeModals()">Cerrar</button>
       </div>
+      <div id="bOrderContext" class="bitacora-order-context"><small>Selecciona una orden para preparar la actualización.</small></div>
+      <div class="bitacora-quick-title"><b>Actualizaciones rápidas</b><small>Completa una base y luego personalízala.</small></div>
+      <div class="bitacora-quick-actions">
+        <button type="button" onclick="TSService.applyBitacoraTemplate('diagnostic')">Diagnóstico listo</button>
+        <button type="button" onclick="TSService.applyBitacoraTemplate('repairing')">En reparación</button>
+        <button type="button" onclick="TSService.applyBitacoraTemplate('waiting')">Esperando repuesto</button>
+        <button type="button" onclick="TSService.applyBitacoraTemplate('testing')">Pruebas finales</button>
+      </div>
       <div class="grid2">
-        <label>Código de orden<input id="bOrderCode" required placeholder="TS-SVC-2026-0001" oninput="TSService.renderBitacoraClientHistory(this.value)" /></label>
-        <label>Tipo<select id="bType">
+        <label>Código de orden<input id="bOrderCode" required placeholder="TS-SVC-2026-0001" oninput="TSService.renderBitacoraClientHistory(this.value);TSService.renderBitacoraPreview()" /></label>
+        <label>Tipo<select id="bType" onchange="TSService.renderBitacoraPreview()">
           <option>Diagnóstico</option><option>Reparación realizada</option><option>Prueba realizada</option><option>Presupuesto</option><option>Repuesto</option><option>Seguimiento</option><option>Entrega</option><option>Nota interna</option>
         </select></label>
-        <label>Responsable<input id="bAuthor" placeholder="Técnico / Recepción" /></label>
-        <label>Estado<select id="bStatus">
+        <label>Responsable<input id="bAuthor" placeholder="Técnico / Recepción" oninput="TSService.renderBitacoraPreview()" /></label>
+        <label>Estado<select id="bStatus" onchange="TSService.renderBitacoraPreview()">
           <option>Recibido</option><option>En diagnóstico</option><option>Diagnóstico disponible</option><option>Cotización enviada</option><option>Aprobado por cliente</option><option>En reparación</option><option>Esperando repuesto</option><option>Listo para entregar</option><option>Entregado</option><option>No aprobado</option>
         </select></label>
       </div>
-      <label>Nota / resumen de la bitácora<textarea id="bDetail" placeholder="Resumen breve de lo ocurrido en esta etapa..."></textarea></label>
+      <label>Resumen de la actualización<textarea id="bDetail" placeholder="Explícale en pocas palabras qué cambió en esta etapa..." oninput="TSService.renderBitacoraPreview()"></textarea></label>
       <div class="bitacora-visibility-card">
-        <label class="bitacora-toggle"><input id="bClientVisible" type="checkbox" onchange="TSService.syncBitacoraVisibility()"><span><b>Visible para el cliente</b><small>Publica esta actualización en el seguimiento de la orden.</small></span></label>
-        <label class="bitacora-toggle"><input id="bNotifyClient" type="checkbox" disabled><span><b>Enviar correo al guardar</b><small>Envía el reporte detallado al correo registrado en la orden.</small></span></label>
+        <label class="bitacora-toggle"><input id="bClientVisible" type="checkbox" onchange="TSService.syncBitacoraVisibility()"><span><b>Visible para el cliente</b><small>La actualización aparecerá en su seguimiento privado.</small></span></label>
+        <label class="bitacora-toggle"><input id="bNotifyClient" type="checkbox" disabled><span><b>Enviar correo de actualización</b><small id="bNotifyClientHelp">Activa “Visible para el cliente” para habilitar el envío.</small></span></label>
       </div>
       <section id="bClientFields" class="client-report-editor" hidden>
-        <div class="client-report-title"><span>REPORTE PARA EL CLIENTE</span><h3>¿Qué se le hizo al equipo?</h3><p>Escribe en lenguaje claro. Esta información aparecerá en el correo y en el seguimiento público.</p></div>
-        <label>Título de la actualización<input id="bClientTitle" placeholder="Ej. Reparación finalizada y equipo probado" /></label>
+        <div class="client-report-title"><span>REPORTE PARA EL CLIENTE</span><h3>¿Qué se le hizo al equipo?</h3><p>Escribe en lenguaje claro. Esto aparecerá en su seguimiento y, si eliges correo, también llegará a su bandeja de entrada.</p></div>
+        <label>Título de la actualización<input id="bClientTitle" placeholder="Ej. Reparación finalizada y equipo probado" oninput="TSService.renderBitacoraPreview()" /></label>
         <div class="grid2">
-          <label>Diagnóstico encontrado<textarea id="bDiagnosis" placeholder="Ej. Se detectó batería degradada y flex de carga con falso contacto."></textarea></label>
-          <label>Trabajo realizado<textarea id="bWorkPerformed" placeholder="Ej. Se reemplazó la batería, se limpió el conector y se realizó mantenimiento interno."></textarea></label>
-          <label>Repuestos o piezas utilizadas<textarea id="bPartsUsed" placeholder="Ej. Batería calidad AAA · adhesivo de pantalla nuevo."></textarea></label>
-          <label>Pruebas finales<textarea id="bTestsPerformed" placeholder="Ej. Carga, cámaras, audio, Face ID, Wi‑Fi y batería verificados correctamente."></textarea></label>
+          <label>Diagnóstico encontrado<textarea id="bDiagnosis" placeholder="Ej. Se detectó batería degradada y flex de carga con falso contacto." oninput="TSService.renderBitacoraPreview()"></textarea></label>
+          <label>Trabajo realizado<textarea id="bWorkPerformed" placeholder="Ej. Se reemplazó la batería, se limpió el conector y se realizó mantenimiento interno." oninput="TSService.renderBitacoraPreview()"></textarea></label>
+          <label>Repuestos o piezas utilizadas<textarea id="bPartsUsed" placeholder="Ej. Batería calidad AAA · adhesivo de pantalla nuevo." oninput="TSService.renderBitacoraPreview()"></textarea></label>
+          <label>Pruebas finales<textarea id="bTestsPerformed" placeholder="Ej. Carga, cámaras, audio, Face ID, Wi‑Fi y batería verificados correctamente." oninput="TSService.renderBitacoraPreview()"></textarea></label>
         </div>
-        <label>Observaciones / recomendaciones para el cliente<textarea id="bClientNotes" placeholder="Ej. Recomendamos evitar humedad durante las próximas 24 horas. Garantía de servicio: 90 días."></textarea></label>
+        <label>Observaciones / recomendaciones para el cliente<textarea id="bClientNotes" placeholder="Ej. Recomendamos evitar humedad durante las próximas 24 horas. Garantía de servicio: 90 días." oninput="TSService.renderBitacoraPreview()"></textarea></label>
+        <aside id="bClientPreview" class="bitacora-client-preview" hidden></aside>
       </section>
-      <label>Archivos / fotos internas<textarea id="bFiles" placeholder="Enlaces de fotos, comprobantes o archivos separados por coma..."></textarea></label>
+      <label>Archivos / fotos internas<textarea id="bFiles" placeholder="Enlaces o referencias internas opcionales..."></textarea></label>
       <div class="bitacora-client-history">
-        <div><b>Últimas actualizaciones visibles</b><small>Así podrás verificar qué información ya recibió el cliente.</small></div>
+        <div><b>Últimas actualizaciones visibles</b><small>Verifica qué información ya recibió el cliente.</small></div>
         <div id="bClientHistory"><small>Selecciona una orden para consultar su historial público.</small></div>
       </div>
-      <div class="actions"><button>Guardar bitácora</button><button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button></div>
+      <div class="actions bitacora-actions">
+        <button>Guardar actualización</button>
+        <button id="bSendClientUpdate" type="button" class="bitacora-send-client" onclick="TSService.sendBitacoraUpdate()">Enviar actualización al cliente</button>
+        <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
+      </div>
     </form>
   </div>
   <div id="orderManagerModal" class="modal">
@@ -513,6 +526,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=15.24.2"></script>
+  <script src="app.js?v=15.25.0"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

@@ -103,6 +103,31 @@ function statusClientEmail(order={}){
   return{subject:isQuote?`Cotización lista · ${order.code} · ThinkStore`:`${p.title} · ${order.code} · ThinkStore`,html:emailShell({preheader:`${p.title} · Orden ${clean(order.code)}`,eyebrow:p.eyebrow,title:p.title,lead:`Hola ${clean(order.client_name)||'Cliente'}. ${p.lead}`,body,ctaLabel:p.cta,ctaUrl:url,code:order.code}),text:`ThinkStore Servicio Técnico\n\n${p.title}\nOrden: ${clean(order.code)}\nEquipo: ${clean(order.device_model||order.device_type)}\nEstado: ${clean(order.status)}${isQuote?`\nMonto: ${money(order.quote_currency,order.quote_amount)}\nReparación: ${clean(order.quote_repair_details)}`:''}\n\nSeguimiento: ${url}\n\nsoporte@thinkstore.com.ve`};
 }
 
+function repairUpdateEmail(order={},update={}){
+  const title=clean(update.title)||'Actualización de tu reparación';
+  const status=clean(update.status)||clean(order.status)||'En proceso';
+  const author=clean(update.author)||'Equipo técnico ThinkStore';
+  let body=rows([
+    ['Equipo',order.device_model||order.device_type],
+    ['Estado',status],
+    ['Orden',order.code],
+    ['Técnico',author]
+  ]);
+  if(clean(update.summary))body+=callout('Resumen de la actualización',update.summary,'blue');
+  if(clean(update.diagnosis))body+=callout('Diagnóstico',update.diagnosis,'blue');
+  if(clean(update.work_performed))body+=callout('Trabajo realizado',update.work_performed,'green');
+  if(clean(update.parts_used))body+=callout('Repuestos / piezas',update.parts_used,'amber');
+  if(clean(update.tests_performed))body+=callout('Pruebas realizadas',update.tests_performed,'green');
+  if(clean(update.client_notes))body+=callout('Observaciones y recomendaciones',update.client_notes,'blue');
+  body+=paragraph('Puedes revisar esta actualización, las fotografías publicadas y los mensajes del técnico desde tu seguimiento seguro.');
+  const url=trackingUrl(order);
+  return{
+    subject:`Actualización de reparación · ${clean(order.code)} · ThinkStore`,
+    html:emailShell({preheader:`${title} · Orden ${clean(order.code)}`,eyebrow:'ACTUALIZACIÓN TÉCNICA',title,lead:`Hola ${clean(order.client_name)||'Cliente'}. ${author} registró una nueva actualización sobre tu equipo.`,body,ctaLabel:'Ver seguimiento de mi reparación',ctaUrl:url,code:order.code,footerNote:'Esta actualización fue enviada por el equipo técnico de ThinkStore. Puedes responder este correo si necesitas ayuda.'}),
+    text:`ThinkStore Servicio Técnico\n\n${title}\nOrden: ${clean(order.code)}\nEquipo: ${clean(order.device_model||order.device_type)}\nEstado: ${status}\nTécnico: ${author}${clean(update.summary)?`\n\nResumen: ${clean(update.summary)}`:''}${clean(update.diagnosis)?`\n\nDiagnóstico: ${clean(update.diagnosis)}`:''}${clean(update.work_performed)?`\n\nTrabajo realizado: ${clean(update.work_performed)}`:''}${clean(update.parts_used)?`\n\nRepuestos / piezas: ${clean(update.parts_used)}`:''}${clean(update.tests_performed)?`\n\nPruebas: ${clean(update.tests_performed)}`:''}${clean(update.client_notes)?`\n\nObservaciones: ${clean(update.client_notes)}`:''}\n\nSeguimiento: ${url}\n\nsoporte@thinkstore.com.ve`
+  };
+}
+
 function regionReceiptEmail(body={},order={}){
   const client=clean(body.name)||'Cliente';
   const device=deviceLabel(body.category,body.model);
@@ -123,4 +148,4 @@ async function sendResend({to,subject,html,text='',from,replyTo}){
   const data=await r.json().catch(()=>({})); if(!r.ok)throw new Error(data.message||data.error||`Resend HTTP ${r.status}`); return data;
 }
 
-module.exports={clean,esc,siteRoot,supportRoot,logoUrl,panelUrl,clientPanelUrl,trackingUrl,deviceLabel,money,dateText,appointmentDate,appointmentTime,rows,callout,paragraph,badge,statusPresentation,emailShell,appointmentClientEmail,statusClientEmail,regionReceiptEmail,staffEmail,sendResend};
+module.exports={clean,esc,siteRoot,supportRoot,logoUrl,panelUrl,clientPanelUrl,trackingUrl,deviceLabel,money,dateText,appointmentDate,appointmentTime,rows,callout,paragraph,badge,statusPresentation,emailShell,appointmentClientEmail,statusClientEmail,repairUpdateEmail,regionReceiptEmail,staffEmail,sendResend};

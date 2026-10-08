@@ -1103,38 +1103,80 @@ const TSService=(()=>{
   }
 
 
+  function bitacoraOrder(){
+    const code=String(document.getElementById('bOrderCode')?.value||'').trim().toUpperCase();
+    return orders.find(o=>String(o.code||'').toUpperCase()===code)||null;
+  }
   function openBitacora(code=''){
     const scoped=code?orders.find(o=>String(o.code)===String(code)):null;if(scoped&&!requireTechnicianOrder(scoped))return;
     if(!can('bitacora')){alert('Tu rol no tiene permiso para bitácora');return}
     bOrderCode.value=code||'';bAuthor.value=session?.name||'';bType.value='Diagnóstico';bDetail.value='';bFiles.value='';
+    bStatus.value=scoped?.status&&Array.from(bStatus.options).some(o=>o.value===scoped.status)?scoped.status:'En diagnóstico';
     bClientVisible.checked=false;bNotifyClient.checked=false;bClientTitle.value='';bDiagnosis.value='';bWorkPerformed.value='';bPartsUsed.value='';bTestsPerformed.value='';bClientNotes.value='';
-    syncBitacoraVisibility();renderBitacoraClientHistory(code);document.getElementById('bitacoraModal').classList.add('open');
+    const ctx=document.getElementById('bOrderContext');if(ctx)ctx.innerHTML=scoped?`<div><span>ORDEN</span><b>${esc(scoped.code)}</b></div><div><span>CLIENTE</span><b>${esc(scoped.client||'Cliente')}</b></div><div><span>EQUIPO</span><b>${esc(scoped.device||'Equipo')}</b></div><div><span>ESTADO ACTUAL</span><b>${esc(scoped.status||'Recibido')}</b></div>`:'<small>Escribe o selecciona una orden para preparar la actualización.</small>';
+    syncBitacoraVisibility();renderBitacoraClientHistory(code);renderBitacoraPreview();document.getElementById('bitacoraModal').classList.add('open');
   }
   function syncBitacoraVisibility(){
-    const visible=Boolean(document.getElementById('bClientVisible')?.checked),wrap=document.getElementById('bClientFields'),notify=document.getElementById('bNotifyClient');
-    if(wrap)wrap.hidden=!visible;if(notify){notify.disabled=!visible;if(!visible)notify.checked=false}
+    const visible=Boolean(document.getElementById('bClientVisible')?.checked),wrap=document.getElementById('bClientFields'),notify=document.getElementById('bNotifyClient'),order=bitacoraOrder();
+    if(wrap)wrap.hidden=!visible;
+    if(notify){notify.disabled=!visible||!order?.email;if(!visible||!order?.email)notify.checked=false}
+    const help=document.getElementById('bNotifyClientHelp');if(help)help.textContent=!visible?'Activa “Visible para el cliente” para habilitar el envío.':order?.email?`Se enviará a ${order.email}.`:'Esta orden no tiene correo; la actualización sí quedará visible en el seguimiento.';
+    const send=document.getElementById('bSendClientUpdate');if(send)send.disabled=!order;
+    renderBitacoraPreview();
   }
   function renderBitacoraClientHistory(code=''){
     const box=document.getElementById('bClientHistory');if(!box)return;
     const order=orders.find(o=>o.code.toUpperCase()===String(code||'').trim().toUpperCase());
-    if(!order){box.innerHTML='<small>Selecciona una orden para ver las actualizaciones publicadas.</small>';return}
+    const ctx=document.getElementById('bOrderContext');if(ctx&&order)ctx.innerHTML=`<div><span>ORDEN</span><b>${esc(order.code)}</b></div><div><span>CLIENTE</span><b>${esc(order.client||'Cliente')}</b></div><div><span>EQUIPO</span><b>${esc(order.device||'Equipo')}</b></div><div><span>ESTADO ACTUAL</span><b>${esc(order.status||'Recibido')}</b></div>`;
+    if(!order){box.innerHTML='<small>Selecciona una orden para ver las actualizaciones publicadas.</small>';syncBitacoraVisibility();return}
     const notes=clientVisibleNotesForOrder(order.id).slice(0,3);
     box.innerHTML=notes.length?notes.map(clientNoteHtml).join(''):'<small>Esta orden todavía no tiene actualizaciones visibles para el cliente.</small>';
+    syncBitacoraVisibility();
+  }
+  function applyBitacoraTemplate(key){
+    const map={
+      diagnostic:{type:'Diagnóstico',status:'Diagnóstico disponible',title:'Diagnóstico de tu equipo disponible',detail:'Completamos la revisión técnica de tu equipo.'},
+      repairing:{type:'Seguimiento',status:'En reparación',title:'Tu reparación está en proceso',detail:'Nuestro técnico continúa trabajando en la reparación autorizada.'},
+      waiting:{type:'Repuesto',status:'Esperando repuesto',title:'Estamos esperando un repuesto para continuar',detail:'La orden sigue activa y continuaremos apenas el repuesto esté disponible.'},
+      testing:{type:'Prueba realizada',status:'Listo para entregar',title:'Reparación finalizada y pruebas completadas',detail:'Finalizamos el trabajo técnico y realizamos las pruebas de funcionamiento.'}
+    };
+    const t=map[key];if(!t)return;
+    bType.value=t.type;bStatus.value=t.status;if(!bClientTitle.value.trim())bClientTitle.value=t.title;if(!bDetail.value.trim())bDetail.value=t.detail;
+    bClientVisible.checked=true;syncBitacoraVisibility();renderBitacoraPreview();
+  }
+  function renderBitacoraPreview(){
+    const box=document.getElementById('bClientPreview');if(!box)return;
+    const visible=Boolean(document.getElementById('bClientVisible')?.checked);box.hidden=!visible;if(!visible)return;
+    const order=bitacoraOrder(),title=String(bClientTitle?.value||'').trim()||String(bStatus?.value||'Actualización de reparación'),summary=String(bDetail?.value||'').trim();
+    const sections=[['Diagnóstico',bDiagnosis?.value],['Trabajo realizado',bWorkPerformed?.value],['Repuestos / piezas',bPartsUsed?.value],['Pruebas realizadas',bTestsPerformed?.value],['Observaciones',bClientNotes?.value]].filter(([,v])=>String(v||'').trim());
+    box.innerHTML=`<div class="bitacora-preview-head"><span>VISTA DEL CLIENTE</span><b>${esc(title)}</b><small>${esc(order?.device||'Equipo')} · ${esc(bStatus?.value||'')}</small></div>${summary?`<p>${esc(summary)}</p>`:''}${sections.length?`<div class="bitacora-preview-grid">${sections.map(([k,v])=>`<div><span>${esc(k)}</span><p>${esc(String(v||'').trim())}</p></div>`).join('')}</div>`:'<small>Completa los campos del reporte para ver aquí el resumen que recibirá el cliente.</small>'}`;
+  }
+  function sendBitacoraUpdate(){
+    const order=bitacoraOrder();if(!order)return toast('Selecciona una orden antes de enviar la actualización.','error');
+    bClientVisible.checked=true;bNotifyClient.checked=Boolean(order.email);syncBitacoraVisibility();
+    const form=document.querySelector('#bitacoraModal form');if(form?.requestSubmit)form.requestSubmit();
   }
   async function saveBitacora(e){
     e.preventDefault();const code=bOrderCode.value.trim().toUpperCase();const order=orders.find(o=>o.code.toUpperCase()===code);
     if(!order){alert('No existe una orden con el código '+code);return}
-    const clientVisible=Boolean(bClientVisible.checked),notifyClient=clientVisible&&Boolean(bNotifyClient.checked);
+    if(!requireTechnicianOrder(order))return;
+    const clientVisible=Boolean(bClientVisible.checked),notifyClient=clientVisible&&Boolean(bNotifyClient.checked)&&Boolean(order.email);
     const entry={orderCode:code,type:bType.value,author:bAuthor.value.trim()||session?.name||'Sin responsable',status:bStatus.value,detail:bDetail.value.trim(),files:bFiles.value.trim(),visibility:clientVisible?'client':'internal',clientTitle:bClientTitle.value.trim(),diagnosis:bDiagnosis.value.trim(),workPerformed:bWorkPerformed.value.trim(),partsUsed:bPartsUsed.value.trim(),testsPerformed:bTestsPerformed.value.trim(),clientNotes:bClientNotes.value.trim(),created:new Date().toLocaleString('es-VE')};
     if(clientVisible&&!entry.clientTitle)entry.clientTitle=entry.type==='Entrega'?'Resumen de tu reparación':entry.status;
-    if(clientVisible&&!entry.detail&&!entry.workPerformed&&!entry.diagnosis){alert('Para publicar al cliente añade al menos un resumen, diagnóstico o trabajo realizado.');return}
-    const payload={order_id:order.id,note:entry.detail||entry.workPerformed||entry.diagnosis,visibility:entry.visibility,author_name:entry.author,note_type:entry.type,status_after:entry.status,attachments:entry.files||null,client_title:entry.clientTitle||null,diagnosis:entry.diagnosis||null,work_performed:entry.workPerformed||null,parts_used:entry.partsUsed||null,tests_performed:entry.testsPerformed||null,client_notes:entry.clientNotes||null};
+    if(clientVisible&&!entry.detail&&!entry.workPerformed&&!entry.diagnosis&&!entry.testsPerformed){alert('Para publicar al cliente añade al menos un resumen, diagnóstico, trabajo realizado o pruebas.');return}
+    const payload={order_id:order.id,note:entry.detail||entry.workPerformed||entry.diagnosis||entry.testsPerformed,visibility:entry.visibility,author_name:entry.author,note_type:entry.type,status_after:entry.status,attachments:entry.files||null,client_title:entry.clientTitle||null,diagnosis:entry.diagnosis||null,work_performed:entry.workPerformed||null,parts_used:entry.partsUsed||null,tests_performed:entry.testsPerformed||null,client_notes:entry.clientNotes||null};
     const {error:noteError}=await supabaseClient.from('service_order_notes').insert(payload);if(noteError){alert('No se pudo guardar la bitácora: '+noteError.message);return}
     const changes={status:entry.status};if(entry.status==='Entregado')changes.delivered_at=new Date().toISOString();
     const {error:updateError}=await supabaseClient.from('service_orders').update(changes).eq('id',order.id);if(updateError){alert('La nota se guardó, pero no se actualizó el estado: '+updateError.message);return}
-    await audit('add_note',order.id,null,entry);await loadSupportData();
-    if(notifyClient&&order.email){try{await sendOrderEmail({...order,status:entry.status},true)}catch(err){console.warn('Correo al guardar bitácora:',err)}}
-    closeModals();await renderPanel('bitacora');toast(clientVisible?'Actualización guardada y visible para el cliente.':'Entrada interna guardada correctamente.');
+    await audit('add_note',order.id,null,entry);
+    let mailSent=false;
+    if(notifyClient){
+      try{
+        await supportSecureAction({action:'notify_repair_update',order_id:order.id,update:{title:entry.clientTitle,summary:entry.detail,diagnosis:entry.diagnosis,work_performed:entry.workPerformed,parts_used:entry.partsUsed,tests_performed:entry.testsPerformed,client_notes:entry.clientNotes,status:entry.status,author:entry.author}});mailSent=true;
+      }catch(err){console.warn('Correo de actualización técnica:',err);toast('La actualización quedó publicada, pero el correo no pudo enviarse: '+(err?.message||err),'error')}
+    }
+    await loadSupportData();closeModals();await renderPanel('bitacora');
+    toast(clientVisible?(mailSent?'Actualización publicada y correo enviado al cliente.':'Actualización publicada en el seguimiento del cliente.'):'Entrada interna guardada correctamente.');
   }
   function bitacoraPanel(){
     const recent=bitacora.slice(0,80),publicCount=bitacora.filter(x=>x.visibility==='client').length;
@@ -1343,6 +1385,18 @@ const TSService=(()=>{
     modal.querySelectorAll('[data-close-image]').forEach(el=>el.addEventListener('click',close));
     const key=e=>{if(e.key==='Escape'){close();document.removeEventListener('keydown',key)}};document.addEventListener('keydown',key);
   }
+  async function retryOrderImage(img,fileId){
+    if(!img||img.dataset.retrying==='1'||img.dataset.retryDone==='1')return;
+    img.dataset.retrying='1';
+    const p=servicePhotos.find(x=>String(x.id)===String(fileId));
+    try{
+      if(!p?.storage_path)throw new Error('Ruta no disponible');
+      const secure=await supportSecureAction({action:'file_data',storage_path:p.storage_path});
+      const data=String(secure.data_url||'');if(!/^data:image\//i.test(data))throw new Error('Vista previa no disponible');
+      img.dataset.retryDone='1';img.src=data;img.closest('.order-file-preview')?.classList.remove('broken');
+    }catch(error){console.warn('Fallback vista previa',error?.message||error);img.dataset.retryDone='1';img.closest('.order-file-preview')?.classList.add('broken')}
+    finally{delete img.dataset.retrying}
+  }
   async function renderOrderFiles(orderId){
     const box=document.getElementById('mOrderFiles');if(!box)return;
     const files=servicePhotos.filter(p=>String(p.order_id)===String(orderId));
@@ -1351,7 +1405,7 @@ const TSService=(()=>{
       const visible=(p.visibility||'internal')==='client';
       const isImage=media.isImage;
       const preview=isImage
-        ?(url?`<button type="button" class="order-file-preview image-preview" onclick="TSService.openOrderImage('${esc(p.id)}')" title="Ampliar imagen"><img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen')}" loading="lazy" onerror="this.closest('.order-file-preview')?.classList.add('broken')"><span class="order-file-zoom">⌕</span></button>`:`<div class="order-file-preview broken"><span class="file-doc">IMAGEN NO DISPONIBLE</span></div>`)
+        ?(url?`<button type="button" class="order-file-preview image-preview" onclick="TSService.openOrderImage('${esc(p.id)}')" title="Ampliar imagen"><img src="${esc(url)}" alt="${esc(p.client_caption||p.label||'Imagen')}" loading="lazy" onerror="TSService.retryOrderImage(this,'${esc(p.id)}')"><span class="order-file-zoom" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4.5 4.5"></path><path d="M11 8v6M8 11h6"></path></svg></span><span class="order-file-zoom-label">Ampliar</span></button>`:`<button type="button" class="order-file-preview broken image-retry" onclick="TSService.openOrderImage('${esc(p.id)}')"><span class="order-file-empty-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4.5 4.5"></path></svg></span><span class="file-doc">CARGAR VISTA PREVIA</span></button>`)
         :(url?`<a class="order-file-preview" href="${esc(url)}" target="_blank" rel="noopener"><span class="file-doc">ABRIR ARCHIVO</span></a>`:`<div class="order-file-preview broken"><span class="file-doc">ARCHIVO NO DISPONIBLE</span></div>`);
       return `<article class="order-file-card">${preview}<div class="order-file-meta"><b>${esc(p.client_caption||p.label||'Archivo')}</b><small>${dateText(p.created_at)}</small><span class="badge ${visible?'client-visible-badge':''}">${visible?'Visible al cliente':'Interno'}</span></div><div class="order-file-actions"><button type="button" class="secondary" onclick="TSService.toggleOrderFileVisibility('${esc(p.id)}','${visible?'internal':'client'}')">${visible?'Ocultar':'Publicar'}</button></div></article>`;
     }));
@@ -2383,5 +2437,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,uploadOrderFile,toggleOrderFileVisibility,openOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,uploadOrderFile,toggleOrderFileVisibility,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

@@ -1,4 +1,5 @@
 'use strict';
+const crypto=require('crypto');
 const {sendClientEvent}=require('./support-email-core');
 const {statusClientEmail,sendResend}=require('./support-mail-ui');
 const R2=require('./support-r2');
@@ -9,6 +10,14 @@ const clean=(v,max=4000)=>String(v??'').trim().slice(0,max);
 const digits=v=>clean(v,80).replace(/\D/g,'');
 const encodePath=v=>String(v||'').split('/').map(encodeURIComponent).join('/');
 const TERMS_VERSION='TS-REPAIR-2026-10-V1';
+const mediaSigningSecret=()=>clean(process.env.SUPPORT_MEDIA_SIGNING_SECRET||process.env.SUPPORT_R2_SECRET_ACCESS_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY);
+function mediaProxyUrl(storagePath,ttl=3600){
+  const secret=mediaSigningSecret();if(!secret)return '';
+  const exp=Math.floor(Date.now()/1000)+Math.max(60,Math.min(3600,Number(ttl)||3600));
+  const p=Buffer.from(clean(storagePath)).toString('base64url');
+  const sig=crypto.createHmac('sha256',secret).update(`${p}.${exp}`).digest('hex');
+  return `/.netlify/functions/support-media?p=${encodeURIComponent(p)}&e=${exp}&s=${sig}`;
+}
 
 function maskSerial(value){
   const raw=clean(value,120); if(!raw)return '';
@@ -190,20 +199,9 @@ exports.handler=async event=>{
     ]);
 
     const signed=[];
-    const r2cfg=R2.config();
     for(const p of photos||[]){
       let signed_url='';
-      if(p.storage_path){
-        try{
-          if(R2.isR2Path(p.storage_path)){
-            if(r2cfg)signed_url=R2.presignedGet(r2cfg,R2.keyFromStoragePath(p.storage_path),3600);
-          }else{
-            const r=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encodePath(p.storage_path)}`,{method:'POST',headers:h,body:JSON.stringify({expiresIn:3600})});
-            const d=await r.json().catch(()=>({}));const s=d.signedURL||d.signedUrl||'';
-            signed_url=s.startsWith('http')?s:s.startsWith('/storage/v1')?`${url}${s}`:s.startsWith('/object/')?`${url}/storage/v1${s}`:s?`${url}/storage/v1/${s.replace(/^\//,'')}`:'';
-          }
-        }catch(_){/* signed photo unavailable */}
-      }
+      if(p.storage_path)signed_url=mediaProxyUrl(p.storage_path,3600);
       if(!signed_url&&p.file_url&&p.file_url!=='private'&&p.file_url!=='private:r2')signed_url=p.file_url;
       if(signed_url)signed.push({...p,signed_url});
     }

@@ -1758,3 +1758,34 @@ button,input,select,textarea{font-size:16px}
 .support-profile-preview span{font-size:2.8rem;font-weight:850;color:white}.support-profile-preview img{width:100%;height:100%;object-fit:cover}
 .support-profile-photo-controls{display:flex;flex-direction:column;gap:12px}.support-profile-file-label{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:14px;border:1px solid rgba(96,165,250,.36);background:rgba(37,99,235,.09);cursor:pointer}.support-profile-file-label span{font-weight:800}.support-profile-file-label small,.support-profile-photo-note{color:#94a3b8;font-size:.78rem}.support-profile-photo-controls input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.support-profile-photo-note{margin:0;line-height:1.45}.support-profile-photo-actions{flex-wrap:wrap}
 @media(max-width:760px){.support-profile-photo-body{grid-template-columns:1fr;justify-items:center}.support-profile-photo-controls{width:100%}.support-profile-preview{width:132px;height:132px;border-radius:34px}.support-back-main{font-size:.88rem}}
+
+
+/* V8.8.21 · Vista previa privada + bitácora técnica premium */
+.order-file-preview.image-preview{min-height:150px;background:linear-gradient(145deg,#eef2f6,#f8fafc);isolation:isolate}
+.order-file-preview.image-preview::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.18));opacity:0;transition:.2s;pointer-events:none}
+.order-file-preview.image-preview:hover::after{opacity:1}
+.order-file-preview.image-preview img{background:#eef1f5}
+.order-file-preview.image-preview.broken img{opacity:0}
+.order-file-zoom{right:12px;bottom:12px;width:38px;height:38px;background:rgba(10,15,22,.86);border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(8px);z-index:3}
+.order-file-zoom svg,.order-file-empty-icon svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.order-file-zoom-label{position:absolute;right:58px;bottom:17px;z-index:3;background:rgba(10,15,22,.82);color:#fff;border-radius:999px;padding:5px 9px;font-size:9px;font-weight:800;letter-spacing:.02em;opacity:0;transform:translateX(5px);transition:.2s;pointer-events:none}
+.order-file-preview.image-preview:hover .order-file-zoom-label{opacity:1;transform:none}
+.order-file-preview.image-retry{display:flex;flex-direction:column;gap:8px;color:#3c4755;border:0;cursor:pointer}
+.order-file-empty-icon{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#111;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+
+.bitacora-eyebrow{display:block;font-size:9px;font-weight:900;letter-spacing:.16em;color:#82baff;margin-bottom:6px}
+.bitacora-order-context{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:2px 0 14px;padding:11px;border:1px solid #e5e9ef;background:#f8fafc;border-radius:16px}
+.bitacora-order-context>div{min-width:0;padding:8px 10px;background:#fff;border:1px solid #edf0f4;border-radius:12px}
+.bitacora-order-context span{display:block;font-size:8px;font-weight:900;letter-spacing:.09em;color:#8390a2;margin-bottom:3px}
+.bitacora-order-context b{display:block;font-size:11px;color:#182235;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bitacora-quick-title{display:flex;align-items:baseline;gap:8px;margin:4px 0 8px}.bitacora-quick-title b{font-size:12px}.bitacora-quick-title small{font-size:9px;color:#7b8796}
+.bitacora-quick-actions{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.bitacora-quick-actions button{background:#f2f5f8!important;color:#172033!important;border:1px solid #e2e7ed!important;border-radius:999px!important;padding:8px 12px!important;font-size:10px!important;box-shadow:none!important}
+.bitacora-quick-actions button:hover{background:#e8f3ff!important;border-color:#b8d9fb!important;color:#065db8!important}
+.bitacora-client-preview{margin-top:14px;border:1px solid #d9e8f7;background:linear-gradient(145deg,#f7fbff,#fff);border-radius:18px;padding:16px;box-shadow:0 8px 28px rgba(41,91,145,.06)}
+.bitacora-preview-head{display:grid;gap:3px;margin-bottom:10px}.bitacora-preview-head span{font-size:8px;font-weight:900;letter-spacing:.14em;color:#2373c9}.bitacora-preview-head b{font-size:16px;color:#172033}.bitacora-preview-head small{font-size:9px;color:#7d8998}
+.bitacora-client-preview>p{margin:0 0 12px;font-size:11px;color:#4e5a69;line-height:1.55}
+.bitacora-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.bitacora-preview-grid>div{background:#fff;border:1px solid #e8edf3;border-radius:12px;padding:10px}.bitacora-preview-grid span{display:block;font-size:8px;font-weight:900;letter-spacing:.05em;color:#6e7a8a;margin-bottom:4px}.bitacora-preview-grid p{margin:0;font-size:10px;line-height:1.45;color:#263244;white-space:pre-wrap}
+.bitacora-actions{display:flex!important;gap:8px!important;align-items:center!important;flex-wrap:wrap}.bitacora-actions button{width:auto!important}.bitacora-send-client{background:#111!important;color:#fff!important;border-color:#111!important}.bitacora-send-client:disabled{opacity:.42;cursor:not-allowed}
+@media(max-width:760px){.bitacora-order-context{grid-template-columns:1fr 1fr}.bitacora-preview-grid{grid-template-columns:1fr}.order-file-zoom-label{display:none}}
+@media(max-width:480px){.bitacora-order-context{grid-template-columns:1fr}.bitacora-actions button{width:100%!important}}
