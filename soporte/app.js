@@ -73,6 +73,44 @@ const TSService=(()=>{
   const SUPPORT_HEIC_RE=/\.(heic|heif)(?:$|[?#])/i;
   function supportFileDescriptor(p={}){return `${String(p.label||'')} ${String(p.storage_path||'')} ${String(p.file_url||'')}`}
   function supportUploadOptions(file){const opts={upsert:false,cacheControl:'3600'};if(file?.type)opts.contentType=file.type;return opts}
+  async function supportBlobToBase64(blob){return await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||'').split(',')[1]||'');r.onerror=()=>reject(r.error||new Error('No se pudo leer la imagen'));r.readAsDataURL(blob)})}
+  async function normalizeSupportImage(file){
+    if(!file||!String(file.type||'').toLowerCase().startsWith('image/'))return null;
+    const safeType=String(file.type||'').toLowerCase();
+    let bitmap=null,url='';
+    try{
+      if('createImageBitmap' in window)bitmap=await createImageBitmap(file);
+      let width=bitmap?.width||0,height=bitmap?.height||0,img=null;
+      if(!width||!height){url=URL.createObjectURL(file);img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('Este formato de imagen no puede convertirse en este navegador'));i.src=url});width=img.naturalWidth||img.width;height=img.naturalHeight||img.height;bitmap=img}
+      if(!width||!height)throw new Error('No se pudieron leer las dimensiones de la imagen');
+      const max=1800,scale=Math.min(1,max/Math.max(width,height)),cw=Math.max(1,Math.round(width*scale)),ch=Math.max(1,Math.round(height*scale));
+      const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;const ctx=canvas.getContext('2d',{alpha:false});ctx.fillStyle='#fff';ctx.fillRect(0,0,cw,ch);ctx.drawImage(bitmap,0,0,cw,ch);
+      let blob=await new Promise(r=>canvas.toBlob(r,'image/webp',.84));let mime='image/webp',ext='webp';
+      if(!blob){blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.86));mime='image/jpeg';ext='jpg'}
+      if(!blob)throw new Error('No se pudo optimizar la imagen');
+      if(blob.size>3.8*1024*1024){blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.72));mime='image/jpeg';ext='jpg'}
+      if(!blob||blob.size>4*1024*1024)throw new Error('La imagen sigue siendo demasiado pesada después de optimizarla');
+      return {blob,mime,ext,name:`foto-${Date.now()}.${ext}`,original_type:safeType,original_name:file.name||'imagen'};
+    }finally{try{bitmap?.close?.()}catch(_){}if(url)URL.revokeObjectURL(url)}
+  }
+  async function storeSupportFile(file,orderId,prefix='order'){
+    if(!file)throw new Error('Archivo requerido');
+    const normalized=await normalizeSupportImage(file).catch(error=>{if(String(file.type||'').toLowerCase().startsWith('image/'))throw error;return null});
+    if(normalized){
+      const base64=await supportBlobToBase64(normalized.blob);
+      try{
+        const r=await supportSecureAction({action:'file_upload_r2',order_id:String(orderId),file_name:normalized.original_name,mime:normalized.mime,base64});
+        if(r?.storage_path)return {storage_path:r.storage_path,file_url:'private:r2',mime:normalized.mime,size:normalized.blob.size,provider:'r2'};
+      }catch(error){console.warn('R2 privado no disponible; usando respaldo Supabase:',error?.message||error)}
+      const path=`${orderId}/${prefix}-${Date.now()}-${crypto.randomUUID()}.${normalized.ext}`;
+      const uploadFile=new File([normalized.blob],normalized.name,{type:normalized.mime});
+      const {error}=await supabaseClient.storage.from('service-order-files').upload(path,uploadFile,supportUploadOptions(uploadFile));if(error)throw error;
+      return {storage_path:path,file_url:'private',mime:normalized.mime,size:normalized.blob.size,provider:'supabase'};
+    }
+    const ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'')||'bin',path=`${orderId}/${prefix}-${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const {error}=await supabaseClient.storage.from('service-order-files').upload(path,file,supportUploadOptions(file));if(error)throw error;
+    return {storage_path:path,file_url:'private',mime:file.type||'',size:file.size||0,provider:'supabase'};
+  }
   let activeOrderId=null;
   let orderMessagePollTimer=null;
   const orderMessageLastKey=new Map();
@@ -1292,13 +1330,12 @@ const TSService=(()=>{
   async function uploadOrderFile(){
     const input=document.getElementById('mOrderFile'),file=input?.files?.[0],o=orders.find(x=>String(x.id)===String(activeOrderId));if(!file||!o)return toast('Selecciona una fotografía o archivo.','error');
     if(file.size>8*1024*1024)return toast('El archivo supera el límite de 8 MB.','error');
-    const ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'');const path=`${o.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,supportUploadOptions(file));if(upError)return toast('No se pudo subir: '+upError.message,'error');
+    let stored;try{stored=await storeSupportFile(file,o.id,'orden')}catch(error){return toast('No se pudo subir: '+(error?.message||error),'error')}
     const visibility=document.getElementById('mOrderFileVisible')?.checked?'client':'internal';
     const caption=document.getElementById('mOrderFileCaption')?.value.trim()||file.name;
-    const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:'private',storage_path:path,label:file.name,client_caption:caption,visibility,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
+    const {error}=await supabaseClient.from('service_order_photos').insert({order_id:o.id,file_url:stored.file_url,storage_path:stored.storage_path,label:file.name,client_caption:caption,visibility,created_by_email:session?.email||null});if(error)return toast('Archivo subido, pero no registrado: '+error.message,'error');
     orderFileUrlCache.clear();
-    await audit('upload_order_file',o.id,null,{label:file.name,storage_path:path,visibility,client_caption:caption});await loadSupportData();await renderOrderFiles(o.id);input.value='';if(document.getElementById('mOrderFileCaption'))document.getElementById('mOrderFileCaption').value='';toast(visibility==='client'?'Imagen publicada para el cliente.':'Archivo guardado de forma interna.');
+    await audit('upload_order_file',o.id,null,{label:file.name,storage_path:stored.storage_path,storage_provider:stored.provider,mime:stored.mime,visibility,client_caption:caption});await loadSupportData();await renderOrderFiles(o.id);input.value='';if(document.getElementById('mOrderFileCaption'))document.getElementById('mOrderFileCaption').value='';toast(visibility==='client'?'Imagen publicada para el cliente.':stored.provider==='r2'?'Imagen guardada de forma privada en Cloudflare R2.':'Archivo guardado de forma interna.');
   }
   async function toggleOrderFileVisibility(id,visibility){
     const row=servicePhotos.find(p=>String(p.id)===String(id));if(!row)return;
@@ -1847,9 +1884,8 @@ const TSService=(()=>{
     for(const [slot,file] of Object.entries(receptionPhotoFiles).filter(([,f])=>f)){
       try{
         if(file.size>8*1024*1024)continue;
-        const ext=(file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,''),path=`${orderId}/reception-${slot}-${Date.now()}-${crypto.randomUUID()}.${ext}`;
-        const {error:upError}=await supabaseClient.storage.from('service-order-files').upload(path,file,supportUploadOptions(file));if(upError){console.warn(upError);continue}
-        await supabaseClient.from('service_order_photos').insert({order_id:orderId,file_url:'private',storage_path:path,label:`Recepción · ${slot==='front'?'Frontal':slot==='back'?'Trasera':'Detalle'}`,created_by_email:session?.email||null});
+        const stored=await storeSupportFile(file,orderId,`recepcion-${slot}`);
+        await supabaseClient.from('service_order_photos').insert({order_id:orderId,file_url:stored.file_url,storage_path:stored.storage_path,label:`Recepción · ${slot==='front'?'Frontal':slot==='back'?'Trasera':'Detalle'}`,created_by_email:session?.email||null});
       }catch(err){console.warn('Reception photo',err)}
     }
   }

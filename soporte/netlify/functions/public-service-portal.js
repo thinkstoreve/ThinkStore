@@ -1,6 +1,7 @@
 'use strict';
 const {sendClientEvent}=require('./support-email-core');
 const {statusClientEmail,sendResend}=require('./support-mail-ui');
+const R2=require('./support-r2');
 
 const HEADERS={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const reply=(statusCode,body)=>({statusCode,headers:HEADERS,body:JSON.stringify(body)});
@@ -189,16 +190,21 @@ exports.handler=async event=>{
     ]);
 
     const signed=[];
+    const r2cfg=R2.config();
     for(const p of photos||[]){
       let signed_url='';
       if(p.storage_path){
         try{
-          const r=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encodePath(p.storage_path)}`,{method:'POST',headers:h,body:JSON.stringify({expiresIn:3600})});
-          const d=await r.json().catch(()=>({}));const s=d.signedURL||d.signedUrl||'';
-          signed_url=s.startsWith('http')?s:s.startsWith('/storage/v1')?`${url}${s}`:s.startsWith('/object/')?`${url}/storage/v1${s}`:s?`${url}/storage/v1/${s.replace(/^\//,'')}`:'';
+          if(R2.isR2Path(p.storage_path)){
+            if(r2cfg)signed_url=R2.presignedGet(r2cfg,R2.keyFromStoragePath(p.storage_path),3600);
+          }else{
+            const r=await fetch(`${url}/storage/v1/object/sign/service-order-files/${encodePath(p.storage_path)}`,{method:'POST',headers:h,body:JSON.stringify({expiresIn:3600})});
+            const d=await r.json().catch(()=>({}));const s=d.signedURL||d.signedUrl||'';
+            signed_url=s.startsWith('http')?s:s.startsWith('/storage/v1')?`${url}${s}`:s.startsWith('/object/')?`${url}/storage/v1${s}`:s?`${url}/storage/v1/${s.replace(/^\//,'')}`:'';
+          }
         }catch(_){/* signed photo unavailable */}
       }
-      if(!signed_url&&p.file_url&&p.file_url!=='private')signed_url=p.file_url;
+      if(!signed_url&&p.file_url&&p.file_url!=='private'&&p.file_url!=='private:r2')signed_url=p.file_url;
       if(signed_url)signed.push({...p,signed_url});
     }
 

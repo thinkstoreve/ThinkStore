@@ -1,0 +1,8 @@
+{
+  "version": "8.8.19",
+  "release": "Fotos privadas de reparaciones en Cloudflare R2",
+  "frontend": "15.24.1",
+  "storage": "cloudflare-r2-private",
+  "fallback": "supabase-storage",
+  "date": "2026-10-08"
+}
