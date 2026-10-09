@@ -1503,14 +1503,47 @@ const TSService=(()=>{
     document.body.appendChild(modal);document.body.classList.add('order-file-delete-open');
     const close=()=>{modal.remove();document.body.classList.remove('order-file-delete-open')};
     modal.querySelectorAll('[data-cancel-delete]').forEach(el=>el.addEventListener('click',close));
-    modal.querySelector('[data-confirm-delete]')?.addEventListener('click',async e=>{const btn=e.currentTarget;btn.disabled=true;btn.textContent='Eliminando…';try{await deleteOrderFile(id);close()}catch(error){btn.disabled=false;btn.textContent='Eliminar definitivamente';toast('No se pudo eliminar: '+(error?.message||error),'error')}});
+    modal.querySelector('[data-confirm-delete]')?.addEventListener('click',async e=>{
+      const btn=e.currentTarget;btn.disabled=true;btn.textContent='Eliminando…';
+      // V8.8.27: cerramos la confirmación y retiramos la miniatura de inmediato.
+      // Si el backend falla, deleteOrderFile restaura automáticamente la tarjeta.
+      close();
+      try{await deleteOrderFile(id)}catch(error){toast('No se pudo eliminar: '+(error?.message||error),'error')}
+    });
   }
   async function deleteOrderFile(id){
-    const row=servicePhotos.find(p=>String(p.id)===String(id));if(!row)throw new Error('La imagen ya no existe.');
-    const card=document.getElementById('order-file-card-'+String(id).replace(/[^a-zA-Z0-9_-]/g,''));if(card)card.classList.add('deleting');
-    try{await supportSecureAction({action:'delete_order_file',file_id:String(id)})}catch(error){if(card)card.classList.remove('deleting');throw error}
-    const cacheKey=String(row.id||row.storage_path||row.file_url||'');orderFileUrlCache.delete(cacheKey);orderFileUrlCache.delete('data:'+cacheKey);
-    const orderId=row.order_id;await loadSupportData();await renderOrderFiles(orderId);
+    const index=servicePhotos.findIndex(p=>String(p.id)===String(id));
+    const row=index>=0?servicePhotos[index]:null;if(!row)throw new Error('La imagen ya no existe.');
+    const orderId=row.order_id;
+    const safeId=String(id).replace(/[^a-zA-Z0-9_-]/g,'');
+    const card=document.getElementById('order-file-card-'+safeId);
+    const box=document.getElementById('mOrderFiles');
+
+    // Eliminación optimista: la interfaz responde al instante.
+    servicePhotos.splice(index,1);
+    if(card){
+      card.classList.add('deleting');
+      setTimeout(()=>{
+        card.remove();
+        if(box&&!servicePhotos.some(p=>String(p.order_id)===String(orderId)))box.innerHTML='<small class="order-files-empty">Sin fotografías o archivos.</small>';
+      },180);
+    }else if(box){
+      await renderOrderFiles(orderId);
+    }
+
+    try{
+      await supportSecureAction({action:'delete_order_file',file_id:String(id)});
+    }catch(error){
+      // Si el servidor no pudo borrar, restauramos exactamente el registro quitado.
+      servicePhotos.splice(Math.min(index,servicePhotos.length),0,row);
+      await renderOrderFiles(orderId);
+      throw error;
+    }
+
+    const cacheKey=String(row.id||row.storage_path||row.file_url||'');
+    orderFileUrlCache.delete(cacheKey);orderFileUrlCache.delete('data:'+cacheKey);
+    // Reconciliación en segundo plano para no hacer esperar al técnico.
+    try{await loadSupportData();await renderOrderFiles(orderId)}catch(error){console.warn('Reconciliación de galería:',error?.message||error)}
     toast('Imagen eliminada correctamente.');
   }
   async function renderOrderMessages(orderId,options={}){

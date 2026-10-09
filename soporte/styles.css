@@ -1869,3 +1869,143 @@ button,input,select,textarea{font-size:16px}
 .order-file-trash:hover,.order-file-trash:focus-visible{background:rgba(185,32,46,.88)!important;opacity:1!important;transform:scale(1.08)!important;box-shadow:0 7px 18px rgba(185,32,46,.24)!important}
 .order-file-trash:active{transform:scale(.9)!important}
 @media(max-width:560px){.order-file-trash{top:8px!important;right:8px!important;width:29px!important;height:29px!important;min-width:29px!important;max-width:29px!important}}
+
+/* V8.8.27 · Responsive total + borrado inmediato de galería */
+html,body{max-width:100%;overflow-x:hidden}
+.dashboard,.workspace,#panelContent,.order-manager,.order-sheet,.modal .card,.modal .wide{min-width:0}
+img,svg,video,canvas{max-width:100%}
+button{max-width:100%;white-space:normal;line-height:1.2}
+input,select,textarea{max-width:100%;min-width:0}
+.actions,.topline-actions,.appointment-actions,.notification-actions,.bitacora-actions,.support-profile-photo-actions{min-width:0}
+.order-file-card{min-width:0}
+.order-files-empty{display:block;padding:18px;text-align:center;color:#7b8797}
+.order-file-card.deleting{animation:tsFileDeleteFast .18s ease forwards!important}
+@keyframes tsFileDeleteFast{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.96);filter:blur(1px)}}
+
+/* Ventanas y cuadros nunca salen de la pantalla */
+.modal{overflow:auto;overscroll-behavior:contain}
+.modal>.card,.modal>.wide{max-width:calc(100vw - 32px)}
+#orderManagerModal .order-manager,#bitacoraModal .bitacora-form{max-width:calc(100vw - 32px)!important}
+#orderManagerModal .order-manager>*{min-width:0}
+.manager-writing-grid,.grid2,.client-note-grid,.bitacora-preview-grid,.bitacora-visibility-card{min-width:0}
+
+/* Formularios de gestión */
+.client-file-upload{grid-template-columns:minmax(150px,.9fr) minmax(190px,1.25fr) minmax(150px,.72fr) auto!important}
+.client-file-upload>*{min-width:0!important}
+.file-visible-toggle{justify-content:center;min-height:44px}
+.staff-chat-compose{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:10px!important;align-items:end!important}
+.staff-chat-compose textarea{min-height:78px!important;resize:vertical}
+.staff-chat-compose button{min-height:44px;align-self:stretch}
+
+/* Pestañas y grupos de acciones: flexibles, sin montarse unos sobre otros */
+.reception-device-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+.reception-device-tab{min-width:0!important}
+.reception-device-tab b,.reception-device-tab small{min-width:0;overflow-wrap:anywhere}
+.device-view-tabs,.notification-chips,.pill-row,.bitacora-quick-actions{max-width:100%}
+.bitacora-quick-actions{display:flex;flex-wrap:wrap;gap:8px}
+.bitacora-quick-actions button{flex:0 1 auto}
+
+/* Galería adaptativa */
+.order-files-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))!important}
+.order-file-card{border-radius:16px!important}
+.order-file-preview{width:100%!important}
+.order-file-meta{min-width:0}
+.order-file-meta b{display:block;overflow-wrap:anywhere}
+.order-file-trash{top:8px!important;right:8px!important;width:29px!important;height:29px!important;min-width:29px!important;max-width:29px!important}
+.order-file-trash svg{width:13px!important;height:13px!important}
+.order-file-actions .secondary{min-height:38px}
+
+/* Lightbox realmente usable en cualquier tamaño */
+.order-image-lightbox{padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))!important}
+.order-image-lightbox-card{width:min(1180px,calc(100vw - 20px))!important;max-height:calc(100dvh - 20px)!important;overflow:hidden!important}
+.order-image-lightbox-stage{min-height:0!important;height:min(78dvh,760px)!important;padding:14px!important}
+.order-image-lightbox-stage img{width:100%;height:100%;max-height:none!important;object-fit:contain!important}
+.order-image-lightbox-close{top:10px!important;right:10px!important;min-width:46px!important;height:46px!important;z-index:20!important}
+.order-image-lightbox-caption{display:flex;justify-content:space-between;gap:12px;align-items:center;min-width:0}
+.order-image-lightbox-caption>div{min-width:0}.order-image-lightbox-caption b{overflow-wrap:anywhere}
+
+/* Laptops pequeñas / tablets horizontales */
+@media (max-width:1180px){
+  .dashboard{grid-template-columns:220px minmax(0,1fr)!important}
+  .sidebar{padding:16px 12px!important}
+  .workspace{padding:18px!important}
+  .support-brand img{max-width:38px}
+  .support-user-profile{grid-template-columns:38px minmax(0,1fr) 22px!important;padding:8px!important}
+  .support-user-avatar,.support-user-avatar-image{width:38px!important;height:38px!important}
+  .support-nav-btn{padding:11px 10px!important;font-size:.86rem!important}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(175px,1fr))!important}
+  .manager-writing-grid{grid-template-columns:1fr!important}
+  .client-file-upload{grid-template-columns:1fr 1fr!important}
+  .client-file-upload .file-visible-toggle,.client-file-upload button{width:100%!important}
+  .notifications-hero{gap:14px}
+  .notifications-mail{min-width:220px}
+  .repair-part-results{grid-template-columns:1fr!important}
+}
+
+/* Tablet / ventana estrecha */
+@media (max-width:900px){
+  .dashboard{display:block!important}
+  .sidebar{position:sticky!important;top:0!important;z-index:900!important;width:100%!important;height:auto!important;display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;grid-template-areas:"brand nav logout" "profile nav back"!important;align-items:center!important;gap:8px!important;padding:9px 10px!important;overflow:visible!important}
+  .support-brand{grid-area:brand;min-width:0!important}.support-brand>div{display:none!important}
+  .support-user-card{grid-area:profile;margin:0!important;padding:0!important;min-width:0}.support-user-profile{width:44px!important;height:44px!important;padding:3px!important;grid-template-columns:1fr!important;border-radius:14px!important}.support-user-copy,.support-user-edit{display:none!important}.support-user-avatar,.support-user-avatar-image{width:36px!important;height:36px!important;grid-column:1!important}
+  .sidebar nav{grid-area:nav;display:flex!important;gap:6px!important;overflow-x:auto!important;overflow-y:hidden!important;margin:0!important;padding:2px 2px 4px!important;min-width:0!important;scrollbar-width:none}.sidebar nav::-webkit-scrollbar{display:none}
+  .support-nav-btn{flex:0 0 auto!important;min-width:max-content!important;padding:10px 12px!important;border-radius:13px!important}
+  .support-back-main{grid-area:back;min-width:44px!important;width:44px!important;height:44px!important;padding:0!important;display:grid!important;place-items:center!important}.support-back-main span:last-child{display:none!important}
+  .logout{grid-area:logout;width:44px!important;height:44px!important;min-width:44px!important;padding:0!important;font-size:0!important;margin:0!important}.logout span{font-size:18px!important}
+  .workspace{padding:14px!important}
+  .topline{position:relative!important;top:auto!important;display:flex!important;flex-direction:row!important;align-items:flex-start!important;justify-content:space-between!important;gap:10px!important;flex-wrap:wrap!important;background:transparent!important;padding:0!important}
+  .topline>div:first-child{min-width:0;flex:1 1 220px}.topline h2{overflow-wrap:anywhere}
+  .topline-actions{flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}
+  .topline-primary{width:auto!important}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .modal{align-items:center!important;padding:10px!important}
+  .modal>.card,.modal>.card.wide{width:min(100%,760px)!important;max-width:calc(100vw - 20px)!important;max-height:calc(100dvh - 20px)!important;border-radius:22px!important}
+  #orderManagerModal .order-manager,#bitacoraModal .bitacora-form{width:calc(100vw - 20px)!important;max-width:none!important;max-height:calc(100dvh - 20px)!important;border-radius:22px!important;padding:14px!important}
+  #orderManagerModal .bitacora-header,#bitacoraModal .bitacora-header{padding:14px!important;border-radius:18px!important}
+  .reception-device-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .client-file-upload{grid-template-columns:1fr!important}
+  .file-visible-toggle{justify-content:flex-start}
+  .staff-chat-compose{grid-template-columns:1fr!important}.staff-chat-compose button{width:100%!important}
+  .repair-part-cart-head,.repair-part-selected{flex-wrap:wrap!important}
+  .repair-part-stepper{max-width:100%;flex-wrap:wrap}
+  .notifications-hero{flex-direction:column}.notifications-mail{width:100%;min-width:0}.notifications-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .order-image-lightbox-stage{height:72dvh!important}
+}
+
+/* Móvil grande */
+@media (max-width:680px){
+  .sidebar{grid-template-columns:auto minmax(0,1fr) auto!important;grid-template-areas:"brand nav logout"!important}.support-user-card,.support-back-main{display:none!important}
+  .workspace{padding:10px!important}
+  .topline{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important}.topline-actions{align-self:center}.topline-primary{padding:11px 13px!important;font-size:.85rem!important}.support-notification-button{width:40px!important;height:40px!important}
+  .cards{grid-template-columns:1fr!important}
+  .metric{padding:14px!important;border-radius:18px!important}
+  .tablewrap{padding:12px!important;border-radius:18px!important}
+  .reception-device-tabs{grid-template-columns:1fr!important}
+  .reception-device-tab{padding:11px!important}
+  .grid2,.manager-writing-grid,.bitacora-visibility-card,.bitacora-preview-grid,.client-note-grid{grid-template-columns:1fr!important}
+  .bitacora-order-context{grid-template-columns:1fr!important}
+  .bitacora-quick-actions{flex-wrap:nowrap!important;overflow-x:auto!important;padding-bottom:4px!important;scrollbar-width:none}.bitacora-quick-actions::-webkit-scrollbar{display:none}.bitacora-quick-actions button{flex:0 0 auto!important}
+  .actions{display:grid!important;grid-template-columns:1fr!important;width:100%}.actions button{width:100%!important;margin:0!important}
+  .order-files-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important}
+  .order-file-preview{height:135px!important;min-height:135px!important}
+  .order-file-meta{padding:9px 10px 7px!important}.order-file-actions{padding:0 10px 10px!important}
+  .order-file-trash{width:28px!important;height:28px!important;min-width:28px!important;max-width:28px!important}
+  .repair-part-selected{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;gap:10px!important}.repair-part-selected .repair-part-stepper{grid-column:1/-1!important;margin-left:0!important;width:100%!important}.repair-part-stepper input{flex:1!important;min-width:54px!important}
+  .repair-part-cart-head{flex-direction:column!important;align-items:stretch!important}.repair-part-cart-head button{width:100%!important}
+  .notifications-summary{grid-template-columns:1fr 1fr!important}.notification-row{grid-template-columns:34px minmax(0,1fr)!important}.notification-actions{grid-column:1/-1!important;display:grid!important;grid-template-columns:1fr 1fr!important}.notification-actions button{width:100%!important}
+  .order-file-delete-card{width:calc(100vw - 24px)!important;padding:18px!important;border-radius:20px!important}.order-file-delete-buttons{grid-template-columns:1fr!important}
+  .order-image-lightbox-stage{height:68dvh!important;padding:8px!important}.order-image-lightbox-card{border-radius:18px!important}.order-image-lightbox-caption{align-items:flex-start;flex-direction:column!important;gap:3px!important}.order-image-lightbox-close{width:42px!important;min-width:42px!important;height:42px!important;padding:0!important}.order-image-lightbox-close small{display:none!important}.order-image-lightbox-close span{font-size:27px!important}
+}
+
+/* Móvil pequeño */
+@media (max-width:430px){
+  .sidebar{padding:7px!important}.support-brand img{width:32px!important;max-width:32px!important}.support-nav-btn{padding:9px 10px!important;font-size:.79rem!important}.logout{width:40px!important;height:40px!important;min-width:40px!important}
+  .topline{grid-template-columns:1fr!important}.topline-actions{width:100%;display:grid!important;grid-template-columns:42px minmax(0,1fr)!important}.topline-primary{width:100%!important}
+  .order-files-grid{grid-template-columns:1fr!important}.order-file-preview{height:180px!important;min-height:180px!important}
+  .notifications-summary{grid-template-columns:1fr!important}
+  .support-week-grid{grid-template-columns:1fr!important}
+  .reception-photo-grid{grid-template-columns:1fr!important}
+  .client-file-upload input,.client-file-upload button,.file-visible-toggle{width:100%!important}
+  .repair-part-result{padding:10px!important}.repair-part-thumb{width:44px!important;height:44px!important}
+  .order-image-lightbox-stage{height:62dvh!important}
+}

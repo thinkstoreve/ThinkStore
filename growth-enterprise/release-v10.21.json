@@ -1,0 +1,18 @@
+{
+  "version": "10.21",
+  "name": "Caja Chica por cuentas y bancos",
+  "base": "10.20",
+  "requires_sql": true,
+  "sql": "MIGRACION-ENTERPRISE-V10.21-CAJA-CHICA-CUENTAS.sql",
+  "preserves_existing_data": true,
+  "changes": [
+    "petty_cash_usd_accounts",
+    "petty_cash_ves_accounts",
+    "account_balances",
+    "internal_transfers",
+    "unassigned_legacy_balance",
+    "account_history",
+    "official_brand_icons",
+    "responsive_bank_cards"
+  ]
+}

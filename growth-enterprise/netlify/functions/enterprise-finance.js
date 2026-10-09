@@ -79,7 +79,7 @@ function movementSigned(row,valueFn=m=>m.amount){return (clean(row?.direction)==
 
 async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const errors=[];
-  let orders=[],orderItems=[],receipts=[],entries=[],settings=[],settlements=[],audits=[],reconciliations=[],orderPayments=[],staffCashSessions=[],staffCashMovements=[],pettyAccounts=[],pettyMovements=[],pettyAudits=[];
+  let orders=[],orderItems=[],receipts=[],entries=[],settings=[],settlements=[],audits=[],reconciliations=[],orderPayments=[],staffCashSessions=[],staffCashMovements=[],pettyAccounts=[],pettyMovements=[],pettyAudits=[],pettyBankAccounts=[],pettyBankMovements=[];
   let invProductsRaw=[],invSuppliersRaw=[],invPurchasesRaw=[],invStockRaw=[],invUnitsRaw=[],invBridge=[];
   let supportOrders=[],supportEvents=[],supportParts=[],supportPartMoves=[];
   try{orders=await req(mainUrl,mainKey,'pedidos?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('ventas: '+e.message)}
@@ -96,6 +96,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   try{pettyAccounts=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_accounts?select=*&active=eq.true&order=created_at.asc&limit=20')}catch(e){errors.push('Caja Chica: '+e.message)}
   try{pettyMovements=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_movements?select=*&order=occurred_at.desc&limit=10000')}catch(e){errors.push('movimientos Caja Chica: '+e.message)}
   try{pettyAudits=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_audit?select=*&order=created_at.desc&limit=100')}catch(e){errors.push('auditoría Caja Chica: '+e.message)}
+  try{pettyBankAccounts=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_bank_accounts?select=*&active=eq.true&order=currency.asc,sort_order.asc,created_at.asc&limit=50')}catch(e){errors.push('cuentas Caja Chica: '+e.message)}
+  try{pettyBankMovements=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_bank_movements?select=*&order=occurred_at.desc,created_at.desc&limit=10000')}catch(e){errors.push('movimientos por cuenta Caja Chica: '+e.message)}
 
   // Inventory Central: misma fuente operativa del stock; Enterprise solo lee para contabilidad y auditoría.
   try{invProductsRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_products?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory productos: '+e.message)}
@@ -282,6 +284,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company').forEach(p=>reconOut(p.payment_method,p.amount_usd,'Compras Inventory'));
   weekEntries.filter(e=>e.entry_type==='partner_repayment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Devolución socio'));
   weekEntries.filter(e=>e.entry_type==='technician_payment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Pago técnico'));
+  weekEntries.filter(e=>e.entry_type==='seller_payment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Pago vendedor'));
 
   // Movimientos de Caja Staff ajenos a ventas: entradas/salidas reales por método.
   weekStaffMovements.forEach(m=>{
@@ -328,7 +331,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const companyInventoryCash=sum(weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company'),p=>p.amount_usd);
   const repayments=sum(weekEntries.filter(e=>e.entry_type==='partner_repayment'),e=>e.amount_usd);
   const techPaid=sum(weekEntries.filter(e=>e.entry_type==='technician_payment'),e=>e.amount_usd);
-  const cashOut=money(companyManualCash+companyInventoryCash+repayments+techPaid+staffOperatingExpenses+pettyExpense+pettyAdjustmentOut+staffAdjustmentOut);
+  const sellerPaid=sum(weekEntries.filter(e=>e.entry_type==='seller_payment'),e=>e.amount_usd);
+  const cashOut=money(companyManualCash+companyInventoryCash+repayments+techPaid+sellerPaid+staffOperatingExpenses+pettyExpense+pettyAdjustmentOut+staffAdjustmentOut);
 
   // V10.14 · serie diaria real para las gráficas ejecutivas.
   // Separa ingresos por origen y salidas de caja sin duplicar transferencias internas de Caja Chica.
@@ -350,7 +354,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   }else{
     supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>{const v=num(o.amount_paid),dt=o.paid_at||o.updated_at||o.created_at;addDaily(dt,'support',v);addDaily(dt,'inflow',v)});
   }
-  weekEntries.forEach(e=>{const dt=entryDate(e),v=num(e.amount_usd);if(['other_income','receivable_collection'].includes(e.entry_type)){addDaily(dt,'other',v);addDaily(dt,'inflow',v)}else if(e.entry_type==='partner_advance'){addDaily(dt,'inflow',v)}else if(isCashExpenseType(e.entry_type)&&clean(e.funded_by||'company')==='company'){addDaily(dt,'outflow',v)}else if(['partner_repayment','technician_payment'].includes(e.entry_type)){addDaily(dt,'outflow',v)}});
+  weekEntries.forEach(e=>{const dt=entryDate(e),v=num(e.amount_usd);if(['other_income','receivable_collection'].includes(e.entry_type)){addDaily(dt,'other',v);addDaily(dt,'inflow',v)}else if(e.entry_type==='partner_advance'){addDaily(dt,'inflow',v)}else if(isCashExpenseType(e.entry_type)&&clean(e.funded_by||'company')==='company'){addDaily(dt,'outflow',v)}else if(['partner_repayment','technician_payment','seller_payment'].includes(e.entry_type)){addDaily(dt,'outflow',v)}});
   weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company').forEach(p=>addDaily(p.occurred_at||p.created_at,'outflow',p.amount_usd));
   weekStaffMovements.forEach(m=>{const v=staffMovementUsd(m),dt=m.created_at;if(!(v>0))return;if(m.direction==='in'){addDaily(dt,'inflow',v);if(m.type==='ingreso')addDaily(dt,'other',v)}else addDaily(dt,'outflow',v)});
   weekPetty.forEach(m=>{const v=num(m.usd_equivalent),dt=m.occurred_at||m.created_at;if(!(v>0))return;if(m.movement_type==='fund'){if(['freddy','nelson'].includes(clean(m.funded_by)))addDaily(dt,'inflow',v);return}if(m.direction==='in')addDaily(dt,'inflow',v);else addDaily(dt,'outflow',v)});
@@ -359,12 +363,65 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const pettyBalanceUsd=money(activePetty.filter(m=>clean(m.currency).toUpperCase()==='USD').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   const pettyBalanceVes=money(activePetty.filter(m=>clean(m.currency).toUpperCase()==='VES').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   const pettyAccount=pettyAccounts.find(a=>a.slug==='main')||pettyAccounts[0]||null;
+  const activePettyBankMovements=pettyBankMovements.filter(m=>norm(m.status)!=='void');
+  const pettyBankRows=(pettyBankAccounts||[]).map(a=>{
+    const moves=activePettyBankMovements.filter(m=>String(m.account_id)===String(a.id));
+    const balance=money(num(a.opening_balance)+moves.reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
+    return {...a,balance,movement_count:moves.length,last_movement_at:moves[0]?.occurred_at||moves[0]?.created_at||null};
+  });
+  const pettyBankAssignedUsd=money(pettyBankRows.filter(a=>clean(a.currency).toUpperCase()==='USD').reduce((n,a)=>n+num(a.balance),0));
+  const pettyBankAssignedVes=money(pettyBankRows.filter(a=>clean(a.currency).toUpperCase()==='VES').reduce((n,a)=>n+num(a.balance),0));
+  const pettyBankUnassignedUsd=money(pettyBalanceUsd-pettyBankAssignedUsd);
+  const pettyBankUnassignedVes=money(pettyBalanceVes-pettyBankAssignedVes);
   const staffOpenSessions=staffCashSessions.filter(x=>x.status==='open');
   const staffClosedWeek=staffCashSessions.filter(x=>x.status==='closed'&&inRange(x.closed_at||x.updated_at||x.opened_at,range));
 
   const enrichedSupport=supportOrders.slice(0,250).map(o=>({id:o.id,code:o.code,client_name:o.client_name,device_model:o.device_model,service_type:o.service_type,quote_amount:num(o.quote_amount),amount_paid:num(o.amount_paid),payment_method:o.payment_method,assigned_technician_email:o.assigned_technician_email,status:o.status,created_at:o.created_at,updated_at:o.updated_at,parts_cost:money(realPartsByOrder.get(String(o.id))||realPartsByOrder.get(String(o.code))||0)}));
   const pnlCosts=money(storeCogs+supportPartsCost+supportStoreProductCost+supportDirectCosts+operatingExpenses+techAccrued+sellerAccrued);
   const costCoverage=paidItems.length?money(costedLines/paidItems.length*100):100;
+
+  // V10.20 · lectura ejecutiva de hoy, histórico de gastos y comisiones pendientes.
+  // No crea ni transforma registros existentes: solo agrega vistas derivadas sobre el libro actual.
+  const todayKey=caracasKey();
+  const onToday=value=>caracasKey(value)===todayKey;
+  const todaySales=paidSales.filter(o=>onToday(orderPaidDate(o)));
+  const todaySalesIds=new Set(todaySales.map(o=>String(o.id)));
+  const todayShopCollected=sum(todaySales,o=>o.total_usd);
+  const todayStoreCogs=money(orderItems.filter(i=>todaySalesIds.has(String(i.pedido_id))).reduce((n,i)=>n+itemCost(i),0));
+  const todaySupportCollected=weekSupportEvents.length
+    ?sum(weekSupportEvents.filter(e=>onToday(e.occurred_at||e.created_at)),e=>e.amount_delta)
+    :sum(supportOrders.filter(o=>num(o.amount_paid)>0&&onToday(o.paid_at||o.updated_at||o.created_at)),o=>o.amount_paid);
+  const todayOtherIncome=money(
+    sum(activeEntries.filter(e=>onToday(entryDate(e))&&(e.entry_type==='other_income'||e.entry_type==='receivable_collection')),e=>e.amount_usd)+
+    sum(activeStaffMovements.filter(m=>onToday(m.created_at)&&m.type==='ingreso'&&m.direction==='in'),staffMovementUsd)
+  );
+  const todayOperatingExpenses=money(
+    sum(activeEntries.filter(e=>onToday(entryDate(e))&&isOperatingExpenseType(e.entry_type)),e=>e.amount_usd)+
+    sum(activeStaffMovements.filter(m=>onToday(m.created_at)&&['gasto','devolucion'].includes(m.type)&&m.direction==='out'),staffMovementUsd)+
+    sum(activePetty.filter(m=>onToday(m.occurred_at||m.created_at)&&m.movement_type==='expense'&&m.direction==='out'),m=>m.usd_equivalent)-
+    sum(activePetty.filter(m=>onToday(m.occurred_at||m.created_at)&&m.movement_type==='refund'&&m.direction==='in'),m=>m.usd_equivalent)
+  );
+  const todaySettlements=(settlements||[]).filter(x=>onToday(x.settled_at||x.updated_at));
+  const todayServiceCompanyProfit=sum(todaySettlements,x=>x.company_profit_usd);
+  const todaySellerAccrued=sum(activeEntries.filter(e=>onToday(entryDate(e))&&e.entry_type==='seller_commission'),e=>e.amount_usd);
+  const todaySupportFallbackProfit=todaySettlements.length?todayServiceCompanyProfit:todaySupportCollected;
+  const todayEstimatedProfit=money(todayShopCollected-todayStoreCogs+todaySupportFallbackProfit+todayOtherIncome-todayOperatingExpenses-todaySellerAccrued);
+  const todayCashRow=dayRows.find(x=>x.date===todayKey)||{inflow:0,outflow:0,net:0};
+  const cashPosition=reconDifferenceTotal!==null?reconActualTotal:reconExpectedTotal;
+  const cashPositionMode=reconDifferenceTotal!==null?'actual':'expected';
+
+  const expenseHistory=activeEntries
+    .filter(e=>isOperatingExpenseType(e.entry_type))
+    .slice(0,750);
+  const partnerHistory=activeEntries
+    .filter(e=>['partner_advance','partner_repayment'].includes(e.entry_type)||['freddy','nelson'].includes(clean(e.funded_by)))
+    .slice(0,500);
+
+  const sellerCommissions=activeEntries.filter(e=>e.entry_type==='seller_commission');
+  const sellerPayments=new Map();
+  activeEntries.filter(e=>e.entry_type==='seller_payment'&&e.related_entry_id).forEach(e=>sellerPayments.set(e.related_entry_id,money((sellerPayments.get(e.related_entry_id)||0)+num(e.amount_usd))));
+  const sellerCommissionRows=sellerCommissions.map(e=>({...e,paid_usd:sellerPayments.get(e.id)||0,pending_usd:Math.max(0,money(num(e.amount_usd)-(sellerPayments.get(e.id)||0)))}));
+  const sellerPending=sum(sellerCommissionRows,e=>e.pending_usd);
 
   return{
     ok:true,generated_at:new Date().toISOString(),timezone:'America/Caracas',period:{start:range.start,end:range.end},
@@ -378,7 +435,17 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     result:{net:distributableRaw,distributable,company:shareCompany,freddy:shareFreddy,nelson:shareNelson,loss_carry:distributableRaw<0?Math.abs(distributableRaw):0},
     cash:{in:cashIn,out:cashOut,net:money(cashIn-cashOut),inventory_purchases_paid:purchaseCashWeek},
     partners,receivables:{store:sum(pendingSales,o=>o.total_usd),support:supportPending,manual:manualPending,total:pendingTotal,manual_rows:manualReceivableRows.slice(0,100)},
-    technicians:{accrued_week:techAccrued,pending_total:techPending,commissions:commissionRows.slice(0,100)},
+    today:{
+      date:todayKey,shop:todayShopCollected,support:todaySupportCollected,other:todayOtherIncome,
+      gross:money(todayShopCollected+todaySupportCollected+todayOtherIncome),store_cogs:todayStoreCogs,
+      operating_expenses:todayOperatingExpenses,estimated_profit:todayEstimatedProfit,
+      cash_in:num(todayCashRow.inflow),cash_out:num(todayCashRow.outflow),cash_net:num(todayCashRow.net)
+    },
+    cash_position:{amount:money(cashPosition),mode:cashPositionMode,actual:reconActualTotal,expected:reconExpectedTotal},
+    expenses:{rows:expenseHistory},
+    partner_history:partnerHistory,
+    technicians:{accrued_week:techAccrued,pending_total:techPending,commissions:commissionRows.slice(0,250)},
+    sellers:{accrued_week:sellerAccrued,pending_total:sellerPending,commissions:sellerCommissionRows.slice(0,250)},
     inventory:{
       connected:invProductsRaw.length>0||invBridge.length>0,value:inventoryValue,cogs_week:storeCogs,gross_margin_week:storeGrossMargin,gross_margin_pct:storeGrossMarginPct,
       purchase_value_week:purchaseValueWeek,purchase_cash_week:purchaseCashWeek,supplier_payable:supplierPayable,products_count:invProducts.length,supplier_count:invSuppliers.length,
@@ -399,7 +466,14 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
       balance_usd:pettyBalanceUsd,balance_ves:pettyBalanceVes,
       spent_week:pettyExpense,refunds_week:pettyRefund,net_expense_week:pettyOperatingNet,
       funded_week:sum(weekPetty.filter(m=>m.movement_type==='fund'),m=>m.usd_equivalent),
-      movements:activePetty.slice(0,250),audits:pettyAudits.slice(0,50)
+      movements:activePetty.slice(0,250),audits:pettyAudits.slice(0,50),
+      banking:{
+        connected:Array.isArray(pettyBankAccounts)&&pettyBankAccounts.length>0,
+        accounts:pettyBankRows,
+        movements:activePettyBankMovements.slice(0,500),
+        assigned_usd:pettyBankAssignedUsd,assigned_ves:pettyBankAssignedVes,
+        unassigned_usd:pettyBankUnassignedUsd,unassigned_ves:pettyBankUnassignedVes
+      }
     },
     reconciliation:{
       current:currentRecon,previous:previousRecon,lines:reconciliationLines,
@@ -457,6 +531,45 @@ exports.handler=async event=>{
     let body={};try{body=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}
     const action=clean(body.action);
 
+    const getPettyBankAccount=async id=>{
+      if(!clean(id))return null;
+      const rows=await optionalReq(mainUrl,mainKey,`enterprise_petty_cash_bank_accounts?select=*&id=eq.${encodeURIComponent(clean(id))}&active=eq.true&limit=1`);
+      return rows?.[0]||null;
+    };
+    const insertPettyBankMovement=async payload=>{
+      return req(mainUrl,mainKey,'enterprise_petty_cash_bank_movements',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});
+    };
+
+    if(action==='petty_bank_transfer'){
+      const fromId=clean(body.from_account_id),toId=clean(body.to_account_id),amount=money(body.amount),currency=clean(body.currency).toUpperCase();
+      if(!(amount>0))return out(400,{ok:false,error:'Indica un monto mayor que cero'});
+      if(!fromId&&!toId)return out(400,{ok:false,error:'Selecciona una cuenta de origen o destino'});
+      if(fromId&&toId&&fromId===toId)return out(400,{ok:false,error:'La cuenta de origen y destino deben ser distintas'});
+      const from=fromId?await getPettyBankAccount(fromId):null,to=toId?await getPettyBankAccount(toId):null;
+      if(fromId&&!from)return out(404,{ok:false,error:'La cuenta de origen no está disponible'});
+      if(toId&&!to)return out(404,{ok:false,error:'La cuenta de destino no está disponible'});
+      const curr=clean(from?.currency||to?.currency||currency).toUpperCase();
+      if(from&&to&&clean(from.currency).toUpperCase()!==clean(to.currency).toUpperCase())return out(400,{ok:false,error:'Solo puedes transferir entre cuentas de la misma moneda'});
+      if(currency&&curr!==currency)return out(400,{ok:false,error:'La moneda no coincide con la cuenta seleccionada'});
+      const snap=await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range});
+      const bank=snap?.petty_cash?.banking||{};
+      if(from){const row=(bank.accounts||[]).find(a=>String(a.id)===String(from.id));if(num(row?.balance)+0.0001<amount)return out(400,{ok:false,error:'Saldo insuficiente en la cuenta de origen'});}
+      else{const free=curr==='VES'?num(bank.unassigned_ves):num(bank.unassigned_usd);if(free+0.0001<amount)return out(400,{ok:false,error:'El saldo sin asignar no alcanza para esta distribución'});}
+      const group=`pc-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+      const common={currency:curr,amount,movement_type:'transfer',transfer_group:group,description:clean(body.description)||'Transferencia entre cuentas',reference:clean(body.reference)||null,status:'posted',created_by_email:auth.user.email||'',created_by_name:actorName(auth),occurred_at:new Date().toISOString()};
+      const rows=[];
+      if(from)rows.push({...common,account_id:from.id,direction:'out',counterparty_account_id:to?.id||null});
+      if(to)rows.push({...common,account_id:to.id,direction:'in',counterparty_account_id:from?.id||null});
+      const data=await insertPettyBankMovement(rows.length===1?rows[0]:rows);
+      return out(200,{ok:true,movements:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+    }
+    if(action==='petty_bank_account_update'){
+      const id=clean(body.account_id);if(!id)return out(400,{ok:false,error:'Cuenta requerida'});
+      const patch={alias:clean(body.alias)||null,account_last4:clean(body.account_last4).replace(/\D/g,'').slice(-4)||null,updated_at:new Date().toISOString()};
+      const data=await req(mainUrl,mainKey,`enterprise_petty_cash_bank_accounts?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(patch)});
+      return out(200,{ok:true,account:data?.[0]||patch,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+    }
+
     if(action==='petty_cash_movement'){
       const payload={
         account_id:clean(body.account_id)||null,
@@ -481,13 +594,26 @@ exports.handler=async event=>{
       if(!(payload.amount>0))return out(400,{ok:false,error:'Indica un monto de Caja Chica mayor que cero'});
       if(payload.currency==='USD'){payload.usd_equivalent=payload.amount;payload.bcv_rate=null;payload.bcv_effective_date=null;payload.bcv_source=null;payload.bcv_checked_at=null}
       if(payload.currency==='VES'&&(!(payload.bcv_rate>0)||!(payload.usd_equivalent>0)||!payload.bcv_effective_date))return out(400,{ok:false,error:'Caja Chica en bolívares requiere tasa BCV vigente e histórica'});
+      const bankAccount=clean(body.bank_account_id)?await getPettyBankAccount(body.bank_account_id):null;
+      if(clean(body.bank_account_id)&&!bankAccount)return out(404,{ok:false,error:'La cuenta seleccionada no está disponible'});
+      if(bankAccount&&clean(bankAccount.currency).toUpperCase()!==payload.currency)return out(400,{ok:false,error:'La moneda del movimiento no coincide con la cuenta seleccionada'});
+      if(bankAccount&&payload.direction==='out'){
+        const snap=await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range});
+        const row=(snap?.petty_cash?.banking?.accounts||[]).find(a=>String(a.id)===String(bankAccount.id));
+        if(num(row?.balance)+0.0001<payload.amount)return out(400,{ok:false,error:`Saldo insuficiente en ${bankAccount.display_name||bankAccount.institution_name||'la cuenta seleccionada'}`});
+      }
       const data=await req(mainUrl,mainKey,'rpc/ts_enterprise_petty_cash_action',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_actor_email:auth.user.email||'',p_action:'movement',p_data:payload})});
-      return out(200,{ok:true,movement:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+      let bank_warning=null;
+      if(bankAccount){
+        try{await insertPettyBankMovement({account_id:bankAccount.id,direction:payload.direction,currency:payload.currency,amount:payload.amount,movement_type:`petty_${payload.movement_type}`,related_petty_movement_id:clean(data?.id||data?.movement?.id||data?.[0]?.id||data?.[0]?.movement?.id)||null,description:payload.description||payload.movement_type,reference:payload.reference||null,status:'posted',created_by_email:auth.user.email||'',created_by_name:actorName(auth),occurred_at:payload.occurred_at||new Date().toISOString()})}catch(e){bank_warning='El movimiento se guardó en Caja Chica, pero quedó pendiente de asignar a la cuenta: '+e.message}
+      }
+      return out(200,{ok:true,movement:data,warning:bank_warning,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
     if(action==='petty_cash_void'){
       const id=clean(body.id),reason=clean(body.reason);
       if(!id||reason.length<5)return out(400,{ok:false,error:'Indica el movimiento y el motivo de anulación'});
       const data=await req(mainUrl,mainKey,'rpc/ts_enterprise_petty_cash_action',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_actor:auth.user.id,p_actor_email:auth.user.email||'',p_action:'void',p_data:{id,reason}})});
+      try{await req(mainUrl,mainKey,`enterprise_petty_cash_bank_movements?related_petty_movement_id=eq.${encodeURIComponent(id)}&status=neq.void`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'void',void_reason:reason,updated_at:new Date().toISOString()})})}catch{}
       return out(200,{ok:true,movement:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
     if(action==='petty_cash_account'){
@@ -524,6 +650,13 @@ exports.handler=async event=>{
       const rows=await req(mainUrl,mainKey,`enterprise_finance_entries?select=*&id=eq.${encodeURIComponent(id)}&entry_type=eq.technician_commission&limit=1`);const c=rows?.[0];if(!c)return out(404,{ok:false,error:'Comisión no encontrada'});
       const paidRows=await req(mainUrl,mainKey,`enterprise_finance_entries?select=amount_usd&related_entry_id=eq.${encodeURIComponent(id)}&entry_type=eq.technician_payment&status=neq.void`);const already=sum(paidRows,e=>e.amount_usd);const due=Math.max(0,money(num(c.amount_usd)-already));const amount=Math.min(due,money(body.amount_usd||due));if(!(amount>0))return out(400,{ok:false,error:'La comisión ya está pagada'});
       const entry=await insertEntry(mainUrl,mainKey,auth,{entry_type:'technician_payment',amount_usd:amount,description:`Pago comisión · ${c.source_code||c.counterparty||'Servicio Técnico'}`,counterparty:c.counterparty,related_entry_id:id,payment_method:body.payment_method,reference:body.reference,funded_by:'company',status:'paid',metadata:{technician_email:c.metadata?.technician_email||null}});
+      return out(200,{ok:true,entry,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+    }
+    if(action==='settle_seller_commission'){
+      const id=clean(body.commission_id);if(!id)return out(400,{ok:false,error:'Comisión de vendedor requerida'});
+      const rows=await req(mainUrl,mainKey,`enterprise_finance_entries?select=*&id=eq.${encodeURIComponent(id)}&entry_type=eq.seller_commission&limit=1`);const c=rows?.[0];if(!c)return out(404,{ok:false,error:'Comisión de vendedor no encontrada'});
+      const paidRows=await req(mainUrl,mainKey,`enterprise_finance_entries?select=amount_usd&related_entry_id=eq.${encodeURIComponent(id)}&entry_type=eq.seller_payment&status=neq.void`);const already=sum(paidRows,e=>e.amount_usd);const due=Math.max(0,money(num(c.amount_usd)-already));const amount=Math.min(due,money(body.amount_usd||due));if(!(amount>0))return out(400,{ok:false,error:'La comisión del vendedor ya está pagada'});
+      const entry=await insertEntry(mainUrl,mainKey,auth,{entry_type:'seller_payment',amount_usd:amount,description:`Pago comisión vendedor ${c.source_code||''}`,category:'Ventas',counterparty:c.counterparty||c.metadata?.seller_name||c.metadata?.seller_email||'Vendedor',related_entry_id:id,payment_method:clean(body.payment_method),reference:clean(body.reference),funded_by:'company',status:'posted',metadata:{seller_email:c.metadata?.seller_email||null}});
       return out(200,{ok:true,entry,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
     if(action==='collect_receivable'){
