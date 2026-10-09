@@ -93,19 +93,35 @@ function billingSummary(order,parts=[],extras=[]){
   return{parts_total:ptotal,stored_quote:storedFinal,base_total:baseSubtotal,subtotal_usd:subtotal,discount_type:discountType,discount_value:discountValue,discount_usd:discount,discount_reason:clean(order?.discount_reason,160),extras_pending_total:extrasPendingTotal,extras_total:round(active.reduce((n,x)=>n+Number(x.quantity||1)*Number(x.unit_price_usd||0),0)),invoice_total:invoice,paid,pending,auto_from_parts:storedFinal<=0&&storedSubtotal<=0&&ptotal>0,pending_extra_count:pendingExtras.length};
 }
 function mainConf(){const m=mainConfig();return{url:clean(m.url).replace(/\/$/,''),key:clean(m.service)}}
-async function searchChargeCatalog(conf,q){
+async function searchChargeCatalog(conf,q,orderCode=''){
   const term=clean(q,80).toLowerCase();if(term.length<2)return[];
   const out=[];
   try{
-    const rows=await rest(conf,'service_parts',{select:'id,sku,name,category,sale_price,unit_cost,quantity,financial_type,catalog_details',active:'eq.true',limit:5000});
-    for(const x of rows||[]){
-      const meta=x.catalog_details||{},hay=[x.name,x.sku,x.category,meta.description,meta.repair].join(' ').toLowerCase();
-      const isService=meta.item_type==='service'||meta.stock_managed===false||/servicio|mano de obra|instalaci[oó]n|software|mantenimiento|diagn[oó]stico|microsoldadura/.test([x.category,x.name].join(' ').toLowerCase());
-      if(!isService||!hay.includes(term))continue;
-      const price=Number(x.sale_price||0);out.push({source:'support_service',source_id:String(x.id),item_type:/mano de obra|labor/.test(String(x.name||'').toLowerCase())?'labor':'service',name:x.name||'Servicio',sku:x.sku||'',price_usd:price,available:null,image_url:meta.image_url||'',hint:x.category||'Servicio técnico',financial_type:x.financial_type||(/software|office|adobe|ios|macos/i.test([x.category,x.name].join(' '))?'service_software':'service_hardware'),unit_cost_usd:Number(x.unit_cost||0),can_add:price>0});
-      if(out.length>=30)break;
+    const [rows,reservedRows]=await Promise.all([
+      rest(conf,'service_parts',{select:'id,sku,name,category,sale_price,unit_cost,quantity,financial_type,catalog_details',active:'eq.true',limit:5000}),
+      rest(conf,'service_order_parts',{select:'part_id,order_code,quantity_reserved,quantity_consumed,status',status:'eq.reserved',limit:5000}).catch(()=>[])
+    ]);
+    const reservedOther=new Map();
+    for(const r of reservedRows||[]){
+      if(orderCode&&String(r.order_code||'').toLowerCase()===String(orderCode).toLowerCase())continue;
+      const id=String(r.part_id||'');if(!id)continue;
+      const qty=Math.max(0,Number(r.quantity_reserved||0)-Number(r.quantity_consumed||0));
+      reservedOther.set(id,(reservedOther.get(id)||0)+qty);
     }
-  }catch(e){console.warn('No se pudo buscar servicios de Soporte',e.message)}
+    for(const x of rows||[]){
+      const meta=x.catalog_details||{},hay=[x.name,x.sku,x.category,meta.description,meta.repair,meta.series,meta.model].join(' ').toLowerCase();
+      if(!hay.includes(term))continue;
+      const isService=meta.item_type==='service'||meta.stock_managed===false||/servicio|mano de obra|instalaci[oó]n|software|mantenimiento|diagn[oó]stico|microsoldadura/.test([x.category,x.name].join(' ').toLowerCase());
+      const price=Number(x.sale_price||0);
+      if(isService){
+        out.push({source:'support_service',source_id:String(x.id),item_type:/mano de obra|labor/.test(String(x.name||'').toLowerCase())?'labor':'service',name:x.name||'Servicio',sku:x.sku||'',price_usd:price,available:null,image_url:meta.image_url||'',hint:x.category||'Servicio técnico',financial_type:x.financial_type||(/software|office|adobe|ios|macos/i.test([x.category,x.name].join(' '))?'service_software':'service_hardware'),unit_cost_usd:Number(x.unit_cost||0),can_add:price>0});
+      }else{
+        const available=Math.max(0,Number(x.quantity||0)-Number(reservedOther.get(String(x.id))||0));
+        out.push({source:'support_part',source_id:String(x.id),item_type:'part',name:x.name||'Repuesto',sku:x.sku||'',price_usd:price,available,image_url:meta.image_url||'',hint:[x.category,meta.series,meta.model].filter(Boolean).join(' · ')||'Inventario Servicio Técnico',financial_type:'part',unit_cost_usd:Number(x.unit_cost||0),can_add:available>0&&price>0});
+      }
+      if(out.length>=40)break;
+    }
+  }catch(e){console.warn('No se pudo buscar inventario de Soporte',e.message)}
   const mc=mainConf();
   if(mc.url&&mc.key){
     try{
@@ -247,7 +263,7 @@ exports.handler=async event=>{
         if(!parts.length)parts=parsePartsFallback(notes);
         const extras=await orderExtras(conf,order.code);
         const catalogSearch=clean(event.queryStringParameters?.catalog_search,80);
-        const catalog=catalogSearch?await searchChargeCatalog(conf,catalogSearch):[];
+        const catalog=catalogSearch?await searchChargeCatalog(conf,catalogSearch,order.code):[];
         return result(200,{ok:true,order,account:account(order),billing:billingSummary(order,parts,extras),events,parts,extras,notes,catalog,history_available:historyAvailable});
       }
       const data=await ordersList(conf);
@@ -261,8 +277,25 @@ exports.handler=async event=>{
     if(!current)return result(404,{ok:false,error:'Reparación no encontrada'});
     if(b.action==='add_charge'){
       const source=clean(b.source,30),sourceId=clean(b.source_id,100),qty=Math.max(1,Math.min(20,Number(b.quantity||1)||1));
-      if(!['support_service','main_inventory'].includes(source)||!sourceId)return result(400,{ok:false,error:'Producto o servicio inválido.'});
+      if(!['support_service','support_part','main_inventory'].includes(source)||!sourceId)return result(400,{ok:false,error:'Producto o servicio inválido.'});
       let item=null,reserved=false;
+      if(source==='support_part'){
+        const selected=(await rest(conf,'service_parts',{select:'id,sku,name,category,sale_price,unit_cost,quantity,catalog_details',id:`eq.${sourceId}`,active:'eq.true',limit:1}))?.[0];
+        if(!selected)return result(404,{ok:false,error:'Repuesto no encontrado en el inventario de Servicio Técnico.'});
+        if(!(Number(selected.sale_price||0)>0))return result(409,{ok:false,error:'Este repuesto no tiene precio de venta configurado en Inventory.'});
+        const currentRows=await rest(conf,'service_order_parts',{select:'part_id,quantity_reserved,quantity_consumed,status',order_code:`eq.${current.code}`,status:'eq.reserved',limit:500});
+        const wanted=new Map();
+        for(const r of currentRows||[]){const id=String(r.part_id||'');if(id)wanted.set(id,Math.max(1,Number(r.quantity_reserved||0)));}
+        wanted.set(String(sourceId),(wanted.get(String(sourceId))||0)+qty);
+        try{
+          await rest(conf,'rpc/ts_save_service_order_parts',{}, {method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_order_code:current.code,p_parts:[...wanted].map(([part_id,quantity])=>({part_id,quantity})),p_actor_email:actor.email||''})});
+        }catch(e){
+          if(/ts_save_service_order_parts|function|schema cache|does not exist/i.test(String(e.message||'')))return result(409,{ok:false,error:'No está disponible la reserva de repuestos de Servicio Técnico. Verifica que esté aplicada la migración de inventario de Soporte V8.8.8.'});
+          throw e;
+        }
+        const parts=await orderParts(conf,current.code),extras=await orderExtras(conf,current.code);
+        return result(200,{ok:true,parts,extras,billing:billingSummary(current,parts,extras),added_kind:'support_part'});
+      }
       if(source==='support_service'){
         const rows=await rest(conf,'service_parts',{select:'id,sku,name,category,sale_price,unit_cost,financial_type,catalog_details',id:`eq.${sourceId}`,active:'eq.true',limit:1});const x=rows?.[0];
         if(!x)return result(404,{ok:false,error:'Servicio no encontrado en Inventory.'});const price=Number(x.sale_price||0);if(!(price>0))return result(409,{ok:false,error:'Este servicio no tiene precio de venta configurado en Inventory.'});

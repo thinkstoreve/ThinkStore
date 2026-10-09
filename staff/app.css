@@ -295,3 +295,38 @@
 .repair-discount-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:11px}.repair-discount-head b{display:block;font-size:13px}.repair-discount-head small{display:block;margin-top:3px;color:#777b80;font-size:10px;line-height:1.35}.repair-discount-pill{flex:0 0 auto;border-radius:999px;background:#eaf7ef;color:#14804a;padding:6px 9px;font-size:10px;font-weight:900}
 .repair-discount-grid{display:grid;grid-template-columns:150px 140px minmax(0,1fr);gap:10px}.repair-discount-grid label{font-size:10px;font-weight:800;color:#555b62}.repair-discount-grid input,.repair-discount-grid select{width:100%;margin-top:5px;border:1px solid #d5d7db;border-radius:11px;background:#fff;padding:10px 11px;font:inherit;color:#111;box-sizing:border-box}.repair-discount-preview{min-height:16px;margin-top:9px;color:#6e6e73;font-size:10px}.repair-discount-actions{display:flex;align-items:center;gap:9px;margin-top:9px}.repair-discount-actions .secondary{min-height:38px;padding:0 15px}.repair-discount-remove{border:0;background:transparent;color:#b42318;font-weight:800;cursor:pointer;padding:8px 3px}.repair-discount-remove:active{transform:scale(.97)}
 @media(max-width:700px){.repair-discount-grid{grid-template-columns:1fr 1fr}.repair-discount-reason{grid-column:1/-1}.repair-discount-actions{align-items:stretch;flex-direction:column}.repair-discount-actions .secondary,.repair-discount-remove{width:100%}}
+
+/* ThinkStore Staff V15.22 · interfaz visual + iconografía premium */
+:root{--accent:#2563eb;--accent-soft:#eff6ff;--violet:#7c3aed;--violet-soft:#f5f3ff;--orange:#d97706;--orange-soft:#fff7ed;--cyan:#0891b2;--cyan-soft:#ecfeff}
+.ts-icon-sprite{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.ui-icon,.nav-icon svg,.cash-kpi-icon svg{width:20px;height:20px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sidebar{background:linear-gradient(180deg,#f5f6f8 0%,#eceef2 100%)}
+.side-brand{border-radius:14px;margin-bottom:5px}.side-brand:hover{background:rgba(255,255,255,.55)}
+.side-nav{gap:6px}.side-nav .nav-item{position:relative;border:1px solid transparent;transition:background .18s,border-color .18s,box-shadow .18s,color .18s}
+.side-nav .nav-item:hover{background:rgba(255,255,255,.72);border-color:#e3e7ed}
+.side-nav .nav-item.active{background:#fff;border-color:#dfe7f5;box-shadow:0 7px 20px rgba(37,99,235,.08);color:#172554}
+.side-nav .nav-item.active:before{content:"";position:absolute;left:-7px;width:3px;height:24px;border-radius:99px;background:linear-gradient(180deg,#2563eb,#60a5fa)}
+.nav-icon{border-radius:8px;color:#626a75;transition:.18s}.nav-icon svg{width:19px;height:19px}
+.side-nav .nav-item.active .nav-icon{background:var(--accent-soft);color:var(--accent)}
+.bottom-nav .nav-icon svg{width:18px;height:18px}.bottom-nav .nav-item.active{background:var(--accent-soft)!important;color:#1d4ed8}.bottom-nav .nav-item.active .nav-icon{color:var(--accent)}
+.home-hero{position:relative;overflow:hidden;background:radial-gradient(circle at 82% 0%,rgba(59,130,246,.34),transparent 32%),radial-gradient(circle at 15% 100%,rgba(124,58,237,.18),transparent 30%),linear-gradient(145deg,#1f2937,#0b0f17)}
+.home-hero:after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;right:-90px;bottom:-120px;background:rgba(255,255,255,.06);filter:blur(2px)}
+.home-hero>*{position:relative;z-index:1}.soft-icon .ui-icon{width:22px;height:22px}.soft-icon{background:var(--accent-soft);color:var(--accent)}
+.metric-card{position:relative;overflow:hidden;transition:.18s}.metric-card:before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:#dfe3e8}.metric-card:nth-child(1):before{background:#60a5fa}.metric-card:nth-child(2):before{background:#34d399}.metric-card:nth-child(3):before{background:#f59e0b}.metric-card:hover{box-shadow:0 12px 28px rgba(15,23,42,.06);transform:translateY(-1px)}
+.staff-bcv-rate{background:linear-gradient(135deg,#f7fbff,#edf6ff);border-color:#cfe4fb;box-shadow:0 5px 18px rgba(37,99,235,.05)}
+.icon-button{display:grid;place-items:center;color:#475569}.icon-button:hover{background:var(--accent-soft);color:var(--accent);border-color:#bfdbfe}.search-box span{display:grid;place-items:center}.search-box .ui-icon{width:19px;height:19px}.barcode-sale-icon{background:linear-gradient(135deg,var(--accent-soft),#e0f2fe);color:var(--accent)}
+.cash-refresh-button{display:inline-flex;align-items:center;gap:7px}.cash-refresh-button .ui-icon{width:17px;height:17px}
+.cash-kpi{border-color:#e5eaf1;transition:.18s}.cash-kpi:hover{transform:translateY(-1px);box-shadow:0 12px 25px rgba(15,23,42,.055)}
+.cash-kpi:nth-child(1){background:linear-gradient(145deg,#fff,#f1f7ff)}.cash-kpi:nth-child(1) .cash-kpi-icon{background:#dbeafe;color:#2563eb}
+.cash-kpi:nth-child(2){background:linear-gradient(145deg,#fff,#effcf6)}.cash-kpi:nth-child(2) .cash-kpi-icon{background:#d1fae5;color:#059669}
+.cash-kpi:nth-child(3){background:linear-gradient(145deg,#fff,#fff8ed)}.cash-kpi:nth-child(3) .cash-kpi-icon{background:#ffedd5;color:#d97706}
+.cash-kpi:nth-child(4){background:linear-gradient(145deg,#fff,#f7f3ff)}.cash-kpi:nth-child(4) .cash-kpi-icon{background:#ede9fe;color:#7c3aed}
+.cash-kpi-icon{font-size:0}.cash-kpi-icon svg{width:18px;height:18px}
+.cash-methods-card{border-top:3px solid #60a5fa}.cash-new-movement{border-top:3px solid #f59e0b}.cash-close-card{border-top:3px solid #a78bfa}
+.cash-total-pair>div:first-child{background:linear-gradient(135deg,#f8fbff,#eef6ff);border:1px solid #dbeafe}.cash-total-pair>div:last-child{background:linear-gradient(135deg,#f7fdf9,#ecfdf5);border:1px solid #d1fae5}
+.cash-total-pair>div:first-child b{color:#1d4ed8}.cash-total-pair>div:last-child b{color:#047857}
+.cash-mini-label{border:1px solid #e6eaf0;background:#f8fafc}.cash-pill{box-shadow:inset 0 0 0 1px rgba(22,119,70,.08)}
+.cash-expected{background:linear-gradient(145deg,#f8fbff,#f1f5ff)}.cash-actual{background:linear-gradient(145deg,#fff,#fafafa)}.cash-difference{background:linear-gradient(145deg,#faf7ff,#f5f3ff)}
+.repair-catalog-kind.is-part{background:#ecfdf5;color:#047857}.repair-catalog-row:has(.repair-catalog-kind.is-part):hover:not(:disabled){border-color:#86efac;box-shadow:0 4px 14px rgba(5,150,105,.08)}
+.repair-catalog-row:has(.repair-catalog-kind.is-part) .repair-catalog-price{color:#047857}
+@media(max-width:900px){.bottom-nav{border-color:#dfe7f5;box-shadow:0 14px 42px rgba(15,23,42,.14)}.bottom-nav .nav-item{border-radius:11px}.bottom-nav .nav-icon{background:transparent!important}.bottom-nav .nav-item.active .nav-icon{color:var(--accent)}}

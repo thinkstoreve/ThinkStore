@@ -41,7 +41,18 @@ async function loadCash(url,key,session){
  const params={select:'id,codigo,estado,payment_decision,payment_decision_at,total_usd,total_bs,bcv_rate,metodo_pago,referencia_pago,salesperson_user_id',salesperson_user_id:`eq.${session.user_id}`,order_channel:'eq.presencial',payment_decision:'eq.approved',payment_decision_at:`gte.${session.opened_at}`,order:'payment_decision_at.asc',limit:1001};
  // No contabilizamos ventas confirmadas después de cerrar caja.
  if(session.status==='closed')params['payment_decision_at']=`gte.${session.opened_at}`; // La cota superior se aplica también en JS para PostgREST.
- const all=await rest(url,key,'pedidos',params);
+ let all;
+ try{
+   all=await rest(url,key,'pedidos',params);
+ }catch(e){
+   // Compatibilidad con pedidos creados antes de MIGRACION-V14.78-TASA-BCV.
+   // El cuadre no necesita bcv_rate cuando total_bs ya conserva el monto original cobrado.
+   if(/bcv_rate/i.test(String(e?.message||''))&&/column|does not exist|schema cache/i.test(String(e?.message||''))){
+     const legacy={...params,select:'id,codigo,estado,payment_decision,payment_decision_at,total_usd,total_bs,metodo_pago,referencia_pago,salesperson_user_id'};
+     all=await rest(url,key,'pedidos',legacy);
+     all=(all||[]).map(x=>({...x,bcv_rate:null}));
+   }else throw e;
+ }
  const orders=all.filter(p=>p.payment_decision_at&&new Date(p.payment_decision_at)<=new Date(stop)&&!/cancel|rechaz/i.test(String(p.estado||'')));
  const mixed=orders.filter(p=>p.metodo_pago==='Pago mixto').map(p=>p.id);
  let lines=[];
@@ -133,7 +144,8 @@ exports.handler=async event=>{
    const data=await rest(url,key,'rpc/ts_staff_cash_action',{}, {method:'POST',body:JSON.stringify({p_actor:actor.user_id,p_action:action,p_data:payload,p_manager:actor.is_manager})});
    return respond(200,{ok:true,session:data});
  }catch(e){console.error('[staff-cash]',e?.message);const msg=e?.message||'No se pudo completar la operación';
-   if(/ts_staff_cash|does not exist|schema cache|relation |function public|PGRST202|PGRST205/i.test(msg))return respond(409,{ok:false,migration_required:true,error:'Falta aplicar MIGRACION-V14.80-CAJA-STAFF.sql en Supabase principal. Detalle: '+msg});
+   // Solo atribuimos V14.80 a objetos propios de Caja Staff; columnas antiguas de pedidos no deben bloquear el módulo.
+   if(/ts_staff_cash|function public\.ts_staff_cash_action|PGRST202|PGRST205/i.test(msg))return respond(409,{ok:false,migration_required:true,error:'Caja Staff no encuentra sus tablas o función principal. Verifica MIGRACION-V14.80-CAJA-STAFF.sql. Detalle: '+msg});
    return respond(e?.status>=400&&e.status<500?e.status:400,{ok:false,error:msg});
  }
 };
