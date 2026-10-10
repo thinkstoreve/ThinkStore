@@ -39,7 +39,7 @@ async function loadCash(url,key,session){
    if(frozen?.[0]?.closing_snapshot&&Array.isArray(frozen[0].closing_snapshot.entries))return frozen[0].closing_snapshot;
  }
  const stop=session.status==='closed'?session.closed_at:new Date().toISOString();
- const params={select:'id,codigo,estado,payment_decision,payment_decision_at,total_usd,total_bs,bcv_rate,metodo_pago,referencia_pago,salesperson_user_id',salesperson_user_id:`eq.${session.user_id}`,order_channel:'eq.presencial',payment_decision:'eq.approved',payment_decision_at:`gte.${session.opened_at}`,order:'payment_decision_at.asc',limit:1001};
+ const params={select:'id,codigo,estado,payment_decision,payment_decision_at,total_usd,total_bs,bcv_rate,metodo_pago,referencia_pago,payment_destination_code,payment_destination_name,salesperson_user_id',salesperson_user_id:`eq.${session.user_id}`,order_channel:'eq.presencial',payment_decision:'eq.approved',payment_decision_at:`gte.${session.opened_at}`,order:'payment_decision_at.asc',limit:1001};
  // No contabilizamos ventas confirmadas después de cerrar caja.
  if(session.status==='closed')params['payment_decision_at']=`gte.${session.opened_at}`; // La cota superior se aplica también en JS para PostgREST.
  let all;
@@ -49,7 +49,7 @@ async function loadCash(url,key,session){
    // Compatibilidad con pedidos creados antes de MIGRACION-V14.78-TASA-BCV.
    // El cuadre no necesita bcv_rate cuando total_bs ya conserva el monto original cobrado.
    if(/bcv_rate/i.test(String(e?.message||''))&&/column|does not exist|schema cache/i.test(String(e?.message||''))){
-     const legacy={...params,select:'id,codigo,estado,payment_decision,payment_decision_at,total_usd,total_bs,metodo_pago,referencia_pago,salesperson_user_id'};
+     const legacy={...params,select:'id,codigo,estado,payment_decision,payment_decision_at,total_usd,total_bs,metodo_pago,referencia_pago,payment_destination_code,payment_destination_name,salesperson_user_id'};
      all=await rest(url,key,'pedidos',legacy);
      all=(all||[]).map(x=>({...x,bcv_rate:null}));
    }else throw e;
@@ -60,7 +60,7 @@ async function loadCash(url,key,session){
  // Particiones para URLs PostgREST razonables; evita ejecutar >100 ids en la URL.
  for(let i=0;i<mixed.length;i+=75){
    const batch=mixed.slice(i,i+75);
-   const next=await rest(url,key,'ts_order_payments',{select:'pedido_id,method,currency,amount,usd_equivalent,reference,confirmed_at,status',pedido_id:`in.(${batch.join(',')})`,status:'eq.confirmed',order:'confirmed_at.asc',limit:1001});
+   const next=await rest(url,key,'ts_order_payments',{select:'pedido_id,method,currency,amount,usd_equivalent,reference,destination_code,destination_name,confirmed_at,status',pedido_id:`in.(${batch.join(',')})`,status:'eq.confirmed',order:'confirmed_at.asc',limit:1001});
    lines=lines.concat(next.filter(p=>new Date(p.confirmed_at)<=new Date(stop)));
  }
  const movements=await rest(url,key,'ts_staff_cash_movements',{select:'id,session_id,type,direction,method,currency,amount,usd_equivalent,bcv_rate,bcv_effective_date,bcv_source,bcv_checked_at,concept,reference,created_at',session_id:`eq.${session.id}`,order:'created_at.desc',limit:1001});

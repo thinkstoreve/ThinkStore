@@ -364,6 +364,11 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const pettyBalanceVes=money(activePetty.filter(m=>clean(m.currency).toUpperCase()==='VES').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   const pettyAccount=pettyAccounts.find(a=>a.slug==='main')||pettyAccounts[0]||null;
   const activePettyBankMovements=pettyBankMovements.filter(m=>norm(m.status)!=='void');
+  const operationalBankMovements=activePettyBankMovements.filter(m=>['sale_receipt','service_receipt'].includes(norm(m.movement_type)));
+  const operationalBankUsd=money(operationalBankMovements.filter(m=>clean(m.currency).toUpperCase()==='USD').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
+  const operationalBankVes=money(operationalBankMovements.filter(m=>clean(m.currency).toUpperCase()==='VES').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
+  const pettyAvailableUsd=money(pettyBalanceUsd+operationalBankUsd);
+  const pettyAvailableVes=money(pettyBalanceVes+operationalBankVes);
   const pettyBankRows=(pettyBankAccounts||[]).map(a=>{
     const moves=activePettyBankMovements.filter(m=>String(m.account_id)===String(a.id));
     const balance=money(num(a.opening_balance)+moves.reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
@@ -371,8 +376,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   });
   const pettyBankAssignedUsd=money(pettyBankRows.filter(a=>clean(a.currency).toUpperCase()==='USD').reduce((n,a)=>n+num(a.balance),0));
   const pettyBankAssignedVes=money(pettyBankRows.filter(a=>clean(a.currency).toUpperCase()==='VES').reduce((n,a)=>n+num(a.balance),0));
-  const pettyBankUnassignedUsd=money(pettyBalanceUsd-pettyBankAssignedUsd);
-  const pettyBankUnassignedVes=money(pettyBalanceVes-pettyBankAssignedVes);
+  const pettyBankUnassignedUsd=money(pettyAvailableUsd-pettyBankAssignedUsd);
+  const pettyBankUnassignedVes=money(pettyAvailableVes-pettyBankAssignedVes);
   const staffOpenSessions=staffCashSessions.filter(x=>x.status==='open');
   const staffClosedWeek=staffCashSessions.filter(x=>x.status==='closed'&&inRange(x.closed_at||x.updated_at||x.opened_at,range));
 
@@ -463,7 +468,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     },
     petty_cash:{
       connected:Array.isArray(pettyAccounts)&&Array.isArray(pettyMovements),account:pettyAccount,
-      balance_usd:pettyBalanceUsd,balance_ves:pettyBalanceVes,
+      balance_usd:pettyAvailableUsd,balance_ves:pettyAvailableVes,
       spent_week:pettyExpense,refunds_week:pettyRefund,net_expense_week:pettyOperatingNet,
       funded_week:sum(weekPetty.filter(m=>m.movement_type==='fund'),m=>m.usd_equivalent),
       movements:activePetty.slice(0,250),audits:pettyAudits.slice(0,50),
@@ -472,7 +477,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
         accounts:pettyBankRows,
         movements:activePettyBankMovements.slice(0,500),
         assigned_usd:pettyBankAssignedUsd,assigned_ves:pettyBankAssignedVes,
-        unassigned_usd:pettyBankUnassignedUsd,unassigned_ves:pettyBankUnassignedVes
+        unassigned_usd:pettyBankUnassignedUsd,unassigned_ves:pettyBankUnassignedVes,
+        operational_receipts_usd:operationalBankUsd,operational_receipts_ves:operationalBankVes
       }
     },
     reconciliation:{

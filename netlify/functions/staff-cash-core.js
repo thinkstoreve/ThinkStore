@@ -1,6 +1,6 @@
 'use strict';
 // Cálculos puros en centavos. Un pago mixto confirmado se cuenta por abono, nunca otra vez por pedido.
-const METHODS={'Efectivo USD':'USD','Efectivo Bs':'VES','Zelle':'USD','Pago Móvil':'VES','Transferencia USD':'USD','Transferencia Bs':'VES','Punto de venta Bs':'VES'};
+const METHODS={'Efectivo USD':'USD','Efectivo Bs':'VES','Zelle':'USD','Pago Móvil':'VES','Transferencia USD':'USD','Transferencia Bs':'VES','Punto de venta Bs':'VES','USDT':'USD'};
 const PHYSICAL=['Efectivo USD','Efectivo Bs'];
 const cents=n=>Math.round(Number(n||0)*100);
 const money=c=>Math.round(c)/100;
@@ -17,7 +17,7 @@ function ledger(session,orders,paymentRows,movements){
    paidByOrder.set(p.id,(paidByOrder.get(p.id)||0)+cents(line.usd_equivalent));
    if(line.currency!==METHODS[line.method]){warnings.push(`Moneda/método inconsistente en ${p.codigo||'pedido'}`);continue}
    if(!Number.isFinite(Number(line.amount))||Number(line.amount)<=0){warnings.push(`Importe inválido en ${p.codigo||'pedido'}`);continue}
-   entries.push({kind:'sale',order_id:p.id,code:p.codigo||'Pedido',method:line.method,currency:line.currency,amount:Number(line.amount),usd_equivalent:Number(line.usd_equivalent),reference:line.reference||'',at:line.confirmed_at||p.payment_decision_at,sign:1,concept:'Venta '+(p.codigo||'')});
+   entries.push({kind:'sale',order_id:p.id,code:p.codigo||'Pedido',method:line.method,currency:line.currency,amount:Number(line.amount),usd_equivalent:Number(line.usd_equivalent),reference:line.reference||'',destination_code:line.destination_code||'',destination_name:line.destination_name||'',at:line.confirmed_at||p.payment_decision_at,sign:1,concept:'Venta '+(p.codigo||'')});
  }
  for(const p of orderMap.values()){
    if(p.metodo_pago==='Pago mixto'){
@@ -30,7 +30,7 @@ function ledger(session,orders,paymentRows,movements){
    const ves=Number(p.total_bs||0);const rate=Number(p.bcv_rate||0);
    const amount=currency==='USD'?usd:(ves>0?ves:(rate>0?money(Math.round(cents(usd)*rate)):0));
    if(!(amount>0)){warnings.push(`Sin monto BCV: ${p.codigo||'Pedido'}`);continue}
-   entries.push({kind:'sale',order_id:p.id,code:p.codigo||'Pedido',method,currency,amount,usd_equivalent:usd,reference:p.referencia_pago||'',at:p.payment_decision_at,sign:1,concept:'Venta '+(p.codigo||'')});
+   entries.push({kind:'sale',order_id:p.id,code:p.codigo||'Pedido',method,currency,amount,usd_equivalent:usd,reference:p.referencia_pago||'',destination_code:p.payment_destination_code||'',destination_name:p.payment_destination_name||'',at:p.payment_decision_at,sign:1,concept:'Venta '+(p.codigo||'')});
  }
  for(const m of movements){
    if(!methodCurrency(m.method)||methodCurrency(m.method)!==m.currency){warnings.push(`Movimiento sin método: ${m.id}`);continue}

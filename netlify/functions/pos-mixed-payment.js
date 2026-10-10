@@ -1,7 +1,8 @@
 'use strict';
+const {normalize:normalizeDestination}=require('./payment-destinations');
 // Normalización única en servidor: los importes de cliente NUNCA son autoridad contable.
 const METHODS={
-  'Efectivo USD':'USD','Zelle':'USD','Transferencia USD':'USD',
+  'Efectivo USD':'USD','Zelle':'USD','Transferencia USD':'USD','USDT':'USD',
   'Efectivo Bs':'VES','Pago Móvil':'VES','Transferencia Bs':'VES','Punto de venta Bs':'VES'
 };
 const cents=n=>Math.round((Number(n)+Number.EPSILON)*100);
@@ -22,6 +23,7 @@ function prepare(lines,totalUsd,quote,options={}){
     if(Math.abs(Number(raw)-money(original))>0.000001)throw Error(`Solo se aceptan dos decimales en el abono ${i+1}.`);
     const reference=String(entry.reference||'').trim().slice(0,120);
     if(!method.startsWith('Efectivo')&&!reference)throw Error(`Indica la referencia del abono ${i+1} (${method}).`);
+    const destination=normalizeDestination(method,entry.destination_code,{required:true});
     let usdCents=original;
     if(currency==='VES'){
       if(!(Number(quote?.rate)>0)||quote?.stale||!quote?.effective_date)throw Error('No se pudo verificar la tasa BCV vigente. No registrar cobros en bolívares.');
@@ -31,6 +33,7 @@ function prepare(lines,totalUsd,quote,options={}){
     paid+=usdCents;
     if(!Number.isSafeInteger(usdCents)||usdCents<=0)throw Error(`El abono ${i+1} es demasiado pequeño para su conversión a USD.`);
     out.push({line_no:i+1,method,currency,amount:money(original),usd_equivalent:money(usdCents),reference,
+      destination_code:destination.code,destination_name:destination.name,
       bcv_rate:currency==='VES'?quote.rate:null,bcv_effective_date:currency==='VES'?quote.effective_date:null});
   }
   if(paid>target)throw Error(`Los abonos superan el total de la venta en USD ${(paid-target)/100}.`);

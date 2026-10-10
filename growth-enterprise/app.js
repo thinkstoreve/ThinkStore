@@ -3340,8 +3340,8 @@ function renderV9RealMarketing(data){
   }
   function pettyTypeLabel(t){return ({fund:'Reposición / fondo',expense:'Gasto menor',refund:'Reintegro',adjustment:'Ajuste'}[t]||t||'Movimiento')}
   const pettyBrandAsset={
-    boa:'/assets/banks/boa.svg',chase:'/assets/banks/chase.svg',pichincha:'/assets/banks/pichincha.svg',binance:'/assets/banks/binance.svg',zelle:'/assets/banks/zelle.svg',
-    banesco:'/assets/banks/banesco.svg',bnc:'/assets/banks/bnc.svg',bdv:'/assets/banks/bdv.svg',bancamiga:'/assets/banks/bancamiga.svg',bvc:'/assets/banks/bvc.svg'
+    boa:'/assets/banks/boa.svg',chase:'/assets/banks/chase.svg',pichincha:'/assets/banks/official/pichincha.png',binance:'/assets/banks/binance.svg',zelle:'/assets/banks/zelle.svg',
+    banesco:'/assets/banks/official/banesco.png',bnc:'/assets/banks/bnc.svg',bdv:'/assets/banks/official/bdv.png',bancamiga:'/assets/banks/bancamiga.svg',bvc:'/assets/banks/official/bvc.png'
   };
   function pettyBankData(){return financeCache?.petty_cash?.banking||{accounts:[],movements:[],connected:false}}
   function pettyBankAccounts(currency){const c=String(currency||'').toUpperCase();return (pettyBankData().accounts||[]).filter(a=>String(a.currency||'').toUpperCase()===c&&a.active!==false)}

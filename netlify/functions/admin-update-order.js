@@ -2,6 +2,7 @@ const {mainConfig,authenticateInternal}=require('./staff-auth-core');
 const crypto=require('crypto');
 const {getRate}=require('./fx-rate-core');
 const {prepare:prepareMixed}=require('./pos-mixed-payment');
+const {normalize:normalizeDestination}=require('./payment-destinations');
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -47,6 +48,22 @@ exports.handler = async function(event) {
     return data;
   }
   async function first(path){try{const d=await sb(path);return Array.isArray(d)?d[0]:null}catch{return null}}
+  async function syncSaleBankReceipt(pedido,line,lineNo,occurredAt){
+    const method=clean(line?.method||pedido?.metodo_pago);
+    const destination=normalizeDestination(method,line?.destination_code||pedido?.payment_destination_code,{required:true});
+    if(!destination.code)return{skipped:true};
+    const account=await first(`enterprise_petty_cash_bank_accounts?select=id,code,currency,display_name&code=eq.${encodeURIComponent(destination.code)}&active=eq.true&limit=1`);
+    if(!account)throw Error(`La cuenta ${destination.name} no está activa en Caja Chica.`);
+    const currency=String(line?.currency||destination.currency||'USD').toUpperCase();
+    if(String(account.currency||'').toUpperCase()!==currency)throw Error(`La moneda de ${destination.name} no coincide con ${method}.`);
+    const amount=Number(line?.amount||0);if(!(amount>0))throw Error(`El importe de ${method} es inválido para Caja Chica.`);
+    const sourceKey=`sale:${pedido.id}:${lineNo}`;
+    const existing=await first(`enterprise_petty_cash_bank_movements?select=id&related_petty_movement_id=eq.${encodeURIComponent(sourceKey)}&status=neq.void&limit=1`);
+    if(existing)return{ok:true,duplicate:true,id:existing.id,source_key:sourceKey};
+    const row={account_id:account.id,movement_type:'sale_receipt',direction:'in',currency,amount:Math.round((amount+Number.EPSILON)*100)/100,description:`Venta ${pedido.codigo||pedido.id} · ${method}`,reference:clean(line?.reference||pedido?.referencia_pago)||null,related_petty_movement_id:sourceKey,status:'posted',created_by_email:auth.user?.email||auth.profile?.email||null,created_by_name:auth.profile?.full_name||auth.profile?.nombre||auth.user?.email||'Staff',occurred_at:occurredAt||new Date().toISOString()};
+    const saved=await sb('enterprise_petty_cash_bank_movements',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
+    return Array.isArray(saved)?saved[0]:saved;
+  }
 
   const incomingId=clean(body.id||body.db_id||body.pedido_id);
   const incomingCode=clean(body.code||body.codigo||body.order_code);
@@ -74,7 +91,7 @@ exports.handler = async function(event) {
     if(!out.clientes&&out.cliente_id){const c=await first(`clientes?select=*&id=eq.${encodeURIComponent(out.cliente_id)}&limit=1`);if(c)out.clientes=c}
     if(!out.pedido_items&&out.id){try{out.pedido_items=await sb(`pedido_items?select=*&pedido_id=eq.${encodeURIComponent(out.id)}`)||[]}catch{out.pedido_items=[]}}
     if(out.metodo_pago==='Pago mixto'&&out.id){
-      try{out.payment_lines=await sb(`ts_order_payments?select=method,currency,amount,usd_equivalent,reference,bcv_rate,bcv_effective_date&pedido_id=eq.${encodeURIComponent(out.id)}&status=eq.confirmed&order=line_no.asc`)||[]}
+      try{out.payment_lines=await sb(`ts_order_payments?select=line_no,method,currency,amount,usd_equivalent,reference,destination_code,destination_name,bcv_rate,bcv_effective_date&pedido_id=eq.${encodeURIComponent(out.id)}&status=eq.confirmed&order=line_no.asc`)||[]}
       catch(e){console.warn('Desglose mixto no disponible en nota',e);out.payment_lines=[]}
     }
     return out;
@@ -86,7 +103,7 @@ exports.handler = async function(event) {
       id:p?.id,code:p?.codigo||p?.code||'TS',status:p?.estado||p?.status||'',created_at:p?.created_at||p?.fecha||'',note:p?.nota||p?.note||'',
       customerName:c.nombre||c.name||c.full_name||p?.guest_name||'Cliente',customerEmail:c.correo||c.email||p?.guest_email||'',customerPhone:c.telefono||c.phone||p?.guest_phone||'',
       customerDocument:c.cedula_rif||c.document||p?.guest_document||'',customerAddress:c.direccion||c.address||p?.guest_address||'',customerCity:c.ciudad||c.city||p?.guest_city||'',customerState:c.estado||c.state||p?.guest_state||'',
-      paymentMethod:p?.metodo_pago||p?.payment||'',paymentRef:p?.referencia_pago||p?.paymentRef||'',guide:p?.numero_guia||p?.guide||'',shippingCompany:p?.empresa_envio||'',
+      paymentMethod:p?.metodo_pago||p?.payment||'',paymentRef:p?.referencia_pago||p?.paymentRef||'',paymentDestinationCode:p?.payment_destination_code||'',paymentDestinationName:p?.payment_destination_name||'',guide:p?.numero_guia||p?.guide||'',shippingCompany:p?.empresa_envio||'',
       subtotal:Number(p?.subtotal_usd||0),discountType:p?.discount_type||'',discountValue:Number(p?.discount_value||0),
       discountUsd:Number(p?.discount_usd||0),discountReason:p?.discount_reason||'',
       total:Number(p?.total_usd||p?.total||0),items:Array.isArray(items)?items:[],paymentLines:p?.payment_lines||[]
@@ -330,6 +347,10 @@ exports.handler = async function(event) {
             p_checked_at:mixedConfirmation.quote?.checked_at??null
           })});
           if(!result?.ok)throw Error('No se pudo confirmar el desglose de cobros.');
+          for(const line of mixedConfirmation.lines){
+            if(!line.destination_code)continue;
+            try{await sb(`ts_order_payments?pedido_id=eq.${encodeURIComponent(found.id)}&line_no=eq.${line.line_no}&status=eq.confirmed`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({destination_code:line.destination_code,destination_name:line.destination_name})})}catch(e){console.warn('No se pudo guardar destino en desglose mixto',e.message)}
+          }
           updatedFx=mixedConfirmation.quote?{...mixedConfirmation.quote,total_ves:mixedConfirmation.paid_ves,total_usd:Number(found.total_usd)}:null;
         }catch(e){
           if(/ts_confirm_pos_mixed_payment|ts_order_payments|schema cache|function public/i.test(clean(e.message)))
@@ -337,7 +358,7 @@ exports.handler = async function(event) {
           return reply(409,{ok:false,error:e.message||'No se pudo validar el pago mixto.'});
         }
       }
-      if(approved&&/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta/i.test(clean(found.metodo_pago||''))){
+      if(approved&&['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs','Punto de venta'].includes(clean(found.metodo_pago||''))){
         const q=await getRate(true);
         if(q.stale)return reply(503,{ok:false,error:'La tasa BCV no se pudo verificar. No se confirmó el cobro.'});
         const total=Number(found.total_usd||0);
@@ -356,6 +377,17 @@ exports.handler = async function(event) {
         if(/payment_decision|schema cache|column/i.test(clean(e.message)))return reply(409,{ok:false,migration_required:true,error:'Falta aplicar supabase_v12_payment_lock.sql en Supabase antes de aprobar o rechazar pagos.'});
         throw e;
       }
+      let bankReceipts=[],bankWarnings=[];
+      if(approved){
+        const paidAt=payload.payment_decision_at||now;
+        const lines=clean(found.metodo_pago)==='Pago mixto'?(mixedConfirmation?.lines||[]):[(()=>{
+          const d=normalizeDestination(found.metodo_pago,found.payment_destination_code,{required:false});
+          const currency=d.currency==='VES'?'VES':'USD';
+          const amount=currency==='VES'?Number(updatedFx?.total_ves??found.total_bs??0):Number(found.total_usd||0);
+          return{method:found.metodo_pago,currency,amount,reference:found.referencia_pago||'',destination_code:d.code,destination_name:d.name};
+        })()];
+        for(let i=0;i<lines.length;i++){try{const r=await syncSaleBankReceipt(found,lines[i],lines[i].line_no||i+1,paidAt);if(!r?.skipped)bankReceipts.push(r)}catch(e){bankWarnings.push(clean(e.message,220));console.warn('Caja Chica · venta',e.message)}}
+      }
       if(!approved&&clean(found.metodo_pago)==='Pago mixto'){
         try{await sb(`ts_order_payments?pedido_id=eq.${encodeURIComponent(found.id)}&status=eq.pending`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'rejected'})});}catch(e){console.error('Error al rechazar abonos provisionales',e)}
       }
@@ -366,7 +398,7 @@ exports.handler = async function(event) {
       const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
       const noteResult={skipped:true,reason:approved?'La nota se habilita cuando todas las unidades físicas estén asignadas.':'Pago no aprobado'};
       const inventory=await inventoryTransition(p,status);
-      return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true},fx_quote:updatedFx});
+      return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true},fx_quote:updatedFx,bank_receipts:bankReceipts,bank_warnings:bankWarnings});
     }
 
     const notePaymentReady=()=>{

@@ -6,6 +6,7 @@ exports.handler=async function(event){
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const {getRate}=require('./fx-rate-core');
   const {prepare:prepareMixed}=require('./pos-mixed-payment');
+  const {normalize:normalizeDestination}=require('./payment-destinations');
   const clean=v=>String(v??'').trim(), norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const cfg=mainConfig(),url=cfg.url,service=cfg.service;
   if(!url||!service)return r(501,{ok:false,error:'Faltan variables de Supabase'});
@@ -66,6 +67,8 @@ exports.handler=async function(event){
 
   const payment=clean(b.payment_method||'Efectivo USD'), paymentRef=clean(b.payment_ref||'');
   if(payment!=='Pago mixto'&&!/efectivo/i.test(payment)&&!paymentRef)return r(400,{ok:false,error:'Indica la referencia del pago para este método.'});
+  let paymentDestination={code:null,name:null};
+  if(payment!=='Pago mixto'){try{paymentDestination=normalizeDestination(payment,b.payment_destination_code,{required:true})}catch(e){return r(400,{ok:false,error:e.message})}}
 
   const discountType=clean(b.discount_type||'usd')==='percent'?'percent':'usd';
   const discountValue=Math.max(0,Number(b.discount_value||0));
@@ -113,7 +116,7 @@ exports.handler=async function(event){
         if(mixed.quote)fxQuote={...q,total_usd:total,total_ves:mixed.paid_ves};
       }catch(e){return r(400,{ok:false,error:e.message});}
     }
-    if(/pago\s*m[oó]vil|punto\s*de\s*venta|^pos$|tarjeta/i.test(payment)){
+    if(payment!=='Pago mixto'&&paymentDestination.currency==='VES'){
       const q=await getRate(true);
       if(q.stale)throw new Error('No se puede registrar un nuevo cobro en bolívares sin verificar la tasa BCV vigente.');
       fxQuote={...q,total_usd:total,total_ves:Math.round(total*q.rate*100)/100};
@@ -125,6 +128,7 @@ exports.handler=async function(event){
 
     const pedidoPayload={
       codigo:code,cliente_id:customer?.id||null,estado:'Pago por verificar',metodo_pago:payment,referencia_pago:paymentRef,
+      payment_destination_code:paymentDestination.code||null,payment_destination_name:paymentDestination.name||null,
       subtotal_usd:subtotal,discount_type:discountType,discount_value:discountValue,discount_usd:discountUsd,discount_reason:discountReason||null,
       total_usd:total,total_bs:fxQuote?.total_ves??null,
       bcv_rate:fxQuote?.rate??null,bcv_effective_date:fxQuote?.effective_date??null,bcv_source:fxQuote?.source??null,bcv_checked_at:fxQuote?.checked_at??null,
@@ -137,6 +141,8 @@ exports.handler=async function(event){
     let po;
     try{po=await req('pedidos',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(pedidoPayload)})}
     catch(e){
+      if(/payment_destination_code|payment_destination_name/i.test(clean(e.message)))
+        return r(409,{ok:false,migration_required:true,error:'Ejecuta MIGRACION-MAIN-V15.27-DESTINOS-PAGO-CUENTAS.sql en el Supabase principal antes de registrar destinos bancarios.'});
       if(/salesperson_user_id|salesperson_email|salesperson_name|pos_source/i.test(clean(e.message)))
         return r(409,{ok:false,migration_required:true,error:'Falta ejecutar supabase_v14_0_staff_pos.sql antes de usar ThinkStore Staff.'});
       if(/bcv_rate|bcv_effective_date|bcv_source|bcv_checked_at/i.test(clean(e.message)))

@@ -741,6 +741,18 @@ function tsShowToast(message){
   clearTimeout(window.__tsToastTimer);
   window.__tsToastTimer=setTimeout(()=>t.classList.remove('show'),2600);
 }
+function tsOnlinePaymentCanonical(method){
+  const m=String(method||'').trim();
+  if(m==='Punto de venta')return 'Punto de venta Bs';
+  if(m==='Efectivo')return 'Efectivo USD';
+  return m;
+}
+function tsOnlinePaymentDestination(method){
+  const canonical=tsOnlinePaymentCanonical(method),reg=window.ThinkStorePaymentDestinations;
+  if(!reg)return{code:'',name:''};
+  const code=reg.normalize?.(canonical,'')||'';const d=reg.byCode?.(code);
+  return{code:code||'',name:d?.name||''};
+}
 function renderPaymentDetails(pay){
   const box=document.getElementById('paymentDetailsCard');
   const inputs=document.getElementById('paymentInputs');
@@ -1021,6 +1033,7 @@ function buildOrder(status='Recibido', persist=true){
     status: cart.some(i=>String(i.condition).toLowerCase().includes('pre')) ? 'Preorden recibida' : status,
     customer:{...(customer||{}),...(currentUser||{}),shipping:$('deliveryType')?.value||customer?.shipping||currentUser?.shipping||'',delivery_lat:(currentUser||customer||{}).delivery_lat??null,delivery_lng:(currentUser||customer||{}).delivery_lng??null,delivery_accuracy_m:(currentUser||customer||{}).delivery_accuracy_m??null,delivery_maps_url:(currentUser||customer||{}).delivery_maps_url||''},
     payment:pay,
+    paymentDestination:tsOnlinePaymentDestination(pay),
     fxQuote: window.ThinkStoreFX?.needsVES(pay) ? window.ThinkStoreFX.snapshot(cart.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0)) : null,
     paymentRef:$('paymentRef') ? $('paymentRef').value.trim() : '',
     paymentAmount:$('paymentAmount') ? $('paymentAmount').value.trim() : '',
@@ -1614,6 +1627,7 @@ function buildOrder(status='Recibido', persist=true){
     status: cart.some(i=>String(i.condition).toLowerCase().includes('pre')) ? 'Preorden recibida' : status,
     customer:{...customer},
     payment:pay,
+    paymentDestination:tsOnlinePaymentDestination(pay),
     fxQuote: window.ThinkStoreFX?.needsVES(pay) ? window.ThinkStoreFX.snapshot(cart.reduce((s,i)=>s+Number(i.price||0)*Number(i.qty||1),0)) : null,
     paymentRef:$('paymentRef') ? $('paymentRef').value.trim() : '',
     paymentAmount:$('paymentAmount') ? $('paymentAmount').value.trim() : '',
@@ -2980,6 +2994,8 @@ async function saveOrderToSupabase(order){
     estado: order.status,
     metodo_pago: order.payment,
     referencia_pago: order.paymentRef,
+    payment_destination_code: order.paymentDestination?.code || null,
+    payment_destination_name: order.paymentDestination?.name || null,
     metodo_envio: order.deliveryType,
     empresa_envio: order.customer?.shipping,
     numero_guia: order.guideNumber,
@@ -2987,7 +3003,10 @@ async function saveOrderToSupabase(order){
     total_bs: order.fxQuote?.total_ves ?? null
   }).select('id,codigo,estado,created_at').single();
 
-  if(error) throw error;
+  if(error){
+    if(/payment_destination_code|payment_destination_name|schema cache|column/i.test(String(error.message||error.details||'')))throw new Error('Falta ejecutar MIGRACION-MAIN-V15.27-DESTINOS-PAGO-CUENTAS.sql en Supabase principal.');
+    throw error;
+  }
 
   if(inserted?.id && order.items?.length){
     const { error:itemError } = await window.tsSupabase.from('pedido_items').insert(order.items.map(i=>({

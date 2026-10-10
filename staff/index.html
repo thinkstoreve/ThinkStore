@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="ThinkStore Staff">
 <meta name="robots" content="noindex,nofollow">
 <title>ThinkStore Staff</title>
-<link rel="stylesheet" href="app.css?v=15.26.0">
+<link rel="stylesheet" href="app.css?v=15.27.0">
 </head>
 <body>
 <svg class="ts-icon-sprite" aria-hidden="true" focusable="false">
@@ -145,12 +145,11 @@
             <div class="staff-sale-heading"><h1>Pago y forma de entrega</h1><p>Los pedidos desde stock reservan sus unidades al guardarse. Las Pre-Orders no consumen existencia.</p></div>
             <form id="checkoutForm">
               <div class="form-section"><h3>Método de pago</h3>
-                <div id="paymentChoices" class="choice-grid staff-payment-grid">
-                  <button type="button" class="choice active" data-payment="Efectivo USD"><img src="../assets/efectivo.svg" alt=""><b>Efectivo en dólares</b></button>
-                  <button type="button" class="choice" data-payment="Pago Móvil"><img src="../assets/pago-movil.svg" alt=""><b>Pago móvil</b></button>
-                  <button type="button" class="choice" data-payment="Zelle"><img src="../assets/zelle.svg" alt=""><b>Zelle</b></button>
-                  <button type="button" class="choice" data-payment="Pago mixto"><span style="font-size:29px">⇄</span><b>Pago mixto · $ + Bs.</b></button>
+                <div class="staff-payment-browser">
+                  <div id="paymentCategoryBar" class="staff-payment-category-bar" role="tablist" aria-label="Grupos de pago"></div>
+                  <div id="paymentChoices" class="choice-grid staff-payment-grid" aria-live="polite"></div>
                 </div>
+                <div id="paymentDestinationPanel" class="staff-payment-destination hidden"></div>
                 <label id="paymentRefWrap" class="hidden staff-payment-ref">Referencia de pago<input id="paymentRef" placeholder="Referencia / confirmación"></label>
                 <div id="paymentFx" class="fx-box hidden"></div>
                 <div id="staffSplitPayment" hidden></div>
@@ -305,9 +304,10 @@
 <script src="../supabase-config.js"></script>
 <script src="../data.js"></script>
 <script src="../ts-fx.js?v=14.78"></script>
-<script src="../ts-payment-split.js?v=15.26"></script>
-<script src="cash.js?v=15.26.0"></script>
-<script src="repairs.js?v=15.26.0"></script>
-<script src="app.js?v=15.26.0"></script>
+<script src="../payment-destinations.js?v=15.27"></script>
+<script src="../ts-payment-split.js?v=15.27"></script>
+<script src="cash.js?v=15.27.0"></script>
+<script src="repairs.js?v=15.27.0"></script>
+<script src="app.js?v=15.27.0"></script>
 </body>
 </html>
