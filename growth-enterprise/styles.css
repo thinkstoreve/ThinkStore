@@ -321,3 +321,52 @@ button,input,select,textarea{font-size:16px}
   .petty-bank-summary b{font-size:20px}
   .petty-currency-kpi>i{right:12px}
 }
+
+
+/* V10.22 · Caja Chica compacta: logos transparentes, acciones premium y mejor densidad */
+.petty-bank-shell{width:min(940px,calc(100vw - 32px));padding:22px!important}
+.petty-bank-summary{gap:10px;margin:2px 0 14px}
+.petty-bank-summary>div{padding:13px 15px;border-radius:14px;background:linear-gradient(145deg,rgba(11,28,47,.9),rgba(7,18,31,.78))}
+.petty-bank-summary b{font-size:20px;letter-spacing:-.02em}
+.petty-bank-summary button{border:1px solid rgba(95,157,255,.35);background:rgba(39,111,224,.14);color:#dceaff;border-radius:10px;padding:7px 10px;font-weight:800;cursor:pointer}
+.petty-bank-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.petty-bank-card{padding:14px;border-radius:16px;background:linear-gradient(160deg,rgba(13,29,48,.97),rgba(7,17,29,.97));border-color:rgba(128,168,214,.16);box-shadow:0 10px 28px rgba(0,0,0,.14)}
+.petty-bank-card:hover{border-color:rgba(78,142,235,.38);box-shadow:0 13px 34px rgba(0,0,0,.2)}
+.petty-bank-card-head{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:11px;align-items:center}
+.petty-bank-copy{min-width:0}
+.petty-bank-card-head span{font-size:8px;letter-spacing:.13em;margin-bottom:2px;color:#7f97b3}
+.petty-bank-card-head h4{font-size:15px;line-height:1.2}
+.petty-bank-card-head small{font-size:10px;margin-top:2px}
+.petty-bank-logo,.petty-bank-logo-fallback{width:38px;height:38px;min-width:38px;border-radius:10px;background:transparent!important;box-shadow:none!important;overflow:visible}
+.petty-bank-logo img{width:34px;height:34px;max-width:34px;max-height:34px;object-fit:contain;filter:none}
+.petty-bank-logo-fallback{border:1px solid rgba(142,174,211,.2);background:rgba(255,255,255,.04)!important;color:#dbe7f7;font-size:11px}
+.petty-bank-money{text-align:right;min-width:94px}
+.petty-bank-balance{font-size:19px;line-height:1.1;margin:0;letter-spacing:-.025em;white-space:nowrap;color:#f7faff}
+.petty-bank-updated{font-size:9px;line-height:1.2;min-height:auto;margin-top:4px;color:#70859f;white-space:nowrap}
+.petty-bank-actions{display:grid;grid-template-columns:1.22fr 1fr 1fr 1fr 34px;gap:6px;margin-top:12px}
+.petty-bank-actions button,.petty-bank-action{appearance:none;border:1px solid rgba(130,166,207,.18)!important;background:rgba(255,255,255,.045)!important;color:#d8e2ef!important;min-height:32px!important;height:32px;padding:0 8px!important;border-radius:9px!important;font:700 10px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;display:inline-flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;box-shadow:none!important;transition:.16s ease;white-space:nowrap}
+.petty-bank-actions button:hover{transform:translateY(-1px);border-color:rgba(92,155,241,.48)!important;background:rgba(73,130,218,.12)!important;color:#fff!important}
+.petty-bank-action.is-primary{background:linear-gradient(135deg,rgba(38,115,225,.28),rgba(42,86,171,.18))!important;border-color:rgba(70,143,244,.42)!important;color:#f5f9ff!important}
+.petty-bank-action.is-icon{width:34px;padding:0!important}
+.petty-action-icon{width:14px;height:14px;flex:0 0 14px}
+.petty-bank-footer{margin-top:14px;padding-top:12px}
+.petty-bank-footer button{border:1px solid rgba(125,164,210,.2);background:rgba(255,255,255,.045);color:#dbe7f5;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer}
+.petty-bank-footer small{font-size:10px}
+@media(max-width:760px){
+  .petty-bank-shell{width:calc(100vw - 14px);padding:15px!important}
+  .petty-bank-grid{grid-template-columns:1fr}
+  .petty-bank-card-head{grid-template-columns:36px minmax(0,1fr) auto}
+  .petty-bank-logo,.petty-bank-logo-fallback{width:36px;height:36px;min-width:36px}
+  .petty-bank-logo img{width:32px;height:32px}
+  .petty-bank-actions{grid-template-columns:repeat(4,minmax(0,1fr)) 32px}
+  .petty-bank-actions button{font-size:9px!important;padding:0 5px!important}
+  .petty-action-icon{width:13px;height:13px;flex-basis:13px}
+}
+@media(max-width:500px){
+  .petty-bank-summary{grid-template-columns:1fr}
+  .petty-bank-card-head{grid-template-columns:34px minmax(0,1fr)}
+  .petty-bank-money{grid-column:2;text-align:left;display:flex;align-items:baseline;gap:8px;margin-top:2px}
+  .petty-bank-updated{margin:0;white-space:normal}
+  .petty-bank-actions{grid-template-columns:repeat(2,minmax(0,1fr)) 32px}
+  .petty-bank-action.is-icon{grid-column:3;grid-row:1}
+}

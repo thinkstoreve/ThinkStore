@@ -269,18 +269,8 @@ async function bootAuth(){
   const hasCodeCallback=/[?&]code=/i.test(location.href);
   const isSsoEntry=Boolean(ssoTokenHash||hasHashCallback||hasCodeCallback);
 
-  // V10.18: una visita directa SIEMPRE muestra login.
-  // Solo un callback SSO explícito puede abrir Enterprise automáticamente.
-  if(!isSsoEntry){
-    try{ await client.auth.signOut({scope:'local'}); }catch(_error){}
-    forceEnterpriseOpen();
-    qs('app')?.classList.add('hidden');
-    qs('lockScreen')?.classList.remove('hidden');
-    const boot=qs('enterpriseBoot');
-    if(boot){boot.style.display='none';boot.classList.add('hidden')}
-    setLoginMessage('Inicia sesión para abrir Enterprise.','');
-    return;
-  }
+  // V10.22: conservar una sesión válida al recargar o actualizar Enterprise.
+  // El cierre de sesión ocurre únicamente al pulsar Salir o cuando Supabase realmente invalida la sesión.
 
   async function openSession(session){
     if(opened||opening||!session?.user)return false;
@@ -3349,19 +3339,28 @@ function renderV9RealMarketing(data){
     requestAnimationFrame(()=>{applyExpenseFilters();['expensePeriod','expenseCategory','expenseFunded','expenseSearch'].forEach(id=>document.getElementById(id)?.addEventListener(id==='expenseSearch'?'input':'change',applyExpenseFilters))});
   }
   function pettyTypeLabel(t){return ({fund:'Reposición / fondo',expense:'Gasto menor',refund:'Reintegro',adjustment:'Ajuste'}[t]||t||'Movimiento')}
-  const pettyBrandFallback={
-    'boa':'bankofamerica.com','chase':'chase.com','pichincha':'pichincha.com','binance':'binance.com','zelle':'zellepay.com',
-    'banesco':'banesco.com','bnc':'bnc.com.ve','bdv':'bancodevenezuela.com','bancamiga':'bancamiga.com','bvc':'venezolano.com'
+  const pettyBrandAsset={
+    boa:'/assets/banks/boa.svg',chase:'/assets/banks/chase.svg',pichincha:'/assets/banks/pichincha.svg',binance:'/assets/banks/binance.svg',zelle:'/assets/banks/zelle.svg',
+    banesco:'/assets/banks/banesco.svg',bnc:'/assets/banks/bnc.svg',bdv:'/assets/banks/bdv.svg',bancamiga:'/assets/banks/bancamiga.svg',bvc:'/assets/banks/bvc.svg'
   };
   function pettyBankData(){return financeCache?.petty_cash?.banking||{accounts:[],movements:[],connected:false}}
   function pettyBankAccounts(currency){const c=String(currency||'').toUpperCase();return (pettyBankData().accounts||[]).filter(a=>String(a.currency||'').toUpperCase()===c&&a.active!==false)}
   function pettyBankName(a){return a?.alias?`${a.alias} · ${a.display_name||a.institution_name||''}`:(a?.display_name||a?.institution_name||'Cuenta')}
   function pettyBankLogo(a){
-    const domain=a?.domain||pettyBrandFallback[String(a?.code||'').toLowerCase()]||'';
+    const code=String(a?.code||'').toLowerCase(),src=pettyBrandAsset[code]||'';
     const initials=String(a?.institution_name||a?.display_name||'TS').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
-    if(!domain)return `<span class="petty-bank-logo-fallback">${safe(initials)}</span>`;
-    const src=`https://www.google.com/s2/favicons?sz=128&domain_url=https://${encodeURIComponent(domain)}`;
-    return `<span class="petty-bank-logo"><img src="${safe(src)}" alt="${safe(a?.institution_name||'Logo')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="petty-bank-logo-fallback" style="display:none">${safe(initials)}</i></span>`;
+    if(!src)return `<span class="petty-bank-logo-fallback">${safe(initials)}</span>`;
+    return `<span class="petty-bank-logo"><img src="${safe(src)}" alt="${safe(a?.institution_name||'Logo')}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="petty-bank-logo-fallback" style="display:none">${safe(initials)}</i></span>`;
+  }
+  function pettyActionIcon(kind){
+    const paths={
+      movement:'<path d="M12 5v14M5 12h14"/>',
+      transfer:'<path d="M7 7h11l-3-3m3 3-3 3M17 17H6l3 3m-3-3 3-3"/>',
+      adjust:'<path d="M4 7h7m4 0h5M4 17h3m4 0h9M11 4v6M7 14v6"/>',
+      history:'<path d="M4 12a8 8 0 1 0 2.3-5.7L4 8M4 4v4h4M12 8v5l3 2"/>',
+      settings:'<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8 3.5-2.1-.8a6.4 6.4 0 0 0-.6-1.4l.9-2-2-2-.9.4-1.1.5a6.5 6.5 0 0 0-1.4-.6L12 4H9.2l-.8 2.1a6.5 6.5 0 0 0-1.4.6l-2-.9-2 2 .9 2a6.4 6.4 0 0 0-.6 1.4L1.2 12v2.8l2.1.8c.1.5.3 1 .6 1.4l-.9 2 2 2 2-.9c.4.3.9.5 1.4.6l.8 2.1H12l.8-2.1c.5-.1 1-.3 1.4-.6l2 .9 2-2-.9-2c.3-.4.5-.9.6-1.4l2.1-.8V12Z"/>',
+    };
+    return `<svg class="petty-action-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[kind]||paths.movement}</svg>`;
   }
   function pettyBankOptions(currency='',selected=''){
     const c=String(currency||'').toUpperCase(),rows=(pettyBankData().accounts||[]).filter(a=>!c||String(a.currency||'').toUpperCase()===c);
@@ -3550,8 +3549,8 @@ function renderV9RealMarketing(data){
     if(!bank.connected){alert('Primero ejecuta la migración MIGRACION-ENTERPRISE-V10.21-CAJA-CHICA-CUENTAS.sql en el Supabase principal. No borra ningún valor existente.');return}
     const unassigned=c==='VES'?Number(bank.unassigned_ves||0):Number(bank.unassigned_usd||0);
     closeFinModal();const wrap=document.createElement('div');wrap.className='fin-modal petty-bank-modal';
-    const accountCards=accounts.map(a=>`<article class="petty-bank-card" data-bank-card="${safe(a.id)}"><div class="petty-bank-card-head">${pettyBankLogo(a)}<div><span>${safe(a.account_type==='wallet'?'BILLETERA / RED':'CUENTA')}</span><h4>${safe(pettyBankName(a))}</h4><small>${a.account_last4?`•••• ${safe(a.account_last4)}`:'Sin terminación registrada'}</small></div></div><b class="petty-bank-balance">${c==='VES'?`${fn(a.balance)} Bs`:fm(a.balance)}</b><small class="petty-bank-updated">${a.last_movement_at?`Último movimiento ${fd(a.last_movement_at)}`:'Sin movimientos'}</small><div class="petty-bank-actions"><button type="button" data-petty-bank-menu="${safe(a.id)}">+ Movimiento</button><button type="button" data-petty-bank-transfer="${safe(a.id)}">Transferir</button><button type="button" data-petty-bank-adjust="${safe(a.id)}">Ajustar</button><button type="button" data-petty-bank-history="${safe(a.id)}">Historial</button><button type="button" data-bank-settings>⚙︎</button></div></article>`).join('');
-    wrap.innerHTML=`<div class="fin-modal-backdrop"></div><div class="fin-modal-card petty-bank-shell"><button class="fin-modal-x">×</button><div class="fin-modal-head"><span>CAJA CHICA · ${safe(c)}</span><h3>Cuentas y saldos</h3><p>El total de Caja Chica no cambia al distribuir o transferir dinero entre cuentas.</p></div><div class="petty-bank-summary"><div><span>Total ${safe(c)}</span><b>${c==='VES'?`${fn(p.balance_ves)} Bs`:fm(p.balance_usd)}</b></div><div><span>Sin asignar</span><b>${c==='VES'?`${fn(unassigned)} Bs`:fm(unassigned)}</b><button type="button" data-petty-bank-allocate="${safe(c)}" ${unassigned<=0?'disabled':''}>Asignar a cuenta</button></div></div><div class="petty-bank-grid">${accountCards||'<div class="fin-empty">No hay cuentas configuradas para esta moneda.</div>'}</div><div class="petty-bank-footer"><button type="button" data-petty-bank-reconcile>Conciliar</button><small>Los logos se obtienen desde los dominios oficiales de cada institución.</small></div></div>`;
+    const accountCards=accounts.map(a=>`<article class="petty-bank-card" data-bank-card="${safe(a.id)}"><div class="petty-bank-card-head">${pettyBankLogo(a)}<div class="petty-bank-copy"><span>${safe(a.account_type==='wallet'?'BILLETERA / RED':'CUENTA')}</span><h4>${safe(pettyBankName(a))}</h4><small>${a.account_last4?`•••• ${safe(a.account_last4)}`:'Sin terminación registrada'}</small></div><div class="petty-bank-money"><b class="petty-bank-balance">${c==='VES'?`${fn(a.balance)} Bs`:fm(a.balance)}</b><small class="petty-bank-updated">${a.last_movement_at?`Mov. ${fd(a.last_movement_at)}`:'Sin movimientos'}</small></div></div><div class="petty-bank-actions"><button class="petty-bank-action is-primary" type="button" data-petty-bank-menu="${safe(a.id)}">${pettyActionIcon('movement')}<span>Movimiento</span></button><button class="petty-bank-action" type="button" data-petty-bank-transfer="${safe(a.id)}">${pettyActionIcon('transfer')}<span>Transferir</span></button><button class="petty-bank-action" type="button" data-petty-bank-adjust="${safe(a.id)}">${pettyActionIcon('adjust')}<span>Ajustar</span></button><button class="petty-bank-action" type="button" data-petty-bank-history="${safe(a.id)}">${pettyActionIcon('history')}<span>Historial</span></button><button class="petty-bank-action is-icon" type="button" data-bank-settings aria-label="Configurar ${safe(pettyBankName(a))}">${pettyActionIcon('settings')}</button></div></article>`).join('');
+    wrap.innerHTML=`<div class="fin-modal-backdrop"></div><div class="fin-modal-card petty-bank-shell"><button class="fin-modal-x">×</button><div class="fin-modal-head"><span>CAJA CHICA · ${safe(c)}</span><h3>Cuentas y saldos</h3><p>El total de Caja Chica no cambia al distribuir o transferir dinero entre cuentas.</p></div><div class="petty-bank-summary"><div><span>Total ${safe(c)}</span><b>${c==='VES'?`${fn(p.balance_ves)} Bs`:fm(p.balance_usd)}</b></div><div><span>Sin asignar</span><b>${c==='VES'?`${fn(unassigned)} Bs`:fm(unassigned)}</b><button type="button" data-petty-bank-allocate="${safe(c)}" ${unassigned<=0?'disabled':''}>Asignar a cuenta</button></div></div><div class="petty-bank-grid">${accountCards||'<div class="fin-empty">No hay cuentas configuradas para esta moneda.</div>'}</div><div class="petty-bank-footer"><button type="button" data-petty-bank-reconcile>Conciliar</button><small>Iconos bancarios locales · fondo transparente · carga rápida.</small></div></div>`;
     document.body.appendChild(wrap);wrap.querySelector('.fin-modal-backdrop').onclick=closeFinModal;wrap.querySelector('.fin-modal-x').onclick=closeFinModal;
   }
   function openPettyBankMenu(id){const a=(pettyBankData().accounts||[]).find(x=>String(x.id)===String(id));if(!a)return;modalShell(pettyBankName(a),'Selecciona el tipo de movimiento que quieres registrar en esta cuenta.',`<div class="petty-bank-menu"><button type="button" data-bank-move-type="expense" data-bank-id="${safe(a.id)}">− Gasto</button><button type="button" data-bank-move-type="fund" data-bank-id="${safe(a.id)}">+ Reponer fondo</button><button type="button" data-bank-move-type="refund" data-bank-id="${safe(a.id)}">↩ Reintegro</button><button type="button" data-bank-move-type="adjustment" data-bank-id="${safe(a.id)}">± Ajuste</button></div>`, 'Cerrar',async()=>true);const submit=document.querySelector('.fin-modal .fin-submit');if(submit)submit.type='button';if(submit)submit.onclick=closeFinModal;}
@@ -3595,5 +3594,5 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
 /* V10.13 · integración financiera + Caja Chica */
 (function(){
   const btn=document.getElementById('refreshEnterpriseBtn');
-  if(btn){btn.addEventListener('click',async()=>{btn.disabled=true;btn.textContent='Actualizando…';try{await Promise.allSettled([window.loadFinanceCenter?.(true),window.loadEnterpriseV9?.(),window.loadEnterpriseWeeklySummary?.(true)]);const s=document.getElementById('enterpriseLastSync');if(s)s.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});}finally{btn.disabled=false;btn.textContent='Actualizar';}})}
+  if(btn){btn.addEventListener('click',async e=>{e.preventDefault();e.stopPropagation();const previous=btn.textContent;btn.disabled=true;btn.textContent='Actualizando…';try{await Promise.allSettled([window.loadFinanceCenter?.(true),window.loadEnterpriseV9?.(),window.loadEnterpriseWeeklySummary?.(true)]);const s=document.getElementById('enterpriseLastSync');if(s)s.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});}finally{btn.disabled=false;btn.textContent=previous||'Actualizar';}})}
 })();

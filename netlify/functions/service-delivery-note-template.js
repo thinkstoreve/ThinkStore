@@ -2,12 +2,39 @@
 const {css}=require('./delivery-note-template');
 const E=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const money=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-const LOGO='https://thinkstore.com.ve/assets/logo-thinkstore-email-transparent.png';
+const LOGO='https://thinkstore.com.ve/assets/logo-thinkstore-note-black.png';
 const dateParts=value=>{const d=new Date(value||Date.now());return{date:d.toLocaleDateString('es-VE',{timeZone:'America/Caracas'}),time:d.toLocaleTimeString('es-VE',{timeZone:'America/Caracas',hour:'2-digit',minute:'2-digit'})}};
 const field=(label,value)=>`<div class="ts-note-row"><b>${E(label)}</b><span>${E(value||'No indicado')}</span></div>`;
-const paymentRef=events=>{const e=(events||[]).find(x=>x.event_type==='payment'&&x.reference)||(events||[]).find(x=>x.reference);return e?.reference||'No aplica'};
-const paymentMethod=(order,events)=>order?.payment_method||(events||[]).find(x=>x.payment_method)?.payment_method||'Registrado';
+const paymentRefs=events=>{const refs=[];for(const e of (events||[])){if(e?.reference)refs.push(String(e.reference).trim());for(const m of String(e?.notes||'').matchAll(/Ref\.\s*([^·\n]+)/gi))if(m[1])refs.push(m[1].trim())}return [...new Set(refs.filter(Boolean))]};
+const paymentRef=events=>{const refs=paymentRefs(events);return refs.length?refs.join(' · '):'No aplica'};
+const paymentMethod=(order,events)=>{const methods=[...new Set((events||[]).filter(x=>x?.event_type==='payment'&&x?.payment_method).map(x=>String(x.payment_method).trim()).filter(Boolean))];if(methods.length>1)return `Pago combinado · ${methods.join(' + ')}`;return order?.payment_method||methods[0]||(events||[]).find(x=>x.payment_method)?.payment_method||'Registrado'};
 const repairText=(order,notes)=>{const rich=(notes||[]).find(n=>String(n.work_performed||'').trim())||(notes||[]).find(n=>String(n.note||'').trim());return rich?.work_performed||order?.technical_notes||order?.quote_repair_details||rich?.note||order?.reported_issue||'Servicio técnico realizado';};
+const cleanObservation=v=>String(v||'')
+  .replace(/thinkstore\.ve@gmail\.com/ig,'')
+  .replace(/(?:^|\s)[·|,-]\s*(?=[·|,-]|$)/g,' ')
+  .replace(/\s*[·|,-]\s*$/g,'')
+  .replace(/\s{2,}/g,' ')
+  .trim();
+const observationsText=(order,notes)=>{
+  const rows=Array.isArray(notes)?notes:[];
+  const clientNote=rows.find(n=>String(n?.client_notes||'').trim());
+  if(clientNote)return cleanObservation(clientNote.client_notes);
+  const visible=rows.find(n=>String(n?.visibility||'').toLowerCase()==='client'&&String(n?.note||'').trim());
+  if(visible)return cleanObservation(visible.note);
+  const fallback=cleanObservation(order?.payment_notes||'');
+  if(/^cobro staff:/i.test(fallback))return '';
+  return fallback;
+};
+const chargingRepairRecommendation=(order,notes,parts,extras)=>{
+  const text=[
+    repairText(order,notes),order?.quote_repair_details,order?.technical_notes,order?.reported_issue,
+    ...(parts||[]).flatMap(p=>[p?.service_parts?.name,p?.service_parts?.category,p?.part_name,p?.sku]),
+    ...(extras||[]).flatMap(x=>[x?.name,x?.sku,x?.metadata?.category,x?.metadata?.description])
+  ].filter(Boolean).join(' · ');
+  return /circuito\s*(?:de\s*)?carga|ic\s*(?:de\s*)?carga|charging\s*ic|tristar|hydra|tigris/i.test(text)
+    ? 'Se recomienda reemplazar el cargador y/o cable de carga lo antes posible para garantizar una mayor efectividad del servicio. Si alguno de estos accesorios se encuentra defectuoso, podría volver a ocasionar daños en el circuito de carga.'
+    : '';
+};
 function render({order={},events=[],parts=[],notes=[],extras=[]}={}){
  const stamp=dateParts(order.paid_at||order.updated_at||Date.now());
  const total=Number(order.quote_amount||0);
@@ -24,16 +51,19 @@ function render({order={},events=[],parts=[],notes=[],extras=[]}={}){
  if(order.public_token)trackingParams.set('token',String(order.public_token));
  const tracking=`https://soporte.thinkstore.com.ve/seguimiento.html?${trackingParams.toString()}`;
  const qr='https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='+encodeURIComponent(tracking);
- const social=`<div class="ts-note-social"><a href="https://thinkstore.com.ve">thinkstore.com.ve</a><a href="https://www.instagram.com/thinkstore_ve/">@thinkstore_ve</a><a href="https://wa.me/584141032030">+58 414 103 2030</a></div>`;
+ const social=`<div class="ts-note-social"><a href="https://thinkstore.com.ve">thinkstore.com.ve</a><a href="mailto:soporte@thinkstore.com.ve">soporte@thinkstore.com.ve</a><a href="https://www.instagram.com/thinkstore_ve/">@thinkstore_ve</a><a href="https://wa.me/584141032030">+58 414 103 2030</a></div>`;
+ const observations=observationsText(order,notes);
+ const recommendation=chargingRepairRecommendation(order,notes,parts,extras);
  return css+`<div class="ts-note-doc"><article class="ts-note-sheet">
-   <header class="ts-note-top"><div class="ts-note-brand"><img src="${LOGO}" alt="ThinkStore"><div><div class="ts-note-wordmark">ThinkStore</div><div class="ts-note-slogan">TODO LO QUE DESEAS EN UN MISMO LUGAR</div></div></div><div class="ts-note-number"><small>NÚMERO DE ORDEN</small><strong>${E(order.code||'Por asignar')}</strong><span>Fecha: ${E(stamp.date)}</span><span>Hora: ${E(stamp.time)}</span></div></header>
+   <header class="ts-note-top"><div class="ts-note-brand"><img src="${LOGO}" alt="ThinkStore" style="filter:none"><div><div class="ts-note-wordmark">ThinkStore</div><div class="ts-note-slogan">TODO LO QUE DESEAS EN UN MISMO LUGAR</div></div></div><div class="ts-note-number"><small>NÚMERO DE ORDEN</small><strong>${E(order.code||'Por asignar')}</strong><span>Fecha: ${E(stamp.date)}</span><span>Hora: ${E(stamp.time)}</span></div></header>
    <h1 class="ts-note-title">Nota de entrega</h1><p class="ts-note-thanks">Servicio Técnico ThinkStore</p><p class="ts-note-intro">Conserva esta nota como respaldo de la reparación y de la garantía indicada para el servicio.</p>
    <section class="ts-note-section"><h3>Datos del cliente</h3><div class="ts-note-inner ts-note-client"><div>${field('Nombre',order.client_name)}${field('Correo',order.client_email)}${field('Teléfono',order.client_phone)}</div><div>${field('Equipo',order.device_model)}${field('Serial / IMEI',order.serial_imei)}${field('Orden de servicio',order.code)}</div></div></section>
    <section class="ts-note-section"><h3>Reparación realizada</h3><div class="ts-note-inner">${E(repairText(order,notes))}</div></section>
    <section class="ts-note-section"><h3>Repuestos utilizados</h3><div class="ts-note-inner">${rows}</div></section>
    ${extraRows?`<section class="ts-note-section"><h3>Servicios y productos adicionales</h3><div class="ts-note-inner">${extraRows}</div></section>`:''}
    <section class="ts-note-section"><h3>Pago y garantía</h3><div class="ts-note-inner ts-note-client"><div>${field('Subtotal',money(subtotal))}${discount>0?field(`Descuento${discountType==='percent'&&discountValue?` (${discountValue}%)`:''}`,`− ${money(discount)}${discountReason?` · ${discountReason}`:''}`):''}${field('Total reparación',money(total))}${field('Método de pago',paymentMethod(order,events))}${field('Referencia de pago',paymentRef(events))}</div><div>${field('Garantía',`${Number(order.warranty_days||0)} día(s)`)}${field('Estado técnico',order.status||'En proceso')}</div></div></section>
-   <section class="ts-note-section"><h3>Observaciones</h3><div class="ts-note-inner">${E(order.payment_notes||'Sin observaciones adicionales.')}</div></section>
+   <section class="ts-note-section"><h3>Observaciones</h3><div class="ts-note-inner">${E(observations||'Sin observaciones adicionales.')}</div></section>
+   ${recommendation?`<section class="ts-note-section"><h3>Recomendación técnica</h3><div class="ts-note-inner"><strong>${E(recommendation)}</strong></div></section>`:''}
    <section class="ts-note-section"><h3>Política de garantía</h3><div class="ts-note-inner ts-note-policy"><strong>La garantía aplica únicamente a la reparación y repuestos indicados en esta orden durante el plazo especificado.</strong><br>No cubre golpes, humedad, manipulación externa, daños nuevos ni intervenciones de terceros. La evaluación técnica determina la procedencia.<div class="ts-note-policy-note">Conserva esta Nota de Entrega y el número de orden como respaldo.</div></div></section>
    <footer class="ts-note-footer"><div class="ts-note-sign">Gracias por confiar en<b>ThinkStore</b></div>${social}<div class="ts-note-qr"><img src="${qr}" alt="QR de seguimiento"><span>Escanea el QR<br>para consultar<br>tu reparación</span></div></footer>
    <div class="ts-note-bottom">TODO LO QUE DESEAS EN UN MISMO LUGAR</div>

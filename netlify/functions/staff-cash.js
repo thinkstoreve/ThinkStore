@@ -9,6 +9,7 @@ const clean=(v,max=500)=>String(v??'').trim().slice(0,max);
 const num=(v,max=1e9)=>{if(v===''||v===null||v===undefined||!Number.isFinite(Number(v))||Number(v)<0||Number(v)>max||Math.abs(Number(v)*100-Math.round(Number(v)*100))>0.00001)throw Error('Monto inválido: usa valores positivos con máximo dos decimales.');return Number(v)};
 const rateNum=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0||n>1e9)throw Error('Tasa BCV inválida.');return n};
 const config=()=>{const c=mainConfig();return{url:c.url,key:c.service};};
+const businessDateCaracas=()=>{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=t=>parts.find(x=>x.type===t)?.value||'';return `${get('year')}-${get('month')}-${get('day')}`;};
 async function rest(url,key,table,params={},opts={}){
  const address=new URL(url+'/rest/v1/'+table);
  for(const [k,v]of Object.entries(params))if(v!==undefined&&v!==null)address.searchParams.set(k,String(v));
@@ -94,10 +95,12 @@ exports.handler=async event=>{
    if(!actor)return respond(403,{ok:false,error:'Acceso a Caja exclusivo de personal con permiso de Ventas.'});
    if(event.httpMethod==='GET'){
      const sessions=await loadSessions(url,key,actor);
-     const chosen=clean(event.queryStringParameters?.session_id,40);
-     const session=chosen?sessions.find(x=>x.id===chosen):sessions.find(x=>x.user_id===actor.user_id&&x.status==='open')||sessions.find(x=>x.user_id===actor.user_id)||null;
+     const chosen=clean(event.queryStringParameters?.session_id,40),businessDate=businessDateCaracas();
+     const ownToday=sessions.filter(x=>x.user_id===actor.user_id&&String(x.business_date)===businessDate);
+     const staleOpen=sessions.find(x=>x.user_id===actor.user_id&&x.status==='open'&&String(x.business_date)!==businessDate)||null;
+     const session=chosen?sessions.find(x=>x.id===chosen):(ownToday.find(x=>x.status==='open')||ownToday[0]||null);
      if(chosen&&!session)return respond(403,{ok:false,error:'No puedes ver esta caja o está fuera del historial reciente.'});
-     return respond(200,{ok:true,actor,sessions,session,cash:session?await loadCash(url,key,session):null,generated_at:new Date().toISOString()});
+     return respond(200,{ok:true,actor,sessions,session,stale_open_session:staleOpen?{id:staleOpen.id,business_date:staleOpen.business_date,opening_usd:staleOpen.opening_usd,opening_ves:staleOpen.opening_ves}:null,cash:session?await loadCash(url,key,session):null,generated_at:new Date().toISOString()});
    }
    const b=JSON.parse(event.body||'{}'),action=clean(b.action,30),payload={};
    if(!['open','movement','draft','close','reopen'].includes(action))return respond(400,{ok:false,error:'Acción desconocida'});

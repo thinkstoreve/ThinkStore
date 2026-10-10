@@ -9,6 +9,7 @@ const H={'Content-Type':'application/json','Cache-Control':'no-store','Access-Co
 const result=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
 const clean=(v,n=400)=>String(v??'').trim().slice(0,n);
 const usdText=v=>'$'+Number(v||0).toFixed(2);
+const paymentAmountText=p=>`${p?.currency==='VES'?'Bs.':p?.method==='EUR'?'EUR':p?.method==='USDT'?'USDT':p?.method==='Otro'?'Otro':'USD'} ${Number(p?.amount||0).toFixed(2)}`;
 const validOrderId=v=>/^[0-9]+$/.test(String(v||''))||/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''));
 function supportConfig(){return{
   url:clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/$/,''),
@@ -91,6 +92,25 @@ function billingSummary(order,parts=[],extras=[]){
   if(!(discountValue>0)&&storedDiscount>0)discount=Math.min(storedDiscount,subtotal);
   const invoice=Math.max(0,round(subtotal-discount)),paid=Math.max(0,round(order?.amount_paid||0)),pending=Math.max(0,round(invoice-paid));
   return{parts_total:ptotal,stored_quote:storedFinal,base_total:baseSubtotal,subtotal_usd:subtotal,discount_type:discountType,discount_value:discountValue,discount_usd:discount,discount_reason:clean(order?.discount_reason,160),extras_pending_total:extrasPendingTotal,extras_total:round(active.reduce((n,x)=>n+Number(x.quantity||1)*Number(x.unit_price_usd||0),0)),invoice_total:invoice,paid,pending,auto_from_parts:storedFinal<=0&&storedSubtotal<=0&&ptotal>0,pending_extra_count:pendingExtras.length};
+}
+
+async function enrichRepairListBilling(conf,orders=[]){
+  const pending=(orders||[]).filter(o=>Number(o?.quote_amount||0)<=0&&!/cancel|rechaz|no aprobado/i.test(String(o?.status||''))&&o?.code).slice(0,240);
+  if(!pending.length)return orders;
+  const wanted=new Set(pending.map(o=>String(o.code)));
+  const partMap=new Map(),extraMap=new Map();
+  const chunks=[];for(let i=0;i<pending.length;i+=60)chunks.push(pending.slice(i,i+60).map(o=>String(o.code)).filter(c=>/^[A-Za-z0-9._-]+$/.test(c)));
+  try{
+    const jobs=[];
+    for(const codes of chunks){if(!codes.length)continue;const q=`in.(${codes.join(',')})`;
+      jobs.push(rest(conf,'service_order_parts',{select:'order_code,quantity_reserved,quantity_consumed,sale_price_snapshot,status,service_parts(sale_price)',order_code:q,status:'neq.released',limit:5000}).then(rows=>({kind:'parts',rows})));
+      jobs.push(rest(conf,'service_order_sale_items',{select:'order_code,quantity,unit_price_usd,status,included_in_quote',order_code:q,status:'neq.removed',limit:5000}).then(rows=>({kind:'extras',rows})).catch(()=>({kind:'extras',rows:[]})));
+    }
+    const batches=await Promise.all(jobs);
+    for(const batch of batches){for(const row of batch.rows||[]){const code=String(row.order_code||'');if(!wanted.has(code))continue;const map=batch.kind==='parts'?partMap:extraMap;if(!map.has(code))map.set(code,[]);map.get(code).push(row)}}
+    for(const o of pending){const b=billingSummary(o,partMap.get(String(o.code))||[],extraMap.get(String(o.code))||[]);o.staff_invoice_total=b.invoice_total;o.staff_pending=b.pending;o.staff_paid=b.paid;o.staff_auto_from_parts=b.auto_from_parts;o.staff_parts_total=b.parts_total;}
+  }catch(e){console.warn('No se pudo enriquecer cobros pendientes de reparaciones',e.message)}
+  return orders;
 }
 function mainConf(){const m=mainConfig();return{url:clean(m.url).replace(/\/$/,''),key:clean(m.service)}}
 async function searchChargeCatalog(conf,q,orderCode=''){
@@ -267,10 +287,11 @@ exports.handler=async event=>{
         return result(200,{ok:true,order,account:account(order),billing:billingSummary(order,parts,extras),events,parts,extras,notes,catalog,history_available:historyAvailable});
       }
       const data=await ordersList(conf);
+      await enrichRepairListBilling(conf,data.orders);
       return result(200,{ok:true,...data,refreshed_at:new Date().toISOString()});
     }
     let b;try{b=JSON.parse(event.body||'{}')}catch{return result(400,{ok:false,error:'Solicitud inválida'})}
-    if(!['pay','view_delivery_note','resend_delivery_note','add_charge','remove_charge','update_discount'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
+    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','add_charge','remove_charge','update_discount'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
     const id=clean(b.order_id,50);
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
     let current=await getOrder(conf,id);
@@ -378,13 +399,57 @@ exports.handler=async event=>{
       if(billing.pending_extra_count>0)await rest(conf,'service_order_sale_items',{order_code:`eq.${current.code}`,status:'eq.active',included_in_quote:'eq.false'},{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({included_in_quote:true,updated_at:new Date().toISOString()})});
       billing=billingSummary(current,billingParts,await orderExtras(conf,current.code));
     }
+    if(b.action==='multi_pay'){
+      const raw=Array.isArray(b.payments)?b.payments:[];
+      if(raw.length<2||raw.length>3)return result(400,{ok:false,error:'El pago combinado admite entre 2 y 3 métodos.'});
+      if(account(current).budget<=0)return result(409,{ok:false,error:'Para combinar métodos primero debe existir un total de reparación.'});
+      const hasBs=raw.some(x=>['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs'].includes(String(x?.method||'')));
+      let bcv=null;if(hasBs)bcv=await getRate(true);
+      let simulated={...current},plans=[];
+      try{
+        for(const line of raw){const p=paymentPlan(simulated,{method:line?.method,amount:line?.amount,usd_equivalent:line?.usd_equivalent,reference:line?.reference,finalize_no_quote:false},bcv);plans.push(p);simulated={...simulated,amount_paid:p.after}}
+      }catch(e){return result(400,{ok:false,error:e.message||'Revisa los montos del pago combinado.'})}
+      const target=round(Number(current.quote_amount||0)),plannedAfter=round(Number(simulated.amount_paid||0));
+      if(Math.abs(plannedAfter-target)>.02)return result(409,{ok:false,error:plannedAfter<target?`El pago combinado está incompleto. Faltan $${round(target-plannedAfter).toFixed(2)}.`:`El pago combinado supera el total en $${round(plannedAfter-target).toFixed(2)}.`});
+      const comment=clean(b.note,300);let processed=0,atomicState={},updated=current;const descriptions=[];
+      for(let i=0;i<plans.length;i++){
+        const p=plans[i],description=`Cobro combinado Staff ${i+1}/${plans.length}: ${p.method} · ${paymentAmountText(p)} · equiv. USD ${p.equivalent.toFixed(2)}${p.rate?` · BCV ${p.rate}, vigencia ${p.bcv_effective_date}`:''}${p.reference?' · Ref. '+p.reference:''}${comment?' · '+comment:''} · ${actor.email}`;
+        descriptions.push(description);
+        try{
+          const atomic=await rest(conf,'rpc/ts_service_record_payment_atomic',{}, {method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({
+            p_order_code:current.code,p_amount_delta:p.equivalent,p_payment_method:p.method,p_reference:p.reference||null,p_notes:description,p_actor_email:actor.email||'',
+            p_currency:p.currency,p_original_amount:p.amount,p_bcv_rate:p.rate||null,p_bcv_effective_date:p.bcv_effective_date||null
+          })});
+          atomicState=Array.isArray(atomic)?(atomic[0]||{}):(atomic||{});processed++;
+          updated=await getOrder(conf,id);if(!updated)throw Error('No se pudo volver a leer la orden después de registrar un tramo del pago.');
+        }catch(e){
+          if(processed>0)return result(409,{ok:false,partial_payment:true,processed,error:`Se registraron ${processed} de ${plans.length} métodos antes de producirse un error. No repitas el cobro completo: actualiza la orden y cobra solo el saldo restante. Detalle: ${clean(e.message||'error de cobro',220)}`});
+          if(e.status===404||/function|rpc|schema cache|does not exist/i.test(String(e.message||'')))return result(409,{ok:false,error:'Falta activar el cierre automático V8.8.8 en el Supabase de Soporte. Ejecuta los 4 SQL antes de cobrar.'});
+          throw e;
+        }
+      }
+      if(!atomicState.fully_paid)return result(409,{ok:false,partial_payment:true,processed,error:'Los métodos se registraron, pero la orden aún conserva saldo. Actualiza la reparación antes de intentar otro cobro.'});
+      if(String(updated.payment_status||'').toLowerCase()!=='pagado'){
+        try{const normalized=await rest(conf,'service_orders',{id:`eq.${id}`},{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({payment_status:'Pagado',payment_method:'Pago combinado',paid_at:updated.paid_at||new Date().toISOString()})});if(Array.isArray(normalized)&&normalized[0])updated=normalized[0]}catch(e){console.warn('No se pudo normalizar el estado del pago combinado',e.message)}
+      }else{
+        try{const normalized=await rest(conf,'service_orders',{id:`eq.${id}`},{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({payment_method:'Pago combinado'})});if(Array.isArray(normalized)&&normalized[0])updated=normalized[0]}catch(e){console.warn('No se pudo marcar Pago combinado',e.message)}
+      }
+      let storeInventory={ok:true,lines:0};
+      try{storeInventory=await mainRpc('ts_service_consume_store_variants',{p_order_code:updated.code,p_actor_email:actor.email||''})||storeInventory}catch(e){console.warn('Productos adicionales: no se pudo consumir inventario principal',e.message);storeInventory={ok:false,error:e.message}}
+      try{await rest(conf,'service_order_sale_items',{order_code:`eq.${updated.code}`,status:'eq.active'},{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({status:'consumed',updated_at:new Date().toISOString()})})}catch(e){console.warn('No se pudo cerrar cargos adicionales',e.message)}
+      let audited=true;try{await rest(conf,'service_order_notes',{}, {method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({order_id:id,note:`Pago combinado Staff: ${plans.map(p=>`${p.method} ${paymentAmountText(p)}`).join(' + ')}${comment?' · '+comment:''}`,visibility:'internal',author_name:actor.email||'Staff',note_type:'Cobranza Staff',status_after:updated.status})})}catch(e){audited=false;console.warn('Soporte cobranzas: nota combinada no registrada',e.message)}
+      let deliveryNoteEmail={sent:false};try{const note=await deliveryNoteData(conf,updated);deliveryNoteEmail=await sendDeliveryNote(updated,note.html)}catch(e){console.warn('Nota de Entrega de Soporte no enviada',e.message);deliveryNoteEmail={sent:false,error:e.message}}
+      const notes=await orderNotes(conf,updated.id);let parts=await orderParts(conf,updated.code);if(!parts.length)parts=parsePartsFallback(notes);const extras=await orderExtras(conf,updated.code);
+      let financeSettlement=null,financeWarning='';try{financeSettlement=await syncEnterpriseServiceSettlement(updated,parts,extras,billingSummary(updated,parts,extras),actor)}catch(e){financeWarning=e.message||'No se pudo sincronizar Enterprise';console.warn('Liquidación Enterprise',financeWarning)}
+      return result(200,{ok:true,multi_payment:true,payment_lines:plans.map(p=>({method:p.method,currency:p.currency,amount:p.amount,usd_equivalent:p.equivalent,reference:p.reference||''})),order:updated,billing:billingSummary(updated,parts,extras),parts,extras,notes,note_saved:audited,fully_paid:true,inventory:atomicState.inventory||null,store_inventory:storeInventory,delivery_note_ready:true,email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail,finance_settlement:financeSettlement,finance_warning:financeWarning});
+    }
     // A source-verified rate is ALWAYS fetched at checkout on the server.
     const isBs=['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs'].includes(b.method);
     let bcv=null;
     if(isBs)bcv=await getRate(true);
     const p=paymentPlan(current,b,bcv);
     const comment=clean(b.note,300);
-    const description=`Cobro Staff: ${p.method} · ${p.currency==='VES'?'Bs.':'USD'} ${p.amount.toFixed(2)} · equiv. USD ${p.equivalent.toFixed(2)}${p.rate?` · BCV ${p.rate}, vigencia ${p.bcv_effective_date}`:''}${p.reference?' · Ref. '+p.reference:''}${comment?' · '+comment:''}${p.bootstrap_quote?' · Total final definido al cobrar':''} · ${actor.email}`;
+    const description=`Cobro Staff: ${p.method} · ${paymentAmountText(p)} · equiv. USD ${p.equivalent.toFixed(2)}${p.rate?` · BCV ${p.rate}, vigencia ${p.bcv_effective_date}`:''}${p.reference?' · Ref. '+p.reference:''}${comment?' · '+comment:''}${p.bootstrap_quote?' · Total final definido al cobrar':''} · ${actor.email}`;
     // Si la orden todavía no tiene cotización, Staff puede fijar el total final en el mismo acto de cobro.
     // Se hace antes del RPC para que el cierre atómico pueda validar el saldo y generar la Nota de Entrega.
     if(p.bootstrap_quote){

@@ -85,7 +85,8 @@ async function load(){
  if(!api||!user||loading)return;loading=true;
  try{
    const d=await request('GET',selected?{session_id:selected}:{});
-   data=d;error('');render();
+   data=d;render();
+   if(!d.session&&d.stale_open_session){error(`Hay una caja anterior (${d.stale_open_session.business_date}) que quedó abierta. No se reutiliza como apertura de hoy; revísala desde el selector de administración antes de cerrar el período.`)}else error('');
  }catch(e){error(e.message);}
  finally{loading=false}
 }

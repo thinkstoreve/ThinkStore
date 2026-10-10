@@ -7,7 +7,7 @@ const METHODS={
 const cents=n=>Math.round((Number(n)+Number.EPSILON)*100);
 const money=c=>Math.round(c)/100;
 function prepare(lines,totalUsd,quote,options={}){
-  if(!Array.isArray(lines)||lines.length<2||lines.length>12)throw Error('El pago mixto requiere entre 2 y 12 abonos.');
+  if(!Array.isArray(lines)||lines.length<2||lines.length>3)throw Error('El pago mixto requiere entre 2 y 3 abonos.');
   const target=cents(totalUsd);
   if(!Number.isSafeInteger(target)||target<=0)throw Error('El monto de venta debe ser mayor que cero.');
   const out=[];let paid=0,bsCents=0;
