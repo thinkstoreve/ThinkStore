@@ -4,7 +4,7 @@ const categories={
     label:'iPhone',hero:'Reparación de iPhone: precios por modelo',subtitle:'Consulta pantalla, batería, carga, cámaras y otras reparaciones. El precio publicado puede incluir repuesto y mano de obra según el servicio.',search:'Busca tu modelo, por ejemplo iPhone 13 Pro Max',
     series:['iPhone 7','iPhone 8','iPhone X','iPhone XR','iPhone XS','iPhone SE','iPhone 11','iPhone 12','iPhone 13','iPhone 14','iPhone 15','iPhone 16','iPhone 17','iPhone 18'],
     modelTypes:['Normal','Mini','Plus','Pro','Pro Max','Air','SE'],
-    repairs:['Pantalla','Glass pantalla','Batería','Glass trasero','Cámara frontal','Cámara trasera','Cristal cámara','Cristal cámara trasera','Flex de carga','Flex de encendido','Chasis','Auricular','Parlante','Micrófono','Botón home','Botón volumen','WiFi','Dual SIM','Lector SIM','Baseband','MagSafe','Software','Face ID','Placa lógica','Baño químico','Diagnóstico'],
+    repairs:['Pantalla','Glass pantalla','Batería','Glass trasero','Cámara frontal','Cámara trasera','Cristal cámara','Cristal cámara trasera','Flex de carga','Circuito de carga','Cambio de IC','Flex de encendido','Chasis','Auricular','Parlante','Micrófono','Botón home','Botón volumen','WiFi','Dual SIM','Lector SIM','Baseband','MagSafe','Software','Face ID','Placa lógica','Baño químico','Diagnóstico'],
     qualities:['Estándar','AAA','Original'],
     symptoms:['Pantalla rota o sin imagen','Batería dura poco','No carga','Se mojó','No enciende','Cámara no funciona','Sin señal','Sonido bajo o sin audio','Equipo lento','Problema de software']
   },
@@ -12,14 +12,14 @@ const categories={
     label:'Mac',hero:'Servicio técnico Mac: precios de reparación',subtitle:'Cotiza MacBook Air, MacBook Pro, MacBook e iMac por familia, modelo y tipo de falla.',search:'Busca tu modelo, por ejemplo A2338 o MacBook Pro M1',
     series:['MacBook Air','MacBook Pro','MacBook','iMac','Mac mini','Mac Studio','Mac Pro'],
     modelTypes:['Intel','M1','M2','M3','M4','13 pulgadas','14 pulgadas','15 pulgadas','16 pulgadas','21.5 pulgadas','24 pulgadas','27 pulgadas'],
-    repairs:['Pantalla','Batería','Teclado','Trackpad','Flex de carga / USB-C','Puerto MagSafe','Altavoz','Micrófono','Cámara','Ventilador','SSD / almacenamiento','Fuente de poder','Limpieza interna','Daño por líquido','Sistema macOS','Diagnóstico','Placa lógica','Microsoldadura'],
+    repairs:['Pantalla','Batería','Teclado','Trackpad','Flex de carga / USB-C','Circuito de carga','Cambio de IC','Puerto MagSafe','Altavoz','Micrófono','Cámara','Ventilador','SSD / almacenamiento','Fuente de poder','Limpieza interna','Daño por líquido','Sistema macOS','Diagnóstico','Placa lógica','Microsoldadura'],
     qualities:['Estándar','AAA','Original'],symptoms:['Pantalla rota o sin imagen','Batería dura poco','No carga','Se mojó','No enciende','Teclado falla','Equipo lento','Sin sonido','Sin WiFi']
   },
   iPad:{
     label:'iPad',hero:'Reparación de iPad: precios por modelo',subtitle:'Consulta pantalla, glass, batería, carga, cámaras y diagnóstico según la familia exacta de iPad.',search:'Busca tu modelo, por ejemplo iPad Pro 11 M2',
     series:['iPad','iPad mini','iPad Air','iPad Pro 11','iPad Pro 12.9','iPad Pro 13'],
     modelTypes:['Normal','Mini','Air','Pro','Wi‑Fi','Cellular'],
-    repairs:['Pantalla','Glass pantalla','Batería','Flex de carga','Cámara frontal','Cámara trasera','Botón home','Botón encendido','Botón volumen','Altavoz','Micrófono','Chasis','Conector Smart','Apple Pencil / carga','Daño por líquido','Software / iPadOS','Diagnóstico','Placa lógica','Microsoldadura'],
+    repairs:['Pantalla','Glass pantalla','Batería','Flex de carga','Circuito de carga','Cambio de IC','Cámara frontal','Cámara trasera','Botón home','Botón encendido','Botón volumen','Altavoz','Micrófono','Chasis','Conector Smart','Apple Pencil / carga','Daño por líquido','Software / iPadOS','Diagnóstico','Placa lógica','Microsoldadura'],
     qualities:['Estándar','AAA','Original'],symptoms:['Pantalla rota o sin imagen','Batería dura poco','No carga','Se mojó','No enciende','Cámara no funciona','Sin sonido','Problema de software']
   },
   'Apple Watch':{

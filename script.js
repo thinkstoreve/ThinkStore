@@ -13,7 +13,30 @@ if(currentUser){ customer=currentUser; }
 let lastNote='';
 
 const $=id=>document.getElementById(id);
-const asset=p=>{ const v=String(p||'').trim(); if(!v) return ''; if(v.startsWith('http')||v.startsWith('data:')||v.startsWith('assets/')) return v; return 'assets/'+v; };
+const TS_LEGACY_IMAGE_MAP={
+  'iphone18/colors/iphone18-pro-max-light-blue.jpg':'assets/hero18/v1382/light-blue-hero-full.webp',
+  'iphone18/colors/iphone18-pro-max-dark-cherry.jpg':'assets/hero18/v1382/dark-cherry-hero-full.webp',
+  'iphone18/colors/iphone18-pro-max-dark-gray.jpg':'assets/featured_iphone_card_premium.png',
+  'iphone18/colors/iphone18-pro-max-silver.jpg':'assets/featured_iphone_card_premium.png',
+  'iphone18/iphone18-pro-burgundy.jpg':'assets/hero18/v1382/dark-cherry-hero-full.webp'
+};
+function resolveCatalogAsset(p){
+  const v=String(p||'').trim(); if(!v)return '';
+  const clean=v.replace(/^assets\//,'');
+  if(TS_LEGACY_IMAGE_MAP[clean])return TS_LEGACY_IMAGE_MAP[clean];
+  if(v.startsWith('http')||v.startsWith('data:')||v.startsWith('assets/'))return v;
+  return 'assets/'+v;
+}
+function catalogImageFallback(p){
+  const name=tsCatalogNorm(`${p?.name||''} ${p?.model||''}`);
+  const cat=productCategoryV2?productCategoryV2(p):String(p?.category||'');
+  if(name.includes('iphone 18 pro max'))return 'assets/hero18/v1382/dark-cherry-hero-full.webp';
+  if(name.includes('iphone 18 pro'))return 'assets/hero18/v1382/light-blue-hero-full.webp';
+  if(name.includes('iphone ultra'))return 'assets/featured_iphone_card_premium.png';
+  if(String(cat).toLowerCase()==='iphone')return 'assets/featured_iphone_card_premium.png';
+  return resolveCatalogAsset(tsCatalogFallbackImage(String(cat).replace('AirPods','Audio').replace('Watch','Apple Watch')))||'assets/logo-thinkstore.png';
+}
+const asset=p=>resolveCatalogAsset(p);
 const getCat=p=>p.category||p.cat||'Catálogo';
 const getDesc=p=>p.description||p.desc||'';
 const getConfigs=p=>p.storage||p.variants||p.capacities||['Consultar configuración'];
@@ -57,7 +80,7 @@ function tsCatalogFallbackImage(category){
   if(category==='Mac') return '808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg';
   if(category==='iPad') return 'C1D43603-926A-4ACF-AA49-5AD3866E8AC5.jpeg';
   if(category==='Audio') return 'FD7B07BD-D841-400A-931C-4F4EC3BAA9BA.jpeg';
-  if(category==='iPhone') return 'iphone_assets_sheet.jpg';
+  if(category==='iPhone') return 'featured_iphone_card_premium.png';
   if(category==='Repuestos') return 'iphone_assets_sheet.jpg';
   return '0006EEA4-4088-48F6-A287-F0EBB608BB63.jpeg';
 }
@@ -67,7 +90,7 @@ function tsBaseCatalogProducts(){
   try{ if(Array.isArray(PRODUCTS)) PRODUCTS.forEach(p=>{ if(p&&!out.some(x=>String(x.id)===String(p.id))) out.push(p); }); }catch(e){}
   return out;
 }
-function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
+function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventoryProducts){
   // V1.4: data.js sigue siendo la fuente visual de productos existentes.
   // Productos NUEVOS solo se agregan si fueron publicados explícitamente en el Panel
   // y tienen una imagen propia. Nada se infiere por categoría para evitar mezclar fotos.
@@ -148,13 +171,17 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
     const image=eg.main;
     const category=tsCatalogCategoryForProduct(c.product_name,c.category);
     if(existing){
-      // Producto ya existente: la galería de Supabase sustituye la visual sin mezclar modelos.
-      existing.main=image; existing.gallery=eg.urls;
-      if(colors.length)existing.colors=galleryColorMap(colors,eg.urls,image,eg.rows);
+      // Producto ya existente: solo sustituye la visual cuando Supabase tiene una imagen real.
+      // Nunca reemplaza una portada válida por el mosaico genérico usado como placeholder.
+      const genericImage=tsCatalogNorm(image).includes('iphone assets sheet');
+      if(image&&!genericImage){
+        existing.main=image; existing.gallery=eg.urls;
+        if(colors.length)existing.colors=galleryColorMap(colors,eg.urls,image,eg.rows);
+      }
       const isUltra=tsCatalogNorm(existing.name||existing.model||c.product_name||'')==='iphone ultra';
-      if(isUltra){
+      if(isUltra && image && !genericImage){
         const colorLabels=colors.length?colors:Object.keys(existing.colors||{});
-        existing.gallery=image?[image]:[];
+        existing.gallery=[image];
         if(colorLabels.length){
           const mono={};
           colorLabels.forEach(label=>mono[label]=image);
@@ -192,6 +219,58 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages){
       sort_order:Number(c.sort_order||1000)
     };
     enrich(p,matched);base.push(p);
+  });
+
+  // 3) V15.30 · Productos publicados directamente desde Inventory Central.
+  // Esto evita que accesorios nuevos queden fuera de la tienda porque catalog_products
+  // todavía los tenga como borrador. Solo incorporamos productos activos/publicados.
+  const inventoryRows=(inventoryProducts||[]).filter(p=>p&&p.active!==false&&p.published!==false);
+  const accessoryRows=inventoryRows.filter(p=>tsCatalogNorm(p.category).includes('acces'));
+  const accessoryGroups=new Map();
+  accessoryRows.forEach(p=>{
+    const groupName=String(p.product_group||p.name||'').trim();
+    if(!groupName)return;
+    const key=tsCatalogNorm(groupName);
+    if(!accessoryGroups.has(key))accessoryGroups.set(key,{name:groupName,rows:[]});
+    accessoryGroups.get(key).rows.push(p);
+  });
+  accessoryGroups.forEach(group=>{
+    const invRows=group.rows;
+    const key=tsCatalogNorm(group.name);
+    let existing=base.find(p=>tsCatalogNorm(p.name||p.family||'')===key);
+    const variantsForGroup=rows.filter(v=>tsCatalogNorm(v.product_name||'')===key);
+    const prices=[...invRows.map(x=>Number(x.sale_price||0)),...variantsForGroup.map(x=>Number(x.price_usd||0))].filter(n=>n>0);
+    const colors=[...new Set(invRows.map(x=>String(x.color||'').trim()).filter(Boolean))];
+    const specs=[...new Set(invRows.map(x=>String(x.compatibility||x.model||x.capacity||'').trim()).filter(Boolean))];
+    const conditions=[...new Set(invRows.map(x=>String(x.condition||'Nuevo').trim()).filter(Boolean))];
+    const imageRows=invRows.filter(x=>x.image_url);
+    const main=imageRows[0]?.image_url||tsCatalogFallbackImage('Accesorios');
+    const colorMap={};
+    colors.forEach(color=>{const hit=imageRows.find(x=>tsCatalogNorm(x.color)===tsCatalogNorm(color));colorMap[color]=hit?.image_url||main;});
+    if(!colors.length)colorMap['Disponible']=main;
+    const subcategory=invRows.find(x=>x.subcategory)?.subcategory||'Otros accesorios';
+    const desc=invRows.find(x=>x.description)?.description||invRows.find(x=>x.compatibility)?.compatibility||subcategory;
+    if(existing){
+      existing.category='Accesorios';existing.cat='Accesorios';existing.subcategory=subcategory;
+      if(!existing.main||String(existing.main).includes('iphone_assets_sheet'))existing.main=main;
+      if(!existing.gallery?.length)existing.gallery=[main];
+      if(colors.length)existing.colors={...(existing.colors||{}),...colorMap};
+      if(specs.length)existing.storage=specs;
+      if(conditions.length)existing.condition=conditions;
+      if(prices.length)existing.price=Math.min(...prices);
+      existing.inventory_live=true;existing.inventory_source='central';
+      return;
+    }
+    const p={
+      id:'inv-'+tsCatalogSlug(group.name),name:group.name,family:group.name,model:group.name,
+      category:'Accesorios',cat:'Accesorios',subcategory,brand:invRows[0]?.brand||'Apple',badge:subcategory,
+      description:desc||'Accesorio disponible en ThinkStore.',main,gallery:[...new Set(imageRows.map(x=>x.image_url))].length?[...new Set(imageRows.map(x=>x.image_url))]:[main],
+      colors:colorMap,storage:specs.length?specs:['Consultar configuración'],condition:conditions.length?conditions:['Nuevo'],
+      active:true,inventory_live:true,inventory_source:'central',sort_order:Math.min(...invRows.map(x=>Number(x.sort_order||1000)))
+    };
+    if(prices.length)p.price=Math.min(...prices);
+    if(variantsForGroup.length)enrich(p,variantsForGroup);
+    base.push(p);
   });
   return base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
 }
@@ -519,7 +598,7 @@ async function addCart(){
 
 function waProduct(){
   let msg=`Hola ThinkStore, estoy interesado en:\nProducto: ${selectedProduct.name}\nModelo: ${selectedProduct.family||selectedProduct.name}\nColor: ${selectedColor}\n${selectionText()}\nEstado: ${selectedCondition}\n¿Disponibilidad y precio?`;
-  open('https://wa.me/584141032030?text='+encodeURIComponent(msg),'_blank');
+  open('https://wa.me/584241706142?text='+encodeURIComponent(msg),'_blank');
 }
 
 function openCart(){drawCart();$('cart').classList.add('open');syncCheckoutCards();}
@@ -955,13 +1034,13 @@ function closeNote(){ window.closeNote(); }
 function copyNote(){navigator.clipboard.writeText(lastNote || noteText());}
 function sendNoteWhatsApp(){
   const msg=lastNote || noteText();
-  open('https://wa.me/584141032030?text='+encodeURIComponent(msg),'_blank');
+  open('https://wa.me/584241706142?text='+encodeURIComponent(msg),'_blank');
 }
 function checkoutWhatsApp(){
   if(!cart.length){alert('Tu carrito está vacío.');return;}
   if(!customer){openRegister();return;}
   lastNote=noteText();
-  open('https://wa.me/584141032030?text='+encodeURIComponent(lastNote),'_blank');
+  open('https://wa.me/584241706142?text='+encodeURIComponent(lastNote),'_blank');
 }
 
 function toggleTheme(){document.body.classList.toggle('dark');}
@@ -1170,7 +1249,7 @@ function buildPremiumNoteHTML(order){
       <div class="note-qr-wrap apple-qr-wrap"><div id="noteQR"></div><div><p>Escanea para ver tu pedido</p><b>ThinkStore.com.ve/seguimiento</b></div></div>
     </section>
 
-    <footer class="note-footer apple-note-footer"><div><img src="assets/thinkstore_logo_custom.jpeg"><b>THINK<span>STORE</span></b></div><div>✉ ventas@thinkstore.com.ve</div><div>☎ 0412-123.45.67</div><div>Instagram · WhatsApp · Web</div></footer>
+    <footer class="note-footer apple-note-footer"><div><img src="assets/thinkstore_logo_custom.jpeg"><b>THINK<span>STORE</span></b></div><div>✉ ventas@thinkstore.com.ve</div><div>☎ 0424-1706142</div><div>Instagram · WhatsApp · Web</div></footer>
   </div>`;
 }
 
@@ -1234,7 +1313,7 @@ function checkoutWhatsApp(){
   const order = buildOrder('Recibido', true);
   if(!order) return;
   lastNote=order.note;
-  open('https://wa.me/584141032030?text='+encodeURIComponent(lastNote),'_blank');
+  open('https://wa.me/584241706142?text='+encodeURIComponent(lastNote),'_blank');
   cart=[]; count(); drawCart();
 }
 
@@ -1275,7 +1354,7 @@ function premiumEmailTemplate({customerName='cliente', code='TS-000', title='Act
   return `THINKSTORE
 Todo lo que deseas en un mismo lugar
 Apple • Accesorios • Soporte Técnico
-Altamira, Caracas
+Chacao, Caracas
 
 ━━━━━━━━━━━━━━━━━━━━━━
 ${title}
@@ -1307,7 +1386,7 @@ ${note ? note + '\n\n' : ''}Puedes consultar el estado actualizado desde tu cuen
 Gracias por confiar en ThinkStore.
 
 ThinkStore
-📍 Altamira, Caracas
+📍 Chacao, Caracas
 📦 Envíos nacionales
 🛠️ Soporte especializado Apple
 🌐 ThinkStore.com.ve
@@ -1706,7 +1785,7 @@ async function checkoutWhatsApp(){
 
     if(typeof tsShowToast==='function') tsShowToast('✅ Pedido creado correctamente');
     try{tsShowOrderCreated(order)}catch(e){console.warn('Modal de confirmación:',e)}
-    try{open('https://wa.me/584141032030?text='+encodeURIComponent(lastNote),'_blank')}catch(e){console.warn('WhatsApp:',e)}
+    try{open('https://wa.me/584241706142?text='+encodeURIComponent(lastNote),'_blank')}catch(e){console.warn('WhatsApp:',e)}
 
     cart=[];
     try{count()}catch(e){console.warn('Contador carrito:',e)}
@@ -2040,7 +2119,7 @@ function buildPremiumNoteHTML(order){
         <b>THINK<span>STORE</span></b>
       </div>
       <p>✉ ventas@thinkstore.com.ve</p>
-      <p>☏ 0412-123.45.67</p>
+      <p>☏ 0424-1706142</p>
       <p>◎ WhatsApp · Instagram · Web</p>
     </footer>
     <p class="ts-final-note">Gracias por elegir ThinkStore. Tu tienda Apple en Venezuela.</p>
@@ -2079,12 +2158,20 @@ let adminProducts = JSON.parse(localStorage.getItem('ts_admin_products') || 'nul
 let adminInventory = JSON.parse(localStorage.getItem('ts_admin_inventory') || 'null') || buildInitialInventory();
 let adminSettings = JSON.parse(localStorage.getItem('ts_admin_settings') || 'null') || {
   rate: 36,
-  whatsapp: '584141032030',
+  whatsapp: '584241706142',
   email: 'ventas@thinkstore.com.ve',
   instagram: '@thinkstore',
   payments: 'Pago Móvil Bancamiga: 0412-0142898 / E-84554142\nZelle: (954) 445-9161\nEfectivo: Pagar en tienda o delivery\nUSDT: Por configurar',
   shipping: {MRW:true, Zoom:true, Tealca:true, Pickup:true}
 };
+// V15.34 · migra automáticamente números comerciales antiguos guardados en este dispositivo.
+try{
+  const savedWa=String(adminSettings?.whatsapp||'').replace(/\D/g,'');
+  if(!savedWa || ['584141032030','584242142262','4141032030','4242142262','04141032030','04242142262'].includes(savedWa)){
+    adminSettings.whatsapp='584241706142';
+    localStorage.setItem('ts_admin_settings',JSON.stringify(adminSettings));
+  }
+}catch{}
 
 function buildInitialInventory(){
   const list = [];
@@ -3104,7 +3191,7 @@ function productCategoryV2(p){
   if(raw.includes('ipad')) return 'iPad';
   if(raw.includes('airpod') || raw.includes('audio')) return 'AirPods';
   if(raw.includes('watch')) return 'Watch';
-  if(raw.includes('pencil') || raw.includes('mouse') || raw.includes('keyboard') || raw.includes('airtag') || raw.includes('cable') || raw.includes('acces')) return 'Accesorios';
+  if(raw.includes('pencil') || raw.includes('mouse') || raw.includes('keyboard') || raw.includes('airtag') || raw.includes('cable') || raw.includes('cargador') || raw.includes('charger') || raw.includes('adaptador') || raw.includes('case') || raw.includes('funda') || raw.includes('magsafe') || raw.includes('acces')) return 'Accesorios';
   return p.category || 'Catálogo';
 }
 function productsV2(){
@@ -3115,11 +3202,8 @@ function productsV2(){
   return [];
 }
 function productImageV2(p){
-  const raw = p.main || p.image || p.img || (p.colors ? Object.values(p.colors)[0] : '') || 'iphone_assets_sheet.jpg';
-  const value = String(raw || '').trim();
-  if(!value) return 'assets/iphone_assets_sheet.jpg';
-  if(value.startsWith('http') || value.startsWith('data:') || value.startsWith('assets/')) return value;
-  return `assets/${value}`;
+  const raw=p.main||p.image||p.img||(p.colors?Object.values(p.colors)[0]:'');
+  return resolveCatalogAsset(raw)||catalogImageFallback(p);
 }
 function productPriceV2(p){
   const price = Number(p.price || p.from || p.basePrice || 0);
@@ -3133,13 +3217,15 @@ function openProductFromV2(id){
 }
 
 function featuredImageForProductV2(p){
-  const name = String(p.name || p.title || '').toLowerCase();
-  const cat = String(productCategoryV2(p) || '').toLowerCase();
-  if(name.includes('iphone 18 pro max')) return 'assets/iphone18/iphone18-pro-burgundy.jpg';
-  if(name.includes('iphone 17 pro max')) return 'assets/featured_iphone_card_premium.png';
-  if(name.includes('macbook pro')) return 'assets/featured_macbook_card_premium.png';
-  if(name.includes('airpods pro')) return 'assets/featured_airpods_card_premium.png';
-  if(name.includes('ipad a16') || cat.includes('ipad')) return 'assets/featured_ipad_card_premium.png';
+  const name=String(p.name||p.title||'').toLowerCase();
+  const cat=String(productCategoryV2(p)||'').toLowerCase();
+  if(name.includes('iphone 18 pro max'))return 'assets/hero18/v1382/dark-cherry-hero-full.webp';
+  if(name.includes('iphone 18 pro'))return 'assets/hero18/v1382/light-blue-hero-full.webp';
+  if(name.includes('iphone ultra'))return productImageV2(p)||'assets/featured_iphone_card_premium.png';
+  if(name.includes('iphone 17 pro max'))return 'assets/featured_iphone_card_premium.png';
+  if(name.includes('macbook pro'))return 'assets/featured_macbook_card_premium.png';
+  if(name.includes('airpods pro'))return 'assets/featured_airpods_card_premium.png';
+  if(name.includes('ipad a16')||cat.includes('ipad'))return 'assets/featured_ipad_card_premium.png';
   return productImageV2(p);
 }
 
@@ -3152,7 +3238,7 @@ function cardV2(p){
   const productClass = String(id || name).toLowerCase().replace(/[^a-z0-9]+/g,'-');
   return `
     <article class="ts-v2-product-card ts-featured-card ts-featured-${featuredClass} ts-product-${productClass}">
-      <div class="ts-v2-product-img"><img loading="lazy" decoding="async" fetchpriority="low" src="${img}" alt="${name}" onerror="this.src='assets/iphone_assets_sheet.jpg';this.onerror=null;"></div>
+      <div class="ts-v2-product-img"><img loading="lazy" decoding="async" fetchpriority="low" src="${img}" alt="${name}" onerror="this.onerror=null;this.src='${catalogImageFallback(p)}';"></div>
       <div class="ts-v2-product-body">
         <span>${productCategoryV2(p)}</span>
         <h3>${name}</h3>
@@ -3178,6 +3264,21 @@ function renderFeaturedV2(){
   if(featured.length < 4) featured = [...featured, ...list.filter(p=>!featured.includes(p)).slice(0, 4-featured.length)];
   box.innerHTML = featured.slice(0,4).map(cardV2).join('\n');
 }
+function accessoryGroupV2(p){
+  const raw=tsCatalogNorm(`${p?.subcategory||''} ${p?.name||''} ${p?.description||''}`);
+  if(/silicone|case|funda|forro/.test(raw)) return 'Cases';
+  if(/magsafe/.test(raw)) return 'MagSafe';
+  if(/cargador|charger|adaptador|power adapter/.test(raw)) return 'Cargadores';
+  if(/cable|lightning|usb c|usb-c|thunderbolt/.test(raw)) return 'Cables';
+  if(/vidrio|glass|templado/.test(raw)) return 'Vidrios';
+  if(/pencil|mouse|keyboard|airtag/.test(raw)) return 'Otros';
+  return String(p?.subcategory||'Otros').trim()||'Otros';
+}
+function renderAccessoryCategoryV2(list,filter='Todos'){
+  const box=document.getElementById('categoryModalV2Products'); if(!box)return;
+  const filtered=filter==='Todos'?list:list.filter(p=>accessoryGroupV2(p)===filter);
+  box.innerHTML=filtered.length?filtered.map(cardV2).join('\n'):'<div class="ts-v2-empty">No hay productos en esta subcategoría todavía.</div>';
+}
 function openCategoryModalV2(cat){
   const category = normalizeCategoryV2(cat);
   const modal = document.getElementById('categoryModalV2');
@@ -3202,7 +3303,18 @@ function openCategoryModalV2(cat){
   const list = productsV2().filter(p=>productCategoryV2(p) === category);
   box.innerHTML = '<div class="ts-loading-products">Cargando productos…</div>';
   requestAnimationFrame(()=>{
-    box.innerHTML = list.length ? list.map(cardV2).join('\n') : `<div class="ts-v2-empty">No hay productos en esta categoría todavía.</div>`;
+    if(category==='Accesorios' && list.length){
+      const order=['Cases','Cargadores','MagSafe','Cables','Vidrios','Otros'];
+      const present=[...new Set(list.map(accessoryGroupV2))];
+      const groups=['Todos',...order.filter(x=>present.includes(x)),...present.filter(x=>!order.includes(x))];
+      box.innerHTML=`<div class="ts-accessory-browser"><div class="ts-accessory-filters">${groups.map((g,i)=>`<button type="button" class="ts-accessory-chip ${i===0?'active':''}" data-accessory-group="${g}">${g}<small>${g==='Todos'?list.length:list.filter(p=>accessoryGroupV2(p)===g).length}</small></button>`).join('')}</div><div id="tsAccessoryProducts" class="ts-v2-category-products ts-accessory-products"></div></div>`;
+      const inner=document.getElementById('tsAccessoryProducts');
+      const draw=(g)=>{const filtered=g==='Todos'?list:list.filter(p=>accessoryGroupV2(p)===g);inner.innerHTML=filtered.length?filtered.map(cardV2).join('\n'):'<div class="ts-v2-empty">No hay productos en esta subcategoría todavía.</div>';};
+      draw('Todos');
+      box.querySelectorAll('[data-accessory-group]').forEach(btn=>btn.onclick=()=>{box.querySelectorAll('[data-accessory-group]').forEach(x=>x.classList.toggle('active',x===btn));draw(btn.dataset.accessoryGroup)});
+    }else{
+      box.innerHTML = list.length ? list.map(cardV2).join('\n') : `<div class="ts-v2-empty">No hay productos en esta categoría todavía.</div>`;
+    }
   });
 
   modal.classList.add('open');
@@ -3224,6 +3336,19 @@ function scrollToCatalogV2(){
   if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 window.addEventListener('load', ()=>{ setTimeout(renderFeaturedV2, 300); });
+
+/* V15.35 · enlaces directos desde Thinky */
+window.tsHandleChatbotCatalogDeepLink=function(){
+  try{
+    const q=new URLSearchParams(location.search),pid=q.get('producto'),pname=q.get('producto_nombre'),cat=q.get('categoria');
+    if(cat&&typeof openCategoryModalV2==='function')setTimeout(()=>openCategoryModalV2(cat),500);
+    if(pid||pname){
+      const open=()=>{const list=typeof productsV2==='function'?productsV2():[];const p=list.find(x=>String(x.id)===String(pid))||list.find(x=>tsCatalogNorm(x.name)===tsCatalogNorm(pname));if(p&&typeof openProductFromV2==='function'){openProductFromV2(p.id);return true}return false};
+      setTimeout(()=>{if(!open())setTimeout(open,950)},650);
+    }
+  }catch(e){}
+};
+window.addEventListener('load',window.tsHandleChatbotCatalogDeepLink);
 
 
 /* ===== ThinkStore FIX: cierre robusto de nota de entrega ===== */
@@ -4022,7 +4147,7 @@ window.addEventListener('load', ()=>{
 
   function buildStatusEmail(order){
     const products = (order.items||[]).map(i=>`${i.product}${i.color?' · '+i.color:''}${i.config?' · '+i.config:''}`).join('\n') || 'Producto por confirmar';
-    return `Hola ${order.customer?.name || 'cliente'},\n\nTu pedido ${order.code} fue actualizado.\n\nEstado actual: ${order.status}\n\nProducto(s):\n${products}\n\nProgreso:\n${FLOW.map((st,i)=>(i<=stepIndex(order.status)?'✅':'⬜')+' '+st[1]).join('\n')}\n\nPuedes revisar tu historial y nota de entrega iniciando sesión en tu cuenta ThinkStore.\n\nThinkStore\nAltamira, Caracas - Venezuela\nhttps://thinkstore.com.ve`;
+    return `Hola ${order.customer?.name || 'cliente'},\n\nTu pedido ${order.code} fue actualizado.\n\nEstado actual: ${order.status}\n\nProducto(s):\n${products}\n\nProgreso:\n${FLOW.map((st,i)=>(i<=stepIndex(order.status)?'✅':'⬜')+' '+st[1]).join('\n')}\n\nPuedes revisar tu historial y nota de entrega iniciando sesión en tu cuenta ThinkStore.\n\nThinkStore\nChacao, Caracas - Venezuela\nhttps://thinkstore.com.ve`;
   }
   async function sendStatusEmail(order, {manual=false}={}){
     const to = order.customer?.email || order.customer?.correo;
@@ -4891,7 +5016,7 @@ window.addEventListener('load', ()=>{
     if(!msg) return alert('Escribe el detalle de tu solicitud.');
     const c=customer();
     const body=`Hola ThinkStore, necesito soporte.\n\nCliente: ${c.name||c.nombre||''}\nCorreo: ${c.email||c.correo||''}\nAsunto: ${subj}\n\n${msg}`;
-    window.open('https://wa.me/584141032030?text='+encodeURIComponent(body),'_blank');
+    window.open('https://wa.me/584241706142?text='+encodeURIComponent(body),'_blank');
   };
   function enhanceAccount(){
     const logged=$('accountLoggedIn'); if(!logged || logged.querySelector('.ts-v552-account-tabs')) return;
@@ -4965,7 +5090,7 @@ window.addEventListener('load', ()=>{
     set('mkSubtitle','Descubre equipos Apple, accesorios originales y preórdenes exclusivas.');
     set('mkMessage','Hola, tenemos nuevas opciones disponibles en ThinkStore. Puedes consultar disponibilidad, precios y apartados directamente desde nuestra web o respondiendo este correo.');
     set('mkProductName','iPhone 16 Pro Max');
-    set('mkProductDetails','Disponible en varias capacidades y colores. Atención personalizada, envíos nacionales y retiro en tienda física en Altamira.');
+    set('mkProductDetails','Disponible en varias capacidades y colores. Atención personalizada, envíos nacionales y retiro coordinado por previa cita en Chacao, Caracas.');
     set('mkOffer','Oferta especial por tiempo limitado');
     set('mkActionUrl','https://thinkstore.com.ve');
     set('mkActionLabel','Ver catálogo');
@@ -5095,7 +5220,7 @@ window.addEventListener('load', ()=>{
     const items=o.pedido_items||o.items||[];
     const w=window.open('','_blank');
     const rows=(items.length?items:[{producto:'Producto por confirmar',cantidad:1,precio:orderTotal(o)}]).map(i=>`<tr><td>${itemName(i)}</td><td>${clean(i.color||'')}</td><td>${clean(i.capacidad||i.capacity||'')}</td><td>${i.cantidad||i.qty||1}</td><td>${money(i.precio||i.price_usd||0)}</td></tr>`).join('');
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Factura ${orderCode(o)||code}</title><style>body{font-family:Arial,sans-serif;color:#111;margin:40px}.head{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:20px}.logo{width:150px}h1{font-size:28px}table{width:100%;border-collapse:collapse;margin-top:28px}td,th{border-bottom:1px solid #eee;padding:12px;text-align:left}.total{text-align:right;font-size:24px;font-weight:800;margin-top:22px}.foot{margin-top:40px;color:#666;font-size:13px}</style></head><body><div class="head"><div><img class="logo" src="https://thinkstore.com.ve/assets/logo-thinkstore.png"><h1>Nota de entrega / Factura</h1><p><b>Pedido:</b> ${orderCode(o)||code}<br><b>Estado:</b> ${orderStatus(o)}<br><b>Fecha:</b> ${new Date().toLocaleDateString()}</p></div><div><b>ThinkStore</b><br>Altamira, Caracas<br>www.thinkstore.com.ve</div></div><h2>Cliente</h2><p>${orderCustomer(o)}<br>${orderEmail(o)}</p><table><thead><tr><th>Producto</th><th>Color</th><th>Capacidad</th><th>Cant.</th><th>Precio</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total: ${money(orderTotal(o))}</div><p class="foot">Documento generado por ThinkStore. Para validar este pedido, consulta el seguimiento en thinkstore.com.ve.</p><script>window.print()<\/script></body></html>`);
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Factura ${orderCode(o)||code}</title><style>body{font-family:Arial,sans-serif;color:#111;margin:40px}.head{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:20px}.logo{width:150px}h1{font-size:28px}table{width:100%;border-collapse:collapse;margin-top:28px}td,th{border-bottom:1px solid #eee;padding:12px;text-align:left}.total{text-align:right;font-size:24px;font-weight:800;margin-top:22px}.foot{margin-top:40px;color:#666;font-size:13px}</style></head><body><div class="head"><div><img class="logo" src="https://thinkstore.com.ve/assets/logo-thinkstore.png"><h1>Nota de entrega / Factura</h1><p><b>Pedido:</b> ${orderCode(o)||code}<br><b>Estado:</b> ${orderStatus(o)}<br><b>Fecha:</b> ${new Date().toLocaleDateString()}</p></div><div><b>ThinkStore</b><br>Chacao, Caracas<br>www.thinkstore.com.ve</div></div><h2>Cliente</h2><p>${orderCustomer(o)}<br>${orderEmail(o)}</p><table><thead><tr><th>Producto</th><th>Color</th><th>Capacidad</th><th>Cant.</th><th>Precio</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total: ${money(orderTotal(o))}</div><p class="foot">Documento generado por ThinkStore. Para validar este pedido, consulta el seguimiento en thinkstore.com.ve.</p><script>window.print()<\/script></body></html>`);
     w.document.close();
   };
 
@@ -5301,9 +5426,9 @@ window.addEventListener('load', ()=>{
 
 /* ===== ThinkStore WhatsApp inteligente ===== */
 (function(){
-  const DEFAULT_WA='584141032030';
+  const DEFAULT_WA='584241706142';
   function $(id){ return document.getElementById(id); }
-  function cleanPhone(v){ return String(v||'').replace(/[^0-9]/g,'') || DEFAULT_WA; }
+  function cleanPhone(v){ const p=String(v||'').replace(/[^0-9]/g,''); return ['584141032030','584242142262','4141032030','4242142262','04141032030','04242142262'].includes(p)?DEFAULT_WA:(p||DEFAULT_WA); }
   function waPhone(){
     try{
       if(window.adminSettings && window.adminSettings.whatsapp) return cleanPhone(window.adminSettings.whatsapp);
@@ -5357,7 +5482,7 @@ window.addEventListener('load', ()=>{
     else if(k==='carrito') msg+='\nQuiero confirmar mi carrito y recibir instrucciones para finalizar la compra.' + cartContext();
     else if(k==='preorden') msg+='\nQuiero información para realizar una preorden: tiempos, abono, disponibilidad y condiciones.' + productContext();
     else if(k==='soporte') msg+='\nNecesito soporte técnico / diagnóstico para un equipo Apple.';
-    else if(k==='ubicacion') msg+='\nQuiero la ubicación exacta de la tienda en Altamira, horario de atención y referencias para llegar.';
+    else if(k==='ubicacion') msg+='\nQuiero coordinar una cita presencial en Chacao, Caracas y confirmar horario e indicaciones antes de ir.';
     else msg+='\nNecesito asesoría para elegir un producto Apple según mi presupuesto y uso.';
     const extra=extraText();
     if(extra) msg+='\n\nMensaje adicional:\n'+extra;
@@ -5402,7 +5527,7 @@ window.addEventListener('load', ()=>{
     const m=$('tsFeatureModal'); if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
   }
   window.tsCloseFeatureModal=function(){ const m=$('tsFeatureModal'); if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); } };
-  function wa(txt){ if(window.tsOpenSmartWhatsApp){ window.tsOpenSmartWhatsApp('general'); setTimeout(()=>{ const t=$('tsSmartWaExtra'); if(t) t.value=txt; },80); } else window.open('https://wa.me/584242142262?text='+encodeURIComponent(txt),'_blank'); }
+  function wa(txt){ if(window.tsOpenSmartWhatsApp){ window.tsOpenSmartWhatsApp('general'); setTimeout(()=>{ const t=$('tsSmartWaExtra'); if(t) t.value=txt; },80); } else window.open('https://wa.me/584241706142?text='+encodeURIComponent(txt),'_blank'); }
   function result(id,txt){ const el=$(id); if(el) el.textContent=txt; }
   function formVal(id){ return ($(id)?.value||'').trim(); }
 
@@ -5498,7 +5623,7 @@ window.addEventListener('load', ()=>{
     const m=$('tsFeatureModal'); if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
   }
   function val(id){ return ($(id)?.value||'').trim(); }
-  function wa(msg){ if(window.tsOpenSmartWhatsApp){ window.tsOpenSmartWhatsApp('general'); setTimeout(()=>{ const t=$('tsSmartWaExtra'); if(t) t.value=msg; },80); } else window.open('https://wa.me/584242142262?text='+encodeURIComponent(msg),'_blank'); }
+  function wa(msg){ if(window.tsOpenSmartWhatsApp){ window.tsOpenSmartWhatsApp('general'); setTimeout(()=>{ const t=$('tsSmartWaExtra'); if(t) t.value=msg; },80); } else window.open('https://wa.me/584241706142?text='+encodeURIComponent(msg),'_blank'); }
   function clientEmail(o){ return o?.customer?.email || o?.customerEmail || o?.email || o?.cliente_email || ''; }
   function orderCode(o){ return o?.code || o?.codigo || o?.order_code || ''; }
   function orderTotal(o){ return Number(o?.total_usd || o?.total || o?.amount || 0); }
@@ -5620,7 +5745,7 @@ window.addEventListener('load', ()=>{
     if($('tsFeatureBody')) $('tsFeatureBody').innerHTML=body;
     const m=$('tsFeatureModal'); if(m){ m.classList.add('open'); m.setAttribute('aria-hidden','false'); }
   }
-  function wa(msg){ if(window.tsOpenSmartWhatsApp){ window.tsOpenSmartWhatsApp('general'); setTimeout(()=>{ const t=$('tsSmartWaExtra'); if(t) t.value=msg; },80); } else window.open('https://wa.me/584242142262?text='+encodeURIComponent(msg),'_blank'); }
+  function wa(msg){ if(window.tsOpenSmartWhatsApp){ window.tsOpenSmartWhatsApp('general'); setTimeout(()=>{ const t=$('tsSmartWaExtra'); if(t) t.value=msg; },80); } else window.open('https://wa.me/584241706142?text='+encodeURIComponent(msg),'_blank'); }
   const clientEmail=(o)=>o?.customer?.email || o?.customerEmail || o?.email || o?.cliente_email || '';
   const clientName=(o)=>o?.customer?.name || o?.customerName || o?.cliente || o?.name || '';
   const orderCode=(o)=>o?.code || o?.codigo || o?.order_code || '';
@@ -5753,7 +5878,7 @@ window.addEventListener('load', ()=>{
     try{
       const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok||!Array.isArray(data.variants))return;
-      tsInventoryCatalogProducts=tsBuildInventoryCatalog(data.variants,data.catalog_products||[],data.catalog_images||[]);
+      tsInventoryCatalogProducts=tsBuildInventoryCatalog(data.variants,data.catalog_products||[],data.catalog_images||[],data.inventory_products||[]);
       window.tsInventoryCatalogProducts=tsInventoryCatalogProducts;
       // Mantiene también el precio mínimo en los objetos locales para compatibilidad con módulos antiguos.
       const lists=[];
@@ -6479,7 +6604,7 @@ window.addEventListener('load', ()=>{
       return;
     }
     const message=`Hola ThinkStore, necesito solicitar ${requested}. Equipo: [modelo]. Falla o solicitud: [detalle].`;
-    window.open(`https://wa.me/584141032030?text=${encodeURIComponent(message)}`,'_blank','noopener');
+    window.open(`https://wa.me/584241706142?text=${encodeURIComponent(message)}`,'_blank','noopener');
   };
 })();
 

@@ -71,7 +71,7 @@ body{animation:tsLoginPageIn .5s cubic-bezier(.22,.7,.2,1) both}
 body img:first-of-type{animation:tsLoginLogoIn .42s ease-out .06s both}
 @media (prefers-reduced-motion:reduce){body,body img:first-of-type{animation:none!important;opacity:1!important;transform:none!important}}
 </style>
-  <link rel="stylesheet" href="chatbot.css">
+  <link rel="stylesheet" href="chatbot.css?v=15.35">
 </head>
 <body>
   <header class="ts-login-top">
@@ -318,6 +318,6 @@ body img:first-of-type{animation:tsLoginLogoIn .42s ease-out .06s both}
     sb.auth.getSession().then(({data})=>{if(data?.session?.user&&params.get('verified')==='1'){sessionStorage.removeItem('ts_pending_verify_email');showWelcome(data.session.user);}else if(data?.session?.user&&!params.get('view')){cacheUser(data.session.user).then(()=>{sessionStorage.removeItem('ts_pending_verify_email');location.href=safeNext();});}else if(params.get('verified')==='1'){show('login');status('loginStatus','Correo verificado correctamente. Ingresa tu contraseña para continuar.','ok');}});
   })();
   </script>
-  <script src="chatbot.js"></script>
+  <script src="chatbot.js?v=15.35"></script>
 </body>
 </html>

@@ -3912,3 +3912,33 @@ footer {
   content-visibility:auto;
   contain-intrinsic-size:1px 760px;
 }
+
+/* V15.30 · Accesorios vivos desde Inventory */
+.ts-accessory-browser{grid-column:1/-1;display:grid;gap:18px;width:100%}.ts-accessory-filters{display:flex;flex-wrap:wrap;gap:10px;padding:4px 2px 2px}.ts-accessory-chip{border:1px solid #e2e2e7;background:#fff;border-radius:999px;padding:10px 14px;display:inline-flex;align-items:center;gap:8px;color:#25252b;font:inherit;font-size:13px;font-weight:750;cursor:pointer;box-shadow:0 3px 12px #00000008}.ts-accessory-chip:hover{background:#f7f7f9}.ts-accessory-chip.active{background:#111;color:#fff;border-color:#111}.ts-accessory-chip small{min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#f0f0f3;color:#65656d;display:inline-grid;place-items:center;font-size:11px}.ts-accessory-chip.active small{background:#ffffff24;color:#fff}.ts-accessory-products{width:100%}@media(max-width:700px){.ts-accessory-filters{overflow-x:auto;flex-wrap:nowrap;padding-bottom:7px;-webkit-overflow-scrolling:touch}.ts-accessory-chip{white-space:nowrap;flex:0 0 auto}}
+
+
+/* V15.33 · Home: Servicio Técnico + Adobe / Office */
+.ts-home-service-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:24px}
+.ts-home-service-heading>div{max-width:820px}.ts-home-service-heading h2{margin-bottom:12px}.ts-home-service-heading p:last-child{color:var(--muted);line-height:1.6;margin:0}
+.ts-home-service-more{flex:0 0 auto;color:#06c;font-size:14px;font-weight:800;padding:11px 0}
+.ts-home-service-more:hover{text-decoration:underline}
+.ts-home-service-promo{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:16px;margin-top:20px}
+.ts-home-repair-card,.ts-home-software-card{border:1px solid var(--border);border-radius:30px;overflow:hidden;position:relative}
+.ts-home-repair-card{min-height:330px;padding:32px;background:linear-gradient(135deg,#111216 0%,#20242c 60%,#111216 100%);color:#fff;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 18px 45px rgba(0,0,0,.12)}
+.ts-home-repair-card:after{content:"";position:absolute;width:280px;height:280px;border-radius:50%;right:-90px;top:-100px;background:radial-gradient(circle,rgba(0,113,227,.42),rgba(0,113,227,0) 68%);pointer-events:none}
+.ts-home-repair-copy,.ts-home-repair-actions{position:relative;z-index:1}.ts-home-promo-kicker{display:block;color:#74aaff;text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:900;margin-bottom:9px}
+.ts-home-repair-card h3,.ts-home-software-card h3{margin:0;letter-spacing:-.045em}.ts-home-repair-card h3{font-size:clamp(30px,3vw,46px);line-height:1.02;max-width:540px}
+.ts-home-repair-card p{max-width:650px;color:#d4d4da;font-size:15px;line-height:1.62;margin:16px 0 18px}
+.ts-home-service-pills{display:flex;flex-wrap:wrap;gap:8px}.ts-home-service-pills span{display:inline-flex;padding:8px 11px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.07);font-size:12px;font-weight:800;color:#f5f5f7}
+.ts-home-repair-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}.ts-home-repair-actions .btn{margin:0;background:#fff;color:#111}.ts-home-repair-actions .ts-home-light-btn{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.ts-home-software-card{padding:28px;background:linear-gradient(180deg,#fff,#fafbfe);box-shadow:0 15px 40px rgba(0,0,0,.055)}
+.dark .ts-home-software-card{background:linear-gradient(180deg,#18181b,#121214)}
+.ts-home-software-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}.ts-home-software-head h3{font-size:28px;line-height:1.05}.ts-home-software-head p{color:var(--muted);font-size:13px;line-height:1.5;margin:9px 0 0;max-width:470px}.ts-home-software-head>a{flex:0 0 auto;font-size:12px;color:#06c;font-weight:850;padding-top:4px}
+.ts-home-software-grid{display:grid;gap:10px}.ts-home-software-item{display:grid;grid-template-columns:52px 1fr;gap:13px;align-items:center;border:1px solid #e9eaf0;background:rgba(255,255,255,.78);border-radius:19px;padding:14px 15px;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.dark .ts-home-software-item{background:#1d1d20;border-color:#2d2d33}.ts-home-software-item:hover{transform:translateY(-2px);box-shadow:0 13px 28px rgba(0,0,0,.08);border-color:#cfd7e6}
+.ts-home-software-item b{display:block;font-size:15px;letter-spacing:-.02em}.ts-home-software-item small{display:block;color:var(--muted);font-size:11px;line-height:1.35;margin:3px 0 7px}.ts-home-software-item span{color:#06c;font-size:11px;font-weight:850}
+.ts-home-ms-symbol{width:48px;height:48px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:3px}.ts-home-ms-symbol i{display:block}.ts-home-ms-symbol i:nth-child(1){background:#f25022}.ts-home-ms-symbol i:nth-child(2){background:#7fba00}.ts-home-ms-symbol i:nth-child(3){background:#00a4ef}.ts-home-ms-symbol i:nth-child(4){background:#ffb900}
+.ts-home-cc-symbol{width:50px;height:50px;border-radius:15px;background:linear-gradient(135deg,#ff2257,#8a36ff 52%,#2b6cff);display:grid;place-items:center;color:#fff;font-size:28px;font-weight:850;line-height:1}
+.ts-home-license-note{display:block;color:var(--muted);font-size:10.5px;line-height:1.45;margin-top:13px;padding:0 2px}
+@media(max-width:900px){.ts-home-service-promo{grid-template-columns:1fr}.ts-home-service-heading{align-items:flex-start}.ts-home-repair-card{min-height:300px}}
+@media(max-width:620px){.ts-home-service-heading{display:block}.ts-home-service-more{display:inline-block;margin-top:8px}.ts-home-repair-card,.ts-home-software-card{border-radius:24px;padding:22px}.ts-home-repair-card h3{font-size:32px}.ts-home-repair-actions{display:grid}.ts-home-repair-actions .btn{justify-content:center}.ts-home-software-head{display:block}.ts-home-software-head>a{display:inline-block;margin-top:9px}.ts-home-software-item{grid-template-columns:44px 1fr;padding:13px}.ts-home-ms-symbol{width:42px;height:42px}.ts-home-cc-symbol{width:44px;height:44px;border-radius:13px}}

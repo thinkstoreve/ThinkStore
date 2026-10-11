@@ -35,9 +35,9 @@ function deviceCategory(...vals){
   return 'Otro';
 }
 function looksLikePart(p){
-  const t=norm([p.name,p.category,p.subcategory,p.description,p.compatibility,p.model,p.sku].join(' '));
+  const t=norm([p.name,p.category,p.subcategory,p.description,p.compatibility,p.model,p.sku,p.repair,p.inventory_group,p.item_type].join(' '));
   if(/repuesto|servicio tecnico|reparacion|repair|spare part|pieza/.test(t))return true;
-  return /(pantalla|display|lcd|oled|bateria|battery|teclado|keyboard|trackpad|flex|camara|camera|face id|puerto|conector|carga|charging|altavoz|speaker|microfono|mic|vidrio|glass|tapa|back glass|carcasa|housing|logic|logica|placa|board|taptic|haptic|ventilador|fan|ssd|memoria|ram|fuente|power supply|touch|sensor|auricular|earpiece|cable interno|jack|dock|bisagra|hinge)/.test(t);
+  return /(pantalla|display|lcd|oled|bateria|battery|teclado|keyboard|trackpad|flex|camara|camera|face id|puerto|conector|carga|charging|circuito|cambio\s+de\s+ic|reemplazo\s+de\s+ic|altavoz|speaker|microfono|mic|vidrio|glass|tapa|back glass|carcasa|housing|logic|logica|placa|board|taptic|haptic|ventilador|fan|ssd|memoria|ram|fuente|power supply|touch|sensor|auricular|earpiece|cable interno|jack|dock|bisagra|hinge)/.test(t);
 }
 function seriesFrom(p,cat){
   const src=clean([p.model,p.compatibility,p.name].filter(Boolean).join(' '));
@@ -58,6 +58,7 @@ function repairType(p){
   const rules=[
     ['Glass pantalla',/glass\s*pantalla|vidrio\s*pantalla|cristal\s*pantalla/],['Pantalla',/pantalla|display|lcd|oled/],['Batería',/bateria|battery/],
     ['Glass trasero',/glass\s*trasero|vidrio\s*trasero|back\s*glass/],['Cámara frontal',/camara\s*frontal|front\s*camera/],['Cámara trasera',/camara\s*trasera|rear\s*camera/],
+    ['Circuito de carga',/circuito\s*(?:de\s*)?carga|charging\s*circuit|ic\s*(?:de\s*)?carga|tristar|hydra|tigris/],['Cambio de IC',/cambio\s*(?:de\s*)?ic|reemplazo\s*(?:de\s*)?ic|cambio\s+integrado/],
     ['Cristal cámara trasera',/cristal.*camara.*trasera|camera\s*lens/],['Flex de carga',/flex.*carga|charging.*flex|dock.*flex|puerto.*carga|conector.*carga/],
     ['Flex de encendido',/flex.*encendido|power.*flex/],['Chasis',/chasis|housing|carcasa/],['Auricular',/auricular|earpiece/],['Altavoz',/altavoz|speaker/],
     ['Micrófono',/microfono|microphone/],['Face ID',/face\s*id/],['Taptic Engine',/taptic|haptic/],['Teclado',/teclado|keyboard/],['Trackpad',/trackpad/],
@@ -92,6 +93,7 @@ exports.handler=async(event)=>{
   const service=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if(!base||!service)return out(501,{ok:false,error:'Faltan variables de Supabase'});
   const headers={apikey:service,Authorization:`Bearer ${service}`,'Content-Type':'application/json'};
+  let supportItems=[];
   try{
     const supportBase=normalizeSupabaseUrl(process.env.SUPPORT_SUPABASE_URL);
     const supportKey=clean(process.env.SUPPORT_SUPABASE_SECRET_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY);
@@ -99,34 +101,39 @@ exports.handler=async(event)=>{
       try{
         const sh=headersForKey(supportKey);
         const rows=await getAll(supportBase,'service_parts?select=id,sku,name,category,compatible_models,quantity,sale_price,catalog_details&active=eq.true&published=eq.true&order=category.asc,name.asc,sku.asc',sh);
-        if(rows.length){
-          const items=rows.map(p=>{
-            const m=p.catalog_details||{},pct=Math.max(0,Math.min(95,Math.round(num(m.discount_percent,0)))),price=p.sale_price===null?0:num(p.sale_price,0);
-            let original=num(m.original_price_usd,0);
-            if(pct>0&&price>0&&original<=price)original=Math.round((price/(1-pct/100))*100)/100;
-            return {
-              id:String(p.id),sku:clean(p.sku),name:clean(p.name),model:clean(m.model||p.compatible_models),category:clean(p.category),
-              subcategory:'',description:clean(m.description),compatibility:clean(p.compatible_models),image_url:clean(m.image_url),
-              price_usd:price,available:Math.max(0,num(p.quantity,0)),stock_min:0,
-              original_price_usd:pct>0?original:0,discount_percent:pct,is_offer:pct>0,
-              repair:clean(m.repair),quality:clean(m.quality),model_type:clean(m.model_type),
-              series:clean(m.series),device_category:clean(p.category)||deviceCategory(p.name,p.compatible_models),
-              warranty:clean(m.warranty),repair_time:clean(m.repair_time),catalog_only:p.sale_price===null
-            };
-          }).filter(x=>x.device_category!=='Servicios · Mantenimiento'&&x.device_category!=='Servicios · Software'&&x.device_category!=='Servicios · Hardware');
-          return out(200,{ok:true,source:'support_service_parts',updated_at:new Date().toISOString(),items});
-        }
-      }catch(e){
-        console.warn('Support service_parts fallback:',e.message);
-      }
+        supportItems=rows.map(p=>{
+          const m=p.catalog_details||{},pct=Math.max(0,Math.min(95,Math.round(num(m.discount_percent,0)))),price=p.sale_price===null?0:num(p.sale_price,0);
+          let original=num(m.original_price_usd,0);
+          if(pct>0&&price>0&&original<=price)original=Math.round((price/(1-pct/100))*100)/100;
+          const src={name:p.name,category:p.category,compatibility:p.compatible_models,model:m.model||m.series,repair:m.repair,description:m.description,sku:p.sku,inventory_group:m.inventory_group,item_type:m.item_type};
+          const dev=deviceCategory(p.name,p.compatible_models,m.model,m.series,m.repair,p.category);
+          const item={
+            id:String(p.id),sku:clean(p.sku),name:clean(p.name),model:clean(m.model||p.compatible_models),category:clean(p.category),
+            subcategory:clean(m.subcategory),description:clean(m.description_html||m.description),compatibility:clean(p.compatible_models),image_url:clean(m.image_url),
+            price_usd:price,available:Math.max(0,num(p.quantity,0)),stock_min:0,original_price_usd:pct>0?original:0,discount_percent:pct,is_offer:pct>0,
+            repair:clean(m.repair)||repairType(src),quality:clean(m.quality)||qualityType(src),model_type:clean(m.model_type)||modelType(src),
+            series:clean(m.series)||seriesFrom(src,dev),device_category:dev,warranty:clean(m.warranty),repair_time:clean(m.repair_time),
+            catalog_only:p.sale_price===null,_source:'support'
+          };
+          return item;
+        }).filter(x=>x.device_category!=='Otro');
+      }catch(e){console.warn('Support service_parts fallback:',e.message);}
     }
-    const [products,bridges,variants,catalog,catalogImages]=await Promise.all([
-      getJson(`${base}/rest/v1/thinkstore_inventory_products?select=id,data&workspace_key=eq.main&limit=3000`,headers),
-      getJson(`${base}/rest/v1/thinkstore_inventory_bridge?select=inventory_product_id,sku,variant_id&workspace_key=eq.main&limit=3000`,headers).catch(()=>[]),
-      getJson(`${base}/rest/v1/inventory_variants?select=id,sku,product_name,model,color,capacity,condition,stock_on_hand,stock_reserved,stock_min,price_usd,active&active=eq.true&limit=3000`,headers),
-      getJson(`${base}/rest/v1/catalog_products?select=product_key,product_name,category,description,image_url,published&limit=3000`,headers).catch(()=>[]),
-      getJson(`${base}/rest/v1/catalog_product_images?select=product_key,image_url,is_primary,sort_order&order=sort_order.asc&limit=3000`,headers).catch(()=>[])
-    ]);
+
+    let products=[],bridges=[],variants=[],catalog=[],catalogImages=[];
+    try{
+      [products,bridges,variants,catalog,catalogImages]=await Promise.all([
+        getJson(`${base}/rest/v1/thinkstore_inventory_products?select=id,data&workspace_key=eq.main&limit=3000`,headers),
+        getJson(`${base}/rest/v1/thinkstore_inventory_bridge?select=inventory_product_id,sku,variant_id&workspace_key=eq.main&limit=3000`,headers).catch(()=>[]),
+        getJson(`${base}/rest/v1/inventory_variants?select=id,sku,product_name,model,color,capacity,condition,stock_on_hand,stock_reserved,stock_min,price_usd,active&active=eq.true&limit=3000`,headers).catch(()=>[]),
+        getJson(`${base}/rest/v1/catalog_products?select=product_key,product_name,category,description,image_url,published&limit=3000`,headers).catch(()=>[]),
+        getJson(`${base}/rest/v1/catalog_product_images?select=product_key,image_url,is_primary,sort_order&order=sort_order.asc&limit=3000`,headers).catch(()=>[])
+      ]);
+    }catch(e){
+      if(supportItems.length)return out(200,{ok:true,source:'support_service_parts',updated_at:new Date().toISOString(),items:supportItems.map(({_source,...x})=>x),warning:'Inventory principal no disponible temporalmente'});
+      throw e;
+    }
+
     const bridgeByProduct=new Map(bridges.map(x=>[String(x.inventory_product_id),x]));
     const variantById=new Map(variants.map(x=>[String(x.id),x]));
     const variantBySku=new Map(variants.map(x=>[norm(x.sku),x]));
@@ -137,47 +144,58 @@ exports.handler=async(event)=>{
     const usedVariant=new Set();
     for(const row of products){
       const p=row?.data||{};
+      if(p.active===false||p.published===false)continue;
       const bridge=bridgeByProduct.get(String(row.id));
       const v=bridge?.variant_id?variantById.get(String(bridge.variant_id)):variantBySku.get(norm(p.sku));
       if(v)usedVariant.add(String(v.id));
       const record={
-        id:String(row.id),
-        sku:clean(p.sku||v?.sku),name:clean(p.name||v?.product_name||p.sku),model:clean(p.model||v?.model),
-        category:clean(p.category),subcategory:clean(p.subcategory),description:clean(p.description),compatibility:clean(p.compatibility),
-        image_url:clean(p.image_url),price_usd:num(p.sale_price,num(v?.price_usd,0)),
-        available:Math.max(0,num(p.sync_available,Math.max(0,num(v?.stock_on_hand)-num(v?.stock_reserved)))),
-        stock_min:Math.max(0,num(p.min_stock,num(v?.stock_min,0))),
-        original_price_usd:num(p.original_price_usd||p.regular_price_usd||p.compare_at_price_usd,0),
-        discount_percent:num(p.discount_percent,0),is_offer:Boolean(p.is_offer||p.on_sale),
-        repair:clean(p.repair),quality:clean(p.quality),model_type:clean(p.model_type)
+        id:String(row.id),sku:clean(p.sku||v?.sku),name:clean(p.name||v?.product_name||p.sku),model:clean(p.model||v?.model),
+        category:clean(p.category),subcategory:clean(p.subcategory),description:clean(p.description_html||p.description),compatibility:clean(p.compatibility),image_url:clean(p.image_url),
+        price_usd:num(p.sale_price,num(p.discounted_price,num(v?.price_usd,0))),available:Math.max(0,num(p.sync_available,Math.max(0,num(v?.stock_on_hand)-num(v?.stock_reserved)))),
+        stock_min:Math.max(0,num(p.min_stock,num(v?.stock_min,0))),original_price_usd:num(p.original_price_usd||p.regular_price_usd||p.compare_at_price_usd||p.original_price,0),
+        discount_percent:num(p.discount_percent,0),is_offer:Boolean(p.is_offer||p.on_sale||num(p.discount_percent,0)>0),repair:clean(p.repair),quality:clean(p.quality),model_type:clean(p.model_type),
+        inventory_group:clean(p.inventory_group),item_type:clean(p.item_type),warranty:clean(p.warranty),repair_time:clean(p.repair_time),_source:'inventory'
       };
       if(!record.name||!looksLikePart(record))continue;
-      record.device_category=deviceCategory(record.name,record.model,record.compatibility,record.category,record.subcategory);
+      record.device_category=deviceCategory(record.name,record.model,record.compatibility,record.category,record.subcategory,record.repair,record.inventory_group);
       if(record.device_category==='Otro')continue;
-      record.series=seriesFrom(record,record.device_category);
-      record.repair=repairType(record);record.quality=qualityType(record);record.model_type=record.model_type||modelType(record);
+      record.series=clean(p.series)||seriesFrom(record,record.device_category);
+      record.repair=repairType(record)||record.repair;record.quality=qualityType(record)||record.quality;record.model_type=record.model_type||modelType(record);
       const cp=catByName.get(norm(record.name));
       if(!record.description)record.description=clean(cp?.description);
       if(!record.image_url)record.image_url=clean(cp?.image_url||imageByKey.get(cp?.product_key));
       items.push(record);
     }
-    // Also surface repair-part variants that exist only in the store-side inventory.
+
     for(const v of variants){
       if(usedVariant.has(String(v.id)))continue;
-      const record={id:`variant-${v.id}`,sku:clean(v.sku),name:clean(v.product_name||v.sku),model:clean(v.model),category:'',subcategory:'',description:'',compatibility:'',image_url:'',price_usd:num(v.price_usd,0),available:Math.max(0,num(v.stock_on_hand)-num(v.stock_reserved)),stock_min:Math.max(0,num(v.stock_min,0)),original_price_usd:0,discount_percent:0,is_offer:false,repair:'',quality:'',model_type:''};
+      const record={id:`variant-${v.id}`,sku:clean(v.sku),name:clean(v.product_name||v.sku),model:clean(v.model),category:'',subcategory:'',description:'',compatibility:'',image_url:'',price_usd:num(v.price_usd,0),available:Math.max(0,num(v.stock_on_hand)-num(v.stock_reserved)),stock_min:Math.max(0,num(v.stock_min,0)),original_price_usd:0,discount_percent:0,is_offer:false,repair:'',quality:'',model_type:'',_source:'inventory'};
       if(!record.name||!looksLikePart(record))continue;
       record.device_category=deviceCategory(record.name,record.model,record.sku);
       if(record.device_category==='Otro')continue;
-      record.series=seriesFrom(record,record.device_category);
-      record.repair=repairType(record);record.quality=qualityType(record);record.model_type=record.model_type||modelType(record);
-      const cp=catByName.get(norm(record.name));
-      record.description=clean(cp?.description);
-      record.image_url=clean(cp?.image_url||imageByKey.get(cp?.product_key));
-      items.push(record);
+      record.series=seriesFrom(record,record.device_category);record.repair=repairType(record);record.quality=qualityType(record);record.model_type=modelType(record);
+      const cp=catByName.get(norm(record.name));record.description=clean(cp?.description);record.image_url=clean(cp?.image_url||imageByKey.get(cp?.product_key));items.push(record);
     }
+
     const unique=new Map();
-    for(const x of items){const key=norm(x.sku||x.name);const prev=unique.get(key);if(!prev||x.available>prev.available||(!prev.image_url&&x.image_url))unique.set(key,x)}
-    const list=[...unique.values()].sort((a,b)=>(b.available-a.available)||a.device_category.localeCompare(b.device_category)||a.name.localeCompare(b.name,undefined,{numeric:true}));
-    return out(200,{ok:true,updated_at:new Date().toISOString(),items:list});
+    const keyFor=x=>norm(x.sku)||norm([x.device_category,x.name,x.model,x.repair].join('|'));
+    for(const x of items){
+      const key=keyFor(x);const prev=unique.get(key);
+      if(!prev||x.available>prev.available||(!prev.image_url&&x.image_url))unique.set(key,x);
+    }
+    for(const s of supportItems){
+      const key=keyFor(s),inv=unique.get(key);
+      if(!inv){unique.set(key,s);continue}
+      unique.set(key,{...inv,...s,
+        available:inv.available,stock_min:inv.stock_min,
+        price_usd:s.price_usd>0?s.price_usd:inv.price_usd,
+        original_price_usd:s.original_price_usd>0?s.original_price_usd:inv.original_price_usd,
+        image_url:s.image_url||inv.image_url,description:s.description||inv.description,
+        repair:s.repair||inv.repair,quality:s.quality||inv.quality,series:s.series||inv.series,model:s.model||inv.model,
+        _source:'merged'
+      });
+    }
+    const list=[...unique.values()].map(({_source,...x})=>x).sort((a,b)=>(b.available-a.available)||a.device_category.localeCompare(b.device_category)||a.name.localeCompare(b.name,undefined,{numeric:true}));
+    return out(200,{ok:true,source:'inventory+support',updated_at:new Date().toISOString(),items:list});
   }catch(e){return out(500,{ok:false,error:e.message||'No se pudo consultar precios'});}
 };

@@ -80,7 +80,7 @@
     if($('modelHelp')) $('modelHelp').textContent=state.category==='ipad'?'Primero elige la familia. Luego te pediremos el modelo exacto y el año solo si corresponde.':state.category==='mac'?'Elige la familia de tu Mac. En MacBook te pediremos también el tamaño de pantalla.':'Mostramos las líneas disponibles para la categoría elegida.';
     Object.keys(c.models).forEach(m=>box.appendChild(choiceButton(m,()=>{resetFrom('model');state.model=m;go(3);}))); 
     const manualText=state.category==='ipad'?'Mi equipo no aparece en la lista':'Tengo un equipo más antiguo';
-    const old=choiceButton(manualText,()=>window.open('https://wa.me/584141032030?text='+encodeURIComponent(`Hola ThinkStore, quiero cotizar un ${c.label} que no aparece en el cotizador.`),'_blank'));old.classList.add('manual');box.appendChild(old);
+    const old=choiceButton(manualText,()=>window.open('https://wa.me/584241706142?text='+encodeURIComponent(`Hola ThinkStore, quiero cotizar un ${c.label} que no aparece en el cotizador.`),'_blank'));old.classList.add('manual');box.appendChild(old);
   }
   function renderVariants(){
     const box=$('variantOptions');box.innerHTML='';
@@ -119,15 +119,15 @@
   document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>go(previousStep())));
   $('startQuote').addEventListener('click',()=>document.getElementById('cotizador').scrollIntoView({behavior:'smooth',block:'start'}));
   $('manualBack').addEventListener('click',restart);
-  $('manualCredit').addEventListener('click',()=>window.open('https://wa.me/584141032030?text='+encodeURIComponent('Hola ThinkStore, seleccioné Otro en Trade-IN y quiero evaluar mi equipo para usarlo como parte de pago.'),'_blank'));
-  $('manualSell').addEventListener('click',()=>window.open('https://wa.me/584141032030?text='+encodeURIComponent('Hola ThinkStore, seleccioné Otro en Trade-IN y quiero coordinar una evaluación manual para vender mi equipo.'),'_blank'));
+  $('manualCredit').addEventListener('click',()=>window.open('https://wa.me/584241706142?text='+encodeURIComponent('Hola ThinkStore, seleccioné Otro en Trade-IN y quiero evaluar mi equipo para usarlo como parte de pago.'),'_blank'));
+  $('manualSell').addEventListener('click',()=>window.open('https://wa.me/584241706142?text='+encodeURIComponent('Hola ThinkStore, seleccioné Otro en Trade-IN y quiero coordinar una evaluación manual para vender mi equipo.'),'_blank'));
   $('damageContinue').addEventListener('click',()=>go(8));
   $('toResult').addEventListener('click',()=>go(9));
   $('ownership').addEventListener('change',e=>{$('calculateQuote').disabled=!e.target.checked;$('ownershipHint').style.display=e.target.checked?'none':'block';});
   $('calculateQuote').addEventListener('click',showQuote);
-  $('sendQuote').addEventListener('click',()=>{if(!state.quote)showQuote();window.open('https://wa.me/584141032030?text='+encodeURIComponent(quoteText()),'_blank');});
-  $('useAsCredit').addEventListener('click',()=>{if(!state.quote)showQuote();window.open('https://wa.me/584141032030?text='+encodeURIComponent(quoteText('usar esta cotización como parte de pago en mi próxima compra')),'_blank');});
-  $('sellDevice').addEventListener('click',()=>{if(!state.quote)showQuote();window.open('https://wa.me/584141032030?text='+encodeURIComponent(quoteText('vender mi equipo y coordinar la evaluación presencial')),'_blank');});
+  $('sendQuote').addEventListener('click',()=>{if(!state.quote)showQuote();window.open('https://wa.me/584241706142?text='+encodeURIComponent(quoteText()),'_blank');});
+  $('useAsCredit').addEventListener('click',()=>{if(!state.quote)showQuote();window.open('https://wa.me/584241706142?text='+encodeURIComponent(quoteText('usar esta cotización como parte de pago en mi próxima compra')),'_blank');});
+  $('sellDevice').addEventListener('click',()=>{if(!state.quote)showQuote();window.open('https://wa.me/584241706142?text='+encodeURIComponent(quoteText('vender mi equipo y coordinar la evaluación presencial')),'_blank');});
   $('restartQuote').addEventListener('click',restart);$('newQuoteInline').addEventListener('click',restart);
   renderCategories();
 })();

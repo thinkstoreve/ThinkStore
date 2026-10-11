@@ -35,8 +35,24 @@ exports.handler=async(event)=>{
       }
     }
     if(!rr.ok){const detail=String(rows?.message||rows?.details||rows?.hint||'').slice(0,240);return r(rr.status,{ok:false,error:'No se pudo consultar inventario'+(detail?': '+detail:'')});}
-    let catalog=[],catalogImages=[],catalogCategories=DEFAULT_CATEGORIES.map((x,i)=>({id:`default-${i}`,...x,is_default:true}));
+    let catalog=[],catalogImages=[],catalogCategories=DEFAULT_CATEGORIES.map((x,i)=>({id:`default-${i}`,...x,is_default:true})),inventoryProducts=[];
     try{
+      // V15.30: productos seguros del Inventory Central para el catálogo público.
+      // Solo exponemos campos comerciales; nunca costos internos, proveedores ni auditoría.
+      const ipr=await fetch(`${url}/rest/v1/thinkstore_inventory_products?select=id,data&workspace_key=eq.main&limit=5000`,{headers:sh});
+      if(ipr.ok){
+        const raw=await ipr.json().catch(()=>[]);
+        inventoryProducts=(Array.isArray(raw)?raw:[]).map(row=>{
+          const d=row&&row.data&&typeof row.data==='object'?row.data:{};
+          return {
+            id:String(row.id||''),sku:String(d.sku||''),name:String(d.name||''),product_group:String(d.product_group||''),
+            category:String(d.category||''),subcategory:String(d.subcategory||''),compatibility:String(d.compatibility||''),model:String(d.model||''),
+            capacity:String(d.capacity||''),color:String(d.color||''),condition:String(d.condition||'Nuevo'),brand:String(d.brand||'Apple'),
+            sale_price:Number(d.sale_price||0),published:d.published!==false,active:d.active!==false,image_url:String(d.image_url||''),
+            description:String(d.catalog_description||d.description||''),sort_order:Number(d.sort_order||1000),tracking_mode:String(d.tracking_mode||'')
+          };
+        }).filter(p=>p.id&&p.name&&p.active!==false);
+      }
       const cr=await fetch(`${url}/rest/v1/catalog_products?select=id,product_key,product_name,category,description,image_url,published,sort_order,created_at,updated_at&order=sort_order.asc,product_name.asc`,{headers:sh});
       if(cr.ok)catalog=await cr.json().catch(()=>[]);
       let imageColorReady=true;
@@ -55,7 +71,7 @@ exports.handler=async(event)=>{
         if(Array.isArray(loaded)&&loaded.length)catalogCategories=loaded;
       }
     }catch(_e){}
-    return r(200,{ok:true,cosmetic_grade_ready:cosmeticGradeReady,battery_health_ready:batteryHealthReady,catalog_image_color_ready:catalogImageColorReady!==false,variants:rows.map(v=>({...v,cosmetic_grade:v.cosmetic_grade||'',battery_health_pct:v.battery_health_pct??null,cosmetic_note:v.cosmetic_note||'',available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
+    return r(200,{ok:true,cosmetic_grade_ready:cosmeticGradeReady,battery_health_ready:batteryHealthReady,catalog_image_color_ready:catalogImageColorReady!==false,variants:rows.map(v=>({...v,cosmetic_grade:v.cosmetic_grade||'',battery_health_pct:v.battery_health_pct??null,cosmetic_note:v.cosmetic_note||'',available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),inventory_products:inventoryProducts,catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
   }
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const auth=await authorizeAdmin(event,url,service);

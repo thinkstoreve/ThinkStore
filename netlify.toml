@@ -4,3 +4,8 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# V15.36 · Recordatorios de saldo WhatsApp. Se ejecuta 09:00 America/Caracas (13:00 UTC).
+# El envío real solo ocurre si WHATSAPP_DEBT_AUTOMATION_ENABLED=true.
+[functions."whatsapp-debt-reminders"]
+schedule = "0 13 * * *"

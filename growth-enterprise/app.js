@@ -397,7 +397,7 @@ function renderStaffAccess(){
           <label>Correo<input id="staffEmail" type="email" placeholder="vendedor@thinkstore.com.ve" required></label>
           <label>Rol<select id="staffRole">${roleOptions('vendedor')}</select></label>
           <label>Contraseña temporal<input id="staffPassword" type="password" placeholder="Mínimo 8 caracteres" minlength="8"></label>
-          <label class="wide">Notas internas<input id="staffNotes" placeholder="Ej: vendedor de tienda Altamira"></label>
+          <label class="wide">Notas internas<input id="staffNotes" placeholder="Ej: asesor de ventas Chacao"></label>
           <button type="submit">Crear acceso</button>
         </form>
         <small id="staffMessage" class="login-message"></small>
@@ -3469,7 +3469,7 @@ function renderV9RealMarketing(data){
       const repay=type==='partner_repayment';modalShell(repay?'Devolución a socio':'Dinero colocado por socio',repay?'Registra dinero que la empresa devuelve. No se contabiliza como gasto dos veces.':'Registra capital/préstamo temporal colocado por Freddy o Nelson; queda pendiente hasta ser devuelto.',`${select('partner_key','Socio',[['freddy','Freddy Sedispa'],['nelson','Nelson Garzon']])}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${field('description',repay?'Detalle de devolución':'Motivo / uso del dinero','text','required')}${select('payment_method','Método de pago',methodOptions)}${field('reference','Referencia')}${field('occurred_at','Fecha y hora','datetime-local')}`,repay?'Registrar devolución':'Registrar aporte',async f=>finPost({action:'create_entry',entry_type:type,...f,amount_usd:Number(f.amount_usd),funded_by:repay?'company':f.partner_key,status:'posted',occurred_at:f.occurred_at?new Date(f.occurred_at).toISOString():undefined}));return;
     }
     if(type==='receivable'){
-      modalShell('Nueva cuenta por cobrar','Para clientes, empresas, garantías, adelantos o cualquier saldo que ThinkStore deba recuperar.',`${field('counterparty','Cliente / empresa','text','required')}${field('description','Concepto','text','required')}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${field('due_date','Fecha de vencimiento','date')}${field('reference','Referencia / orden')}`, 'Guardar por cobrar',async f=>finPost({action:'create_entry',entry_type:'receivable',...f,amount_usd:Number(f.amount_usd),status:'pending',metadata:{due_date:f.due_date}}));return;
+      modalShell('Nueva cuenta por cobrar','Para clientes, empresas, garantías, adelantos o cualquier saldo que ThinkStore deba recuperar.',`${field('counterparty','Cliente / empresa','text','required')}${field('phone','WhatsApp del cliente','tel','placeholder="0424 170 6142"')}${field('description','Concepto','text','required')}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${field('due_date','Fecha de vencimiento','date')}${field('reference','Referencia / orden')}`, 'Guardar por cobrar',async f=>finPost({action:'create_entry',entry_type:'receivable',...f,amount_usd:Number(f.amount_usd),status:'pending',metadata:{due_date:f.due_date,phone:f.phone||''}}));return;
     }
     if(type==='technician_commission'){openTechCommission();return}
     const labels={expense:['Nuevo gasto','Registra para qué fue el gasto, quién lo pagó y por qué método.'],purchase:['Nueva compra','Compra de mercancía, repuestos, activos o insumos.']};const [title,sub]=labels[type]||['Nuevo movimiento','Registra el movimiento financiero.'];

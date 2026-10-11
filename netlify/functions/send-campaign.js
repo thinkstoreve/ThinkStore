@@ -203,7 +203,7 @@ exports.handler = async function(event) {
     const serviceUrl = actionUrl || 'https://thinkstore.com.ve/servicio-tecnico.html';
     const serviceLabel = actionLabel || 'Consultar servicio técnico';
     const agendaUrl = 'https://thinkstore.com.ve/agenda-soporte.html';
-    const whatsappUrl = secondaryActionUrl || 'https://wa.me/584141032030';
+    const whatsappUrl = secondaryActionUrl || 'https://wa.me/584241706142';
     const whatsappLabel = secondaryActionLabel || 'Escribir por WhatsApp';
     return `
     ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${esc(preheader)}</div>` : ''}
@@ -321,7 +321,7 @@ exports.handler = async function(event) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #eeeeef;padding-top:22px;">
                 <tr><td style="font-size:13px;line-height:1.8;color:#6e6e73;">
                   <strong style="color:#1d1d1f;">Compra con acompañamiento ThinkStore</strong><br>
-                  Asesoría personalizada · Retiro en Chacao · Envíos nacionales por MRW, Zoom y Tealca
+                  Asesoría personalizada · Retiro en Chacao por previa cita · Envíos nacionales por MRW, Zoom y Tealca
                 </td></tr>
               </table>
             </td></tr>

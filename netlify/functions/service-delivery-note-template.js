@@ -51,7 +51,7 @@ function render({order={},events=[],parts=[],notes=[],extras=[]}={}){
  if(order.public_token)trackingParams.set('token',String(order.public_token));
  const tracking=`https://soporte.thinkstore.com.ve/seguimiento.html?${trackingParams.toString()}`;
  const qr='https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='+encodeURIComponent(tracking);
- const social=`<div class="ts-note-social"><a href="https://thinkstore.com.ve">thinkstore.com.ve</a><a href="mailto:soporte@thinkstore.com.ve">soporte@thinkstore.com.ve</a><a href="https://www.instagram.com/thinkstore_ve/">@thinkstore_ve</a><a href="https://wa.me/584141032030">+58 414 103 2030</a></div>`;
+ const social=`<div class="ts-note-social"><a href="https://thinkstore.com.ve">thinkstore.com.ve</a><a href="mailto:soporte@thinkstore.com.ve">soporte@thinkstore.com.ve</a><a href="https://www.instagram.com/thinkstore_ve/">@thinkstore_ve</a><a href="https://wa.me/584241706142">+58 424 170 6142</a></div>`;
  const observations=observationsText(order,notes);
  const recommendation=chargingRepairRecommendation(order,notes,parts,extras);
  return css+`<div class="ts-note-doc"><article class="ts-note-sheet">

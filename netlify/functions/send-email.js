@@ -101,7 +101,7 @@ exports.handler = async function(event) {
             <tr>
               <td style="background:#0b0b0d;border-top:1px solid rgba(255,255,255,.10);padding:24px 34px;font-size:13px;line-height:1.7;color:rgba(255,255,255,.58);">
                 <strong style="color:#ffffff;">ThinkStore</strong><br>
-                Altamira, Caracas · Venezuela<br>
+                Chacao, Caracas · Venezuela · Atención por previa cita<br>
                 <a href="https://thinkstore.com.ve" style="color:#ffffff;text-decoration:underline;">www.thinkstore.com.ve</a>
               </td>
             </tr>

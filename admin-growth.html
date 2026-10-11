@@ -128,7 +128,7 @@ if(sessionStorage.getItem('thinkstore_admin_secret')||localStorage.getItem('thin
 function refreshKpis(){ $('kpiOrders').textContent=orders().length; $('kpiCustomers').textContent=customers().length; $('kpiAppointments').textContent=(store('ts_store_appointments')||[]).length; $('kpiRepairs').textContent=(store('ts_repairs')||[]).length; }
 function closeFeature(){ $('modal').classList.remove('open');}
 function setFeature(eye,title,text,body){$('modalEye').textContent=eye;$('modalTitle').textContent=title;$('modalText').textContent=text;$('modalBody').innerHTML=body;$('modal').classList.add('open');}
-function wa(msg){ window.open('https://wa.me/584242142262?text='+encodeURIComponent(msg),'_blank');}
+function wa(msg){ window.open('https://wa.me/584241706142?text='+encodeURIComponent(msg),'_blank');}
 function csv(name, rows){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'})); a.download=name; a.click(); }
 function result(id,msg){ if($(id)) $(id).textContent=msg; }
 function exportAllData(){ csv('thinkstore_growth_enterprise.csv',['tipo,total','pedidos,'+orders().length,'clientes,'+customers().length,'citas,'+(store('ts_store_appointments')||[]).length,'reparaciones,'+(store('ts_repairs')||[]).length]); }

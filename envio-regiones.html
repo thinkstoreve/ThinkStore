@@ -30,6 +30,7 @@ body.page-preload main{opacity:0;transform:translateY(16px)}body.page-ready main
 @media(max-width:620px){.success-card{padding:24px;border-radius:28px}.success-card h2{font-size:30px}.request-code{align-items:flex-start;flex-direction:column}}
 
 </style>
+<link rel="stylesheet" href="chatbot.css?v=15.35">
 </head>
 <body class="page-preload">
 <header class="top"><div class="top-inner"><a class="brand" href="index.html"><img src="assets/logo-thinkstore.png" alt="ThinkStore"><span>ThinkStore<small>Servicio Técnico</small></span></a><nav class="nav"><a href="index.html">Inicio</a><a href="trade-in.html">Trade-IN</a><a class="active" href="servicio-tecnico.html">Servicio Técnico</a><a href="contacto.html">Contacto</a></nav></div></header>
@@ -90,9 +91,9 @@ body.page-preload main{opacity:0;transform:translateY(16px)}body.page-ready main
 </main>
 <div class="success-overlay" id="successOverlay" role="dialog" aria-modal="true" aria-labelledby="successTitle"><div class="success-card"><div class="success-icon">✓</div><h2 id="successTitle">Solicitud registrada.</h2><p>Tu solicitud ya quedó guardada en ThinkStore Soporte y visible para recepción. Ahora continuaremos la coordinación por WhatsApp.</p><div class="request-code"><b>Código de solicitud</b><code id="requestCode">—</code></div><div class="success-actions"><a class="btn blue" id="openWhatsAppBtn" href="#" target="_blank" rel="noopener">Abrir WhatsApp →</a><a class="btn light" href="servicio-tecnico.html">Volver a Servicio Técnico</a></div></div></div>
 <footer class="footer"><div class="footer-inner"><div><b>ThinkStore Servicio Técnico</b><p>Recepción nacional · Diagnóstico · Reparación · Seguimiento</p></div><div><a href="servicio-tecnico.html">Servicio Técnico</a> · <a href="contacto.html">Contacto</a></div></div></footer>
-<script src="service-public-config.js"></script>
+<script src="service-public-config.js?v=15.34"></script>
 <script>
-const TECH_WHATSAPP=String(window.THINKSTORE_SERVICE_CONFIG?.whatsapp||'584141032030').replace(/\D/g,'');
+const TECH_WHATSAPP=String(window.THINKSTORE_SERVICE_CONFIG?.whatsapp||'584241706142').replace(/\D/g,'');
 const regions=['Amazonas','Anzoátegui','Apure','Aragua','Barinas','Bolívar','Carabobo','Cojedes','Delta Amacuro','Distrito Capital','Falcón','Guárico','La Guaira','Lara','Mérida','Miranda','Monagas','Nueva Esparta','Portuguesa','Sucre','Táchira','Trujillo','Yaracuy','Zulia'];
 const models={
 'iPhone':['iPhone 18 Pro Max','iPhone 18 Pro','iPhone 18','iPhone 17 Pro Max','iPhone 17 Pro','iPhone 17 Air','iPhone 17','iPhone 16 Pro Max','iPhone 16 Pro','iPhone 16 Plus','iPhone 16','iPhone 15 Pro Max','iPhone 15 Pro','iPhone 15 Plus','iPhone 15','iPhone 14 Pro Max','iPhone 14 Pro','iPhone 14 Plus','iPhone 14','iPhone 13 Pro Max','iPhone 13 Pro','iPhone 13 mini','iPhone 13','iPhone 12 Pro Max','iPhone 12 Pro','iPhone 12 mini','iPhone 12','iPhone 11 Pro Max','iPhone 11 Pro','iPhone 11','iPhone XS Max','iPhone XS','iPhone XR','iPhone X','iPhone 8 Plus','iPhone 8','iPhone SE 3ª gen','iPhone SE 2ª gen','Otro iPhone'],
@@ -176,5 +177,6 @@ $('regionForm').addEventListener('submit',async e=>{
 });
 document.addEventListener('DOMContentLoaded',()=>{requestAnimationFrame(()=>{document.body.classList.remove('page-preload');document.body.classList.add('page-ready')});updateSummary()});
 </script>
+<script src="chatbot.js?v=15.35"></script>
 </body>
 </html>
