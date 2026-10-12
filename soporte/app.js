@@ -217,7 +217,7 @@ const TSService=(()=>{
     const partial=!paidOff&&(/abono/.test(raw)||paid>0);
     return paidOff?{key:'paid',label:'Pagado',detail:paid?`$${paid.toFixed(2)}`:''}:partial?{key:'partial',label:'Abono parcial',detail:paid?`$${paid.toFixed(2)}`:''}:{key:'pending',label:'Pendiente',detail:quote>0?`$${Math.max(0,quote-paid).toFixed(2)}`:''};
   }
-  function paymentBadgeHtml(o={}){const p=orderPaymentState(o);return `<span class="support-payment-badge ${p.key}"><i>${p.key==='paid'?'✓':p.key==='partial'?'◐':'$'}</i><span>${esc(p.label)}</span>${p.detail?`<small>${esc(p.detail)}</small>`:''}</span>`}
+  function paymentBadgeHtml(o={}){const p=orderPaymentState(o);return `${window.ThinkStoreFinancing.html(o)}<span class="support-payment-badge ${p.key}"><i>${p.key==='paid'?'✓':p.key==='partial'?'◐':'$'}</i><span>${esc(p.label)}</span>${p.detail?`<small>${esc(p.detail)}</small>`:''}</span>`}
   function orderClientName(o={}){
     const m=o.clientMeta||o.checklist?.__client||{};
     return String(o.client||o.client_name||m.name||m.full_name||m.customer_name||o.signatures?.client||'').trim()||'Cliente';
@@ -579,6 +579,7 @@ const TSService=(()=>{
     for(const row of rows){
       const o=orders.find(x=>String(x.id)===String(row.id));if(!o)continue;
       const nextStatus=row.payment_status||'Pendiente',nextPaid=Number(row.amount_paid||0),nextQuote=Number(row.quote_amount||0),nextPaidAt=row.paid_at||'';
+      if(JSON.stringify(o.checklist?.__financing)!==JSON.stringify(row.reception_checklist?.__financing)){o.checklist={...(o.checklist||{}),__financing:row.reception_checklist?.__financing};changed=true;}
       if(String(o.paymentStatus)!==String(nextStatus)||Number(o.amountPaid)!==nextPaid||Number(o.quoteAmount)!==nextQuote||String(o.paidAt||'')!==String(nextPaidAt)){
         o.paymentStatus=nextStatus;o.amountPaid=nextPaid;o.paymentMethod=row.payment_method||'';o.paymentNotes=row.payment_notes||'';o.paidAt=nextPaidAt;o.quoteAmount=nextQuote;o.quoteCurrency=row.quote_currency||o.quoteCurrency||'USD';o.updated_at=row.updated_at||o.updated_at;o.updated=dateText(row.updated_at||o.updated_at||o.created_at);changed=true;
       }
@@ -2163,20 +2164,33 @@ const TSService=(()=>{
     document.body.classList.add('order-tab');document.getElementById('orderModal').classList.add('open');setTimeout(()=>oSerial?.focus(),120);
   }
   function code(){const year=new Date().getFullYear(),nums=orders.filter(o=>String(o.code).includes(`TS-SVC-${year}-`)).map(o=>Number(String(o.code).split('-').pop())||0);return `TS-SVC-${year}-${String(Math.max(0,...nums)+1).padStart(4,'0')}`}
+  async function saveRegisteredReception(payload){
+    const {data:{session:authSession}}=await supabaseClient.auth.getSession();
+    const r=await fetch('https://thinkstore.com.ve/.netlify/functions/registered-reception',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(authSession?.access_token||'')},body:JSON.stringify(payload)});
+    const d=await r.json();return d.ok?{data:d.order,error:null}:{data:null,error:{message:d.error||'No se pudo guardar la recepción.'}};
+  }
   async function saveOrder(e){
     e.preventDefault();
+    let registered;
+    try{
+      const {data:{session:authSession}}=await supabaseClient.auth.getSession();
+      const r=await fetch('https://thinkstore.com.ve/.netlify/functions/registered-customer',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(authSession?.access_token||'')},body:JSON.stringify({source:'support',email:oEmail.value.trim()})});
+      const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'No se pudo validar el cliente registrado.');registered=d.customer;
+      oClient.value=registered.name;oPhone.value=registered.phone;oEmail.value=registered.email;
+      applyReceptionClientMeta({...collectReceptionClientMeta(),document:registered.document,address_short:registered.address,city:registered.city,state:registered.state});
+    }catch(err){toast(err.message,'error');return;}
     const device=receptionDeviceCategory==='apple'?findAppleDevice(oDevice.value):null;
     const existingOrder=activeReceptionOrderId?orders.find(x=>String(x.id)===String(activeReceptionOrderId)):null;
     const previousReceptionMeta=existingOrder?.checklist?.__meta||{};
-    const checklist={};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
+    const checklist={...(existingOrder?.checklist||{})};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
     checklist.__meta={...previousReceptionMeta,device_category:receptionDeviceCategory,quick_failures:receptionQuickFailures.slice(),reception_v2:true,received_by_name:previousReceptionMeta.received_by_name||session?.name||'',received_by_email:previousReceptionMeta.received_by_email||session?.email||'',received_by_role:previousReceptionMeta.received_by_role||session?.role||'',received_at:previousReceptionMeta.received_at||new Date().toISOString(),last_reception_by_name:session?.name||'',last_reception_by_email:session?.email||'',last_reception_at:new Date().toISOString()};
-    checklist.__client=collectReceptionClientMeta();
+    checklist.__client={...collectReceptionClientMeta(),registered_id:registered.id,email_verified:true};
     const signatures={reception:sigReceptionName.value.trim()||session?.name||'',client:sigClientName.value.trim(),technician:sigTechName.value.trim(),supervisor:sigSupervisorName.value.trim()};
     const deviceType=receptionDeviceCategory==='apple'?(device?.category||oCategory.value||'Apple'):receptionDeviceCategory==='gaming'?`Gaming · ${oCategory.value||'Consola / control'}`:`Other · ${oCategory.value||'Otro equipo'}`;
     const base={client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:deviceType,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:oPasswordFlag.value==='Sí',priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:[oTechNotes.value.trim(),`Ingreso: ${document.getElementById('oIntakeSource')?.value||'Recepción directa'}`].filter(Boolean).join(' · ')||null,service_mode:document.getElementById('oServiceMode')?.value||'Presencial',reception_checklist:checklist,signatures,status:'Recibido'};
     if(activeReceptionOrderId){
       const previous=existingOrder;
-      const {data,error}=await supabaseClient.from('service_orders').update(base).eq('id',activeReceptionOrderId).select('*').single();
+      const {data,error}=await saveRegisteredReception({...base,order_id:activeReceptionOrderId,expected_updated_at:existingOrder?.updated_at});
       if(error){alert('No se pudo guardar la recepción: '+error.message);return}
       await uploadReceptionPhotos(activeReceptionOrderId);
       await supabaseClient.from('service_order_notes').insert({order_id:activeReceptionOrderId,note:`Recepción actualizada por ${session?.name||session?.email||'Recepción'} · ${receptionDeviceCategory}. Checklist, fotos y condición guardados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});
@@ -2184,12 +2198,12 @@ const TSService=(()=>{
       activeReceptionOrderId=null;await loadSupportData();closeModals();await renderPanel('orders');toast('Recepción V2 guardada en la orden '+(data?.code||previous?.code||''));return;
     }
     const row={...base,code:code(),quote_status:'Pendiente',public_token:(globalThis.crypto?.randomUUID?globalThis.crypto.randomUUID():undefined),created_by_email:session?.email||null};
-    const {data,error}=await supabaseClient.from('service_orders').insert(row).select('*').single();
+    const {data,error}=await saveRegisteredReception(row);
     if(error){alert('No se pudo crear la orden: '+error.message);return}
     await uploadReceptionPhotos(data.id);
     await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:`Equipo recibido por ${session?.name||session?.email||'Recepción'} · ${receptionDeviceCategory}. Checklist y fotos registrados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,row);
     if(pendingAppointmentId)await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);
-    const createdOrder=mapOrder(data);pendingAppointmentId=null;await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso V2 finalizado. Orden creada: '+row.code);if(createdOrder.email)sendOrderEmail(createdOrder,true).catch(error=>console.warn('Correo automático de recepción:',error));
+    const createdOrder=mapOrder(data);pendingAppointmentId=null;await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso V2 finalizado. Orden creada: '+data.code);if(createdOrder.email)sendOrderEmail(createdOrder,true).catch(error=>console.warn('Correo automático de recepción:',error));
   }
   function publicStatusMessage(status){
     const map={
