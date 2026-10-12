@@ -404,6 +404,7 @@ body.client-mode .client-section-head{margin-top:0}.client-mode .client-order-ca
 .ts-tech-part-groups{display:grid;gap:14px}.ts-tech-part-groups>section{border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;background:#fff}.ts-tech-part-groups>section>header{display:flex;justify-content:space-between;padding:14px 16px;background:#f7f8fa}.ts-tech-part-row{display:flex;justify-content:space-between;gap:16px;padding:14px 16px;border-top:1px solid #eee}.ts-tech-part-row span{display:grid;gap:3px}.ts-tech-part-row span:last-child{text-align:right}.ts-tech-part-row small{color:#7b818a}
 @media(max-width:760px){.ts-internal-role-nav .ts-side-nav-item{grid-template-columns:38px 1fr auto}.ts-tech-workspace .client-section-head{align-items:flex-start}.ts-tech-workspace .client-section-head .actions{width:100%}}
 </style>
+<script src="repair-financing.js?v=1"></script>
 </head>
 <body>
 <div id="panelBoot" class="panel-boot" aria-live="polite"><div class="panel-boot-card"><img class="panel-boot-logo" src="logo-thinkstore.png" alt="ThinkStore"><div id="panelBootText">Preparando tu cuenta…</div><div class="panel-boot-bar"><i></i></div></div></div>
@@ -841,7 +842,7 @@ async function refreshClientRealData(opts={}){
       if(session?.access_token){
         const ar=await fetch('/.netlify/functions/client-support-appointments',{headers:{Authorization:`Bearer ${session.access_token}`},cache:'no-store'});
         const aj=await ar.json().catch(()=>({}));
-        realState.appointments=(ar.ok&&aj.ok&&Array.isArray(aj.appointments))?aj.appointments:[];
+        realState.appointments=(ar.ok&&aj.ok&&Array.isArray(aj.appointments))?aj.appointments:[];realState.repairs=(ar.ok&&aj.ok&&Array.isArray(aj.repairs))?aj.repairs:[];
       }
     }catch(e){console.warn('Citas del cliente:',e);realState.appointments=[]}
     realState.lastRefresh=new Date().toISOString();
@@ -1536,8 +1537,9 @@ const views={
    if(!realState.appointments?.length)await refreshClientRealData({silent:true});
    const list=realState.appointments||[];
    const statusLabel=s=>({pendiente_confirmacion:'Pendiente',pendiente:'Pendiente',agendada:'Agendada',confirmada:'Agendada',en_proceso:'En revisión',recibida:'Recibido',completada:'Completada',cancelada:'Cancelada'}[String(s||'').toLowerCase()]||String(s||'Agendada').replace(/_/g,' '));
+   const repairCards=(realState.repairs||[]).map(o=>`<article class="client-repair-card"><h3>${esc(o.code)} · ${esc(o.device_model)}</h3><p>Estado de reparación: <b>${esc(o.status)}</b></p>${window.ThinkStoreFinancing.html(o)}</article>`).join('');
    const cards=list.map(a=>`<article class="client-repair-card"><div class="client-order-head"><div><small>Soporte Think</small><h3>${esc(a.device_type||'Equipo')} ${esc(a.device_model||'')}</h3><span>${esc(fmtApptDate(a))}</span></div><span class="client-status support">${esc(statusLabel(a.status))}</span></div><div class="client-repair-detail"><div><small>Servicio</small><b>${esc(a.service_type||'Diagnóstico / revisión')}</b></div><div><small>Modalidad</small><b>${esc(a.service_mode||'Presencial')}</b></div><div class="wide"><small>Detalle reportado</small><b>${esc(a.reported_issue||'—')}</b></div></div><div class="client-progress support-progress"><div class="done"><i></i><span>Cita agendada</span></div><div class="${/recib|proceso|complet/i.test(a.status||'')?'done':''}"><i></i><span>Recepción</span></div><div class="${/proceso|complet/i.test(a.status||'')?'done':''}"><i></i><span>Diagnóstico</span></div><div class="${/complet/i.test(a.status||'')?'done':''}"><i></i><span>Finalizado</span></div></div><div class="actions"><button class="btn ghost" onclick="openClientRepairDetail('${esc(a.id||a.appointment_code||'')}')">Ver detalle</button><a class="btn ghost" href="/soporte/seguimiento.html" target="_blank" rel="noopener">Abrir Soporte Think</a></div></article>`);
-   $('content').innerHTML=`${realBar()}<div class="client-section-head"><div><span class="client-eyebrow">SOPORTE</span><h2>Mis reparaciones</h2><p>Tus citas de revisión y el progreso de tus equipos.</p></div><button class="btn blue" onclick="location.href='agenda-soporte.html'">Agendar revisión</button></div>${list.length?'<div class="client-orders-grid">'+cards.join('')+'</div>':'<div class="client-empty"><b>No tienes citas de soporte.</b><small>Agenda una revisión cuando necesites diagnóstico o reparación.</small><button class="btn blue" onclick="location.href=\'agenda-soporte.html\'">Agendar revisión</button></div>'}`;
+   $('content').innerHTML=`${realBar()}<div class="client-section-head"><div><span class="client-eyebrow">SOPORTE</span><h2>Mis reparaciones</h2><p>Tus citas de revisión y el progreso de tus equipos.</p></div><button class="btn blue" onclick="location.href='agenda-soporte.html'">Agendar revisión</button></div><div class="client-orders-grid">${repairCards}</div>${list.length?'<div class="client-orders-grid">'+cards.join('')+'</div>':'<div class="client-empty"><b>No tienes citas de soporte.</b><small>Agenda una revisión cuando necesites diagnóstico o reparación.</small><button class="btn blue" onclick="location.href=\'agenda-soporte.html\'">Agendar revisión</button></div>'}`;
  },
  tradein_cliente(){location.href='trade-in.html'},
 
