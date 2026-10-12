@@ -1,0 +1,87 @@
+THINKSTORE · DEPLOY FINAL DEL ECOSISTEMA
+Main V14.75 · Enterprise V10.9 · Inventory V3.2.30 · Soporte V8.8.5
+
+IMPORTANTE
+- NO despliegues V14.73, V14.74, V10.6, V10.7, V10.8, V3.2.29 ni V8.8.4 antes de estos paquetes.
+- Las versiones FINAL son acumulativas y ya contienen los cambios anteriores necesarios.
+- Como son 4 aplicaciones/dominios diferentes, NO existe un solo deploy que actualice las 4 plataformas a la vez.
+- Sí debes hacer solamente UN deploy final por plataforma.
+- Solo hay DOS SQL finales: uno para el Supabase PRINCIPAL y uno para el Supabase de SOPORTE.
+
+ORDEN RECOMENDADO
+
+1) SUPABASE PRINCIPAL
+   Ejecutar: SQL-01-SUPABASE-PRINCIPAL-FINAL.sql
+   Proyecto: Supabase principal de ThinkStore (el mismo que usa Main e Inventory).
+   Incluye:
+   - aislamiento definitivo cliente/personal
+   - invitaciones Super Admin compatibles con profiles_role_check
+   - identidad canónica Freddy Sedispa
+   - identidad Inventory
+   - Finanzas Centrales
+   - préstamos/aportes y devoluciones a socios
+   - compras/proveedores/costos reales
+   - snapshots de costo de venta / COGS
+   - cierre 50% empresa / 25% Freddy / 25% Nelson
+   - conciliación de caja por método de pago
+
+2) SUPABASE SOPORTE
+   Ejecutar: SQL-02-SUPABASE-SOPORTE-FINAL.sql
+   Proyecto: Supabase independiente de Soporte.
+   Incluye:
+   - columnas de cobranza necesarias
+   - identidad Freddy Sedispa
+   - historial individual de abonos, ajustes y reversos
+
+3) INVENTORY · CLOUDFLARE PAGES
+   Desplegar: ThinkStore-Inventory-Cloudflare-V3.2.30-FINAL.zip
+   Sustituye a V3.2.29 y versiones anteriores.
+
+4) SOPORTE · NETLIFY
+   Desplegar: ThinkStore-Soporte-V8.8.5-FINAL.zip
+   Sustituye a V8.8.4 y versiones anteriores.
+
+5) ENTERPRISE · NETLIFY
+   Desplegar: ThinkStore-Enterprise-V10.9-FINAL.zip
+   Sustituye V10.6, V10.7 y V10.8.
+   Incluye SSO directo, recuperación online, Finanzas Centrales y Conciliación.
+
+6) MAIN · NETLIFY
+   Desplegar AL FINAL: ThinkStore-main-V14.75-FINAL.zip
+   Sustituye V14.73 y V14.74.
+   Main se deja de último para activar el acceso unificado cuando las plataformas destino ya están actualizadas.
+
+VARIABLES DE ENTORNO A VERIFICAR (NO CREAR NUEVAS SI YA ESTÁN)
+Enterprise Netlify:
+- SUPABASE_URL (Supabase principal)
+- SUPABASE_SERVICE_ROLE_KEY o equivalente configurado actualmente
+- SUPPORT_SUPABASE_URL
+- SUPPORT_SUPABASE_SERVICE_ROLE_KEY o SUPPORT_SUPABASE_SECRET_KEY
+
+Main Netlify:
+- SUPABASE_URL / VITE_SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SERVICE_KEY
+- SUPPORT_SUPABASE_URL
+- SUPPORT_SUPABASE_SERVICE_ROLE_KEY o SUPPORT_SUPABASE_SECRET_KEY
+
+PRUEBAS DESPUÉS DEL DEPLOY
+1. Iniciar sesión como Freddy Sedispa / Super Admin.
+2. Abrir Inventory desde Acceso Unificado.
+3. Abrir Soporte desde Acceso Unificado.
+4. Abrir Enterprise desde Acceso Unificado.
+5. Enterprise > Tesorería & Socios: revisar compras, gastos, deudas de socios y COGS.
+6. Enterprise > Conciliación de caja:
+   - revisar entradas/salidas por Zelle, Pago Móvil, efectivo, transferencia, POS, EUR, USDT, etc.
+   - colocar saldo real de cierre por método
+   - Guardar revisión
+   - Cerrar conciliación cuando las diferencias estén justificadas
+7. Enterprise > Auditoría semanal: cerrar la semana y verificar 50% Empresa / 25% Freddy / 25% Nelson.
+8. Servicio Técnico: registrar un abono y confirmar que Enterprise lo vea como evento del día/semana.
+9. Inventory: registrar una compra con proveedor, costo, método de pago y quién pagó; confirmar que Enterprise actualice cuentas por pagar/deuda del socio.
+
+REGLA CONTABLE IMPLEMENTADA
+- Compra de inventario: afecta caja/activo, NO se trata como gasto inmediato de utilidad.
+- Cuando el producto se vende, su costo histórico pasa a COGS.
+- Si Freddy o Nelson paga un gasto/compra, ThinkStore registra deuda con ese socio.
+- La devolución al socio baja la deuda y la caja, pero NO crea un segundo gasto.
+- Comisión técnica: se calcula aparte sobre servicio neto elegible y no se mezcla con el reparto societario.

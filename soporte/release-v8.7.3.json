@@ -1,0 +1,13 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.7.3",
+  "base": "8.7.2",
+  "type": "secure-tracking-runtime-fix",
+  "fixes": [
+    "closeTerms DOM/function collision",
+    "window.status DOM collision",
+    "explicit DOM references",
+    "safe tracking boot",
+    "visible API error handling"
+  ]
+}

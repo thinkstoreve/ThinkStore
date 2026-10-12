@@ -1,0 +1,11 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.8.1",
+  "base": "8.8.0",
+  "changes": [
+    "dashboard high contrast",
+    "notifications grouped by client/order",
+    "expandable full chat per client/order",
+    "no SQL"
+  ]
+}

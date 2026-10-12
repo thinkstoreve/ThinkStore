@@ -1,0 +1,1 @@
+{"version":"8.8.20","date":"2026-10-08","changes":["Fallback de decodificacion en navegador","Conversion HEIC/HEIF en backend","Subida R2 privada sin depender de createImageBitmap"]}

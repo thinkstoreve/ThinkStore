@@ -1,0 +1,36 @@
+{
+  "name": "ThinkStore Soporte",
+  "short_name": "TS Soporte",
+  "description": "Centro de Servicio ThinkStore con recepción, órdenes, repuestos y sincronización offline.",
+  "start_url": "./panel.html?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f5f7",
+  "theme_color": "#111114",
+  "lang": "es-VE",
+  "icons": [
+    {
+      "src": "favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Recepción",
+      "url": "./panel.html#new-order"
+    },
+    {
+      "name": "Panel",
+      "url": "./panel.html"
+    }
+  ]
+}

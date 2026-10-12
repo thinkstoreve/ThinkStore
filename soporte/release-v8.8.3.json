@@ -1,0 +1,11 @@
+{
+  "name": "ThinkStore Soporte",
+  "version": "8.8.3",
+  "base": "8.8.2",
+  "type": "unified-access",
+  "changes": [
+    "central ThinkStore SSO entry",
+    "same ThinkStore account across internal platforms",
+    "local Support login retained as emergency fallback"
+  ]
+}

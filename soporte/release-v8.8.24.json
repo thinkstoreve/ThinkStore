@@ -1,0 +1,11 @@
+{
+  "version": "8.8.24",
+  "title": "Eliminación segura de fotografías",
+  "cache": "15.28.0",
+  "changes": [
+    "Botón Eliminar en cada foto/archivo de la orden",
+    "Confirmación antes del borrado, con aviso si la imagen es visible al cliente",
+    "Eliminación real del objeto en R2 o Supabase Storage y del registro en service_order_photos",
+    "Auditoría del borrado y refresco inmediato de la galería"
+  ]
+}
