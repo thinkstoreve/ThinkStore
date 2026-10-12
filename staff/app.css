@@ -352,3 +352,25 @@
 .ts-split-dest-wrap{display:flex;align-items:center;gap:8px}.ts-split-dest-wrap img{width:30px;height:30px;object-fit:contain;flex:0 0 30px}.ts-split-dest-wrap select{flex:1}.repair-bank-destination{display:flex;align-items:center;gap:8px}.repair-bank-destination img{width:30px;height:30px;object-fit:contain;flex:0 0 30px}.repair-bank-destination select{flex:1}.repair-split-fields.has-destination{grid-template-columns:repeat(2,minmax(0,1fr))}.repair-split-fields.has-destination .repair-split-wide{grid-column:1/-1}
 @media(max-width:760px){.staff-payment-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.staff-payment-destination-list{grid-template-columns:repeat(2,minmax(0,1fr))}.staff-payment-category-bar button{padding:8px 10px}.repair-split-fields.has-destination{grid-template-columns:1fr}}
 @media(max-width:430px){.staff-payment-grid{grid-template-columns:1fr}.staff-payment-destination-list{grid-template-columns:1fr 1fr}.staff-bank-choice{padding:7px}.staff-bank-choice img{width:30px;height:30px;flex-basis:30px}}
+
+/* V15.37.1 – Visibilidad y estados de la financiación de reparaciones */
+.repair-finance-guide{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 18px;margin:18px 0 14px;border:1px solid #e5e5ea;border-radius:14px;background:#fff;color:#222;}
+.repair-finance-guide>div{display:grid;gap:5px;}
+.repair-finance-guide b{font-size:14px;}
+.repair-finance-guide span{font-size:12px;line-height:1.5;color:#62666c;}
+.repair-finance-guide>small{white-space:nowrap;color:#757575;font-size:10px;}
+.repair-finance-section{background:#fff;border:1px solid #e9debc;border-radius:14px;margin:16px 0;padding:17px;}
+.repair-finance-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.repair-finance-heading h3{margin:3px 0 0;font-size:18px;}
+.repair-finance-heading small{font-size:10px;letter-spacing:.075em;font-weight:800;color:#8b6c1b;}
+.repair-finance-state{font-size:11px;font-weight:700;border-radius:999px;padding:6px 9px;background:#f3f3f4;color:#57575b;white-space:nowrap;}
+.repair-finance-state.is-ready{background:#fff2c5;color:#805d00;}
+.repair-finance-copy{font-size:12px;line-height:1.6;color:#63646a;margin:12px 0;}
+.repair-finance-alert{font-size:12px;line-height:1.55;padding:11px 12px;border:1px solid #ece3d1;background:#fffaf0;border-radius:9px;color:#785927;margin:12px 0;}
+.repair-finance-fields{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:12px 0;}
+.repair-finance-fields label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#505056;min-width:0;}
+.repair-finance-fields input{width:100%;box-sizing:border-box;min-height:42px;border:1px solid #dddde1;border-radius:9px;padding:9px 11px;background:#fff;color:#18181a;font:inherit;}
+.repair-finance-fields input:focus-visible{outline:2px solid #a58a46;outline-offset:1px;}
+.repair-finance-save{min-height:42px;}
+.repair-finance-foot{display:block;color:#707177;font-size:11px;line-height:1.5;margin-top:13px;}
+@media(max-width:600px){.repair-finance-guide{align-items:flex-start;flex-direction:column;gap:7px}.repair-finance-fields{grid-template-columns:1fr}.repair-finance-heading{align-items:flex-start;flex-direction:column}}

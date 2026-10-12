@@ -164,6 +164,32 @@ function updateDiscountPreview(){
   const box=$('repairDiscountPreview');if(!box)return;const d=discountState(),subtotal=Number(d.subtotal||detailAccount(active).budget||0),type=$('repairDiscountType')?.value||d.type,value=Math.max(0,Number($('repairDiscountValue')?.value||0));const amount=type==='percent'?round(subtotal*Math.min(value,100)/100):Math.min(round(value),subtotal),total=Math.max(0,round(subtotal-amount));box.textContent=subtotal>0?`Vista previa: ${usd(subtotal)} − ${usd(amount)} = ${usd(total)}`:'El descuento se habilita cuando exista un total para la reparación.';
 }
 
+// Present financing clearly even when the order is not yet eligible. The server
+// remains the authority for identity, quote consolidation and write permissions.
+function financingEditor(o,a){
+  const configured=!!o?.reception_checklist?.__financing?.enabled;
+  const quote=Number(o?.quote_amount||0);
+  const currency=String(o?.quote_currency||'USD').toUpperCase();
+  const pendingExtras=Number(billing?.pending_extra_count||0);
+  const missing=[];
+  if(!billing)missing.push('Consultando los requisitos de financiación…');
+  else if(a.canceled)missing.push('La orden está cancelada o no aprobada.');
+  else if(a.paidOff||a.pending<=0)missing.push('La reparación ya no tiene saldo pendiente.');
+  else if(currency!=='USD')missing.push('El presupuesto debe estar expresado en USD.');
+  else if(!(quote>0))missing.push('Confirma el presupuesto desde Servicio Técnico antes de financiar.');
+  else if(pendingExtras>0)missing.push('Consolida primero los cargos adicionales de esta reparación.');
+  const ready=missing.length===0;
+  const f=o?.reception_checklist?.__financing||{};
+  return `<section class="form-section repair-finance-section" aria-label="Financiación de reparación">
+    <div class="repair-finance-heading"><div><small>CONDICIONES DE PAGO</small><h3>Reparación financiada</h3></div><span class="repair-finance-state ${ready?'is-ready':'is-pending'}">${ready?'Disponible':configured?'Plan registrado':'Por configurar'}</span></div>
+    <p class="repair-finance-copy">Pacta un pago inicial y una fecha de vencimiento. Guardar el plan <strong>no cobra dinero</strong>; los abonos se registran por separado con los métodos de pago.</p>
+    ${!ready?`<p class="repair-finance-alert" role="status">${esc(missing[0])}</p>`:`
+    <div class="repair-finance-fields"><label>Pago inicial (USD)<input id="financeInitial" type="number" min="0.01" max="${esc(a.budget)}" step="0.01" inputmode="decimal" value="${esc(f.initial_amount||'')}" placeholder="Ej. 30.00" required></label><label>Fecha de vencimiento<input id="financeDue" type="date" value="${esc(f.due_date||'')}" required></label></div>
+    <button type="button" id="financeSave" class="secondary repair-finance-save">${configured?'Actualizar condiciones':'Guardar financiación'}</button>`}
+    <small class="repair-finance-foot">Se requiere cliente registrado con correo confirmado y datos completos. La validación definitiva se realiza en el servidor.</small>
+  </section>`;
+}
+
 function detail(){
   const o=active;if(!o)return;const a=detailAccount(o);$('repairsModalTitle').textContent=`${o.code||'Orden'} · ${o.client_name||'Cliente'}`;
   const paid=a.paidOff;
@@ -173,7 +199,7 @@ function detail(){
       <div><small>Equipo</small><b>${esc(o.device_model||'—')}</b><span>${esc(o.serial_imei||'Sin serial / IMEI')}</span></div>
       <div><small>Estado técnico</small><b>${esc(o.status||'—')}</b><span>${esc(o.reported_issue||'Servicio técnico')}</span></div>
     </div>
-    ${window.ThinkStoreFinancing.html(o)}
+    ${window.ThinkStoreFinancing?.html?.(o)||''}
     <div class="checkout-summary repair-payment-summary">
       <div><span>Subtotal</span><b>${Number(billing?.subtotal_usd||0)>0?usd(billing.subtotal_usd):(a.budget>0?fmt(a.budget,o):'Por definir')}</b></div>
       <div class="repair-summary-discount"><span>Descuento${billing?.discount_type==='percent'&&Number(billing?.discount_value||0)>0?` (${Number(billing.discount_value)}%)`:''}</span><b>${Number(billing?.discount_usd||0)>0?'− '+usd(billing.discount_usd):usd(0)}</b></div>
@@ -184,7 +210,7 @@ function detail(){
     ${billing?.auto_from_parts?`<div class="repair-auto-total">El total se calculó automáticamente desde los repuestos preparados. Puedes sumar mano de obra, servicios o productos antes de cobrar.</div>`:''}
     <div class="form-section repair-form-section"><div class="repair-section-title"><h3>Repuestos</h3><small>Usados por el técnico para esta reparación</small></div>${partRows()}</div>
     <div class="form-section repair-form-section repair-extras-section"><div class="repair-section-title"><h3>Cargos adicionales</h3><small>Mano de obra, servicios o productos de tienda</small></div>${extraRows()}${!paid?`<button type="button" class="secondary repair-add-charge" id="repairsAddCharge">＋ Añadir servicio o producto</button><div class="repair-catalog-panel hidden" id="repairCatalogPanel"><div class="repair-catalog-search"><input id="repairCatalogSearch" placeholder="Buscar pantalla, batería, mano de obra, case, cargador…" autocomplete="off"><button type="button" id="repairCatalogClose">Cerrar</button></div><div id="repairCatalogResults" class="repair-catalog-results">${catalogRows()}</div><p class="repair-catalog-note">Los repuestos de Servicio Técnico y los productos de tienda se reservan al agregarlos. El stock se descuenta únicamente al completar el pago.</p></div>`:''}</div>
-    ${!paid&&a.budget>0?`<section class="form-section"><h3>Reparación financiada</h3><p>Define el plan. Registra el dinero recibido con los botones de pago.</p><label>Pago inicial USD<input id="financeInitial" type="number" min="0.01" step="0.01" value="${esc(o.reception_checklist?.__financing?.initial_amount||'')}"></label><label>Vencimiento<input id="financeDue" type="date" value="${esc(o.reception_checklist?.__financing?.due_date||'')}"></label><button type="button" id="financeSave" class="secondary">Guardar financiación</button></section>`:''}
+    ${financingEditor(o,a)}
     <div class="form-section repair-form-section"><div class="repair-section-title"><h3>Historial de pagos</h3><small>Cada abono queda ligado a la reparación</small></div><div id="repairsEvents" class="repair-history-list">${historyRows()}</div></div>
     ${paid?`<div class="form-section repair-paid-panel"><div><div><h3>Reparación pagada</h3><p>El saldo está completo. La Nota de Entrega está disponible sin cambiar el estado técnico del equipo.</p></div></div><div class="repair-final-actions"><button class="primary" id="repairsDeliveryNote" type="button">Ver / imprimir Nota de Entrega</button><button class="secondary" id="repairsResendDeliveryNote" type="button">Reenviar al correo</button><button class="secondary" id="repairsOpenTechnical" type="button">Abrir Servicio Técnico ↗</button></div></div>`:`
     <form id="repairsPayForm" class="form-section repair-payment-form">
@@ -204,7 +230,14 @@ function detail(){
   bindDetail();updatePaymentUi();
 }
 function bindDetail(){
- $('financeSave')?.addEventListener('click',async()=>{const button=$('financeSave');button.disabled=true;try{const d=await api('POST',{action:'set_financing',order_id:active.id,initial_amount:Number($('financeInitial').value),due_date:$('financeDue').value});Object.assign(active,d.order);reflectBilling(active,billing);render();detail();}catch(e){alert(e.message)}finally{if(button.isConnected)button.disabled=false}});
+ $('financeSave')?.addEventListener('click',async()=>{
+   const button=$('financeSave'),initial=Number($('financeInitial')?.value||0),due=$('financeDue')?.value||'',amount=detailAccount(active).budget;
+   if(!Number.isFinite(initial)||initial<=0||initial>=amount)return alert('Indica una inicial mayor que cero y menor que el total confirmado de la reparación.');
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(due))return alert('Selecciona una fecha de vencimiento válida.');
+   button.disabled=true;button.textContent='Guardando condiciones…';
+   try{const d=await api('POST',{action:'set_financing',order_id:active.id,initial_amount:initial,due_date:due});Object.assign(active,d.order);reflectBilling(active,billing);render();detail();}
+   catch(e){alert(e.message)}finally{if(button.isConnected){button.disabled=false;button.textContent='Guardar financiación'}}
+ });
   $('repairMethodChoices')?.addEventListener('click',e=>{const b=e.target.closest('[data-repair-group]');if(!b)return;const g=PAYMENT_GROUPS.find(x=>x.id===b.dataset.repairGroup);if(!g)return;const a=detailAccount(active),idx=paymentSelections.findIndex(x=>x.groupId===g.id);if(a.budget<=0){paymentSelections=[newPaymentSelection(g,g.methods[0])]}else if(idx>=0){if(paymentSelections.length>1)paymentSelections.splice(idx,1)}else{if(paymentSelections.length>=MAX_PAYMENT_METHODS)return alert('Puedes combinar hasta 3 métodos de pago.');paymentSelections.push(newPaymentSelection(g,g.methods[0]))}b.classList.remove('tap-pop');void b.offsetWidth;b.classList.add('tap-pop');setTimeout(()=>b.classList.remove('tap-pop'),190);if(paymentSelections.some(x=>IS_BS.has(x.method)))window.ThinkStoreFX?.refresh?.().catch(()=>{});refreshPaymentMethodControls()});
   $('repairPaymentLines')?.addEventListener('input',e=>{const i=Number(e.target.dataset.payLineAmount??e.target.dataset.payLineUsd??e.target.dataset.payLineRef);if(!Number.isInteger(i)||!paymentSelections[i])return;const line=paymentSelections[i];if(e.target.matches('[data-pay-line-amount]'))line.amount=e.target.value;if(e.target.matches('[data-pay-line-usd]'))line.usdEquivalent=e.target.value;if(e.target.matches('[data-pay-line-ref]'))line.reference=e.target.value;updatePaymentUi()});
   $('repairPaymentLines')?.addEventListener('change',e=>{
