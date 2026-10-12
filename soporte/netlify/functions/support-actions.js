@@ -169,7 +169,7 @@ exports.handler=async event=>{
     }
 
     if(action==='payment_states'){
-      const rows=await req('service_orders?select=id,payment_status,amount_paid,payment_method,payment_notes,paid_at,quote_amount,quote_currency,updated_at&order=updated_at.desc&limit=5000');
+      const rows=await req('service_orders?select=id,payment_status,amount_paid,payment_method,payment_notes,paid_at,quote_amount,quote_currency,reception_checklist,updated_at&order=updated_at.desc&limit=5000');
       return reply(200,{ok:true,orders:Array.isArray(rows)?rows:[]});
     }
 

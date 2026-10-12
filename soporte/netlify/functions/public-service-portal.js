@@ -58,6 +58,7 @@ function clientOrder(o){
     warranty_days:Number(o.warranty_days||0),
     warranty_expires_at:addDays(delivered,Number(o.warranty_days||0)),
     payment_status:o.payment_status||'Pendiente',
+    financing:require('../../repair-financing').snapshot(o),
     amount_paid:paid,
     balance:Math.max(0,Math.round((quote-paid)*100)/100),
     paid_at:o.paid_at,
@@ -109,7 +110,7 @@ exports.handler=async event=>{
   if(!code&&!token)return reply(400,{ok:false,error:'Código de orden requerido'});
 
   try{
-    const select='id,code,client_name,client_email,client_phone,device_type,device_model,device_color,serial_imei,reported_issue,service_mode,status,created_at,updated_at,delivered_at,quote_status,quote_amount,quote_currency,quote_repair_details,quote_sent_at,quote_approved_at,quote_terms_accepted_at,quote_terms_version,quote_client_comment,warranty_days,public_token,assigned_technician_email,payment_status,amount_paid,paid_at,delivery_method,tracking_company,tracking_code';
+    const select='reception_checklist,id,code,client_name,client_email,client_phone,device_type,device_model,device_color,serial_imei,reported_issue,service_mode,status,created_at,updated_at,delivered_at,quote_status,quote_amount,quote_currency,quote_repair_details,quote_sent_at,quote_approved_at,quote_terms_accepted_at,quote_terms_version,quote_client_comment,warranty_days,public_token,assigned_technician_email,payment_status,amount_paid,paid_at,delivery_method,tracking_company,tracking_code';
     const lookup=code?`code=ilike.${encodeURIComponent(code)}`:`public_token=eq.${encodeURIComponent(token)}`;
     const rows=await req(`service_orders?select=${select}&${lookup}&limit=1`);
     const o=rows?.[0];
