@@ -1738,7 +1738,7 @@ function renderV6Support(data){
   const supportStates=['Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'];
   const recent = orders.slice(0,20).map(o=>`
     <div class="table-row v6-row">
-      <div><b>${safe(supportCode(o))}</b><br><small>${safe(supportClient(o))} · ${safe(supportDevice(o))}</small></div>
+      <div><b>${safe(supportCode(o))}</b><br><small>${safe(supportClient(o))} · ${safe(supportDevice(o))}</small>${window.ThinkStoreFinancing.html(o)}</div>
       <span><select class="v2-select" onchange="enterpriseUpdateSupport('${safe(o.id||'')}',this.value)">${supportStates.map(s=>`<option ${s===supportStatus(o)?'selected':''}>${safe(s)}</option>`).join('')}</select></span>
       <i><button class="tag" onclick="enterpriseManageSupport('${safe(o.id||'')}')">Gestionar</button> <button class="tag" onclick="enterpriseAddSupportNote('${safe(o.id||'')}','${safe(supportCode(o))}')">Bitácora</button> <button class="tag" onclick="enterpriseNotifySupport('${safe(o.id||'')}','${safe(supportCode(o))}')">Correo</button></i>
     </div>`).join('');

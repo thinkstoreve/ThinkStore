@@ -23,11 +23,11 @@ exports.handler=async(event)=>{
         }
         if(/^activar$/.test(n)){
           await C.upsertContact(phone,{opt_in:true,opt_in_source:'customer_reactivation',opt_in_at:now,opt_out_at:null,last_inbound_at:now,last_message_preview:text});
-          const sent=await C.sendText(phone,'Perfecto. Reactivamos tus notificaciones de ThinkStore ✅ ¿En qué te puedo ayudar?');
+          const sent=await C.sendText(phone,'Perfecto. Activamos tus avisos de ThinkStore, incluidos recordatorios de saldo. Escribe BAJA para desactivarlos. ✅ ¿En qué te puedo ayudar?');
           await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'auto_reply',body_preview:'Opt-in reactivado',payload:sent});continue;
         }
         const optedOut=current&&current.opt_in===false&&current.opt_out_at;
-        await C.upsertContact(phone,{name:C.clean(value.contacts?.find(x=>x.wa_id===m.from)?.profile?.name||current?.name||'',160),opt_in:optedOut?false:true,opt_in_source:optedOut?current.opt_in_source:'customer_inbound',opt_in_at:optedOut?current.opt_in_at:(current?.opt_in_at||now),last_inbound_at:now,last_message_preview:text});
+        await C.upsertContact(phone,{name:C.clean(value.contacts?.find(x=>x.wa_id===m.from)?.profile?.name||current?.name||'',160),opt_in:optedOut?false:(current?.opt_in===true),opt_in_source:current?.opt_in_source||'customer_inbound',opt_in_at:current?.opt_in_at||null,last_inbound_at:now,last_message_preview:text});
         if(/\b(asesor|humano|persona|agente)\b/.test(n)){
           await C.upsertContact(phone,{needs_human:true,last_intent:'human_handoff'});const sent=await C.sendText(phone,'Claro. Marqué tu conversación para atención humana. Un asesor de ThinkStore continuará por este mismo WhatsApp.');
           await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'human_handoff',body_preview:'Solicitud de asesor',payload:sent});continue;

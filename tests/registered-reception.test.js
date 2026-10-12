@@ -1,0 +1,8 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const customers=require('../netlify/functions/registered-customer');
+const canonical={id:'12345678-1234-1234-1234-123456789abc',name:'Registered Client',email:'client@example.test',phone:'+584221234567',document:'V12345678',address:'Registered address',email_verified:true};
+customers.handler=async()=>({statusCode:200,headers:{},body:JSON.stringify({ok:true,customer:canonical})});
+const {handler}=require('../netlify/functions/registered-reception');
+process.env.SUPPORT_SUPABASE_URL='https://support.example.test';process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY='test';
+test('recepción usa datos canónicos y no acepta pagos ni financiación enviada por navegador',async()=>{const original=global.fetch;let written;global.fetch=async(u,o)=>{written=JSON.parse(o.body);return{ok:true,json:async()=>[{id:123,...written}]}};try{const r=await handler({httpMethod:'POST',headers:{},body:JSON.stringify({client_email:canonical.email,client_name:'FAKE',device_model:'iPhone',reported_issue:'Screen',amount_paid:999,reception_checklist:{__financing:{enabled:true},__client:{document:'FAKE'}}})});assert.equal(r.statusCode,200,r.body);assert.equal(written.client_name,canonical.name);assert.equal(written.reception_checklist.__client.document,canonical.document);assert.equal(written.reception_checklist.__financing,undefined);assert.equal(written.amount_paid,undefined);}finally{global.fetch=original;}});
+test('recepción no permite escritura con sesión rechazada',async()=>{const original=customers.handler;customers.handler=async()=>({statusCode:403,body:'{}'});try{const r=await handler({httpMethod:'POST',headers:{},body:'{}'});assert.equal(r.statusCode,403);}finally{customers.handler=original;}});

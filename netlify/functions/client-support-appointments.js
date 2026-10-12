@@ -17,6 +17,9 @@ exports.handler=async(event)=>{
     const support=createClient(supportUrl,supportKey,{auth:{persistSession:false,autoRefreshToken:false}});
     const {data,error}=await support.from('service_appointments').select('id,client_name,client_email,client_phone,device_type,device_model,service_type,reported_issue,preferred_date,preferred_time,service_mode,status,notes,created_at,updated_at').eq('client_email',email).order('preferred_date',{ascending:false}).order('created_at',{ascending:false}).limit(50);
     if(error) throw error;
-    return reply(200,{ok:true,appointments:data||[]});
+    const {data:repairs,error:repairError}=await support.from('service_orders').select('id,code,device_model,status,quote_amount,quote_currency,amount_paid,reception_checklist,updated_at').eq('reception_checklist->__client->>registered_id',authData.user.id).order('updated_at',{ascending:false}).limit(100);
+    if(repairError)throw repairError;
+    const safeRepairs=(repairs||[]).map(o=>({id:o.id,code:o.code,device_model:o.device_model,status:o.status,quote_amount:o.quote_amount,quote_currency:o.quote_currency,amount_paid:o.amount_paid,financing:require('../../repair-financing').snapshot(o)}));
+    return reply(200,{ok:true,appointments:data||[],repairs:safeRepairs});
   }catch(e){console.error(e);return reply(500,{ok:false,error:'appointments_fetch_failed'});}
 };
