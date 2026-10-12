@@ -23,7 +23,18 @@ exports.handler=async e=>{
   if(previous?.reception_checklist?.__financing)checklist.__financing=previous.reception_checklist.__financing;
   checklist.__client={...c,registered_id:c.id,address_short:c.address};
   Object.assign(data,{client_name:c.name,client_phone:c.phone,client_email:c.email,reception_checklist:checklist,password_received:b.password_received===true,signatures:b.signatures&&typeof b.signatures==='object'?b.signatures:{}});
-  if(!id)Object.assign(data,{code:'TS-'+randomUUID().slice(0,8).toUpperCase(),status:'Recibido',quote_status:'Pendiente',public_token:randomUUID()});
+  if(!id){
+   // La numeración se reserva atómicamente en Supabase; nunca se acepta desde el navegador.
+   // Ante falta de migración, detener la recepción en vez de usar códigos aleatorios.
+   const seq=await fetch(url+'/rest/v1/rpc/next_service_order_code',{
+    method:'POST',headers,body:'{}'
+   });
+   if(!seq.ok)return out(503,{ok:false,error:'Numeración de órdenes no disponible. Ejecuta la migración de folios V15.37.4 en Supabase Soporte y vuelve a intentar. No se creó ninguna orden.'});
+   const assignedCode=await seq.json();
+   if(typeof assignedCode!=='string'||!/^TS-SVC-\d{4}-\d{4,}$/.test(assignedCode))
+    return out(503,{ok:false,error:'Supabase no devolvió un número de orden válido. No se creó ninguna orden.'});
+   Object.assign(data,{code:assignedCode,status:'Recibido',quote_status:'Pendiente',public_token:randomUUID()});
+  }
   const suffix=id?'?id=eq.'+encodeURIComponent(id)+'&updated_at=eq.'+encodeURIComponent(previous.updated_at):'';
   const r=await fetch(url+'/rest/v1/service_orders'+suffix,{method:id?'PATCH':'POST',headers,body:JSON.stringify(data)});
   if(!r.ok)throw Error('No se pudo guardar la recepción. No se ha confirmado el registro.');

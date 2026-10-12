@@ -2163,7 +2163,6 @@ const TSService=(()=>{
     renderReceptionSummary();
     document.body.classList.add('order-tab');document.getElementById('orderModal').classList.add('open');setTimeout(()=>oSerial?.focus(),120);
   }
-  function code(){const year=new Date().getFullYear(),nums=orders.filter(o=>String(o.code).includes(`TS-SVC-${year}-`)).map(o=>Number(String(o.code).split('-').pop())||0);return `TS-SVC-${year}-${String(Math.max(0,...nums)+1).padStart(4,'0')}`}
   async function saveRegisteredReception(payload){
     const {data:{session:authSession}}=await supabaseClient.auth.getSession();
     const r=await fetch('https://thinkstore.com.ve/.netlify/functions/registered-reception',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(authSession?.access_token||'')},body:JSON.stringify(payload)});
@@ -2201,11 +2200,11 @@ const TSService=(()=>{
       await audit('update_reception',activeReceptionOrderId,previous||null,base);
       activeReceptionOrderId=null;await loadSupportData();closeModals();await renderPanel('orders');toast('Recepción V2 guardada en la orden '+(data?.code||previous?.code||''));return;
     }
-    const row={...base,code:code(),quote_status:'Pendiente',public_token:(globalThis.crypto?.randomUUID?globalThis.crypto.randomUUID():undefined),created_by_email:session?.email||null};
+    const row={...base,quote_status:'Pendiente',public_token:(globalThis.crypto?.randomUUID?globalThis.crypto.randomUUID():undefined),created_by_email:session?.email||null};
     const {data,error}=await saveRegisteredReception(row);
     if(error){alert('No se pudo crear la orden: '+error.message);return}
     await uploadReceptionPhotos(data.id);
-    await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:`Equipo recibido por ${session?.name||session?.email||'Recepción'} · ${receptionDeviceCategory}. Checklist y fotos registrados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,row);
+    await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:`Equipo recibido por ${session?.name||session?.email||'Recepción'} · ${receptionDeviceCategory}. Checklist y fotos registrados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,{...row,code:data.code});
     if(pendingAppointmentId)await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);
     const createdOrder=mapOrder(data);pendingAppointmentId=null;await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso V2 finalizado. Orden creada: '+data.code);if(createdOrder.email)sendOrderEmail(createdOrder,true).catch(error=>console.warn('Correo automático de recepción:',error));
   }
