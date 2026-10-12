@@ -2174,7 +2174,11 @@ const TSService=(()=>{
     let registered;
     try{
       const {data:{session:authSession}}=await supabaseClient.auth.getSession();
-      const r=await fetch('https://thinkstore.com.ve/.netlify/functions/registered-customer',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(authSession?.access_token||'')},body:JSON.stringify({source:'support',email:oEmail.value.trim()})});
+      const intake=collectReceptionClientMeta();
+      const r=await fetch('https://thinkstore.com.ve/.netlify/functions/registered-customer',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(authSession?.access_token||'')},body:JSON.stringify({
+        source:'support',email:intake.email,
+        complete_profile:{name:intake.name,phone:intake.phone,document:intake.document,address:intake.address_short,city:intake.city,state:intake.state}
+      })});
       const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'No se pudo validar el cliente registrado.');registered=d.customer;
       oClient.value=registered.name;oPhone.value=registered.phone;oEmail.value=registered.email;
       applyReceptionClientMeta({...collectReceptionClientMeta(),document:registered.document,address_short:registered.address,city:registered.city,state:registered.state});

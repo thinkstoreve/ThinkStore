@@ -1,6 +1,6 @@
 'use strict';
 const {authenticateInternal,mainConfig}=require('./staff-auth-core');
-const {load}=require('./registered-customer-core');
+const {load,completeFromReception}=require('./registered-customer-core');
 const H={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Headers':'authorization,content-type','Access-Control-Allow-Methods':'POST,OPTIONS'};
 exports.handler=async e=>{
  const origin=e.headers?.origin||'';
@@ -19,7 +19,12 @@ exports.handler=async e=>{
    if(u.ok){const user=await u.json();const r=await fetch(url+'/rest/v1/service_users?select=rol,activo&email=eq.'+encodeURIComponent(user.email||'')+'&limit=1',{headers:{apikey:key,Authorization:'Bearer '+key}});if(r.ok){const [p]=await r.json();allowed=p?.activo!==false&&['superadmin','admin','reception','sales'].includes(p?.rol);}}
   }else{const a=await authenticateInternal(e);allowed=a.ok&&a.profile?.is_internal===true&&['admin','superadmin','vendedor','gerente','recepcion','soporte'].includes(a.role);}
   if(!allowed)return out(403,{ok:false,error:'No tienes permiso para consultar clientes.'});
-  const m=mainConfig();const customer=await load({url:m.url,key:m.service},b.email);
+  const m=mainConfig();
+  // Solo Soporte autenticado puede completar campos vacíos de una cuenta verificada.
+  const conf={url:m.url,key:m.service};
+  const customer=b.source==='support'&&b.complete_profile
+   ?await completeFromReception(conf,b.email,b.complete_profile)
+   :await load(conf,b.email);
   return out(200,{ok:true,customer});
  }catch(err){return out(409,{ok:false,error:err.message})}
 };

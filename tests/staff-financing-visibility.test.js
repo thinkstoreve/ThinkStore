@@ -18,7 +18,18 @@ const balance={budget:100,pending:100,paidOff:false,canceled:false};
 test('financiación es visible aunque falte presupuesto',()=>{
  const html=ui({quote_amount:0,quote_currency:'USD'}, {...balance,budget:0}, {pending_extra_count:0});
  assert.match(html,/Reparación financiada/);
- assert.match(html,/Confirma el presupuesto/);
+ assert.match(html,/confirma el presupuesto/);
+ assert.doesNotMatch(html,/id="financeSave"/);
+});
+test('financiación se puede configurar desde repuesto reservado y presupuestado automáticamente',()=>{
+ const html=ui({quote_amount:0,quote_currency:'USD'}, {...balance,budget:40,pending:40}, {pending_extra_count:0,unpriced_part_count:0,auto_from_parts:true,parts_total:40});
+ assert.match(html,/Total preparado desde repuestos reservados/);
+ assert.match(html,/USD 40.00/);
+ assert.match(html,/id="financeSave"/);
+});
+test('financiación se bloquea si hay repuestos sin precio',()=>{
+ const html=ui({quote_amount:0,quote_currency:'USD'}, {...balance,budget:40,pending:40}, {pending_extra_count:0,unpriced_part_count:1,auto_from_parts:true,parts_total:40});
+ assert.match(html,/sin precio configurado/);
  assert.doesNotMatch(html,/id="financeSave"/);
 });
 test('financiación se puede configurar con presupuesto USD confirmado',()=>{

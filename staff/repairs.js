@@ -176,13 +176,16 @@ function financingEditor(o,a){
   else if(a.canceled)missing.push('La orden está cancelada o no aprobada.');
   else if(a.paidOff||a.pending<=0)missing.push('La reparación ya no tiene saldo pendiente.');
   else if(currency!=='USD')missing.push('El presupuesto debe estar expresado en USD.');
-  else if(!(quote>0))missing.push('Confirma el presupuesto desde Servicio Técnico antes de financiar.');
   else if(pendingExtras>0)missing.push('Consolida primero los cargos adicionales de esta reparación.');
+  else if(Number(billing?.unpriced_part_count||0)>0)missing.push('Hay repuestos sin precio configurado. Revisa los precios en Inventory.');
+  else if(!(quote>0)&&!(billing?.auto_from_parts&&Number(billing?.parts_total||0)>0))missing.push('Agrega repuestos preparados con precio o confirma el presupuesto desde Servicio Técnico.');
   const ready=missing.length===0;
+  const autoBase=ready&&!(quote>0)&&!!billing?.auto_from_parts;
   const f=o?.reception_checklist?.__financing||{};
   return `<section class="form-section repair-finance-section" aria-label="Financiación de reparación">
     <div class="repair-finance-heading"><div><small>CONDICIONES DE PAGO</small><h3>Reparación financiada</h3></div><span class="repair-finance-state ${ready?'is-ready':'is-pending'}">${ready?'Disponible':configured?'Plan registrado':'Por configurar'}</span></div>
     <p class="repair-finance-copy">Pacta un pago inicial y una fecha de vencimiento. Guardar el plan <strong>no cobra dinero</strong>; los abonos se registran por separado con los métodos de pago.</p>
+    ${autoBase?`<p class="repair-auto-total" role="status">Total preparado desde repuestos reservados: <strong>USD ${esc(Number(a.budget||0).toFixed(2))}</strong>. Al guardar el plan se fija este total de financiación, sin cobrar ni descontar stock.</p>`:''}
     ${!ready?`<p class="repair-finance-alert" role="status">${esc(missing[0])}</p>`:`
     <div class="repair-finance-fields"><label>Pago inicial (USD)<input id="financeInitial" type="number" min="0.01" max="${esc(a.budget)}" step="0.01" inputmode="decimal" value="${esc(f.initial_amount||'')}" placeholder="Ej. 30.00" required></label><label>Fecha de vencimiento<input id="financeDue" type="date" value="${esc(f.due_date||'')}" required></label></div>
     <button type="button" id="financeSave" class="secondary repair-finance-save">${configured?'Actualizar condiciones':'Guardar financiación'}</button>`}
@@ -234,6 +237,7 @@ function bindDetail(){
    const button=$('financeSave'),initial=Number($('financeInitial')?.value||0),due=$('financeDue')?.value||'',amount=detailAccount(active).budget;
    if(!Number.isFinite(initial)||initial<=0||initial>=amount)return alert('Indica una inicial mayor que cero y menor que el total confirmado de la reparación.');
    if(!/^\d{4}-\d{2}-\d{2}$/.test(due))return alert('Selecciona una fecha de vencimiento válida.');
+   if(!confirm(`¿Guardar financiación por ${usd(amount)}, con inicial de ${usd(initial)} y vencimiento ${due}? Esto no registra un cobro ni descuenta repuestos.`))return;
    button.disabled=true;button.textContent='Guardando condiciones…';
    try{const d=await api('POST',{action:'set_financing',order_id:active.id,initial_amount:initial,due_date:due});Object.assign(active,d.order);reflectBilling(active,billing);render();detail();}
    catch(e){alert(e.message)}finally{if(button.isConnected){button.disabled=false;button.textContent='Guardar financiación'}}

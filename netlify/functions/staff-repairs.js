@@ -92,7 +92,13 @@ function billingSummary(order,parts=[],extras=[]){
   let discount=discountAmount(discountType,discountValue,subtotal);
   if(!(discountValue>0)&&storedDiscount>0)discount=Math.min(storedDiscount,subtotal);
   const invoice=Math.max(0,round(subtotal-discount)),paid=Math.max(0,round(order?.amount_paid||0)),pending=Math.max(0,round(invoice-paid));
-  return{parts_total:ptotal,stored_quote:storedFinal,base_total:baseSubtotal,subtotal_usd:subtotal,discount_type:discountType,discount_value:discountValue,discount_usd:discount,discount_reason:clean(order?.discount_reason,160),extras_pending_total:extrasPendingTotal,extras_total:round(active.reduce((n,x)=>n+Number(x.quantity||1)*Number(x.unit_price_usd||0),0)),invoice_total:invoice,paid,pending,auto_from_parts:storedFinal<=0&&storedSubtotal<=0&&ptotal>0,pending_extra_count:pendingExtras.length};
+  // Prevent partially priced kits from being confirmed as the whole financing amount.
+  const unpricedPartCount=parts.filter(p=>{
+    const q=Number(p.quantity_consumed||p.quantity_reserved||p.quantity||1);
+    const u=Number(p.sale_price_snapshot||p.service_parts?.sale_price||p.sale_price||0);
+    return q>0&&!(u>0);
+  }).length;
+  return{parts_total:ptotal,unpriced_part_count:unpricedPartCount,stored_quote:storedFinal,base_total:baseSubtotal,subtotal_usd:subtotal,discount_type:discountType,discount_value:discountValue,discount_usd:discount,discount_reason:clean(order?.discount_reason,160),extras_pending_total:extrasPendingTotal,extras_total:round(active.reduce((n,x)=>n+Number(x.quantity||1)*Number(x.unit_price_usd||0),0)),invoice_total:invoice,paid,pending,auto_from_parts:storedFinal<=0&&storedSubtotal<=0&&ptotal>0,pending_extra_count:pendingExtras.length};
 }
 
 async function enrichRepairListBilling(conf,orders=[]){
@@ -324,13 +330,30 @@ exports.handler=async event=>{
       const today=new Date(Date.now()-4*3600000).toISOString().slice(0,10);
       if(!F.validDate(due)||due<today)return result(400,{ok:false,error:'Elige una fecha de vencimiento válida, desde hoy.'});
       const bill=billingSummary(current,await orderParts(conf,current.code),await orderExtras(conf,current.code));
-      if(!(Number(current.quote_amount)>0)||bill.pending_extra_count>0)return result(409,{ok:false,error:'Confirma el presupuesto y consolida los cargos adicionales antes de financiar.'});
-      if(String(current.quote_currency||'USD').toUpperCase()!=='USD')return result(400,{ok:false,error:'La financiación se configura sobre un presupuesto en USD.'});
-      if(!(bill.invoice_total>0&&bill.pending>0)||/cancel|rechaz|no aprobado/i.test(current.status||''))return result(409,{ok:false,error:'La reparación debe tener presupuesto y saldo pendiente.'});
+      if(String(current.quote_currency||'USD').toUpperCase()!=='USD')return result(400,{ok:false,error:'La financiación se configura sobre un total en USD.'});
+      if(bill.pending_extra_count>0)return result(409,{ok:false,error:'Consolida los servicios y productos adicionales antes de financiar.'});
+      if(bill.unpriced_part_count>0)return result(409,{ok:false,error:'Hay repuestos sin precio configurado. Corrige sus precios antes de financiar.'});
+      // A prepared and priced repair can be financed without duplicating the
+      // parts total in Soporte. The finance save itself confirms that amount,
+      // but never records a payment or consumes reserved stock.
+      const autoQuote=!(Number(current.quote_amount)>0)&&bill.auto_from_parts&&bill.parts_total>0;
+      if(!(Number(current.quote_amount)>0)&&!autoQuote)return result(409,{ok:false,error:'Agrega repuestos preparados con precio o confirma el presupuesto desde Servicio Técnico.'});
+      if(!(bill.invoice_total>0&&bill.pending>0)||/cancel|rechaz|no aprobado/i.test(current.status||''))return result(409,{ok:false,error:'La reparación debe tener un total y saldo pendiente.'});
       if(!Number.isFinite(initial)||initial<=0||initial>=bill.invoice_total)return result(400,{ok:false,error:'La inicial debe ser mayor que cero y menor que el total.'});
       if(!current.updated_at)return result(409,{ok:false,error:'Actualiza la orden antes de configurar financiación.'});
       const checklist={...(current.reception_checklist||{}),__client:{...(current.reception_checklist?.__client||{}),...customer,registered_id:customer.id,address_short:customer.address},__financing:{enabled:true,initial_amount:round(initial),due_date:due,configured_at:new Date().toISOString(),configured_by:actor.email,history:[...(current.reception_checklist?.__financing?.history||[]),...(current.reception_checklist?.__financing?.enabled?[{initial_amount:current.reception_checklist.__financing.initial_amount,due_date:current.reception_checklist.__financing.due_date,changed_at:new Date().toISOString(),changed_by:actor.email}]:[])].slice(-50)}};
-      const rows=await rest(conf,'service_orders',{id:'eq.'+id,updated_at:'eq.'+current.updated_at},{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({reception_checklist:checklist,client_name:customer.name,client_email:customer.email,client_phone:customer.phone})});
+      const financeUpdate={reception_checklist:checklist,client_name:customer.name,client_email:customer.email,client_phone:customer.phone};
+      if(autoQuote){
+        financeUpdate.quote_amount=bill.invoice_total;
+        financeUpdate.quote_currency='USD';
+        financeUpdate.subtotal_usd=bill.subtotal_usd;
+        financeUpdate.discount_type=bill.discount_type;
+        financeUpdate.discount_value=bill.discount_value;
+        financeUpdate.discount_usd=bill.discount_usd;
+        financeUpdate.discount_reason=bill.discount_reason||null;
+        // Do not change quote_status: financing is not a customer's approval of a technical quote.
+      }
+      const rows=await rest(conf,'service_orders',{id:'eq.'+id,updated_at:'eq.'+current.updated_at},{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(financeUpdate)});
       if(!rows?.length)return result(409,{ok:false,error:'La orden cambió. Actualízala y vuelve a configurar el plan.'});
       return result(200,{ok:true,order:rows[0],financing:F.snapshot(rows[0])});
     }
