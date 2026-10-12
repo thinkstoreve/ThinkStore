@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=15.31.0" />
+  <link rel="stylesheet" href="styles.css?v=15.37.5" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -434,13 +434,18 @@
         <label class="span2">Detalle de la reparación propuesta<textarea id="mQuoteRepairDetails" placeholder="Describe claramente lo que se realizará si el cliente aprueba: reparación, piezas, mano de obra y alcance incluido."></textarea><small>Este texto será visible para el cliente antes de aprobar la cotización.</small></label>
         <label>Estado de cobro<select id="mPaymentStatus" disabled><option>Pendiente</option><option>Abono parcial</option><option>Cobrado</option></select></label>
         <label>Monto cobrado USD<input id="mAmountPaid" type="number" disabled min="0" step="0.01" placeholder="0.00"></label>
-        <label>Método de pago<select id="mPaymentMethod" disabled><option value="">Sin definir</option><option>Efectivo USD</option><option>Zelle</option><option>Pago Móvil</option><option>Transferencia</option><option>Punto de Venta</option><option>Efectivo Bs</option><option>Otro</option></select></label>
+        <label>Método del último cobro<select id="mPaymentMethod" disabled><option value="">Sin definir</option><option>Efectivo USD</option><option>Zelle</option><option>Pago Móvil</option><option>Transferencia</option><option>Punto de Venta</option><option>Efectivo Bs</option><option>Otro</option></select></label>
         <label>Modalidad del servicio<select id="mServiceMode"><option>Presencial</option><option>A domicilio</option><option>Envío nacional</option></select></label>
         <label>Garantía de reparación (días)<input id="mWarrantyDays" type="number" min="0" step="1" value="0"></label>
         <label>Método de entrega<input id="mDeliveryMethod" placeholder="Retiro, MRW, Zoom, Tealca..."></label>
         <label>Empresa de envío<input id="mTrackingCompany" placeholder="Empresa de envío"></label>
       </div>
       <label>Número de guía<input id="mTrackingCode" placeholder="Número de guía"></label>
+      <section class="support-manager-finance" id="mFinancePaymentSummary" aria-live="polite">
+        <div class="support-manager-finance-head"><div><small>CONDICIONES DE PAGO · SOLO LECTURA</small><h3>Financiación y abonos recibidos</h3></div><button type="button" class="secondary" onclick="TSService.refreshManagerPaymentView()">Actualizar pagos</button></div>
+        <div id="mFinanceOverview">Consultando el saldo registrado…</div>
+        <div id="mFinanceEvents">El historial de cobros aparecerá aquí.</div>
+      </section>
       <section class="order-box support-cashier-card">
         <div><span>CAJA CENTRALIZADA</span><h3>Cobranza desde App Ventas</h3><p>Los abonos, el método de pago y el cierre de esta reparación se registran desde Ventas. Al marcarla como pagada se genera la Nota de Entrega y se envía al cliente.</p></div>
         <button type="button" onclick="TSService.openCashierForOrder()">Cobrar en App Ventas ↗</button>
@@ -527,6 +532,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=2.0.0"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=15.38.1"></script>
+  <script src="app.js?v=15.37.5"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

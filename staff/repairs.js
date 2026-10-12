@@ -59,7 +59,7 @@ function render(){
 async function load(force=false){
   if(loading)return;if(!getToken)return notice('Inicia sesión en Staff para consultar reparaciones.');if(initialized&&!force){render();return}
   loading=true;notice('Consultando reparaciones…');if($('repairsRefresh'))$('repairsRefresh').disabled=true;
-  try{const d=await api('GET');orders=d.orders||[];initialized=true;render();const foreign=orders.filter(o=>String(o.quote_currency||'USD').toUpperCase()!=='USD').length;notice([d.partial?'Se muestra el historial más reciente.':'',foreign?`${foreign} cotización(es) en otra moneda requieren revisión desde Soporte.`:''].filter(Boolean).join(' '))}
+  try{const d=await api('GET');orders=d.orders||[];initialized=true;render();const foreign=orders.filter(o=>String(o.quote_currency||'USD').toUpperCase()!=='USD').length;notice([d.partial?'Se muestra el historial más reciente.':'',foreign?`${foreign} cotización(es) en otra moneda requieren revisión desde Soporte.`:''].filter(Boolean).join(' '));const requestedCode=new URLSearchParams(window.location.search).get('service_order');if(requestedCode){const target=orders.find(x=>String(x.code||'').toUpperCase()===String(requestedCode).toUpperCase());window.history.replaceState(null,'',window.location.pathname+window.location.hash);if(target)await open(target.id);else notice('La orden '+requestedCode+' no está en el listado. Verifica en Soporte antes de repetir un cobro.')}}
   catch(e){notice(e.message);if(!initialized)$('repairsList').innerHTML='<div class="empty-state">No se pudieron cargar las reparaciones desde Soporte.</div>'}
   finally{loading=false;if($('repairsRefresh'))$('repairsRefresh').disabled=false}
 }
@@ -311,9 +311,14 @@ async function savePayment(e,markPaid){
   const label=finalizeNoQuote?'cobrar este monto como total final':markPaid?'cobrar el saldo total':'registrar este abono';if(!confirm(`¿Confirmar ${label} mediante ${selectedMethod} para la orden ${active.code}?`))return;
   const btn=markPaid?$('repairsMarkPaid'):$('repairsPaySave');if(btn){btn.classList.add('is-loading');btn.disabled=true;btn.textContent=markPaid?'Cobrando…':'Registrando…'}
   try{
+    const paidBefore=Number(active.amount_paid||0),eventIds=new Set((events||[]).map(x=>String(x.id)));
     const res=await api('POST',{action:'pay',order_id:id,method:selectedMethod,amount,usd_equivalent:usdEquivalent,reference,note,finalize_no_quote:finalizeNoQuote,destination_code:destinationCode||null,destination_name:destination?.name||null});await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;resetPaymentSelections();detail();
+    if(Number(active.amount_paid||0)<=paidBefore+0.005){alert('ATENCIÓN: el servidor respondió, pero el importe abonado no aumentó al consultar de nuevo. Verifica historial y caja antes de repetir cualquier cobro.');return}
+    if(latest.history_available!==false&&!events.some(x=>!eventIds.has(String(x.id))&&Number(x.amount_delta||0)>0)){
+      alert('ATENCIÓN: aumentó el monto cobrado, pero no aparece un nuevo evento en el historial. Verifica el movimiento en Caja/Soporte y NO repitas el cobro.');return;
+    }
     if(res.fully_paid){const deliveryMsg=res.email_sent?'Se creó la Nota de Entrega y fue enviada al cliente.':'Se creó la Nota de Entrega.';const invMsg=res.store_inventory?.ok===false?' IMPORTANTE: revisa el producto adicional en Inventory porque no se pudo cerrar su salida de stock.':'';const bankMsg=res.bank_warning?` IMPORTANTE: ${res.bank_warning}`:'';alert(finalizeNoQuote?`Cobro completado. El monto quedó guardado como total final. ${deliveryMsg}${invMsg}${bankMsg}`:`Pago completado. La reparación quedó Pagada. ${deliveryMsg}${invMsg}${bankMsg}`)}else alert('Abono registrado correctamente.');
-  }catch(err){alert(err.message||'No se pudo registrar el pago.');detail()}
+  }catch(err){alert((err.message||'No se pudo confirmar el pago.')+' Verifica el historial y la caja antes de intentarlo de nuevo para evitar cobros duplicados.');detail()}
 }
 
 

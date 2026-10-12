@@ -168,6 +168,20 @@ exports.handler=async event=>{
       return reply(200,{ok:true,provider:'cloudflare-r2-private',storage_path:`r2:${objectKey}`,object_key:objectKey,mime:storedMime,source_mime:detected,converted,size:bytes.length,url:R2.presignedGet(cfg,objectKey,3600)});
     }
 
+    // Read-only receipt reconciliation. The payment events are the source of truth;
+    // saving a financing plan by itself must never create a receipt.
+    if(action==='payment_detail'){
+      const orderId=clean(body.order_id);
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)&&!/^[0-9]+$/.test(orderId))return reply(400,{ok:false,error:'Identificador de orden inválido'});
+      await ensureOrderAccess(orderId);
+      const found=await req(`service_orders?select=id,code,quote_amount,quote_currency,payment_status,amount_paid,payment_method,payment_notes,paid_at,reception_checklist,updated_at&id=eq.${encodeURIComponent(orderId)}&limit=1`);
+      const order=found?.[0];if(!order)return reply(404,{ok:false,error:'Orden no encontrada'});
+      let events=[],history_available=true;
+      try{events=await req(`service_payment_events?select=id,event_type,amount_delta,balance_after,payment_method,reference,notes,occurred_at&service_order_id=eq.${encodeURIComponent(orderId)}&order=occurred_at.desc&limit=100`)}
+      catch(e){if(/does not exist|schema cache|service_payment_events/i.test(String(e.message||''))){history_available=false}else throw e}
+      return reply(200,{ok:true,order,events:Array.isArray(events)?events:[],history_available});
+    }
+
     if(action==='payment_states'){
       const rows=await req('service_orders?select=id,payment_status,amount_paid,payment_method,payment_notes,paid_at,quote_amount,quote_currency,reception_checklist,updated_at&order=updated_at.desc&limit=5000');
       return reply(200,{ok:true,orders:Array.isArray(rows)?rows:[]});
