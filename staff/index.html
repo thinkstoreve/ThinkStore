@@ -15,6 +15,7 @@
 <meta name="robots" content="noindex,nofollow">
 <title>ThinkStore Staff</title>
 <link rel="stylesheet" href="app.css?v=15.27.0">
+<script src="repair-financing.js?v=1"></script>
 </head>
 <body>
 <svg class="ts-icon-sprite" aria-hidden="true" focusable="false">
@@ -113,7 +114,7 @@
             <form id="staffCustomerForm">
               <div class="form-grid staff-customer-grid">
                 <label>Nombre y apellido<input id="customerName" autocomplete="name" required></label>
-                <label>Correo<input id="customerEmail" type="email" autocomplete="email" required></label>
+                <label>Correo del cliente registrado<input id="customerEmail" type="email" autocomplete="email" required></label><button type="button" id="loadRegisteredCustomer" class="secondary">Cargar cliente registrado</button><p>El cliente debe completar su perfil y confirmar el correo. <a href="../login.html" target="_blank" rel="noopener">Registro de cliente</a></p>
                 <label>Cédula de identidad / RIF<input id="customerDocument" required></label>
                 <label>Teléfono<input id="customerPhone" type="tel" autocomplete="tel" required></label>
                 <label class="span2">Dirección<input id="customerAddress" autocomplete="street-address" required></label>
