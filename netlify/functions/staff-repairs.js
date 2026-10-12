@@ -312,11 +312,28 @@ exports.handler=async event=>{
       return result(200,{ok:true,...data,refreshed_at:new Date().toISOString()});
     }
     let b;try{b=JSON.parse(event.body||'{}')}catch{return result(400,{ok:false,error:'Solicitud inválida'})}
-    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','add_charge','remove_charge','update_discount'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
+    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','add_charge','remove_charge','update_discount','set_financing'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
     const id=clean(b.order_id,50);
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
     let current=await getOrder(conf,id);
     if(!current)return result(404,{ok:false,error:'Reparación no encontrada'});
+    if(b.action==='set_financing'){
+      const F=require('../../repair-financing');
+      const customer=await require('./registered-customer-core').load(mainConf(),current.client_email);
+      const due=clean(b.due_date,10),initial=Number(b.initial_amount);
+      const today=new Date(Date.now()-4*3600000).toISOString().slice(0,10);
+      if(!F.validDate(due)||due<today)return result(400,{ok:false,error:'Elige una fecha de vencimiento válida, desde hoy.'});
+      const bill=billingSummary(current,await orderParts(conf,current.code),await orderExtras(conf,current.code));
+      if(!(Number(current.quote_amount)>0)||bill.pending_extra_count>0)return result(409,{ok:false,error:'Confirma el presupuesto y consolida los cargos adicionales antes de financiar.'});
+      if(String(current.quote_currency||'USD').toUpperCase()!=='USD')return result(400,{ok:false,error:'La financiación se configura sobre un presupuesto en USD.'});
+      if(!(bill.invoice_total>0&&bill.pending>0)||/cancel|rechaz|no aprobado/i.test(current.status||''))return result(409,{ok:false,error:'La reparación debe tener presupuesto y saldo pendiente.'});
+      if(!Number.isFinite(initial)||initial<=0||initial>=bill.invoice_total)return result(400,{ok:false,error:'La inicial debe ser mayor que cero y menor que el total.'});
+      if(!current.updated_at)return result(409,{ok:false,error:'Actualiza la orden antes de configurar financiación.'});
+      const checklist={...(current.reception_checklist||{}),__client:{...(current.reception_checklist?.__client||{}),...customer,registered_id:customer.id,address_short:customer.address},__financing:{enabled:true,initial_amount:round(initial),due_date:due,configured_at:new Date().toISOString(),configured_by:actor.email,history:[...(current.reception_checklist?.__financing?.history||[]),...(current.reception_checklist?.__financing?.enabled?[{initial_amount:current.reception_checklist.__financing.initial_amount,due_date:current.reception_checklist.__financing.due_date,changed_at:new Date().toISOString(),changed_by:actor.email}]:[])].slice(-50)}};
+      const rows=await rest(conf,'service_orders',{id:'eq.'+id,updated_at:'eq.'+current.updated_at},{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({reception_checklist:checklist,client_name:customer.name,client_email:customer.email,client_phone:customer.phone})});
+      if(!rows?.length)return result(409,{ok:false,error:'La orden cambió. Actualízala y vuelve a configurar el plan.'});
+      return result(200,{ok:true,order:rows[0],financing:F.snapshot(rows[0])});
+    }
     if(b.action==='add_charge'){
       const source=clean(b.source,30),sourceId=clean(b.source_id,100),qty=Math.max(1,Math.min(20,Number(b.quantity||1)||1));
       if(!['support_service','support_part','main_inventory'].includes(source)||!sourceId)return result(400,{ok:false,error:'Producto o servicio inválido.'});

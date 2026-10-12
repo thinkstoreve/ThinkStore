@@ -78,9 +78,9 @@ exports.handler=async function(event){
   async function first(path){try{const d=await req(path);return Array.isArray(d)?d[0]:null}catch{return null}}
 
   try{
-    // Si el correo ya pertenece a un cliente registrado, se enlaza; si no, la venta queda como invitado sin crear Auth.
-    let customer=await first(`clientes?select=*&correo=eq.${encodeURIComponent(guest.email)}&limit=1`);
-    if(!customer)customer=await first(`clientes?select=*&email=eq.${encodeURIComponent(guest.email)}&limit=1`);
+    const canonical=await require('./registered-customer-core').load({url,key:service},guest.email);
+    Object.assign(guest,canonical);
+    const customer={id:canonical.id};
 
     const variants=[], reserve=[];
     for(const item of items){
