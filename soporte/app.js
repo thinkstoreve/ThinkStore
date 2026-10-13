@@ -1342,11 +1342,16 @@ const TSService=(()=>{
     const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Diagnóstico disponible','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
     return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Los pagos de App Ventas se sincronizan automáticamente</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado técnico / pago</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id)),pay=orderPaymentState(o);return `<tr class="${pay.key==='paid'?'support-order-paid':''}"><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><div class="support-order-state">${paymentBadgeHtml(o)}<small class="support-order-tech-label">Estado técnico</small><select onchange="TSService.updateStatus(${i},this.value)">${supportStatusOptions(o).map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></div></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> ${can('reception')?`<button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button>`:''} <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
 
-  function managerFinanceHtml(o,events=[],available=true,voids=[]){
-    const f=window.ThinkStoreFinancing?.snapshot?.({
+  // La vista de "Gestionar" y el editor usan el mismo estado de financiación.
+  // Evita referencias a variables locales de otra función (regresión V15.39).
+  function managerFinancingSnapshot(o){
+    return window.ThinkStoreFinancing?.snapshot?.({
       quote_amount:o.quoteAmount,amount_paid:o.amountPaid,quote_currency:o.quoteCurrency,
       reception_checklist:o.checklist
-    });
+    })||null;
+  }
+  function managerFinanceHtml(o,events=[],available=true,voids=[]){
+    const f=managerFinancingSnapshot(o);
     const total=Math.max(0,Number(o.quoteAmount||0)),paid=Math.max(0,Number(o.amountPaid||0));
     const due=Math.max(0,total-paid),money=n=>'USD '+Number(n).toFixed(2);
     const format=`<div class="support-finance-metrics"><div class="support-finance-metric"><small>Presupuesto</small><strong>${money(total)}</strong></div><div class="support-finance-metric"><small>Abonos recibidos</small><strong>${money(paid)}</strong></div><div class="support-finance-metric"><small>Saldo pendiente</small><strong>${money(due)}</strong></div></div>`;
@@ -1373,8 +1378,12 @@ const TSService=(()=>{
     if(notes)notes.value=o.paymentNotes||'';
     const panel=document.getElementById('mFinancePlanEditor');
     if(panel){panel.hidden=!['admin','superadmin'].includes(String(session?.role||'').toLowerCase());
-      if(!panel.hidden){document.getElementById('mFinInitial').value=window.TSMoneyInput?.display(f?.initial_amount||0)||'';
-        document.getElementById('mFinDue').value=f?.due_date||'';
+      if(!panel.hidden){
+        const f=managerFinancingSnapshot(o);
+        const initial=document.getElementById('mFinInitial');
+        const due=document.getElementById('mFinDue');
+        if(initial)initial.value=window.TSMoneyInput?.display?.(f?.initial_amount||0)||'';
+        if(due)due.value=f?.due_date||'';
       }
     }
   }

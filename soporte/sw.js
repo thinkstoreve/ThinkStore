@@ -1,5 +1,5 @@
-const CACHE="thinkstore-support-v8-8-32-r1539-finance-audit";
-const CORE=["./repair-financing.js?v=1","./money-input.js?v=15.39","./panel.html", "./index.html", "./styles.css?v=15.39", "./app.js?v=15.39", "./offline-runtime.js?v=2.0.0", "./manifest.webmanifest", "./offline.html", "./favicon-192.png", "./favicon-512.png", "./assets/thinkstore-logo-white.png"];
+const CACHE="thinkstore-support-v8-8-33-r15391-manager-fix";
+const CORE=["./repair-financing.js?v=1","./money-input.js?v=15.39","./panel.html", "./index.html", "./styles.css?v=15.39", "./app.js?v=15.39.1", "./offline-runtime.js?v=2.0.0", "./manifest.webmanifest", "./offline.html", "./favicon-192.png", "./favicon-512.png", "./assets/thinkstore-logo-white.png"];
 const OFFLINE="./offline.html";
 const NAV_ONLY=null;
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(async c=>{for(const u of CORE){try{const r=await fetch(u,{cache:'reload'});if(r.ok||r.type==='opaque')await c.put(u,r.clone())}catch{}}}).then(()=>self.skipWaiting()))});
