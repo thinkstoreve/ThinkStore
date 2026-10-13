@@ -243,7 +243,9 @@ async function bootstrapData(mainUrl,mainKey,supportUrl,supportKey,canCharge){
   ]);
   const orders=(Array.isArray(ordersRaw)?ordersRaw:[]).map(publicOrder);
   const today=caracasKey(new Date());
-  const serviceEvents=(Array.isArray(eventsRaw)?eventsRaw:[]).filter(e=>caracasKey(e.occurred_at)===today&&Number(e.amount_delta||0)>0);
+  const serviceEvents=(Array.isArray(eventsRaw)?eventsRaw:[]).filter(e=>caracasKey(e.occurred_at||e.created_at)===today&&Number(e.amount_delta||0)!==0);
+  const serviceReceipts=serviceEvents.filter(e=>Number(e.amount_delta)>0);
+  const serviceReversals=serviceEvents.filter(e=>Number(e.amount_delta)<0);
   const productRows=(Array.isArray(productRaw)?productRaw:[]).filter(p=>caracasKey(p.created_at)===today&&/pago verificado|preparando|disponible|enviado|entregado|complet|pagado/i.test(clean(p.estado)));
   const serviceTotal=money(serviceEvents.reduce((s,e)=>s+Number(e.amount_delta||0),0));
   const productTotal=money(productRows.reduce((s,p)=>s+Number(p.total_usd||0),0));
@@ -263,7 +265,8 @@ async function bootstrapData(mainUrl,mainKey,supportUrl,supportKey,canCharge){
     metrics:{
       product_sales_today:productRows.length,
       product_collected_today:productTotal,
-      service_payments_today:serviceEvents.length,
+      service_payments_today:serviceReceipts.length,
+      service_reversals_today:serviceReversals.length,
       service_collected_today:serviceTotal,
       combined_operations_today:productRows.length+serviceEvents.length,
       combined_total_today:money(productTotal+serviceTotal),

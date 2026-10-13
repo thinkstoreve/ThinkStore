@@ -146,6 +146,29 @@ async function syncServiceBankReceipt(conf,order,p,destinationCode,actor){
   const saved=await rest(mc,'enterprise_petty_cash_bank_movements',{}, {method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
   return saved?.[0]||row;
 }
+async function reconcileVoidedPaymentCash(conf,paymentId,order,actor){
+  // The Support correction is the source of truth. If Enterprise is temporarily down,
+  // leave the correction pending and allow an idempotent retry using the same event id.
+  const main=mainConf();if(!main.url||!main.key)throw Error('Sin acceso al Supabase principal para conciliar Caja Chica');
+  const sourceKey='service:'+paymentId,reverseKey='service-void:'+paymentId;
+  const existing=await rest(main,'enterprise_petty_cash_bank_movements',{select:'id',related_petty_movement_id:`eq.${reverseKey}`,status:'neq.void',limit:1});
+  if(existing?.length)return{ok:true,duplicate:true};
+  const originals=await rest(main,'enterprise_petty_cash_bank_movements',{select:'id,account_id,currency,amount,reference',related_petty_movement_id:`eq.${sourceKey}`,status:'neq.void',limit:1});
+  const original=originals?.[0];
+  if(!original){
+    const payment=await rest(conf,'service_payment_events',{select:'payment_method',id:`eq.${paymentId}`,limit:1});
+    const method=String(payment?.[0]?.payment_method||'');
+    if(/Zelle|USDT|Transferencia|Pago Móvil|Punto de venta/i.test(method))throw Error('No encontramos el ingreso bancario original en Caja Chica. Revisa y concilia este cobro antes de continuar.');
+    return{ok:true,not_applicable:true}; // Efectivo no bancarizado.
+  }
+  const row={account_id:original.account_id,movement_type:'service_receipt',direction:'out',currency:original.currency,amount:Number(original.amount),reference:original.reference||null,
+    description:`ANULACIÓN de cobro de Servicio Técnico ${order.code} · evento ${paymentId}`,
+    related_petty_movement_id:reverseKey,status:'posted',created_by_email:actor.email||null,
+    created_by_name:actor.profile?.full_name||actor.email||'Admin',occurred_at:new Date().toISOString()};
+  const saved=await rest(main,'enterprise_petty_cash_bank_movements',{}, {method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
+  return{ok:true,id:saved?.[0]?.id||null};
+}
+
 async function searchChargeCatalog(conf,q,orderCode=''){
   const term=clean(q,80).toLowerCase();if(term.length<2)return[];
   const out=[];
@@ -324,11 +347,31 @@ async function handleRequest(event,verifiedSupportActor=null){
       return result(200,{ok:true,...data,refreshed_at:new Date().toISOString()});
     }
     let b;try{b=JSON.parse(event.body||'{}')}catch{return result(400,{ok:false,error:'Solicitud inválida'})}
-    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','add_charge','remove_charge','update_discount','set_financing'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
+    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','add_charge','remove_charge','update_discount','set_financing','void_payment'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
     const id=clean(b.order_id,50);
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
     let current=await getOrder(conf,id);
     if(!current)return result(404,{ok:false,error:'Reparación no encontrada'});
+    if(b.action==='void_payment'){
+      if(!['admin','superadmin'].includes(String(actor.role||'').toLowerCase()))return result(403,{ok:false,error:'Solo un administrador puede anular abonos.'});
+      const eventId=clean(b.payment_event_id,55),reason=clean(b.reason,500);
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId))return result(400,{ok:false,error:'Identificador de abono inválido'});
+      if(reason.length<10)return result(400,{ok:false,error:'Indica un motivo de al menos 10 caracteres'});
+      let reversed;
+      try{reversed=await rest(conf,'rpc/ts_service_void_partial_payment',{}, {method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({p_order_code:current.code,p_event_id:eventId,p_reason:reason,p_actor_email:actor.email})})}
+      catch(e){if([404,400].includes(e.status)&&/function|does not exist|schema cache|ts_service_void_partial_payment/i.test(e.message))return result(409,{ok:false,error:'Falta ejecutar MIGRACION-SOPORTE-V15.39-ANULACION-ABONOS.sql en Supabase Soporte.'});throw e}
+      const state=Array.isArray(reversed)?reversed[0]:reversed;
+      if(!state?.ok)return result(409,{ok:false,error:'El abono no se anuló. Actualiza la caja y vuelve a comprobar.'});
+      let cashWarning='',cashStatus='pending';
+      try{
+        const cash=await reconcileVoidedPaymentCash(conf,eventId,current,actor);
+        cashStatus=cash.not_applicable?'not_applicable':'posted';
+        await rest(conf,'service_payment_voids',{original_event_id:`eq.${eventId}`},{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({cash_sync_status:cashStatus})});
+      }catch(e){cashWarning=clean(e.message,240);console.error('[Anulación] Conciliación pendiente:',cashWarning)}
+      try{await rest(conf,'service_audit_log',{}, {method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:actor.email,actor_role:actor.role||'admin',action:state.duplicate?'retry_void_payment':'void_payment',entity_type:'service_order',entity_id:String(current.id),before_data:{payment_event_id:eventId,amount_paid:state.before??null},after_data:{payment_event_id:eventId,amount_paid:state.after,reason,accounting_status:cashStatus}})})}catch(e){console.error('[Anulación] Auditoría adicional no guardada',e.message)}
+      const updated=await getOrder(conf,id);
+      return result(200,{ok:true,duplicate:Boolean(state.duplicate),reversal_usd:Number(state.reversal_usd),order:updated,cash_sync_status:cashStatus,cash_warning:cashWarning});
+    }
     if(b.action==='set_financing'){
       const F=require('../../repair-financing');
       const customer=await require('./registered-customer-core').load(mainConf(),current.client_email);
@@ -589,3 +632,4 @@ async function handleRequest(event,verifiedSupportActor=null){
 // verifies the Support JWT and roles before invoking this private helper.
 exports.handler=event=>handleRequest(event);
 exports.payFromVerifiedSupport=(body,verifiedActor)=>handleRequest({httpMethod:'POST',body:JSON.stringify({...body,action:'pay'})},verifiedActor);
+exports.manageFinanceFromVerifiedSupport=(body,verifiedActor)=>handleRequest({httpMethod:'POST',body:JSON.stringify(body)},verifiedActor);

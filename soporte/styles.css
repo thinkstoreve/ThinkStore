@@ -2040,3 +2040,14 @@ input,select,textarea{max-width:100%;min-width:0}
 .support-receive-payment-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .support-receive-payment-actions button{min-height:44px}
 @media(max-width:620px){.support-receive-payment-grid{grid-template-columns:1fr}.support-receive-payment{padding:12px}}
+
+/* V15.39 · Correcciones de abonos auditables y edición de financiación */
+.support-finance-plan-editor{display:grid;gap:12px;margin-top:16px;padding:18px;border-radius:16px;border:1px solid #d8e1ed;background:#fbfcfe}
+.support-finance-plan-editor[hidden]{display:none!important}
+.support-finance-plan-editor>small{color:#617089}
+.support-finance-plan-editor input{width:100%;padding:12px;background:#fff;border:1px solid #d6dce5;border-radius:12px;min-width:0}
+.support-finance-void-btn{margin-left:12px;border:1px solid #e7b6ae!important;color:#a42c24!important;background:#fff7f6!important;font-weight:600!important;font-size:12px!important;padding:7px 10px!important;border-radius:10px!important}
+.support-finance-voided{opacity:.6;text-decoration:line-through}
+.support-finance-reversal{color:#9f352e}
+.support-finance-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:640px){.support-finance-row{align-items:flex-start}.support-finance-row-actions{max-width:54%;justify-content:flex-end}}

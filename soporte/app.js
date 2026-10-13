@@ -1342,7 +1342,7 @@ const TSService=(()=>{
     const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Diagnóstico disponible','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
     return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Los pagos de App Ventas se sincronizan automáticamente</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado técnico / pago</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id)),pay=orderPaymentState(o);return `<tr class="${pay.key==='paid'?'support-order-paid':''}"><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><div class="support-order-state">${paymentBadgeHtml(o)}<small class="support-order-tech-label">Estado técnico</small><select onchange="TSService.updateStatus(${i},this.value)">${supportStatusOptions(o).map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></div></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> ${can('reception')?`<button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button>`:''} <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
 
-  function managerFinanceHtml(o,events=[],available=true){
+  function managerFinanceHtml(o,events=[],available=true,voids=[]){
     const f=window.ThinkStoreFinancing?.snapshot?.({
       quote_amount:o.quoteAmount,amount_paid:o.amountPaid,quote_currency:o.quoteCurrency,
       reception_checklist:o.checklist
@@ -1352,21 +1352,31 @@ const TSService=(()=>{
     const format=`<div class="support-finance-metrics"><div class="support-finance-metric"><small>Presupuesto</small><strong>${money(total)}</strong></div><div class="support-finance-metric"><small>Abonos recibidos</small><strong>${money(paid)}</strong></div><div class="support-finance-metric"><small>Saldo pendiente</small><strong>${money(due)}</strong></div></div>`;
     const note=f?`<div class="support-finance-detail financed"><b>Condición de pago: Financiado</b> · Inicial pactada: ${money(f.initial_amount)} · Inicial recibida: ${money(f.initial_paid)} · Vencimiento: ${esc(f.due_date||'Sin definir')} · ${esc(f.status)}.</div>`
       :'<p class="support-finance-detail">Condición de pago: regular (no hay un plan de financiación guardado). La inicial pactada no se cobra automáticamente.</p>';
-    const valid=(events||[]).filter(e=>Number(e.amount_delta||0)>0&&(!e.event_type||/pay|abono|cobro/i.test(String(e.event_type))));
+    const all=(events||[]).filter(e=>Number(e.amount_delta||0)!==0);
+    const reversed=new Set((voids||[]).map(v=>String(v.original_event_id)));
+    const eligible=all.find(e=>Number(e.amount_delta)>0&&!reversed.has(String(e.id))&&/^(payment|opening_balance)$/i.test(String(e.event_type||'payment')));
+    const admin=['admin','superadmin'].includes(String(session?.role||'').toLowerCase());
+    const allowVoid=admin&&available&&total>paid+0.005;
     let history='';
-    if(!available)history='<p class="support-finance-error">No se pudo consultar el historial de abonos; verifica el registro en App Ventas antes de repetir un pago.</p>';
-    else if(!valid.length)history=`<p class="support-finance-detail">${paid>0?'La orden registra dinero recibido, pero no se encontraron eventos de pago. Verifica la caja antes de cobrar otra vez.':'No hay abonos confirmados. Si el cliente entregó dinero, regístralo desde App Ventas y comprueba el recibo.'}</p>`;
-    else history=`<div class="support-finance-rows">${valid.map(e=>`<div class="support-finance-row"><div><b>${esc(e.payment_method||'Método sin identificar')}</b><small>${dateText(e.occurred_at)}${e.reference?' · Ref. '+esc(e.reference):''}</small></div><b>${money(Number(e.amount_delta))}</b></div>`).join('')}</div>`;
+    if(!available)history='<p class="support-finance-error">No se pudo consultar el historial de caja; no se permiten correcciones sin verificarlo.</p>';
+    else if(!all.length)history=`<p class="support-finance-detail">${paid>0?'Hay dinero registrado sin movimientos visibles. Verifica la caja antes de cobrar.':'Todavía no hay abonos confirmados.'}</p>`;
+    else history=`<div class="support-finance-rows">${all.map(e=>{const amount=Number(e.amount_delta),gone=reversed.has(String(e.id));const canVoid=allowVoid&&eligible&&String(e.id)===String(eligible.id)&&!gone&&String(e.event_type||'payment')==='payment';const pendingCash=(voids||[]).find(v=>String(v.original_event_id)===String(e.id)&&v.cash_sync_status==='pending');return `<div class="support-finance-row ${gone?'support-finance-voided':amount<0?'support-finance-reversal':''}"><div><b>${esc(amount<0?'Anulación · '+(e.payment_method||'Pago'):e.payment_method||'Método sin identificar')}${gone?' · ANULADO':''}</b><small>${dateText(e.occurred_at)}${e.reference?' · Ref. '+esc(e.reference):''}</small></div><div class="support-finance-row-actions"><b>${amount<0?'−':''}${money(Math.abs(amount))}</b>${canVoid?`<button class="support-finance-void-btn" type="button" onclick="TSService.voidManagerPayment('${esc(e.id)}')">Anular</button>`:pendingCash?`<button class="support-finance-void-btn" type="button" onclick="TSService.voidManagerPayment('${esc(e.id)}',true)">Conciliar caja</button>`:''}</div></div>`}).join('')}</div>`;
     return {overview:format+note,history};
   }
-  function renderManagerFinance(o,events=[],available=true){
+  function renderManagerFinance(o,events=[],available=true,voids=[]){
     const a=document.getElementById('mFinanceOverview'),b=document.getElementById('mFinanceEvents');if(!a||!b)return;
-    const html=managerFinanceHtml(o,events,available);a.innerHTML=html.overview;b.innerHTML=html.history;
+    const html=managerFinanceHtml(o,events,available,voids);a.innerHTML=html.overview;b.innerHTML=html.history;
     const st=document.getElementById('mPaymentStatus'),amt=document.getElementById('mAmountPaid'),method=document.getElementById('mPaymentMethod'),notes=document.getElementById('mPaymentNotes');
     if(st){const state=orderPaymentState(o);const name=state.key==='partial'?'Abono parcial':state.key==='paid'?'Cobrado':'Pendiente';st.value=name;}
     if(amt)amt.value=Number(o.amountPaid||0).toFixed(2);
     if(method){const actual=String(o.paymentMethod||'');if(actual&&!Array.from(method.options).some(x=>x.value===actual)){const extra=document.createElement('option');extra.value=actual;extra.textContent=actual;extra.dataset.dynamic='1';method.appendChild(extra)}method.value=actual;}
     if(notes)notes.value=o.paymentNotes||'';
+    const panel=document.getElementById('mFinancePlanEditor');
+    if(panel){panel.hidden=!['admin','superadmin'].includes(String(session?.role||'').toLowerCase());
+      if(!panel.hidden){document.getElementById('mFinInitial').value=window.TSMoneyInput?.display(f?.initial_amount||0)||'';
+        document.getElementById('mFinDue').value=f?.due_date||'';
+      }
+    }
   }
   let managerPaymentBusy=false;
   const PAY_DESTINATIONS={
@@ -1392,7 +1402,7 @@ const TSService=(()=>{
     const id=String(activeOrderId||'');const o=orders.find(x=>String(x.id)===id);
     if(!o)return toast('Selecciona una orden antes de cobrar.','error');
     if(session?.role==='technician')return toast('El técnico no tiene permiso de cobranza.','error');
-    const method=document.getElementById('mNewPayMethod')?.value||'',amount=Number(document.getElementById('mNewPayAmount')?.value);
+    const method=document.getElementById('mNewPayMethod')?.value||'',amount=window.TSMoneyInput.parse(document.getElementById('mNewPayAmount')?.value);
     const reference=String(document.getElementById('mNewPayReference')?.value||'').trim();
     const destination_code=document.getElementById('mNewPayDestination')?.value||null;
     const note=String(document.getElementById('mNewPayNote')?.value||'').trim();
@@ -1429,7 +1439,7 @@ const TSService=(()=>{
         alert('ATENCIÓN: no se pudo confirmar el nuevo movimiento en el historial. Revisa caja antes de repetir el cobro.');
       }else{
         o.amountPaid=observed;o.paymentStatus=updated.order.payment_status||o.paymentStatus;
-        renderManagerFinance(o,updated.events||[],true);
+        renderManagerFinance(o,updated.events||[],true,updated.voids||[]);
         const sum=Number(newEvent.amount_delta||0);
         toast(`Abono de USD ${sum.toFixed(2)} confirmado en caja.`);
         document.getElementById('mNewPayAmount').value='';document.getElementById('mNewPayReference').value='';document.getElementById('mNewPayNote').value='';
@@ -1441,6 +1451,51 @@ const TSService=(()=>{
       alert((error.name==='AbortError'?'La conexión tardó demasiado.':String(error.message||error))+' Verifica el historial y la caja antes de reintentar: el servidor podría haber procesado el cobro.');
       await refreshManagerPaymentView().catch(()=>{});
     }finally{managerPaymentBusy=false;if(btn){btn.disabled=false;btn.textContent='Registrar abono en caja'}}
+  }
+
+  // Never mutate a past receipt in-place. The server posts a linked compensating event.
+  async function voidManagerPayment(eventId,reconcileOnly=false){
+    const o=orders.find(x=>String(x.id)===String(activeOrderId));
+    if(!o||managerPaymentBusy)return;
+    if(!['admin','superadmin'].includes(String(session?.role||'').toLowerCase()))return toast('Solo un administrador puede corregir cobros.','error');
+    const reason=reconcileOnly?'Reintento de conciliación de anulación existente':prompt('Motivo de la anulación (mínimo 10 caracteres). Se conservará el historial original:');
+    if(reason===null)return;
+    if(reason.trim().length<10)return toast('Describe el motivo con al menos 10 caracteres.','error');
+    if(!reconcileOnly&&!confirm('Esta acción anula el último abono parcial y registra un contramovimiento para la caja. NO devuelve automáticamente dinero al cliente. ¿Continuar?'))return;
+    managerPaymentBusy=true;
+    try{
+      const {data:{session:auth}}=await supabaseClient.auth.getSession();
+      if(!auth?.access_token)throw Error('La sesión caducó.');
+      const base=String(window.THINKSTORE_MAIN_SITE||'https://thinkstore.com.ve').replace(/\/$/,'');
+      const nativeFetch=window.ThinkStoreOffline?.nativeFetch||window.fetch.bind(window);
+      const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),60000);
+      let resp;
+      try{resp=await nativeFetch(`${base}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'void_payment',order_id:o.id,payment_event_id:eventId,reason:reason.trim()}),cache:'no-store',signal:controller.signal})}finally{clearTimeout(timeout)}
+      const payload=await resp.json().catch(()=>({}));
+      if(!resp.ok||!payload.ok)throw Error(payload.error||`Error ${resp.status}`);
+      await refreshManagerPaymentView();
+      if(payload.cash_warning)alert('Abono anulado en Soporte, pero REQUIERE CONCILIACIÓN en Enterprise: '+payload.cash_warning);
+      else toast('Abono anulado y registrado en historial. Puedes ingresar el valor correcto como nuevo abono.');
+      await loadSupportData();
+    }catch(e){alert('Revisa el historial y la caja antes de repetir la anulación: '+String(e.message||e));await refreshManagerPaymentView().catch(()=>{})}
+    finally{managerPaymentBusy=false}
+  }
+  async function updateManagerFinancing(){
+    const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o||managerPaymentBusy)return;
+    if(!['admin','superadmin'].includes(String(session?.role||'').toLowerCase()))return toast('Solo administradores pueden cambiar la financiación.','error');
+    const initial=window.TSMoneyInput.parse(document.getElementById('mFinInitial')?.value),due=document.getElementById('mFinDue')?.value;
+    if(!Number.isFinite(initial)||initial<=0||initial>=Number(o.quoteAmount||0))return toast('La inicial debe ser mayor que cero y menor que el presupuesto.','error');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(due||''))return toast('Selecciona una fecha de vencimiento.','error');
+    if(!confirm(`¿Guardar condiciones de la orden ${o.code}? Inicial pactada USD ${initial.toFixed(2)}; vence ${due}. Esto no registra un cobro.`))return;
+    managerPaymentBusy=true;const btn=document.getElementById('mFinSave');if(btn)btn.disabled=true;
+    try{
+      const {data:{session:auth}}=await supabaseClient.auth.getSession();if(!auth?.access_token)throw Error('Sesión caducada');
+      const base=String(window.THINKSTORE_MAIN_SITE||'https://thinkstore.com.ve').replace(/\/$/,'');
+      const resp=await (window.ThinkStoreOffline?.nativeFetch||window.fetch.bind(window))(`${base}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'set_financing',order_id:o.id,initial_amount:initial,due_date:due}),cache:'no-store'});
+      const data=await resp.json().catch(()=>({}));if(!resp.ok||!data.ok)throw Error(data.error||`Error ${resp.status}`);
+      toast('Condiciones actualizadas. No se ha cobrado dinero.');await refreshManagerPaymentView();
+    }catch(e){toast('No pude actualizar el financiamiento: '+String(e.message||e),'error')}
+    finally{managerPaymentBusy=false;if(btn)btn.disabled=false}
   }
   async function refreshManagerPaymentView(){
     const id=String(activeOrderId||'');const o=orders.find(x=>String(x.id)===id);if(!o)return;
@@ -1454,7 +1509,7 @@ const TSService=(()=>{
       o.amountPaid=Number(row.amount_paid||0);o.paymentStatus=row.payment_status||'Pendiente';
       o.paymentMethod=row.payment_method||'';o.paymentNotes=row.payment_notes||'';o.paidAt=row.paid_at||'';
       o.checklist={...(o.checklist||{}),__financing:row.reception_checklist?.__financing};
-      renderManagerFinance(o,result.events||[],result.history_available!==false);
+      renderManagerFinance(o,result.events||[],result.history_available!==false,result.voids||[]);
     }catch(error){if(String(activeOrderId)!==id)return;renderManagerFinance(o,[],false);if(panel){const warning=document.createElement('p');warning.className='support-finance-error';warning.textContent='No se pudo verificar la caja en tiempo real: '+String(error.message||'Error de conexión');panel.prepend(warning)}}
   }
 
@@ -1464,9 +1519,9 @@ const TSService=(()=>{
     const modal=document.getElementById('orderManagerModal');
     document.getElementById('mOrderTitle').textContent=`${o.code} · ${o.device}`;
     document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
-    mQuoteAmount.value=o.quoteAmount||'';mQuoteStatus.value=o.quote;mQuoteRepairDetails.value=o.quoteRepairDetails||'';mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=sanitizeTechnicalNotes(o.technicalNotes||'');const techMode=session?.role==='technician';[mTechnician,mPaymentStatus,mAmountPaid,mPaymentMethod,mPaymentNotes,mServiceMode,mDeliveryMethod,mTrackingCompany,mTrackingCode].forEach(el=>{if(el)el.disabled=techMode});const qa=document.getElementById('mQuoteApprovalState');if(qa)qa.innerHTML=o.quoteApprovedAt?`<div class="notice success"><b>Cotización aprobada por el cliente</b><small>${dateText(o.quoteApprovedAt)}${o.quoteClientComment?` · Comentario: ${esc(o.quoteClientComment)}`:''}</small></div>`:o.quoteSentAt?`<div class="notice"><b>Cotización enviada</b><small>${dateText(o.quoteSentAt)} · En espera de aprobación.</small></div>`:'';
+    mQuoteAmount.value=window.TSMoneyInput.display(o.quoteAmount||0);mQuoteStatus.value=o.quote;mQuoteRepairDetails.value=o.quoteRepairDetails||'';mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=sanitizeTechnicalNotes(o.technicalNotes||'');const techMode=session?.role==='technician';[mTechnician,mPaymentStatus,mAmountPaid,mPaymentMethod,mPaymentNotes,mServiceMode,mDeliveryMethod,mTrackingCompany,mTrackingCode].forEach(el=>{if(el)el.disabled=techMode});const qa=document.getElementById('mQuoteApprovalState');if(qa)qa.innerHTML=o.quoteApprovedAt?`<div class="notice success"><b>Cotización aprobada por el cliente</b><small>${dateText(o.quoteApprovedAt)}${o.quoteClientComment?` · Comentario: ${esc(o.quoteClientComment)}`:''}</small></div>`:o.quoteSentAt?`<div class="notice"><b>Cotización enviada</b><small>${dateText(o.quoteSentAt)} · En espera de aprobación.</small></div>`:'';
     repairPartSelection.clear();orderPartRowsForOrder(o).filter(r=>r.status==='reserved').forEach(r=>repairPartSelection.set(String(r.part_id),Number(r.quantity_reserved||1)));const partSearch=document.getElementById('mPartSearch');if(partSearch)partSearch.value='';renderOrderPartPicker('');
-    renderManagerFinance(o,[],false);updateManagerPaymentInputs();const recv=document.getElementById('mReceivePaymentBox');if(recv)recv.hidden=session?.role==='technician';
+    renderManagerFinance(o,[],false);updateManagerPaymentInputs();['mQuoteAmount','mFinInitial','mNewPayAmount'].forEach(id=>window.TSMoneyInput?.attach(id));const recv=document.getElementById('mReceivePaymentBox');if(recv)recv.hidden=session?.role==='technician';
     await renderOrderFiles(o.id);await renderOrderMessages(o.id,{initial:true});startOrderMessagePolling(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');refreshManagerPaymentView().catch(error=>console.warn('Consulta de caja',error));
   }
   async function resolveOrderFileMedia(p={}){
@@ -1711,7 +1766,9 @@ const TSService=(()=>{
 
   async function saveOrderManager(e){
     e.preventDefault();const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o||!requireTechnicianOrder(o))return;
-    const quoteAmount=mQuoteAmount.value?Number(mQuoteAmount.value):0;
+    const quoteAmount=mQuoteAmount.value?window.TSMoneyInput.parse(mQuoteAmount.value):0;
+    if(!Number.isFinite(quoteAmount)||quoteAmount<0)return toast('El presupuesto no tiene un formato monetario válido.','error');
+    if(quoteAmount+0.005<Number(o.amountPaid||0))return toast('El presupuesto no puede ser menor que los abonos recibidos.','error');
     const cleanTechnicalNotes=sanitizeTechnicalNotes(mTechnicalNotes.value.trim());
     const changes=session?.role==='technician'?{quote_amount:quoteAmount||null,quote_status:mQuoteStatus.value,quote_repair_details:mQuoteRepairDetails.value.trim()||null,warranty_days:Number(mWarrantyDays.value||0),technical_notes:cleanTechnicalNotes||null}:{assigned_technician_email:mTechnician.value||null,quote_amount:quoteAmount||null,quote_status:mQuoteStatus.value,quote_repair_details:mQuoteRepairDetails.value.trim()||null,service_mode:mServiceMode.value||'Presencial',warranty_days:Number(mWarrantyDays.value||0),delivery_method:mDeliveryMethod.value.trim()||null,tracking_company:mTrackingCompany.value.trim()||null,tracking_code:mTrackingCode.value.trim()||null,technical_notes:cleanTechnicalNotes||null};
     const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',o.id);if(error){toast('No se pudo guardar: '+error.message,'error');return}
@@ -2690,5 +2747,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,updateManagerPaymentInputs,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

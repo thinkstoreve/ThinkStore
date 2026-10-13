@@ -16,6 +16,7 @@ async function callHandler(handler,{role='admin',missingHistory=false,invalidId=
   if(u.pathname==='/auth/v1/user')return new Response(JSON.stringify({email:'staff@example.test'}),{status:200});
   if(u.pathname.endsWith('/service_users'))return new Response(JSON.stringify([{rol:role,activo:true}]),{status:200});
   if(u.pathname.endsWith('/service_orders'))return new Response(JSON.stringify([row]),{status:200});
+  if(u.pathname.endsWith('/service_payment_voids'))return new Response(JSON.stringify([]),{status:200});
   if(u.pathname.endsWith('/service_payment_events'))return new Response(JSON.stringify(missingHistory?{message:'service_payment_events does not exist'}:[event]),{status:missingHistory?404:200});
   throw Error('Unexpected request '+u.pathname);
  };
@@ -38,7 +39,7 @@ for(const mod of ['netlify/functions/support-actions','soporte/netlify/functions
 }
 test('Soporte presenta plan de financiación, saldo e historial en ventana Gestionar',()=>{
  const html=fs.readFileSync(path.join(base,'soporte/panel.html'),'utf8');const js=fs.readFileSync(path.join(base,'soporte/app.js'),'utf8');
- assert.match(html,/mFinancePaymentSummary/);assert.match(html,/mFinanceEvents/);assert.match(js,/action:'payment_detail'/);assert.match(js,/Condición de pago: Financiado/);assert.match(js,/No hay abonos confirmados/);
+ assert.match(html,/mFinancePaymentSummary/);assert.match(html,/mFinanceEvents/);assert.match(js,/action:'payment_detail'/);assert.match(js,/Condición de pago: Financiado/);assert.match(js,/Todavía no hay abonos confirmados/);
  assert.match(html,/mAmountPaid" type="number" disabled/);assert.match(js,/openCashierForOrder/);
 });
 test('Staff abre la orden solicitada desde Soporte sin alterarla',()=>{

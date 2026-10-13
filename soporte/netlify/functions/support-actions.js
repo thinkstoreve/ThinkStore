@@ -194,7 +194,10 @@ exports.handler=async event=>{
       let events=[],history_available=true;
       try{events=await req(`service_payment_events?select=id,event_type,amount_delta,balance_after,payment_method,reference,notes,occurred_at&service_order_id=eq.${encodeURIComponent(orderId)}&order=occurred_at.desc&limit=100`)}
       catch(e){if(/does not exist|schema cache|service_payment_events/i.test(String(e.message||''))){history_available=false}else throw e}
-      return reply(200,{ok:true,order,events:Array.isArray(events)?events:[],history_available});
+      let voids=[],corrections_available=true;
+      try{voids=await req(`service_payment_voids?select=original_event_id,amount_usd,reason,cash_sync_status,created_at&service_order_id=eq.${encodeURIComponent(orderId)}&order=created_at.desc&limit=100`)}
+      catch(error){if(/does not exist|schema cache|service_payment_voids/i.test(String(error.message||'')))corrections_available=false;else throw error}
+      return reply(200,{ok:true,order,events:Array.isArray(events)?events:[],voids:Array.isArray(voids)?voids:[],history_available,corrections_available});
     }
 
     if(action==='payment_states'){
