@@ -4,6 +4,21 @@ const {statusClientEmail,repairUpdateEmail,sendResend}=require('./support-mail-u
 const R2=require('./support-r2');
 const reply=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'POST, OPTIONS'},body:JSON.stringify(body)});
 const clean=v=>String(v??'').trim();
+
+async function whatsappNotify(order,update={}){
+  const secret=clean(process.env.WHATSAPP_EVENTS_SECRET);
+  if(!secret)return{status:'not_configured'};
+  const site=clean(process.env.THINKSTORE_MAIN_URL||'https://thinkstore.com.ve').replace(/\/$/,'');
+  try{
+    const r=await fetch(`${site}/.netlify/functions/whatsapp-service-relay`,{
+      method:'POST',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'service_update',id:String(order.id),update})
+    });
+    const d=await r.json().catch(()=>({}));if(!r.ok)return{status:'error',reason:'relay_failed'};
+    return d.whatsapp||{status:'skipped'};
+  }catch(e){console.warn('WhatsApp Soporte:',e.message);return{status:'error',reason:'network'};}
+}
+
 const IMAGE_MIME_BY_EXT={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',gif:'image/gif',bmp:'image/bmp',avif:'image/avif',heic:'image/heic',heif:'image/heif',tif:'image/tiff',tiff:'image/tiff'};
 const inferredMime=path=>IMAGE_MIME_BY_EXT[(String(path||'').split('.').pop()||'').toLowerCase()]||'';
 const sniffImageMime=buffer=>{
@@ -234,18 +249,24 @@ exports.handler=async event=>{
       const orderId=clean(body.order_id);if(!orderId)return reply(400,{ok:false,error:'Falta la orden'});
       await ensureOrderAccess(orderId);
       const rows=await req(`service_orders?select=*&id=eq.${encodeURIComponent(orderId)}&limit=1`);
-      const o=rows?.[0];if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});if(!o.client_email)return reply(400,{ok:false,error:'La orden no tiene correo del cliente'});
+      const o=rows?.[0];if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});
       const update=body.update&&typeof body.update==='object'?body.update:{};
-      const mail=repairUpdateEmail(o,{title:clean(update.title),summary:clean(update.summary),diagnosis:clean(update.diagnosis),work_performed:clean(update.work_performed),parts_used:clean(update.parts_used),tests_performed:clean(update.tests_performed),client_notes:clean(update.client_notes),status:clean(update.status),author:clean(update.author)||clean(profile.nombre)||clean(user.email)});
-      const ed=await sendResend({to:o.client_email,subject:mail.subject,html:mail.html,text:mail.text});
-      await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action:'notify_repair_update',entity_type:'service_order',entity_id:String(o.id),after_data:{recipient:o.client_email,provider_id:ed.id||null,title:clean(update.title),status:clean(update.status)||o.status}})});
-      return reply(200,{ok:true,email:{sent:true,id:ed.id||null,subject:mail.subject}});
+      let email={sent:false,reason:'no_email'};
+      if(o.client_email){
+        const mail=repairUpdateEmail(o,{title:clean(update.title),summary:clean(update.summary),diagnosis:clean(update.diagnosis),work_performed:clean(update.work_performed),parts_used:clean(update.parts_used),tests_performed:clean(update.tests_performed),client_notes:clean(update.client_notes),status:clean(update.status),author:clean(update.author)||clean(profile.nombre)||clean(user.email)});
+        try{const ed=await sendResend({to:o.client_email,subject:mail.subject,html:mail.html,text:mail.text});email={sent:true,id:ed.id||null,subject:mail.subject}}catch(e){email={sent:false,error:e.message}}
+      }
+      const whatsapp=await whatsappNotify(o,{title:clean(update.title),summary:clean(update.summary)});
+      await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action:'notify_repair_update',entity_type:'service_order',entity_id:String(o.id),after_data:{recipient:o.client_email||null,email_sent:email.sent,whatsapp_status:whatsapp.status,title:clean(update.title),status:clean(update.status)||o.status}})});
+      return reply(200,{ok:true,email,whatsapp});
     }
     if(action!=='notify_client')return reply(400,{ok:false,error:'Acción no válida'});
     const rows=await req(`service_orders?select=*&id=eq.${encodeURIComponent(clean(body.order_id))}&limit=1`);
-    const o=rows?.[0];if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});if(!o.client_email)return reply(400,{ok:false,error:'La orden no tiene correo del cliente'});
-    const mail=statusClientEmail(o);const ed=await sendResend({to:o.client_email,subject:mail.subject,html:mail.html,text:mail.text});
-    await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action:'notify_client',entity_type:'service_order',entity_id:String(o.id),after_data:{recipient:o.client_email,provider_id:ed.id||null,status:o.status,quote_status:o.quote_status||null}})});
-    return reply(200,{ok:true,email:{sent:true,id:ed.id||null,subject:mail.subject}});
+    const o=rows?.[0];if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});
+    let email={sent:false,reason:'no_email'};
+    if(o.client_email){const mail=statusClientEmail(o);try{const ed=await sendResend({to:o.client_email,subject:mail.subject,html:mail.html,text:mail.text});email={sent:true,id:ed.id||null,subject:mail.subject}}catch(e){email={sent:false,error:e.message}}}
+    const whatsapp=await whatsappNotify(o);
+    await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action:'notify_client',entity_type:'service_order',entity_id:String(o.id),after_data:{recipient:o.client_email||null,email_sent:email.sent,whatsapp_status:whatsapp.status,status:o.status,quote_status:o.quote_status||null}})});
+    return reply(200,{ok:true,email,whatsapp});
   }catch(error){console.error('Support actions',error);return reply(error.status||500,{ok:false,error:error.message||'Error interno'});}
 };

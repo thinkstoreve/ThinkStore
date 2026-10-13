@@ -1,0 +1,166 @@
+[
+  {
+    "name": "ts_cita_confirmada_v2",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, tu cita de Servicio Técnico en ThinkStore está confirmada para el {{2}} a las {{3}}. Si necesitas modificarla, responde a este mensaje. ThinkStore · Chacao, Caracas.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "15/10/2026",
+              "10:30 a. m."
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ts_equipo_recibido_v2",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, recibimos tu {{2}} en ThinkStore. Tu orden es {{3}}. Te informaremos cuando haya novedades de tu reparación. Responde si necesitas ayuda.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "iPhone 14 Pro Max",
+              "TS-SVC-2026-0012"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ts_cotizacion_disponible_v2",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, ya puedes revisar la cotización de la reparación {{2}}. Presupuesto: USD {{3}}. Consulta el diagnóstico y decide desde tu seguimiento privado de ThinkStore.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "TS-SVC-2026-0012",
+              "120.00"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ts_estado_reparacion_v2",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, tenemos una actualización de tu reparación {{2}}. Equipo: {{3}}. Estado: {{4}}. Puedes consultar los detalles en el seguimiento de ThinkStore o responder a este mensaje.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "TS-SVC-2026-0012",
+              "iPhone 14 Pro Max",
+              "En reparación"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ts_equipo_listo_v2",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, tu {{2}} de la orden {{3}} está listo para entregar. Comunícate con ThinkStore para coordinar la entrega.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "iPhone 14 Pro Max",
+              "TS-SVC-2026-0012"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ts_abono_confirmado_v2",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, registramos un abono a tu reparación {{2}} de USD {{3}}. Saldo pendiente: USD {{4}}. Puedes revisar los movimientos en el seguimiento de ThinkStore.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "TS-SVC-2026-0012",
+              "30.00",
+              "90.00"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ts_financiamiento_recordatorio_v2",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, este es un recordatorio de tu reparación financiada {{2}} en ThinkStore. Saldo pendiente: USD {{3}}. Vencimiento acordado: {{4}}. Si ya pagaste, responde para verificarlo. Escribe BAJA para detener estos avisos.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "TS-SVC-2026-0012",
+              "90.00",
+              "20/10/2026"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ts_pedido_confirmado_v2",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, registramos tu pedido ThinkStore {{2}} por USD {{3}}. Estado actual: {{4}}. Te notificaremos cuando se actualice.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "TS-2026-0045",
+              "350.00",
+              "Confirmado"
+            ]
+          ]
+        }
+      }
+    ]
+  }
+]

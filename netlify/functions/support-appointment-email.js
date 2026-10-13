@@ -53,7 +53,9 @@ exports.handler=async event=>{
     const ed=await sendResend({to,subject,html,text});
     const now=new Date().toISOString();
     await req(`support_notifications?id=eq.${encodeURIComponent(notificationId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({email_sent_at:now,email_attempts:Number(n.email_attempts||0)+1,email_last_error:null})});
-    return reply(200,{ok:true,sent:true,email_id:ed.id||null});
+    const WhatsAppEvents=require('./_whatsapp-service-events');
+    const whatsapp=await WhatsAppEvents.appointment(a).catch(()=>({status:'error'}));
+    return reply(200,{ok:true,sent:true,email_id:ed.id||null,whatsapp});
   }catch(error){
     console.error('support-appointment-email',error);
     if(notificationId){

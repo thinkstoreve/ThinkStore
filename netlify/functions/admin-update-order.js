@@ -1,3 +1,4 @@
+const WhatsAppEvents=require('./_whatsapp-service-events');
 const {mainConfig,authenticateInternal}=require('./staff-auth-core');
 const crypto=require('crypto');
 const {getRate}=require('./fx-rate-core');
@@ -396,9 +397,10 @@ exports.handler = async function(event) {
       const changed=Array.isArray(updated)?updated[0]:found;
       const p=normalized(await fullPedido(changed));
       const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
+    const whatsapp=await WhatsAppEvents.orderUpdate(p).catch(()=>({status:'error'}));
       const noteResult={skipped:true,reason:approved?'La nota se habilita cuando todas las unidades físicas estén asignadas.':'Pago no aprobado'};
       const inventory=await inventoryTransition(p,status);
-      return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true},fx_quote:updatedFx,bank_receipts:bankReceipts,bank_warnings:bankWarnings});
+      return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,whatsapp,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true},fx_quote:updatedFx,bank_receipts:bankReceipts,bank_warnings:bankWarnings});
     }
 
     const notePaymentReady=()=>{
@@ -474,9 +476,10 @@ exports.handler = async function(event) {
     try{await sb('admin_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:auth.email||auth.mode||null,action:'update_order_status',entity_type:'pedido',entity_id:String(found.id),before_data:{estado:before},after_data:{estado:nextStatus,numero_guia:guide||null}})})}catch(_){ }
     const p=normalized(await fullPedido(changed));
     const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
+    const whatsapp=await WhatsAppEvents.orderUpdate(p).catch(()=>({status:'error'}));
     const noteResult={skipped:true,reason:norm(nextStatus)==='pago verificado'?'La nota queda pendiente de asignación de unidad física.':'Sin envío automático de nota'};
     const inventory=await inventoryTransition(p,nextStatus);
-    return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,deliveryNoteEmail:noteResult,inventory});
+    return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,whatsapp,deliveryNoteEmail:noteResult,inventory});
   }catch(e){
     console.error('ThinkStore admin-update-order',e);
     return reply(500,{ok:false,error:e.message||'Error interno'});

@@ -6,6 +6,7 @@ const {getRate}=require('./fx-rate-core');
 const {account,paymentPlan,canAccessRepairs,round}=require('./staff-repairs-core');
 const {render:renderServiceDeliveryNote}=require('./service-delivery-note-template');
 const {normalize:normalizeDestination}=require('./payment-destinations');
+const WhatsAppEvents=require('./_whatsapp-service-events');
 const H={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Headers':'authorization,content-type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'};
 const result=(statusCode,body)=>({statusCode,headers:H,body:JSON.stringify(body)});
 const clean=(v,n=400)=>String(v??'').trim().slice(0,n);
@@ -121,7 +122,12 @@ async function enrichRepairListBilling(conf,orders=[]){
 }
 function mainConf(){const m=mainConfig();return{url:clean(m.url).replace(/\/$/,''),key:clean(m.service)}}
 async function latestServicePaymentEvent(conf,orderId){
-  try{const rows=await rest(conf,'service_payment_events',{select:'id,occurred_at,payment_method,reference,amount_delta',service_order_id:`eq.${orderId}`,order:'occurred_at.desc',limit:1});return rows?.[0]||null}catch(e){console.warn('No se pudo resolver el evento de pago para Caja Chica',e.message);return null}
+  try{const rows=await rest(conf,'service_payment_events',{select:'id,occurred_at,payment_method,reference,amount_delta,balance_after',service_order_id:`eq.${orderId}`,order:'occurred_at.desc',limit:1});return rows?.[0]||null}catch(e){console.warn('No se pudo resolver el evento de pago para Caja Chica',e.message);return null}
+}
+async function sendConfirmedPaymentWhatsapp(conf,order,{receiptId,delta,balance}){
+  if(!receiptId||!(Number(delta)>0))return{status:'skipped',reason:'no_verified_event'};
+  try{return await WhatsAppEvents.payment(order,{receipt_id:String(receiptId),delta_usd:Number(delta),balance_after:Math.max(0,Number(balance||0))})}
+  catch(e){console.warn('WhatsApp recibo Staff:',e.message);return{status:'error'};}
 }
 async function syncServiceBankReceipt(conf,order,p,destinationCode,actor){
   const dest=normalizeDestination(p.method,destinationCode,{required:true});
@@ -289,10 +295,10 @@ async function sendDeliveryNote(order,html){
   if(!er.ok)throw Error(clean(data?.message||'No se pudo enviar la Nota de Entrega'));
   return{sent:true,id:data?.id||null};
 }
-exports.handler=async event=>{
+async function handleRequest(event,verifiedSupportActor=null){
   if(event.httpMethod==='OPTIONS')return{statusCode:204,headers:H,body:''};
   if(!['GET','POST'].includes(event.httpMethod))return result(405,{ok:false,error:'Método no permitido'});
-  const actor=await authenticateInternal(event);
+  const actor=verifiedSupportActor||await authenticateInternal(event);
   if(!canAccessRepairs(actor,event.httpMethod==='POST'))return result(403,{ok:false,error:'Esta cuenta no tiene permisos para gestionar cobros de reparaciones.'});
   const conf=supportConfig();
   if(!conf.url||!conf.key||!/^https:\/\/.+\.supabase\.co$/.test(conf.url))return result(503,{ok:false,error:'Falta configurar SUPPORT_SUPABASE_URL y SUPPORT_SUPABASE_SERVICE_ROLE_KEY en Netlify Main. Comprueba el Supabase independiente de Soporte.'});
@@ -472,7 +478,7 @@ exports.handler=async event=>{
       }catch(e){return result(400,{ok:false,error:e.message||'Revisa los montos, referencias y cuentas destino del pago combinado.'})}
       const target=round(Number(current.quote_amount||0)),plannedAfter=round(Number(simulated.amount_paid||0));
       if(Math.abs(plannedAfter-target)>.02)return result(409,{ok:false,error:plannedAfter<target?`El pago combinado está incompleto. Faltan $${round(target-plannedAfter).toFixed(2)}.`:`El pago combinado supera el total en $${round(plannedAfter-target).toFixed(2)}.`});
-      const comment=clean(b.note,300);let processed=0,atomicState={},updated=current;const descriptions=[],bankWarnings=[],bankReceipts=[];
+      const comment=clean(b.note,300);let processed=0,atomicState={},updated=current;const descriptions=[],bankWarnings=[],bankReceipts=[],receiptIds=[];
       for(let i=0;i<plans.length;i++){
         const p=plans[i],description=`Cobro combinado Staff ${i+1}/${plans.length}: ${p.method} · ${paymentAmountText(p)} · equiv. USD ${p.equivalent.toFixed(2)}${p.destination_name?` · Destino ${p.destination_name}`:''}${p.rate?` · BCV ${p.rate}, vigencia ${p.bcv_effective_date}`:''}${p.reference?' · Ref. '+p.reference:''}${comment?' · '+comment:''} · ${actor.email}`;
         descriptions.push(description);
@@ -483,6 +489,8 @@ exports.handler=async event=>{
           })});
           atomicState=Array.isArray(atomic)?(atomic[0]||{}):(atomic||{});processed++;
           updated=await getOrder(conf,id);if(!updated)throw Error('No se pudo volver a leer la orden después de registrar un tramo del pago.');
+          const movement=await latestServicePaymentEvent(conf,updated.id);
+          if(movement?.id&&Math.abs(Number(movement.amount_delta)-p.equivalent)<0.005)receiptIds.push(String(movement.id));
           try{bankReceipts.push(await syncServiceBankReceipt(conf,updated,p,p.destination_code,actor))}catch(bankErr){bankWarnings.push(`${p.method}: ${clean(bankErr.message,180)}`);console.warn('Caja Chica · cobro Servicio Técnico',bankErr.message)}
         }catch(e){
           if(processed>0)return result(409,{ok:false,partial_payment:true,processed,error:`Se registraron ${processed} de ${plans.length} métodos antes de producirse un error. No repitas el cobro completo: actualiza la orden y cobra solo el saldo restante. Detalle: ${clean(e.message||'error de cobro',220)}`});
@@ -503,7 +511,10 @@ exports.handler=async event=>{
       let deliveryNoteEmail={sent:false};try{const note=await deliveryNoteData(conf,updated);deliveryNoteEmail=await sendDeliveryNote(updated,note.html)}catch(e){console.warn('Nota de Entrega de Soporte no enviada',e.message);deliveryNoteEmail={sent:false,error:e.message}}
       const notes=await orderNotes(conf,updated.id);let parts=await orderParts(conf,updated.code);if(!parts.length)parts=parsePartsFallback(notes);const extras=await orderExtras(conf,updated.code);
       let financeSettlement=null,financeWarning='';try{financeSettlement=await syncEnterpriseServiceSettlement(updated,parts,extras,billingSummary(updated,parts,extras),actor)}catch(e){financeWarning=e.message||'No se pudo sincronizar Enterprise';console.warn('Liquidación Enterprise',financeWarning)}
-      return result(200,{ok:true,multi_payment:true,payment_lines:plans.map(p=>({method:p.method,currency:p.currency,amount:p.amount,usd_equivalent:p.equivalent,reference:p.reference||'',destination_code:p.destination_code||null,destination_name:p.destination_name||null})),order:updated,billing:billingSummary(updated,parts,extras),parts,extras,notes,note_saved:audited,fully_paid:true,inventory:atomicState.inventory||null,store_inventory:storeInventory,delivery_note_ready:true,email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail,finance_settlement:financeSettlement,finance_warning:financeWarning,bank_receipts:bankReceipts,bank_warnings:bankWarnings});
+      const whatsappReceipt=receiptIds.length===plans.length
+        ?await sendConfirmedPaymentWhatsapp(conf,updated,{receiptId:'multi:'+receiptIds.join(':'),delta:plans.reduce((sum,v)=>sum+v.equivalent,0),balance:Math.max(0,Number(updated.quote_amount||0)-Number(updated.amount_paid||0))})
+        :{status:'skipped',reason:'multi_payment_event_unverified'};
+      return result(200,{ok:true,multi_payment:true,whatsapp_receipt:whatsappReceipt,payment_lines:plans.map(p=>({method:p.method,currency:p.currency,amount:p.amount,usd_equivalent:p.equivalent,reference:p.reference||'',destination_code:p.destination_code||null,destination_name:p.destination_name||null})),order:updated,billing:billingSummary(updated,parts,extras),parts,extras,notes,note_saved:audited,fully_paid:true,inventory:atomicState.inventory||null,store_inventory:storeInventory,delivery_note_ready:true,email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail,finance_settlement:financeSettlement,finance_warning:financeWarning,bank_receipts:bankReceipts,bank_warnings:bankWarnings});
     }
     // A source-verified rate is ALWAYS fetched at checkout on the server.
     const isBs=['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs'].includes(b.method);
@@ -567,6 +578,14 @@ exports.handler=async event=>{
     const extras=await orderExtras(conf,updated.code);
     let financeSettlement=null,financeWarning='';
     if(atomicState.fully_paid){try{financeSettlement=await syncEnterpriseServiceSettlement(updated,parts,extras,billingSummary(updated,parts,extras),actor)}catch(e){financeWarning=e.message||'No se pudo sincronizar Enterprise';console.warn('Liquidación Enterprise',financeWarning)}}
-    return result(200,{ok:true,payment:{...p,status:atomicState.fully_paid?'Pagado':(atomicState.payment_status||p.status),pending:Number(atomicState.pending??p.pending)},order:updated,billing:billingSummary(updated,parts,extras),parts,extras,notes,note_saved:audited,fully_paid:Boolean(atomicState.fully_paid),inventory:atomicState.inventory||null,store_inventory:storeInventory,delivery_note_ready:Boolean(atomicState.delivery_note_ready),email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail,finance_settlement:financeSettlement,finance_warning:financeWarning,bank_receipt:bankReceipt,bank_warning:bankWarning});
+    const movement=await latestServicePaymentEvent(conf,updated.id);
+    const whatsappReceipt=movement?.id&&Math.abs(Number(movement.amount_delta)-p.equivalent)<0.005
+      ?await sendConfirmedPaymentWhatsapp(conf,updated,{receiptId:movement.id,delta:p.equivalent,balance:Number(atomicState.pending??Math.max(0,Number(updated.quote_amount||0)-Number(updated.amount_paid||0)))})
+      :{status:'skipped',reason:'payment_event_unverified'};
+    return result(200,{ok:true,whatsapp_receipt:whatsappReceipt,payment:{...p,status:atomicState.fully_paid?'Pagado':(atomicState.payment_status||p.status),pending:Number(atomicState.pending??p.pending)},order:updated,billing:billingSummary(updated,parts,extras),parts,extras,notes,note_saved:audited,fully_paid:Boolean(atomicState.fully_paid),inventory:atomicState.inventory||null,store_inventory:storeInventory,delivery_note_ready:Boolean(atomicState.delivery_note_ready),email_sent:Boolean(deliveryNoteEmail?.sent),delivery_note_email:deliveryNoteEmail,finance_settlement:financeSettlement,finance_warning:financeWarning,bank_receipt:bankReceipt,bank_warning:bankWarning});
   }catch(e){console.error('[staff-repairs]',e?.message);const code=e?.status>=400&&e.status<500?e.status:500;return result(code,{ok:false,error:clean(e?.message||'No se pudo consultar Soporte')})}
-};
+ }
+// The HTTP export ALWAYS authenticates through Staff. The separate bridge below
+// verifies the Support JWT and roles before invoking this private helper.
+exports.handler=event=>handleRequest(event);
+exports.payFromVerifiedSupport=(body,verifiedActor)=>handleRequest({httpMethod:'POST',body:JSON.stringify({...body,action:'pay'})},verifiedActor);

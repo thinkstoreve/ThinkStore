@@ -1,5 +1,6 @@
 'use strict';
 const {supportRoot}=require('./support-mail-ui');
+const WhatsAppEvents=require('./_whatsapp-service-events');
 
 const H={
   'Content-Type':'application/json; charset=utf-8',
@@ -126,6 +127,14 @@ exports.handler=async event=>{
   if(!updated)return out(500,{ok:false,error:'No se pudo actualizar el cobro en Servicio Técnico.'});
 
   await attachPaymentReference(supportUrl,supportKey,order.id,reference,meta);
+  // Only use a persisted, uniquely identified payment event to send WhatsApp receipts.
+  // Never turn an unverified payment or a proposed financing plan into a receipt.
+  let whatsappReceipt={status:'skipped',reason:'receipt_not_confirmed'};
+  try{
+    const recent=await rest(supportUrl,supportKey,`service_payment_events?select=id,amount_delta,balance_after,occurred_at&service_order_id=eq.${encodeURIComponent(order.id)}&order=occurred_at.desc&limit=5`);
+    const confirmed=(recent||[]).find(r=>Math.abs(Number(r.amount_delta)-delta)<0.005&&Math.abs(Number(r.balance_after)-Math.max(0,quote-next))<0.015&&Date.now()-new Date(r.occurred_at).getTime()<120000);
+    if(confirmed)whatsappReceipt=await WhatsAppEvents.payment(updated,{receipt_id:String(confirmed.id),delta_usd:delta,balance_after:Math.max(0,quote-next),occurred_at:confirmed.occurred_at,reference});
+  }catch(e){console.warn('WhatsApp recibo:',e.message)}
   await logSupportNote(
     supportUrl,supportKey,updated,auth,
     `${paid?'Pago total':'Abono'} registrado desde App Ventas: $${delta.toFixed(2)} · ${method} · ${currency}${reference?` · Ref. ${reference}`:''}`,
@@ -154,6 +163,7 @@ exports.handler=async event=>{
     order:publicOrder(updated),
     payment:{delta_usd:delta,balance_before:balance,balance_after:Math.max(0,quote-next),paid,method,currency,reference},
     delivery_note_email:deliveryNoteEmail,
+    whatsapp_receipt:whatsappReceipt,
     note_html:html,
     metrics:refreshed.metrics,
     methods:refreshed.methods

@@ -1,5 +1,6 @@
 'use strict';
 const {statusClientEmail,sendResend}=require('./support-mail-ui');
+const WhatsAppEvents=require('./_whatsapp-service-events');
 const reply=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'POST, OPTIONS'},body:JSON.stringify(body)});
 const clean=v=>String(v??'').trim();
 const IMAGE_MIME_BY_EXT={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',gif:'image/gif',bmp:'image/bmp',avif:'image/avif',heic:'image/heic',heif:'image/heif',tif:'image/tiff',tiff:'image/tiff'};
@@ -110,16 +111,16 @@ exports.handler=async event=>{
       return reply(200,{ok:true,url:signed,expires_in:3600,inline:true});
     }
 
-    if(action!=='notify_client')return reply(400,{ok:false,error:'Acción no válida'});
+    if(action!=='notify_client'&&action!=='notify_repair_update')return reply(400,{ok:false,error:'Acción no válida'});
     const rows=await req(`service_orders?select=*&id=eq.${encodeURIComponent(clean(body.order_id))}&limit=1`);
     const o=rows?.[0];
     if(!o)return reply(404,{ok:false,error:'Orden no encontrada'});
-    if(!o.client_email)return reply(400,{ok:false,error:'La orden no tiene correo del cliente'});
-
-    const mail=statusClientEmail(o);
-    const ed=await sendResend({to:o.client_email,subject:mail.subject,html:mail.html,text:mail.text});
-    await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action:'notify_client',entity_type:'service_order',entity_id:String(o.id),after_data:{recipient:o.client_email,provider_id:ed.id||null,status:o.status,quote_status:o.quote_status||null}})});
-    return reply(200,{ok:true,email:{sent:true,id:ed.id||null,subject:mail.subject}});
+    let email={sent:false,reason:'no_email'};
+    if(o.client_email){const mail=statusClientEmail(o);try{const ed=await sendResend({to:o.client_email,subject:mail.subject,html:mail.html,text:mail.text});email={sent:true,id:ed.id||null,subject:mail.subject}}catch(e){email={sent:false,error:e.message}}}
+    const update=action==='notify_repair_update'&&body.update&&typeof body.update==='object'?{title:clean(body.update.title),summary:clean(body.update.summary)}:{};
+    const whatsapp=await WhatsAppEvents.serviceUpdate(o,update);
+    await req('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:user.email,actor_role:profile.rol,action,entity_type:'service_order',entity_id:String(o.id),after_data:{recipient:o.client_email||null,email_sent:email.sent,whatsapp_status:whatsapp.status,status:o.status,quote_status:o.quote_status||null}})});
+    return reply(200,{ok:true,email,whatsapp});
   }catch(error){
     console.error('Support actions',error);
     return reply(500,{ok:false,error:error.message||'Error interno'});

@@ -1138,8 +1138,8 @@ const TSService=(()=>{
   function syncBitacoraVisibility(){
     const visible=Boolean(document.getElementById('bClientVisible')?.checked),wrap=document.getElementById('bClientFields'),notify=document.getElementById('bNotifyClient'),order=bitacoraOrder();
     if(wrap)wrap.hidden=!visible;
-    if(notify){notify.disabled=!visible||!order?.email;if(!visible||!order?.email)notify.checked=false}
-    const help=document.getElementById('bNotifyClientHelp');if(help)help.textContent=!visible?'Activa “Visible para el cliente” para habilitar el envío.':order?.email?`Se enviará a ${order.email}.`:'Esta orden no tiene correo; la actualización sí quedará visible en el seguimiento.';
+    if(notify){notify.disabled=!visible||!(order?.email||order?.phone);if(!visible||!(order?.email||order?.phone))notify.checked=false}
+    const help=document.getElementById('bNotifyClientHelp');if(help)help.textContent=!visible?'Activa “Visible para el cliente” para habilitar el envío.':(order?.email||order?.phone)?`Se enviará por los canales disponibles · ${order.email||'sin correo'} · ${order.phone||'sin WhatsApp'}.`:'Esta orden no tiene correo ni teléfono; la actualización quedará visible en el seguimiento.';
     const send=document.getElementById('bSendClientUpdate');if(send)send.disabled=!order;
     renderBitacoraPreview();
   }
@@ -1162,7 +1162,7 @@ const TSService=(()=>{
     };
     const t=map[key];if(!t)return;
     bType.value=t.type;bStatus.value=t.status;if(!bClientTitle.value.trim())bClientTitle.value=t.title;if(!bDetail.value.trim())bDetail.value=t.detail;
-    bClientVisible.checked=true;const order=bitacoraOrder();if(bNotifyClient)bNotifyClient.checked=Boolean(order?.email);syncBitacoraVisibility();renderBitacoraPreview();
+    bClientVisible.checked=true;const order=bitacoraOrder();if(bNotifyClient)bNotifyClient.checked=Boolean(order?.email||order?.phone);syncBitacoraVisibility();renderBitacoraPreview();
   }
   function renderBitacoraPreview(){
     const box=document.getElementById('bClientPreview');if(!box)return;
@@ -1173,14 +1173,14 @@ const TSService=(()=>{
   }
   function sendBitacoraUpdate(){
     const order=bitacoraOrder();if(!order)return toast('Selecciona una orden antes de enviar la actualización.','error');
-    bClientVisible.checked=true;bNotifyClient.checked=Boolean(order.email);syncBitacoraVisibility();
+    bClientVisible.checked=true;bNotifyClient.checked=Boolean(order.email||order.phone);syncBitacoraVisibility();
     const form=document.querySelector('#bitacoraModal form');if(form?.requestSubmit)form.requestSubmit();
   }
   async function saveBitacora(e){
     e.preventDefault();const code=bOrderCode.value.trim().toUpperCase();const order=orders.find(o=>o.code.toUpperCase()===code);
     if(!order){alert('No existe una orden con el código '+code);return}
     if(!requireTechnicianOrder(order))return;
-    const clientVisible=Boolean(bClientVisible.checked),notifyClient=clientVisible&&Boolean(bNotifyClient.checked)&&Boolean(order.email);
+    const clientVisible=Boolean(bClientVisible.checked),notifyClient=clientVisible&&Boolean(bNotifyClient.checked)&&Boolean(order.email||order.phone);
     const entry={orderCode:code,type:bType.value,author:bAuthor.value.trim()||session?.name||'Sin responsable',status:bStatus.value,detail:bDetail.value.trim(),files:bFiles.value.trim(),visibility:clientVisible?'client':'internal',clientTitle:bClientTitle.value.trim(),diagnosis:bDiagnosis.value.trim(),workPerformed:bWorkPerformed.value.trim(),partsUsed:bPartsUsed.value.trim(),testsPerformed:bTestsPerformed.value.trim(),clientNotes:bClientNotes.value.trim(),created:new Date().toLocaleString('es-VE')};
     if(clientVisible&&!entry.clientTitle)entry.clientTitle=entry.type==='Entrega'?'Resumen de tu reparación':entry.status;
     if(clientVisible&&!entry.detail&&!entry.workPerformed&&!entry.diagnosis&&!entry.testsPerformed){alert('Para publicar al cliente añade al menos un resumen, diagnóstico, trabajo realizado o pruebas.');return}
@@ -1189,14 +1189,14 @@ const TSService=(()=>{
     const changes={status:entry.status};if(entry.status==='Entregado')changes.delivered_at=new Date().toISOString();
     const {error:updateError}=await supabaseClient.from('service_orders').update(changes).eq('id',order.id);if(updateError){alert('La nota se guardó, pero no se actualizó el estado: '+updateError.message);return}
     await audit('add_note',order.id,null,entry);
-    let mailSent=false;
+    let notificationSent=false;
     if(notifyClient){
       try{
-        await supportSecureAction({action:'notify_repair_update',order_id:order.id,update:{title:entry.clientTitle,summary:entry.detail,diagnosis:entry.diagnosis,work_performed:entry.workPerformed,parts_used:entry.partsUsed,tests_performed:entry.testsPerformed,client_notes:entry.clientNotes,status:entry.status,author:entry.author}});mailSent=true;
-      }catch(err){console.warn('Correo de actualización técnica:',err);toast('La actualización quedó publicada, pero el correo no pudo enviarse: '+(err?.message||err),'error')}
+        const notice=await supportSecureAction({action:'notify_repair_update',order_id:order.id,update:{title:entry.clientTitle,summary:entry.detail,diagnosis:entry.diagnosis,work_performed:entry.workPerformed,parts_used:entry.partsUsed,tests_performed:entry.testsPerformed,client_notes:entry.clientNotes,status:entry.status,author:entry.author}});notificationSent=Boolean(notice.email?.sent||notice.whatsapp?.status==='sent'||notice.whatsapp?.status==='duplicate');
+      }catch(err){console.warn('Notificación de actualización técnica:',err);toast('La actualización quedó publicada, pero no se pudieron procesar los avisos: '+(err?.message||err),'error')}
     }
     await loadSupportData();closeModals();await renderPanel('bitacora');
-    toast(clientVisible?(mailSent?'Actualización publicada y correo enviado al cliente.':'Actualización publicada en el seguimiento del cliente.'):'Entrada interna guardada correctamente.');
+    toast(clientVisible?(notificationSent?'Actualización publicada; avisos procesados en los canales disponibles.':'Actualización publicada en el seguimiento. Verifica permisos y plantillas de notificación.'):'Entrada interna guardada correctamente.');
   }
   function bitacoraPanel(){
     const recent=bitacora.slice(0,80),publicCount=bitacora.filter(x=>x.visibility==='client').length;
@@ -1368,6 +1368,80 @@ const TSService=(()=>{
     if(method){const actual=String(o.paymentMethod||'');if(actual&&!Array.from(method.options).some(x=>x.value===actual)){const extra=document.createElement('option');extra.value=actual;extra.textContent=actual;extra.dataset.dynamic='1';method.appendChild(extra)}method.value=actual;}
     if(notes)notes.value=o.paymentNotes||'';
   }
+  let managerPaymentBusy=false;
+  const PAY_DESTINATIONS={
+    'Zelle':[['zelle','Zelle']], 'USDT':[['binance','Binance']],
+    'Transferencia USD':[['boa','Bank of America'],['chase','Chase'],['pichincha','Pichincha']],
+    'Pago Móvil':[['bancamiga','Bancamiga'],['bdv','Banco de Venezuela'],['banesco','Banesco'],['bnc','BNC'],['bvc','Venezolano de Crédito']],
+    'Transferencia Bs':[['bdv','Banco de Venezuela'],['banesco','Banesco'],['bnc','BNC'],['bancamiga','Bancamiga'],['bvc','Venezolano de Crédito']],
+    'Punto de venta Bs':[['bdv','Banco de Venezuela'],['banesco','Banesco'],['bnc','BNC'],['bancamiga','Bancamiga'],['bvc','Venezolano de Crédito']]
+  };
+  const NEEDS_PAYMENT_REFERENCE=new Set(['Zelle','USDT','Transferencia USD','Pago Móvil','Transferencia Bs','Punto de venta Bs']);
+  function updateManagerPaymentInputs(){
+    const method=document.getElementById('mNewPayMethod')?.value||'Efectivo USD';
+    const dest=document.getElementById('mNewPayDestination'),wrap=document.getElementById('mNewPayDestinationWrap');
+    const refWrap=document.getElementById('mNewPayReferenceWrap'),help=document.getElementById('mNewPayHelp');
+    const options=PAY_DESTINATIONS[method]||[];
+    if(wrap)wrap.hidden=!options.length;
+    if(dest){const old=dest.value;dest.innerHTML=options.map(([id,name])=>`<option value="${id}">${esc(name)}</option>`).join('');if(options.some(x=>x[0]===old))dest.value=old;}
+    if(refWrap)refWrap.hidden=!NEEDS_PAYMENT_REFERENCE.has(method);
+    if(help)help.textContent=/Bs|Pago Móvil|Punto de venta/.test(method)?'El importe se expresa en bolívares y la tasa BCV se verificará al cobrar.':'El importe se expresa en USD. Verifica el ingreso antes de confirmar.';
+  }
+  async function recordManagerPayment(){
+    if(managerPaymentBusy)return;
+    const id=String(activeOrderId||'');const o=orders.find(x=>String(x.id)===id);
+    if(!o)return toast('Selecciona una orden antes de cobrar.','error');
+    if(session?.role==='technician')return toast('El técnico no tiene permiso de cobranza.','error');
+    const method=document.getElementById('mNewPayMethod')?.value||'',amount=Number(document.getElementById('mNewPayAmount')?.value);
+    const reference=String(document.getElementById('mNewPayReference')?.value||'').trim();
+    const destination_code=document.getElementById('mNewPayDestination')?.value||null;
+    const note=String(document.getElementById('mNewPayNote')?.value||'').trim();
+    if(!Number.isFinite(amount)||amount<=0||Math.abs(Math.round(amount*100)/100-amount)>0.00001)return toast('Indica un importe positivo con máximo dos decimales.','error');
+    if(NEEDS_PAYMENT_REFERENCE.has(method)&&reference.length<3)return toast('Indica la referencia del pago.','error');
+    if((PAY_DESTINATIONS[method]||[]).length&&!destination_code)return toast('Selecciona la cuenta de destino.','error');
+    managerPaymentBusy=true;const btn=document.getElementById('mNewPayConfirm');if(btn){btn.disabled=true;btn.textContent='Verificando…'}
+    try{
+      const before=await supportSecureAction({action:'payment_detail',order_id:id});
+      if(before.history_available===false)throw Error('No hay historial de caja disponible. No se permite cobrar.');
+      const row=before.order||{},budget=Number(row.quote_amount||0),paid=Number(row.amount_paid||0);
+      if(!(budget>0)||String(row.quote_currency||'USD').toUpperCase()!=='USD')throw Error('Confirma un presupuesto en USD desde Soporte antes de cobrar.');
+      if(budget-paid<=0.005)throw Error('La reparación ya no tiene saldo pendiente.');
+      if(!/Bs|Pago Móvil|Punto de venta/.test(method)&&amount>budget-paid+0.005)throw Error('El abono supera el saldo pendiente.');
+      const eventIds=new Set((before.events||[]).map(e=>String(e.id)));
+      if(!confirm(`¿Registrar ${amount.toFixed(2)} mediante ${method} en la orden ${o.code}?\n\nSe registrará en caja y no se puede deshacer desde este formulario.`))return;
+      if(btn)btn.textContent='Registrando…';
+      const {data:{session:auth}}=await supabaseClient.auth.getSession();
+      if(!auth?.access_token)throw Error('La sesión de Soporte expiró. Inicia sesión de nuevo.');
+      const nativeFetch=window.ThinkStoreOffline?.nativeFetch||window.fetch.bind(window);
+      const mainSite=String(window.THINKSTORE_MAIN_SITE||'https://thinkstore.com.ve').replace(/\/$/,'');
+      const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),60000);
+      let response;
+      try{response=await nativeFetch(`${mainSite}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'pay',order_id:id,method,amount,reference,note,destination_code}),cache:'no-store',signal:controller.signal})}
+      finally{clearTimeout(timeout)}
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||!result.ok)throw Error(result.error||`Error al registrar abono (${response.status}).`);
+      // A successful HTTP response alone is not proof of settlement: read the authoritative receipt.
+      const updated=await supportSecureAction({action:'payment_detail',order_id:id});
+      if(String(activeOrderId)!==id)return;
+      const observed=Number(updated.order?.amount_paid||0);
+      const newEvent=(updated.events||[]).find(e=>!eventIds.has(String(e.id))&&Number(e.amount_delta||0)>0);
+      if(observed<=paid+0.005||updated.history_available===false||!newEvent){
+        alert('ATENCIÓN: no se pudo confirmar el nuevo movimiento en el historial. Revisa caja antes de repetir el cobro.');
+      }else{
+        o.amountPaid=observed;o.paymentStatus=updated.order.payment_status||o.paymentStatus;
+        renderManagerFinance(o,updated.events||[],true);
+        const sum=Number(newEvent.amount_delta||0);
+        toast(`Abono de USD ${sum.toFixed(2)} confirmado en caja.`);
+        document.getElementById('mNewPayAmount').value='';document.getElementById('mNewPayReference').value='';document.getElementById('mNewPayNote').value='';
+        if(result.bank_warning)alert('Abono registrado, pero Caja Chica necesita revisión: '+result.bank_warning);
+        if(result.store_inventory?.ok===false)alert('Cobro completado; revisa la salida de inventario.');
+        await loadSupportData();
+      }
+    }catch(error){
+      alert((error.name==='AbortError'?'La conexión tardó demasiado.':String(error.message||error))+' Verifica el historial y la caja antes de reintentar: el servidor podría haber procesado el cobro.');
+      await refreshManagerPaymentView().catch(()=>{});
+    }finally{managerPaymentBusy=false;if(btn){btn.disabled=false;btn.textContent='Registrar abono en caja'}}
+  }
   async function refreshManagerPaymentView(){
     const id=String(activeOrderId||'');const o=orders.find(x=>String(x.id)===id);if(!o)return;
     const panel=document.getElementById('mFinanceEvents');if(panel)panel.innerHTML='<p class="support-finance-detail">Consultando movimientos confirmados…</p>';
@@ -1392,7 +1466,7 @@ const TSService=(()=>{
     document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
     mQuoteAmount.value=o.quoteAmount||'';mQuoteStatus.value=o.quote;mQuoteRepairDetails.value=o.quoteRepairDetails||'';mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=sanitizeTechnicalNotes(o.technicalNotes||'');const techMode=session?.role==='technician';[mTechnician,mPaymentStatus,mAmountPaid,mPaymentMethod,mPaymentNotes,mServiceMode,mDeliveryMethod,mTrackingCompany,mTrackingCode].forEach(el=>{if(el)el.disabled=techMode});const qa=document.getElementById('mQuoteApprovalState');if(qa)qa.innerHTML=o.quoteApprovedAt?`<div class="notice success"><b>Cotización aprobada por el cliente</b><small>${dateText(o.quoteApprovedAt)}${o.quoteClientComment?` · Comentario: ${esc(o.quoteClientComment)}`:''}</small></div>`:o.quoteSentAt?`<div class="notice"><b>Cotización enviada</b><small>${dateText(o.quoteSentAt)} · En espera de aprobación.</small></div>`:'';
     repairPartSelection.clear();orderPartRowsForOrder(o).filter(r=>r.status==='reserved').forEach(r=>repairPartSelection.set(String(r.part_id),Number(r.quantity_reserved||1)));const partSearch=document.getElementById('mPartSearch');if(partSearch)partSearch.value='';renderOrderPartPicker('');
-    renderManagerFinance(o,[],false);
+    renderManagerFinance(o,[],false);updateManagerPaymentInputs();const recv=document.getElementById('mReceivePaymentBox');if(recv)recv.hidden=session?.role==='technician';
     await renderOrderFiles(o.id);await renderOrderMessages(o.id,{initial:true});startOrderMessagePolling(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');refreshManagerPaymentView().catch(error=>console.warn('Consulta de caja',error));
   }
   async function resolveOrderFileMedia(p={}){
@@ -1689,12 +1763,12 @@ const TSService=(()=>{
     toast('Cotización enviada. El cliente puede revisarla y aprobarla desde su seguimiento.');
   }
   async function notifyOrderClient(){
-    const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o?.email)return toast('La orden no tiene correo del cliente.','error');
-    if(!confirm(`¿Enviar actualización de ${o.code} a ${o.email}?`))return;
+    const o=orders.find(x=>String(x.id)===String(activeOrderId));if(!o?.email&&!o?.phone)return toast('La orden no tiene correo ni teléfono del cliente.','error');
+    if(!confirm(`¿Enviar actualización de ${o.code} por los canales disponibles?`))return;
     await sendOrderEmail(o,false);
   }
   async function sendOrderEmail(o,silent=true){
-    try{const data=await supportSecureAction({action:'notify_client',order_id:o.id});if(!silent)toast('Correo enviado al cliente.');return data}
+    try{const data=await supportSecureAction({action:'notify_client',order_id:o.id});if(!silent)toast(`Actualización procesada · Correo: ${data.email?.sent?'enviado':'no enviado'} · WhatsApp: ${data.whatsapp?.status||'no configurado'}`);return data}
     catch(error){if(!silent)toast(error.message||'No se pudo enviar el correo.','error');throw error}
   }
 
@@ -2249,7 +2323,7 @@ const TSService=(()=>{
     await uploadReceptionPhotos(data.id);
     await supabaseClient.from('service_order_notes').insert({order_id:data.id,note:`Equipo recibido por ${session?.name||session?.email||'Recepción'} · ${receptionDeviceCategory}. Checklist y fotos registrados.`,visibility:'internal',author_name:session?.name||'Recepción',note_type:'Recepción',status_after:'Recibido'});await audit('create_order',data.id,null,{...row,code:data.code});
     if(pendingAppointmentId)await supabaseClient.from('service_appointments').update({status:'convertida_orden',updated_at:new Date().toISOString()}).eq('id',pendingAppointmentId);
-    const createdOrder=mapOrder(data);pendingAppointmentId=null;await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso V2 finalizado. Orden creada: '+data.code);if(createdOrder.email)sendOrderEmail(createdOrder,true).catch(error=>console.warn('Correo automático de recepción:',error));
+    const createdOrder=mapOrder(data);pendingAppointmentId=null;await loadSupportData();closeModals();await renderPanel('orders');showReceptionComplete(createdOrder);toast('Ingreso V2 finalizado. Orden creada: '+data.code);if(createdOrder.email||createdOrder.phone)sendOrderEmail(createdOrder,true).catch(error=>console.warn('Correo automático de recepción:',error));
   }
   function publicStatusMessage(status){
     const map={
@@ -2282,8 +2356,7 @@ const TSService=(()=>{
     if(['No aprobado','Cancelado'].includes(status))await releasePreparedParts(order,status==='No aprobado'?'Cotización no aprobada':'Orden cancelada');
     await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:publicStatusMessage(status),visibility:'client',author_name:session?.name||'Soporte ThinkStore',note_type:'Cambio de estado',status_after:status,client_title:status});
     await audit('update_status',order.id,{status:previous},{status});await loadSupportData();await renderPanel('orders');toast('Estado actualizado y registrado en el seguimiento.');
-    const autoEmailStates=new Set(['Diagnóstico disponible','Aprobado por cliente','En reparación','Listo para entregar','Entregado','No aprobado']);
-    if(order.email&&autoEmailStates.has(status))sendOrderEmail({...order,status},true).catch(error=>console.warn('Correo automático de soporte:',error));
+    if((order.email||order.phone)&&status!==previous)sendOrderEmail({...order,status},true).catch(error=>console.warn('Correo automático de soporte:',error));
   }
   function trackingUrl(order){
     const base='https://soporte.thinkstore.com.ve/seguimiento.html';
@@ -2617,5 +2690,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,updateManagerPaymentInputs,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

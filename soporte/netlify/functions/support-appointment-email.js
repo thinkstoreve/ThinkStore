@@ -53,7 +53,15 @@ exports.handler=async event=>{
     const ed=await sendResend({to,subject,html,text});
     const now=new Date().toISOString();
     await req(`support_notifications?id=eq.${encodeURIComponent(notificationId)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({email_sent_at:now,email_attempts:Number(n.email_attempts||0)+1,email_last_error:null})});
-    return reply(200,{ok:true,sent:true,email_id:ed.id||null});
+    let whatsapp={status:'not_configured'};
+    if(process.env.WHATSAPP_EVENTS_SECRET){
+      try{
+        const host=clean(process.env.THINKSTORE_MAIN_URL||'https://thinkstore.com.ve').replace(/\/$/,'');
+        const resp=await fetch(`${host}/.netlify/functions/whatsapp-service-relay`,{method:'POST',headers:{Authorization:`Bearer ${process.env.WHATSAPP_EVENTS_SECRET}`,'Content-Type':'application/json'},body:JSON.stringify({action:'appointment',id:String(a.id)})});
+        const details=await resp.json().catch(()=>({}));whatsapp=resp.ok?(details.whatsapp||{status:'skipped'}):{status:'error'};
+      }catch(error){whatsapp={status:'error'};console.warn('WhatsApp cita:',error.message)}
+    }
+    return reply(200,{ok:true,sent:true,email_id:ed.id||null,whatsapp});
   }catch(error){
     console.error('support-appointment-email',error);
     if(notificationId){

@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=15.37.5" />
+  <link rel="stylesheet" href="styles.css?v=15.37.6" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -445,6 +445,17 @@
         <div class="support-manager-finance-head"><div><small>CONDICIONES DE PAGO · SOLO LECTURA</small><h3>Financiación y abonos recibidos</h3></div><button type="button" class="secondary" onclick="TSService.refreshManagerPaymentView()">Actualizar pagos</button></div>
         <div id="mFinanceOverview">Consultando el saldo registrado…</div>
         <div id="mFinanceEvents">El historial de cobros aparecerá aquí.</div>
+        <div class="support-receive-payment" id="mReceivePaymentBox">
+          <div><strong>Registrar abono</strong><small>Se contabiliza en la misma caja de App Ventas. No corresponde a guardar el plan de financiación.</small></div>
+          <div class="support-receive-payment-grid">
+            <label>Método<select id="mNewPayMethod" onchange="TSService.updateManagerPaymentInputs()"><option value="Efectivo USD">Efectivo USD</option><option>Zelle>Zelle</option><option value="Transferencia USD">Transferencia USD</option><option value="USDT">USDT</option><option value="Efectivo Bs">Efectivo Bs</option><option value="Pago Móvil">Pago Móvil</option><option value="Transferencia Bs">Transferencia Bs</option><option value="Punto de venta Bs">Punto de venta Bs</option></select></label>
+            <label>Importe recibido<input id="mNewPayAmount" type="number" min="0.01" step="0.01" placeholder="0.00" inputmode="decimal"></label>
+            <label id="mNewPayDestinationWrap" hidden>Cuenta destino<select id="mNewPayDestination"></select></label>
+            <label id="mNewPayReferenceWrap" hidden>Referencia<input id="mNewPayReference" maxlength="100" placeholder="Referencia del pago"></label>
+          </div>
+          <label>Observación (opcional)<input id="mNewPayNote" maxlength="300" placeholder="Descripción interna del abono"></label>
+          <div class="support-receive-payment-actions"><button type="button" id="mNewPayConfirm" onclick="TSService.recordManagerPayment()">Registrar abono en caja</button><small id="mNewPayHelp">Verifica el importe antes de confirmar. No se aceptan cobros fuera de línea.</small></div>
+        </div>
       </section>
       <section class="order-box support-cashier-card">
         <div><span>CAJA CENTRALIZADA</span><h3>Cobranza desde App Ventas</h3><p>Los abonos, el método de pago y el cierre de esta reparación se registran desde Ventas. Al marcarla como pagada se genera la Nota de Entrega y se envía al cliente.</p></div>
@@ -532,6 +543,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=2.0.0"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=15.37.5"></script>
+  <script src="app.js?v=15.37.6"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>
