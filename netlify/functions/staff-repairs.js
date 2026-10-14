@@ -5,6 +5,7 @@ const {authenticateInternal,mainConfig}=require('./staff-auth-core');
 const {getRate}=require('./fx-rate-core');
 const {account,paymentPlan,canAccessRepairs,round}=require('./staff-repairs-core');
 const {render:renderServiceDeliveryNote}=require('./service-delivery-note-template');
+const {render:renderServicePaymentReceipt}=require('./service-payment-receipt-template');
 const {normalize:normalizeDestination}=require('./payment-destinations');
 const WhatsAppEvents=require('./_whatsapp-service-events');
 const H={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Headers':'authorization,content-type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'};
@@ -375,7 +376,7 @@ async function handleRequest(event,verifiedSupportActor=null){
       return result(200,{ok:true,...data,refreshed_at:new Date().toISOString()});
     }
     let b;try{b=JSON.parse(event.body||'{}')}catch{return result(400,{ok:false,error:'Solicitud inválida'})}
-    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','add_charge','remove_charge','update_discount','set_financing','void_payment'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
+    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','view_payment_receipt','add_charge','remove_charge','update_discount','set_financing','void_payment'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
     const id=clean(b.order_id,50);
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
     let current=await getOrder(conf,id);
@@ -523,6 +524,12 @@ async function handleRequest(event,verifiedSupportActor=null){
       try{await rest(conf,'service_order_notes',{}, {method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({order_id:id,note:value>0?`Descuento ${type==='percent'?value+'%':usdText(discount)} aplicado${reason?' · '+reason:''}`:'Descuento eliminado',visibility:'internal',author_name:actor.email||'Staff',note_type:'Descuento Staff',status_after:current.status})})}catch(e){console.warn('No se pudo registrar el descuento en bitácora',e.message)}
       const finalExtras=await orderExtras(conf,current.code),finalBilling=billingSummary(current,parts,finalExtras);
       return result(200,{ok:true,order:current,billing:finalBilling,extras:finalExtras,parts});
+    }
+    if(b.action==='view_payment_receipt'){
+      const a=account(current);
+      if(!current.reception_checklist?.__financing?.enabled||!a.partial)return result(409,{ok:false,error:'El comprobante de abono se habilita solo si hay un abono confirmado y una deuda pendiente.'});
+      const payments=await rest(conf,'service_payment_events',{select:'event_type,amount_delta,payment_method,reference,occurred_at',service_order_id:`eq.${id}`,order:'occurred_at.desc',limit:100});
+      return result(200,{ok:true,html:renderServicePaymentReceipt({order:current,events:payments})});
     }
     if(['view_delivery_note','resend_delivery_note'].includes(b.action)){
       const acc=account(current);
