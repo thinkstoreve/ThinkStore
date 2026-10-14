@@ -1,0 +1,6 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
+test('abono financiado exige digitar la cantidad recibida en Staff',()=>{const code=read('staff/repairs.js');assert.match(code,/receiptAcknowledgement\(equivalent,active\.code\)/);assert.match(code,/receipt_ack_usd:receiptAck/);assert.match(code,/RECIBIDO /);assert.match(code,/newPaymentSelection\(g,'Efectivo USD'\)/);});
+test('servidor bloquea pagos de financiación sin confirmación exacta y consulta repetidos',()=>{const code=read('netlify/functions/staff-repairs.js');assert.match(code,/String\(b\.receipt_ack_usd\|\|''\)/);assert.match(code,/Number\(p\.equivalent\)\.toFixed\(2\)/);assert.match(code,/payment_method:`eq\.\$\{p\.method\}`/);assert.match(code,/minutes=60/);assert.match(code,/pago combinado está suspendido/);});
+test('puente de Soporte conserva confirmación humana y el importe',()=>{const a=read('soporte/app.js'),b=read('netlify/functions/support-record-payment.js');assert.match(a,/receipt_ack_usd:receiptAck/);assert.match(a,/const phrase='RECIBIDO '/);assert.match(b,/receipt_ack_usd:body\.receipt_ack_usd/);});

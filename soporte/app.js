@@ -1501,6 +1501,15 @@ const TSService=(()=>{
       if(budget-paid<=0.005)throw Error('La reparación ya no tiene saldo pendiente.');
       if(!/Bs|Pago Móvil|Punto de venta/.test(method)&&amount>budget-paid+0.005)throw Error('El abono supera el saldo pendiente.');
       const eventIds=new Set((before.events||[]).map(e=>String(e.id)));
+      let receiptAck=null;
+      if(row.reception_checklist?.__financing?.enabled){
+        const amountUsd=managerIsVes(method)?managerRound(amount/Number(bcvr?.rate||0)):managerRound(amount);
+        if(!(amountUsd>0))throw Error('No se pudo confirmar el equivalente USD recibido.');
+        const phrase='RECIBIDO '+amountUsd.toFixed(2);
+        const typed=prompt(`ATENCIÓN · COBRO REAL\nOrden ${o.code}\n\nEsta operación registrará USD ${amountUsd.toFixed(2)} como dinero que YA recibiste.\nSi el cliente no entregó este dinero, pulsa Cancelar.\n\nEscribe exactamente: ${phrase}`,'');
+        if(String(typed||'').trim().toUpperCase()!==phrase)return;
+        receiptAck=phrase;
+      }
       if(!confirm(`¿Registrar ${amount.toFixed(2)} mediante ${method} en la orden ${o.code}?\n\nSe registrará en caja y no se puede deshacer desde este formulario.`))return;
       if(btn)btn.textContent='Registrando…';
       const {data:{session:auth}}=await supabaseClient.auth.getSession();
@@ -1509,7 +1518,7 @@ const TSService=(()=>{
       const mainSite=String(window.THINKSTORE_MAIN_SITE||'https://thinkstore.com.ve').replace(/\/$/,'');
       const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),60000);
       let response;
-      try{response=await nativeFetch(`${mainSite}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'pay',order_id:id,method,amount,reference,note,destination_code,expected_paid:paid,client_bcv_rate:bcvr?.rate??null,client_bcv_date:bcvr?.effective_date??null}),cache:'no-store',signal:controller.signal})}
+      try{response=await nativeFetch(`${mainSite}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'pay',order_id:id,method,amount,reference,note,destination_code,expected_paid:paid,receipt_ack_usd:receiptAck,client_bcv_rate:bcvr?.rate??null,client_bcv_date:bcvr?.effective_date??null}),cache:'no-store',signal:controller.signal})}
       finally{clearTimeout(timeout)}
       const result=await response.json().catch(()=>({}));
       if(!response.ok||!result.ok)throw Error(result.error||`Error al registrar abono (${response.status}).`);

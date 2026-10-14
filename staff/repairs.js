@@ -23,6 +23,16 @@ let getToken=null,orders=[],active=null,events=[],parts=[],extras=[],billing=nul
 const MAX_PAYMENT_METHODS=3;
 const account=o=>{const budget=round(o?.staff_invoice_total??o?.quote_amount??0),paid=round(o?.staff_paid??o?.amount_paid??0),pending=o?.staff_pending!==undefined&&o?.staff_pending!==null?Math.max(0,round(o.staff_pending)):Math.max(0,round(budget-paid)),canceled=/cancel|rechaz|no aprobado/i.test(String(o?.status||''));return{budget,paid,pending,canceled,paidOff:budget>0&&pending<=0&&!canceled,partial:paid>0&&pending>0}};
 const financedOrder=o=>Boolean(o?.reception_checklist?.__financing?.enabled);
+// Un abono es dinero realmente recibido: jamás confundirlo con guardar el plan.
+// La confirmación expresa viaja al servidor, que comprueba monto y posibles duplicados.
+function receiptAcknowledgement(usdAmount,code){
+  const exact=round(usdAmount).toFixed(2);
+  if(!(Number(exact)>0))return null;
+  const phrase='RECIBIDO '+exact;
+  const typed=window.prompt(`ATENCIÓN · COBRO REAL\n\nOrden: ${code}\nSe registrarán USD ${exact} como dinero que YA recibiste del cliente.\n\nSi el cliente no entregó ese dinero, pulsa Cancelar.\n\nPara registrar el cobro escribe exactamente: ${phrase}`, '');
+  return String(typed||'').trim().toUpperCase()===phrase?phrase:null;
+}
+
 const detailAccount=o=>{const base=account(o);if(!billing)return base;const budget=round(billing.invoice_total||0),paid=round(billing.paid??o?.amount_paid??0),pending=Math.max(0,round(billing.pending??budget-paid));return{...base,budget,paid,pending,paidOff:budget>0&&pending<=0&&!base.canceled,partial:paid>0&&pending>0}};
 function reflectBilling(order,bill){const id=order?.id||active?.id;if(!id)return;const row=orders.find(o=>String(o.id)===String(id));if(row&&order)Object.assign(row,order);if(row&&bill){row.staff_invoice_total=Number(bill.invoice_total||0);row.staff_pending=Number(bill.pending||0);row.staff_paid=Number(bill.paid||0);row.staff_auto_from_parts=!!bill.auto_from_parts;row.staff_parts_total=Number(bill.parts_total||0)}if(active&&String(active.id)===String(id)&&order&&active!==order)Object.assign(active,order);}
 const setText=(id,value)=>{if($(id))$(id).textContent=value};
@@ -227,6 +237,7 @@ function detail(){
     ${paid?`<div class="form-section repair-paid-panel"><div><div><h3>Reparación pagada</h3><p>El saldo está completo. La Nota de Entrega está disponible sin cambiar el estado técnico del equipo.</p></div></div><div class="repair-final-actions"><button class="primary" id="repairsDeliveryNote" type="button">Ver / imprimir Nota de Entrega</button><button class="secondary" id="repairsResendDeliveryNote" type="button">Reenviar al correo</button><button class="secondary" id="repairsOpenTechnical" type="button">Abrir Servicio Técnico ↗</button></div></div>`:`
     <form id="repairsPayForm" class="form-section repair-payment-form">
       <div class="repair-section-title"><h3>Registrar pago</h3><small>${a.budget>0?'Elige el método y confirma el cobro':'Indica el total final y confirma el cobro'}</small></div>
+      ${financedOrder(o)?'<p class="repair-payment-foot" role="alert"><b>ATENCIÓN: «Registrar abono» crea un cobro real.</b> No sirve para guardar el financiamiento ni cambiar el estado. Si todavía no recibiste el dinero, no lo pulses. Para proteger el cierre se exigirá escribir el importe recibido.</p>':''}
       ${a.budget<=0?'<div class="repair-no-quote-hint"><b>Esta orden aún no tiene un total definido.</b><span>Escribe el monto recibido y ThinkStore lo guardará como total final al cobrar.</span></div>':''}
       ${a.budget>0?discountEditor():''}
       <div class="repair-multi-hint"><b>Pago combinado</b><span>Selecciona hasta 3 métodos. Escribe el primer monto —y el segundo si eliges 3— y ThinkStore calcula automáticamente el saldo del último método.</span></div>
@@ -251,7 +262,7 @@ function bindDetail(){
    try{const d=await api('POST',{action:'set_financing',order_id:active.id,initial_amount:initial,due_date:due});Object.assign(active,d.order);reflectBilling(active,billing);render();detail();}
    catch(e){alert(e.message)}finally{if(button.isConnected){button.disabled=false;button.textContent='Guardar financiación'}}
  });
-  $('repairMethodChoices')?.addEventListener('click',e=>{const b=e.target.closest('[data-repair-group]');if(!b)return;const g=PAYMENT_GROUPS.find(x=>x.id===b.dataset.repairGroup);if(!g)return;const a=detailAccount(active),idx=paymentSelections.findIndex(x=>x.groupId===g.id);if(a.budget<=0){paymentSelections=[newPaymentSelection(g,g.methods[0])]}else if(idx>=0){if(paymentSelections.length>1)paymentSelections.splice(idx,1)}else{if(paymentSelections.length>=MAX_PAYMENT_METHODS)return alert('Puedes combinar hasta 3 métodos de pago.');paymentSelections.push(newPaymentSelection(g,g.methods[0]))}b.classList.remove('tap-pop');void b.offsetWidth;b.classList.add('tap-pop');setTimeout(()=>b.classList.remove('tap-pop'),190);if(paymentSelections.some(x=>IS_BS.has(x.method)))window.ThinkStoreFX?.refresh?.().catch(()=>{});refreshPaymentMethodControls()});
+  $('repairMethodChoices')?.addEventListener('click',e=>{const b=e.target.closest('[data-repair-group]');if(!b)return;const g=PAYMENT_GROUPS.find(x=>x.id===b.dataset.repairGroup);if(!g)return;const a=detailAccount(active),idx=paymentSelections.findIndex(x=>x.groupId===g.id);if(financedOrder(active)&&idx<0){paymentSelections=[newPaymentSelection(g,g.methods[0])];refreshPaymentMethodControls();return;}if(a.budget<=0){paymentSelections=[newPaymentSelection(g,g.methods[0])]}else if(idx>=0){if(paymentSelections.length>1)paymentSelections.splice(idx,1)}else{if(paymentSelections.length>=MAX_PAYMENT_METHODS)return alert('Puedes combinar hasta 3 métodos de pago.');paymentSelections.push(newPaymentSelection(g,g.methods[0]))}b.classList.remove('tap-pop');void b.offsetWidth;b.classList.add('tap-pop');setTimeout(()=>b.classList.remove('tap-pop'),190);if(paymentSelections.some(x=>IS_BS.has(x.method)))window.ThinkStoreFX?.refresh?.().catch(()=>{});refreshPaymentMethodControls()});
   $('repairPaymentLines')?.addEventListener('input',e=>{
     const i=Number(e.target.dataset.payLineAmount??e.target.dataset.payLineUsdGuide??e.target.dataset.payLineUsd??e.target.dataset.payLineRef);
     if(!Number.isInteger(i)||!paymentSelections[i])return;
@@ -309,7 +320,7 @@ async function fullAmountForMethod(){
 }
 
 async function saveCombinedPayment(e){
-  e?.preventDefault?.();if(!active)return;const a=detailAccount(active);if(a.budget<=0)return alert('Para combinar métodos primero debe existir un total de reparación.');if(paymentSelections.length<2||paymentSelections.length>MAX_PAYMENT_METHODS)return alert('Selecciona entre 2 y 3 métodos de pago.');
+  e?.preventDefault?.();if(!active)return;if(financedOrder(active))return alert('Pago combinado deshabilitado temporalmente en financiación. Registra un abono con un solo método por vez.');const a=detailAccount(active);if(a.budget<=0)return alert('Para combinar métodos primero debe existir un total de reparación.');if(paymentSelections.length<2||paymentSelections.length>MAX_PAYMENT_METHODS)return alert('Selecciona entre 2 y 3 métodos de pago.');
   if(paymentSelections.some(x=>IS_BS.has(x.method))){try{await window.ThinkStoreFX?.requireFresh()}catch(err){return alert(err.message||'No está disponible la tasa BCV.')}}
   const calc=updateSplitCalculations();if(!calc.valid)return alert(calc.remaining>0.02?`Faltan ${usd(calc.remaining)} por distribuir.`:calc.remaining<-.02?'Los montos superan el saldo pendiente.':'Completa los montos y referencias de cada método.');
   const payments=paymentSelections.map(line=>{const code=normalizeRepairDestination(line.method,line.destinationCode),d=destinationInfo(code);return{method:line.method,amount:Number(line.amount||0),usd_equivalent:CUSTOM_EQ.has(line.method)?Number(line.usdEquivalent||0):null,reference:String(line.reference||'').trim(),destination_code:code||null,destination_name:d?.name||null}});
@@ -342,12 +353,19 @@ async function savePayment(e,markPaid){
       }
     }catch(err){return alert(err.message||'No está disponible la tasa BCV.')}
   }
+  let receiptAck=null;
+  if(financedOrder(active)){
+    const rate=IS_BS.has(selectedMethod)?Number(window.ThinkStoreFX?.snapshot(1)?.rate||0):null;
+    const equivalent=IS_BS.has(selectedMethod)?round(amount/rate):CUSTOM_EQ.has(selectedMethod)?round(usdEquivalent):round(amount);
+    if(!(equivalent>0))return alert('No se pudo confirmar el equivalente USD del abono.');
+    receiptAck=receiptAcknowledgement(equivalent,active.code);if(!receiptAck)return;
+  }
   const label=finalizeNoQuote?'cobrar este monto como total final':markPaid?'cobrar el saldo total':'registrar este abono';if(!confirm(`¿Confirmar ${label} mediante ${selectedMethod} para la orden ${active.code}?\nMonto a registrar: ${IS_BS.has(selectedMethod)?ves(amount):usd(amount)}\nVerifica que este dinero se recibió realmente.`))return;
   const btn=markPaid?$('repairsMarkPaid'):$('repairsPaySave');if(btn){btn.classList.add('is-loading');btn.disabled=true;btn.textContent=markPaid?'Cobrando…':'Registrando…'}
   try{
     const paidBefore=Number(active.amount_paid||0),eventIds=new Set((events||[]).map(x=>String(x.id)));
     const verifiedBcv=IS_BS.has(selectedMethod)?window.ThinkStoreFX?.snapshot(1):null;
-    const res=await api('POST',{action:'pay',order_id:id,method:selectedMethod,amount,usd_equivalent:usdEquivalent,reference,note,payment_intent:'manual_abono',expected_paid:paidBefore,finalize_no_quote:finalizeNoQuote,destination_code:destinationCode||null,destination_name:destination?.name||null,client_bcv_rate:verifiedBcv?.rate??null,client_bcv_date:verifiedBcv?.effective_date??null});await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;resetPaymentSelections();detail();
+    const res=await api('POST',{action:'pay',order_id:id,method:selectedMethod,amount,usd_equivalent:usdEquivalent,reference,note,payment_intent:'manual_abono',expected_paid:paidBefore,receipt_ack_usd:receiptAck,finalize_no_quote:finalizeNoQuote,destination_code:destinationCode||null,destination_name:destination?.name||null,client_bcv_rate:verifiedBcv?.rate??null,client_bcv_date:verifiedBcv?.effective_date??null});await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;resetPaymentSelections();detail();
     if(Number(active.amount_paid||0)<=paidBefore+0.005){alert('ATENCIÓN: el servidor respondió, pero el importe abonado no aumentó al consultar de nuevo. Verifica historial y caja antes de repetir cualquier cobro.');return}
     if(latest.history_available!==false&&!events.some(x=>!eventIds.has(String(x.id))&&Number(x.amount_delta||0)>0)){
       alert('ATENCIÓN: aumentó el monto cobrado, pero no aparece un nuevo evento en el historial. Verifica el movimiento en Caja/Soporte y NO repitas el cobro.');return;
