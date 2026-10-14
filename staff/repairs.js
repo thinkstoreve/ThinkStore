@@ -22,6 +22,7 @@ const NEEDS_REF=new Set(['Pago Móvil','Zelle','Transferencia USD','Transferenci
 let getToken=null,orders=[],active=null,events=[],parts=[],extras=[],billing=null,catalog=[],filter='pending',query='',loading=false,initialized=false,user=null,selectedMethod='Efectivo USD',paymentSelections=[],catalogTimer=null;
 const MAX_PAYMENT_METHODS=3;
 const account=o=>{const budget=round(o?.staff_invoice_total??o?.quote_amount??0),paid=round(o?.staff_paid??o?.amount_paid??0),pending=o?.staff_pending!==undefined&&o?.staff_pending!==null?Math.max(0,round(o.staff_pending)):Math.max(0,round(budget-paid)),canceled=/cancel|rechaz|no aprobado/i.test(String(o?.status||''));return{budget,paid,pending,canceled,paidOff:budget>0&&pending<=0&&!canceled,partial:paid>0&&pending>0}};
+const financedOrder=o=>Boolean(o?.reception_checklist?.__financing?.enabled);
 const detailAccount=o=>{const base=account(o);if(!billing)return base;const budget=round(billing.invoice_total||0),paid=round(billing.paid??o?.amount_paid??0),pending=Math.max(0,round(billing.pending??budget-paid));return{...base,budget,paid,pending,paidOff:budget>0&&pending<=0&&!base.canceled,partial:paid>0&&pending>0}};
 function reflectBilling(order,bill){const id=order?.id||active?.id;if(!id)return;const row=orders.find(o=>String(o.id)===String(id));if(row&&order)Object.assign(row,order);if(row&&bill){row.staff_invoice_total=Number(bill.invoice_total||0);row.staff_pending=Number(bill.pending||0);row.staff_paid=Number(bill.paid||0);row.staff_auto_from_parts=!!bill.auto_from_parts;row.staff_parts_total=Number(bill.parts_total||0)}if(active&&String(active.id)===String(id)&&order&&active!==order)Object.assign(active,order);}
 const setText=(id,value)=>{if($(id))$(id).textContent=value};
@@ -94,7 +95,7 @@ function payRegistry(){return window.ThinkStorePaymentDestinations||null}
 function paymentDestinationRule(method){return payRegistry()?.rule?.(method)||{allowed:[],defaultCode:null,currency:IS_BS.has(method)?'VES':'USD'}}
 function normalizeRepairDestination(method,code){return payRegistry()?.normalize?.(method,code)||''}
 function destinationInfo(code){return payRegistry()?.byCode?.(code)||null}
-function newPaymentSelection(group,method){const m=method||group.methods[0];return{groupId:group.id,method:m,amount:'',reference:'',usdEquivalent:'',destinationCode:normalizeRepairDestination(m,'')}}
+function newPaymentSelection(group,method){const m=method||group.methods[0];return{groupId:group.id,method:m,amount:'',usdGuide:'',reference:'',usdEquivalent:'',destinationCode:normalizeRepairDestination(m,'')}}
 function resetPaymentSelections(){const g=PAYMENT_GROUPS[0];paymentSelections=[newPaymentSelection(g,'Efectivo USD')];selectedMethod='Efectivo USD'}
 function syncPrimaryMethod(){selectedMethod=paymentSelections[0]?.method||'Efectivo USD'}
 function subMethodLabel(m){if(m==='Efectivo USD'||m==='Transferencia USD')return 'USD';if(m==='Efectivo Bs'||m==='Transferencia Bs')return 'Bolívares';return m}
@@ -112,6 +113,7 @@ function paymentLineRows(){
     return `<div class="repair-split-line ${auto?'is-auto':''}" data-pay-line="${i}">
       <div class="repair-split-line-head"><div><small>Método ${i+1}</small>${methodControl}</div>${auto?'<span class="repair-auto-pill">Resto automático</span>':''}${paymentSelections.length>1?`<button type="button" class="repair-split-remove" data-pay-line-remove="${i}" aria-label="Quitar método">×</button>`:''}</div>
       <div class="repair-split-fields ${allowed.length?'has-destination':''}">
+        ${IS_BS.has(line.method)&&!autoNative?`<label class="repair-usd-guide">Monto en USD · calcular Bs.<input data-pay-line-usd-guide="${i}" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Ej. 20,00" value="${esc(line.usdGuide||'')}"><small>Conversión automática con tasa BCV verificada</small></label>`:''}
         <label>Monto recibido <small>${esc(paymentUnit(line.method))}</small><input data-pay-line-amount="${i}" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" value="${esc(line.amount)}" ${autoNative?'readonly':''}></label>
         ${destinationField}
         ${custom?`<label>Equivalente USD<input data-pay-line-usd="${i}" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0,00" value="${esc(line.usdEquivalent)}" ${auto?'readonly':''}></label>`:''}
@@ -124,6 +126,13 @@ function paymentPreviewRate(){const q=window.ThinkStoreFX?.snapshot(1);return q&
 function updateSplitCalculations(){
   if(!active)return{paid:0,remaining:0,valid:false,rate:null};
   const a=detailAccount(active),due=Math.max(0,round(a.pending)),multi=paymentSelections.length>1&&a.budget>0,last=paymentSelections.length-1,q=paymentPreviewRate(),rate=Number(q?.rate||0)||null;
+  paymentSelections.forEach((line,i)=>{
+    if(!IS_BS.has(line.method)||!String(line.usdGuide||'').trim()||(multi&&i===last))return;
+    const guide=Number(line.usdGuide);
+    line.amount=rate&&guide>0?round(guide*rate).toFixed(2):'';
+    const native=document.querySelector(`[data-pay-line-amount="${i}"]`);
+    if(native)native.value=line.amount;
+  });
   let paidBeforeAuto=0;
   paymentSelections.forEach((line,i)=>{if(!(multi&&i===last))paidBeforeAuto=round(paidBeforeAuto+lineEquivalent(line,rate))});
   if(multi&&paymentSelections[last]){
@@ -144,7 +153,7 @@ function updateSplitCalculations(){
   const destinationsOk=paymentSelections.every(x=>!(payRegistry()?.needsDestination?.(x.method))||!!normalizeRepairDestination(x.method,x.destinationCode));
   const combinedValid=multi&&allPositive&&refsOk&&destinationsOk&&Math.abs(remaining)<=.02&&(!hasBs||!!rate);
   const save=$('repairsPaySave');if(save){save.classList.toggle('hidden',!single);save.disabled=single?!(amount>0&&customOk&&refOk&&destinationOk):true}
-  const charge=$('repairsMarkPaid');if(charge){if(a.budget<=0){charge.disabled=!(single&&amount>0&&customOk&&refOk&&destinationOk);charge.textContent=amount>0?`Cobrar ${IS_BS.has(line?.method)?ves(amount):line?.method==='EUR'?`EUR ${amount.toFixed(2)}`:line?.method==='USDT'?`${amount.toFixed(2)} USDT`:usd(amount)}`:'Indica el monto para cobrar'}else if(multi){charge.disabled=!combinedValid;charge.textContent=`Cobrar saldo con ${paymentSelections.length} métodos`}else{charge.disabled=a.pending<=0;charge.textContent=a.pending>0?`Cobrar saldo ${fmt(a.pending,active)}`:'Saldo completado'}}
+  const charge=$('repairsMarkPaid');if(charge){charge.classList.toggle('hidden',financedOrder(active));if(a.budget<=0){charge.disabled=!(single&&amount>0&&customOk&&refOk&&destinationOk);charge.textContent=amount>0?`Cobrar ${IS_BS.has(line?.method)?ves(amount):line?.method==='EUR'?`EUR ${amount.toFixed(2)}`:line?.method==='USDT'?`${amount.toFixed(2)} USDT`:usd(amount)}`:'Indica el monto para cobrar'}else if(multi){charge.disabled=!combinedValid;charge.textContent=`Cobrar saldo con ${paymentSelections.length} métodos`}else{charge.disabled=a.pending<=0;charge.textContent=a.pending>0?`Cobrar saldo ${fmt(a.pending,active)}`:'Saldo completado'}}
   return{paid,remaining,valid:multi?combinedValid:(amount>0&&customOk&&refOk&&destinationOk),rate,q}
 }
 function refreshPaymentMethodControls(){
@@ -226,7 +235,7 @@ function detail(){
       <div id="repairSplitSummary" class="repair-split-summary" role="status" aria-live="polite"></div>
       <div id="repairsBcvBox" class="fx-box hidden"></div>
       <div class="form-grid repair-pay-fields"><label class="span2">Observación<textarea id="repairsPayNote" maxlength="300" placeholder="Observación opcional"></textarea></label></div>
-      ${a.budget>0?`<div class="repair-payment-actions"><button class="secondary repair-action-btn" id="repairsPaySave" type="submit">Registrar abono</button><button class="primary repair-action-btn repair-charge-btn" id="repairsMarkPaid" type="button">Cobrar saldo</button></div>`:`<div class="repair-payment-actions single"><button class="primary repair-action-btn repair-charge-btn" id="repairsMarkPaid" type="button">Indica el monto para cobrar</button></div>`}
+      ${a.budget>0?`<div class="repair-payment-actions"><button class="secondary repair-action-btn" id="repairsPaySave" type="submit">Registrar abono</button>${financedOrder(o)?'<p class="repair-payment-foot" role="status">Plan financiado: registra únicamente el dinero recibido. No hay cobro automático de saldo.</p>':'<button class="primary repair-action-btn repair-charge-btn" id="repairsMarkPaid" type="button">Cobrar saldo</button>'}</div>`:`<div class="repair-payment-actions single"><button class="primary repair-action-btn repair-charge-btn" id="repairsMarkPaid" type="button">Indica el monto para cobrar</button></div>`}
       <p class="repair-payment-foot">El pago final consume los repuestos reservados en la misma operación. Si la orden queda pagada, la Nota de Entrega se crea automáticamente y se envía al cliente.</p>
     </form>
     <div class="repair-final-actions"><button class="secondary" id="repairsOpenTechnical" type="button">Abrir Servicio Técnico ↗</button></div>`}`;
@@ -243,9 +252,24 @@ function bindDetail(){
    catch(e){alert(e.message)}finally{if(button.isConnected){button.disabled=false;button.textContent='Guardar financiación'}}
  });
   $('repairMethodChoices')?.addEventListener('click',e=>{const b=e.target.closest('[data-repair-group]');if(!b)return;const g=PAYMENT_GROUPS.find(x=>x.id===b.dataset.repairGroup);if(!g)return;const a=detailAccount(active),idx=paymentSelections.findIndex(x=>x.groupId===g.id);if(a.budget<=0){paymentSelections=[newPaymentSelection(g,g.methods[0])]}else if(idx>=0){if(paymentSelections.length>1)paymentSelections.splice(idx,1)}else{if(paymentSelections.length>=MAX_PAYMENT_METHODS)return alert('Puedes combinar hasta 3 métodos de pago.');paymentSelections.push(newPaymentSelection(g,g.methods[0]))}b.classList.remove('tap-pop');void b.offsetWidth;b.classList.add('tap-pop');setTimeout(()=>b.classList.remove('tap-pop'),190);if(paymentSelections.some(x=>IS_BS.has(x.method)))window.ThinkStoreFX?.refresh?.().catch(()=>{});refreshPaymentMethodControls()});
-  $('repairPaymentLines')?.addEventListener('input',e=>{const i=Number(e.target.dataset.payLineAmount??e.target.dataset.payLineUsd??e.target.dataset.payLineRef);if(!Number.isInteger(i)||!paymentSelections[i])return;const line=paymentSelections[i];if(e.target.matches('[data-pay-line-amount]'))line.amount=e.target.value;if(e.target.matches('[data-pay-line-usd]'))line.usdEquivalent=e.target.value;if(e.target.matches('[data-pay-line-ref]'))line.reference=e.target.value;updatePaymentUi()});
+  $('repairPaymentLines')?.addEventListener('input',e=>{
+    const i=Number(e.target.dataset.payLineAmount??e.target.dataset.payLineUsdGuide??e.target.dataset.payLineUsd??e.target.dataset.payLineRef);
+    if(!Number.isInteger(i)||!paymentSelections[i])return;
+    const line=paymentSelections[i];
+    if(e.target.matches('[data-pay-line-usd-guide]')){
+      line.usdGuide=e.target.value;
+      if(!paymentPreviewRate())window.ThinkStoreFX?.refresh?.().then(updatePaymentUi).catch(()=>{});
+    }
+    if(e.target.matches('[data-pay-line-amount]')){
+      line.amount=e.target.value;line.usdGuide='';
+      const guide=document.querySelector(`[data-pay-line-usd-guide="${i}"]`);if(guide)guide.value='';
+    }
+    if(e.target.matches('[data-pay-line-usd]'))line.usdEquivalent=e.target.value;
+    if(e.target.matches('[data-pay-line-ref]'))line.reference=e.target.value;
+    updatePaymentUi();
+  });
   $('repairPaymentLines')?.addEventListener('change',e=>{
-    if(e.target.matches('[data-pay-line-method]')){const i=Number(e.target.dataset.payLineMethod),line=paymentSelections[i];if(!line)return;line.method=e.target.value;line.amount='';line.reference='';line.usdEquivalent='';line.destinationCode=normalizeRepairDestination(line.method,'');syncPrimaryMethod();if(IS_BS.has(line.method))window.ThinkStoreFX?.refresh?.().catch(()=>{});refreshPaymentMethodControls();return}
+    if(e.target.matches('[data-pay-line-method]')){const i=Number(e.target.dataset.payLineMethod),line=paymentSelections[i];if(!line)return;line.method=e.target.value;line.amount='';line.usdGuide='';line.reference='';line.usdEquivalent='';line.destinationCode=normalizeRepairDestination(line.method,'');syncPrimaryMethod();if(IS_BS.has(line.method))window.ThinkStoreFX?.refresh?.().catch(()=>{});refreshPaymentMethodControls();return}
     if(e.target.matches('[data-pay-line-destination]')){const i=Number(e.target.dataset.payLineDestination),line=paymentSelections[i];if(!line)return;line.destinationCode=normalizeRepairDestination(line.method,e.target.value);updatePaymentUi()}
   });
   $('repairPaymentLines')?.addEventListener('click',e=>{const b=e.target.closest('[data-pay-line-remove]');if(!b||paymentSelections.length<=1)return;paymentSelections.splice(Number(b.dataset.payLineRemove),1);refreshPaymentMethodControls()});
@@ -290,29 +314,40 @@ async function saveCombinedPayment(e){
   const calc=updateSplitCalculations();if(!calc.valid)return alert(calc.remaining>0.02?`Faltan ${usd(calc.remaining)} por distribuir.`:calc.remaining<-.02?'Los montos superan el saldo pendiente.':'Completa los montos y referencias de cada método.');
   const payments=paymentSelections.map(line=>{const code=normalizeRepairDestination(line.method,line.destinationCode),d=destinationInfo(code);return{method:line.method,amount:Number(line.amount||0),usd_equivalent:CUSTOM_EQ.has(line.method)?Number(line.usdEquivalent||0):null,reference:String(line.reference||'').trim(),destination_code:code||null,destination_name:d?.name||null}});
   for(const p of payments){if(!(p.amount>0))return alert(`Indica el monto recibido en ${p.method}.`);if(CUSTOM_EQ.has(p.method)&&!(p.usd_equivalent>0))return alert(`Indica el equivalente USD para ${p.method}.`);if(NEEDS_REF.has(p.method)&&p.reference.length<3)return alert(`Indica la referencia de ${p.method}.`)}
+  const freshBcv=paymentSelections.some(x=>IS_BS.has(x.method))?window.ThinkStoreFX?.snapshot(1):null;
   const note=$('repairsPayNote')?.value.trim()||'';const detail=payments.map(p=>`${p.method}: ${IS_BS.has(p.method)?ves(p.amount):p.method==='EUR'?`EUR ${p.amount.toFixed(2)}`:p.method==='USDT'?`${p.amount.toFixed(2)} USDT`:p.method==='Otro'?`Otro ${p.amount.toFixed(2)}`:usd(p.amount)}`).join(' + ');
   if(!confirm(`¿Confirmar pago combinado para ${active.code}?\n\n${detail}\n\nTotal aplicado: ${usd(a.pending)}`))return;
   const btn=$('repairsMarkPaid');if(btn){btn.classList.add('is-loading');btn.disabled=true;btn.textContent='Cobrando pago combinado…'}
   const id=active.id;
   try{
-    const res=await api('POST',{action:'multi_pay',order_id:id,payments,note});await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;resetPaymentSelections();detail();
+    const res=await api('POST',{action:'multi_pay',order_id:id,payments,note,payment_intent:'manual_abono',expected_paid:Number(active.amount_paid||0),client_bcv_rate:freshBcv?.rate??null,client_bcv_date:freshBcv?.effective_date??null});await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;resetPaymentSelections();detail();
     const deliveryMsg=res.email_sent?'Se creó la Nota de Entrega y fue enviada al cliente.':'Se creó la Nota de Entrega.';const invMsg=res.store_inventory?.ok===false?' IMPORTANTE: revisa el producto adicional en Inventory porque no se pudo cerrar su salida de stock.':'';const bankMsg=res.bank_warnings?.length?` IMPORTANTE: ${res.bank_warnings.join(' · ')}`:'';alert(`Pago combinado registrado correctamente. La reparación quedó Pagada. ${deliveryMsg}${invMsg}${bankMsg}`)
   }catch(err){alert(err.message||'No se pudo registrar el pago combinado.');try{await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;detail()}catch(_){detail()}}
 }
 
 async function savePayment(e,markPaid){
-  e?.preventDefault?.();if(!active)return;if(paymentSelections.length>1)return saveCombinedPayment(e);const id=active.id,line=paymentSelections[0];if(!line)return alert('Selecciona un método de pago.');selectedMethod=line.method;
+  e?.preventDefault?.();if(!active)return;if(markPaid&&financedOrder(active))return alert('Esta reparación está financiada. Para cobrar registra exclusivamente el dinero recibido mediante Registrar abono.');if(paymentSelections.length>1)return saveCombinedPayment(e);const id=active.id,line=paymentSelections[0];if(!line)return alert('Selecciona un método de pago.');selectedMethod=line.method;
   let amount=Number(line.amount||0),usdEquivalent=CUSTOM_EQ.has(selectedMethod)?Number(line.usdEquivalent||0):null;let finalizeNoQuote=false;
   if(markPaid){try{const f=await fullAmountForMethod();amount=f.amount;finalizeNoQuote=!!f.bootstrap;if(f.usd_equivalent)usdEquivalent=f.usd_equivalent;line.amount=Number(amount).toFixed(2);if(CUSTOM_EQ.has(selectedMethod)&&!finalizeNoQuote)line.usdEquivalent=detailAccount(active).pending.toFixed(2);refreshPaymentMethodControls();if(!finalizeNoQuote&&CUSTOM_EQ.has(selectedMethod)&&!(amount>0))return alert(`Indica cuánto recibiste en ${selectedMethod}; el saldo USD ya quedó preparado.`)}catch(err){return alert(err.message||'No se pudo calcular el saldo.')}}
   const reference=String(line.reference||'').trim(),note=$('repairsPayNote')?.value.trim()||'';
   const destinationCode=normalizeRepairDestination(selectedMethod,line.destinationCode),destination=destinationInfo(destinationCode);
   if(!Number.isFinite(amount)||amount<=0)return alert('Indica un monto válido.');if(CUSTOM_EQ.has(selectedMethod)&&(!Number.isFinite(usdEquivalent)||usdEquivalent<=0))return alert('Indica el equivalente aplicado en USD.');if(NEEDS_REF.has(selectedMethod)&&reference.length<3)return alert('Indica la referencia de la transacción.');if(payRegistry()?.needsDestination?.(selectedMethod)&&!destinationCode)return alert(`Selecciona la cuenta destino para ${selectedMethod}.`);
-  if(IS_BS.has(selectedMethod)){try{await window.ThinkStoreFX?.requireFresh()}catch(err){return alert(err.message||'No está disponible la tasa BCV.')}}
-  const label=finalizeNoQuote?'cobrar este monto como total final':markPaid?'cobrar el saldo total':'registrar este abono';if(!confirm(`¿Confirmar ${label} mediante ${selectedMethod} para la orden ${active.code}?`))return;
+  if(IS_BS.has(selectedMethod)){
+    try{
+      const q=await window.ThinkStoreFX?.requireFresh();
+      if(!(q?.rate>0))throw Error('Tasa BCV no disponible.');
+      if(Number(line.usdGuide)>0&&!markPaid){
+        const expected=round(Number(line.usdGuide)*q.rate);
+        if(Math.abs(amount-expected)>.009){line.amount=expected.toFixed(2);updatePaymentUi();return alert('Cambió la tasa BCV; actualicé el importe en Bs. Compruébalo antes de volver a cobrar.');}
+      }
+    }catch(err){return alert(err.message||'No está disponible la tasa BCV.')}
+  }
+  const label=finalizeNoQuote?'cobrar este monto como total final':markPaid?'cobrar el saldo total':'registrar este abono';if(!confirm(`¿Confirmar ${label} mediante ${selectedMethod} para la orden ${active.code}?\nMonto a registrar: ${IS_BS.has(selectedMethod)?ves(amount):usd(amount)}\nVerifica que este dinero se recibió realmente.`))return;
   const btn=markPaid?$('repairsMarkPaid'):$('repairsPaySave');if(btn){btn.classList.add('is-loading');btn.disabled=true;btn.textContent=markPaid?'Cobrando…':'Registrando…'}
   try{
     const paidBefore=Number(active.amount_paid||0),eventIds=new Set((events||[]).map(x=>String(x.id)));
-    const res=await api('POST',{action:'pay',order_id:id,method:selectedMethod,amount,usd_equivalent:usdEquivalent,reference,note,finalize_no_quote:finalizeNoQuote,destination_code:destinationCode||null,destination_name:destination?.name||null});await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;resetPaymentSelections();detail();
+    const verifiedBcv=IS_BS.has(selectedMethod)?window.ThinkStoreFX?.snapshot(1):null;
+    const res=await api('POST',{action:'pay',order_id:id,method:selectedMethod,amount,usd_equivalent:usdEquivalent,reference,note,payment_intent:'manual_abono',expected_paid:paidBefore,finalize_no_quote:finalizeNoQuote,destination_code:destinationCode||null,destination_name:destination?.name||null,client_bcv_rate:verifiedBcv?.rate??null,client_bcv_date:verifiedBcv?.effective_date??null});await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;resetPaymentSelections();detail();
     if(Number(active.amount_paid||0)<=paidBefore+0.005){alert('ATENCIÓN: el servidor respondió, pero el importe abonado no aumentó al consultar de nuevo. Verifica historial y caja antes de repetir cualquier cobro.');return}
     if(latest.history_available!==false&&!events.some(x=>!eventIds.has(String(x.id))&&Number(x.amount_delta||0)>0)){
       alert('ATENCIÓN: aumentó el monto cobrado, pero no aparece un nuevo evento en el historial. Verifica el movimiento en Caja/Soporte y NO repitas el cobro.');return;

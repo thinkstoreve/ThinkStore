@@ -1396,15 +1396,74 @@ const TSService=(()=>{
     'Punto de venta Bs':[['bdv','Banco de Venezuela'],['banesco','Banesco'],['bnc','BNC'],['bancamiga','Bancamiga'],['bvc','Venezolano de Crédito']]
   };
   const NEEDS_PAYMENT_REFERENCE=new Set(['Zelle','USDT','Transferencia USD','Pago Móvil','Transferencia Bs','Punto de venta Bs']);
+  const managerIsVes=method=>['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs'].includes(String(method||''));
+  const managerRound=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
+  const managerAmount=id=>window.TSMoneyInput?.parse?.(document.getElementById(id)?.value);
+  let managerFxRefreshId=0,managerPreviousMethod="";
+  function updateManagerUsdConversion(){
+    const method=document.getElementById('mNewPayMethod')?.value||'';
+    const target=document.getElementById('mNewPayAmount'),help=document.getElementById('mNewPayFxStatus');
+    if(!managerIsVes(method)||!target||!help)return;
+    const n=managerAmount('mNewPayUsd');const q=window.ThinkStoreFX?.snapshot?.(1);
+    if(!Number.isFinite(n)||n<=0){
+      if(!String(document.getElementById('mNewPayUsd')?.value||'').trim())target.value='';
+      help.textContent=q&&!q.stale?`Tasa BCV: 1 USD = ${window.TSMoneyInput.display(q.rate)} Bs. · Vigencia ${q.effective_date}`:'Introduce USD para convertir; se requiere tasa BCV verificada.';
+      return;
+    }
+    if(!q||q.stale||!(q.rate>0)){
+      target.value='';help.textContent='No hay una tasa BCV verificada. No se calculará ni confirmará un cobro en Bs.';
+      return;
+    }
+    const native=managerRound(n*q.rate);
+    target.value=window.TSMoneyInput.display(native);
+    help.textContent=`${window.TSMoneyInput.display(n)} USD × ${window.TSMoneyInput.display(q.rate)} = Bs. ${window.TSMoneyInput.display(native)} · BCV vigente ${q.effective_date}`;
+  }
+  function managerBolivarEdited(){
+    const method=document.getElementById('mNewPayMethod')?.value||'';
+    if(!managerIsVes(method))return;
+    const usd=document.getElementById('mNewPayUsd'),help=document.getElementById('mNewPayFxStatus');
+    if(usd&&usd.value)usd.value='';
+    if(help)help.textContent='Importe Bs. editado manualmente. Se comprobará la tasa oficial al confirmar el cobro.';
+  }
+  async function refreshManagerBcv(){
+    if(!managerIsVes(document.getElementById('mNewPayMethod')?.value))return;
+    const seq=++managerFxRefreshId;
+    const help=document.getElementById('mNewPayFxStatus');if(help)help.textContent='Verificando tasa BCV…';
+    try{
+      if(!window.ThinkStoreFX?.refresh)throw Error('Cotizador BCV no cargado');
+      await window.ThinkStoreFX.refresh(true);
+      if(seq!==managerFxRefreshId)return;
+      const q=window.ThinkStoreFX.snapshot?.(1);
+      if(!q||q.stale||!(q.rate>0))throw Error('La cotización aún no está verificada');
+      updateManagerUsdConversion();
+    }catch(e){if(seq===managerFxRefreshId){
+      const amount=document.getElementById('mNewPayAmount');
+      if(document.getElementById('mNewPayUsd')?.value&&amount)amount.value='';
+      if(help)help.textContent='Tasa BCV no verificada. No confirmar cobros en Bs. hasta recuperar conexión.';
+    }}
+  }
   function updateManagerPaymentInputs(){
     const method=document.getElementById('mNewPayMethod')?.value||'Efectivo USD';
+    if(managerPreviousMethod&&managerPreviousMethod!==method){
+      const native=document.getElementById('mNewPayAmount'),usd=document.getElementById('mNewPayUsd');
+      if(native)native.value='';if(usd)usd.value='';
+    }
+    managerPreviousMethod=method;
     const dest=document.getElementById('mNewPayDestination'),wrap=document.getElementById('mNewPayDestinationWrap');
     const refWrap=document.getElementById('mNewPayReferenceWrap'),help=document.getElementById('mNewPayHelp');
     const options=PAY_DESTINATIONS[method]||[];
     if(wrap)wrap.hidden=!options.length;
     if(dest){const old=dest.value;dest.innerHTML=options.map(([id,name])=>`<option value="${id}">${esc(name)}</option>`).join('');if(options.some(x=>x[0]===old))dest.value=old;}
     if(refWrap)refWrap.hidden=!NEEDS_PAYMENT_REFERENCE.has(method);
-    if(help)help.textContent=/Bs|Pago Móvil|Punto de venta/.test(method)?'El importe se expresa en bolívares y la tasa BCV se verificará al cobrar.':'El importe se expresa en USD. Verifica el ingreso antes de confirmar.';
+    const ves=managerIsVes(method),usdWrap=document.getElementById('mNewPayUsdWrap');
+    const nativeLabel=document.getElementById('mNewPayAmountLabel');const fxStatus=document.getElementById('mNewPayFxStatus');
+    if(usdWrap)usdWrap.hidden=!ves;
+    if(nativeLabel)nativeLabel.textContent=ves?'Importe recibido (Bs.)':'Importe recibido (USD)';
+    if(fxStatus)fxStatus.hidden=!ves;
+    if(help)help.textContent=ves?'Escribe primero el equivalente en USD para que se calcule el monto en Bs. Puedes ajustarlo si es necesario.':'El importe se expresa en USD. Verifica el ingreso antes de confirmar.';
+    if(ves){refreshManagerBcv().catch(()=>{});}else{
+      ++managerFxRefreshId;const usdInput=document.getElementById('mNewPayUsd');if(usdInput)usdInput.value='';
+    }
   }
   async function recordManagerPayment(){
     if(managerPaymentBusy)return;
@@ -1420,6 +1479,21 @@ const TSService=(()=>{
     if((PAY_DESTINATIONS[method]||[]).length&&!destination_code)return toast('Selecciona la cuenta de destino.','error');
     managerPaymentBusy=true;const btn=document.getElementById('mNewPayConfirm');if(btn){btn.disabled=true;btn.textContent='Verificando…'}
     try{
+      let bcvr=null;
+      if(managerIsVes(method)){
+        const quote=await window.ThinkStoreFX?.refresh?.(true);
+        const verified=window.ThinkStoreFX?.snapshot?.(1);
+        if(!quote||!verified||verified.stale||!(verified.rate>0))throw Error('No se pudo verificar la tasa BCV. No se registró ningún pago.');
+        bcvr=verified;
+        const guide=managerAmount('mNewPayUsd');
+        if(Number.isFinite(guide)&&guide>0){
+          const expected=managerRound(guide*verified.rate);
+          if(Math.abs(amount-expected)>.009){
+            updateManagerUsdConversion();
+            throw Error('La tasa BCV cambió. Actualicé el importe en bolívares; comprueba el monto antes de volver a confirmar.');
+          }
+        }
+      }
       const before=await supportSecureAction({action:'payment_detail',order_id:id});
       if(before.history_available===false)throw Error('No hay historial de caja disponible. No se permite cobrar.');
       const row=before.order||{},budget=Number(row.quote_amount||0),paid=Number(row.amount_paid||0);
@@ -1435,7 +1509,7 @@ const TSService=(()=>{
       const mainSite=String(window.THINKSTORE_MAIN_SITE||'https://thinkstore.com.ve').replace(/\/$/,'');
       const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),60000);
       let response;
-      try{response=await nativeFetch(`${mainSite}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'pay',order_id:id,method,amount,reference,note,destination_code}),cache:'no-store',signal:controller.signal})}
+      try{response=await nativeFetch(`${mainSite}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'pay',order_id:id,method,amount,reference,note,destination_code,expected_paid:paid,client_bcv_rate:bcvr?.rate??null,client_bcv_date:bcvr?.effective_date??null}),cache:'no-store',signal:controller.signal})}
       finally{clearTimeout(timeout)}
       const result=await response.json().catch(()=>({}));
       if(!response.ok||!result.ok)throw Error(result.error||`Error al registrar abono (${response.status}).`);
@@ -1451,7 +1525,7 @@ const TSService=(()=>{
         renderManagerFinance(o,updated.events||[],true,updated.voids||[]);
         const sum=Number(newEvent.amount_delta||0);
         toast(`Abono de USD ${sum.toFixed(2)} confirmado en caja.`);
-        document.getElementById('mNewPayAmount').value='';document.getElementById('mNewPayReference').value='';document.getElementById('mNewPayNote').value='';
+        document.getElementById('mNewPayAmount').value='';const usdInput=document.getElementById('mNewPayUsd');if(usdInput)usdInput.value='';document.getElementById('mNewPayReference').value='';document.getElementById('mNewPayNote').value='';
         if(result.bank_warning)alert('Abono registrado, pero Caja Chica necesita revisión: '+result.bank_warning);
         if(result.store_inventory?.ok===false)alert('Cobro completado; revisa la salida de inventario.');
         await loadSupportData();
@@ -1530,7 +1604,7 @@ const TSService=(()=>{
     document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
     mQuoteAmount.value=window.TSMoneyInput.display(o.quoteAmount||0);mQuoteStatus.value=o.quote;mQuoteRepairDetails.value=o.quoteRepairDetails||'';mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=sanitizeTechnicalNotes(o.technicalNotes||'');const techMode=session?.role==='technician';[mTechnician,mPaymentStatus,mAmountPaid,mPaymentMethod,mPaymentNotes,mServiceMode,mDeliveryMethod,mTrackingCompany,mTrackingCode].forEach(el=>{if(el)el.disabled=techMode});const qa=document.getElementById('mQuoteApprovalState');if(qa)qa.innerHTML=o.quoteApprovedAt?`<div class="notice success"><b>Cotización aprobada por el cliente</b><small>${dateText(o.quoteApprovedAt)}${o.quoteClientComment?` · Comentario: ${esc(o.quoteClientComment)}`:''}</small></div>`:o.quoteSentAt?`<div class="notice"><b>Cotización enviada</b><small>${dateText(o.quoteSentAt)} · En espera de aprobación.</small></div>`:'';
     repairPartSelection.clear();orderPartRowsForOrder(o).filter(r=>r.status==='reserved').forEach(r=>repairPartSelection.set(String(r.part_id),Number(r.quantity_reserved||1)));const partSearch=document.getElementById('mPartSearch');if(partSearch)partSearch.value='';renderOrderPartPicker('');
-    renderManagerFinance(o,[],false);updateManagerPaymentInputs();['mQuoteAmount','mFinInitial','mNewPayAmount'].forEach(id=>window.TSMoneyInput?.attach(id));const recv=document.getElementById('mReceivePaymentBox');if(recv)recv.hidden=session?.role==='technician';
+    renderManagerFinance(o,[],false);updateManagerPaymentInputs();['mQuoteAmount','mFinInitial','mNewPayAmount','mNewPayUsd'].forEach(id=>window.TSMoneyInput?.attach(id));const recv=document.getElementById('mReceivePaymentBox');if(recv)recv.hidden=session?.role==='technician';
     await renderOrderFiles(o.id);await renderOrderMessages(o.id,{initial:true});startOrderMessagePolling(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');refreshManagerPaymentView().catch(error=>console.warn('Consulta de caja',error));
   }
   async function resolveOrderFileMedia(p={}){
@@ -2756,5 +2830,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,updateManagerUsdConversion,managerBolivarEdited,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

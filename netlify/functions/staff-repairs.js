@@ -13,6 +13,12 @@ const clean=(v,n=400)=>String(v??'').trim().slice(0,n);
 const usdText=v=>'$'+Number(v||0).toFixed(2);
 const paymentAmountText=p=>`${p?.currency==='VES'?'Bs.':p?.method==='EUR'?'EUR':p?.method==='USDT'?'USDT':p?.method==='Otro'?'Otro':'USD'} ${Number(p?.amount||0).toFixed(2)}`;
 const validOrderId=v=>/^[0-9]+$/.test(String(v||''))||/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''));
+// V15.40: when the client showed a verified FX rate, refuse a different server rate.
+// Old clients that do not send a quote continue to use only the fresh server BCV rate.
+function clientBcvMismatch(payload,serverQuote){
+  if(payload?.client_bcv_rate===undefined||payload?.client_bcv_rate===null)return false;
+  return !(Number(payload.client_bcv_rate)>0)||Number(payload.client_bcv_rate)!==Number(serverQuote?.rate)||String(payload.client_bcv_date||'')!==String(serverQuote?.effective_date||'');
+}
 function supportConfig(){return{
   url:clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/$/,''),
   key:clean(process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPPORT_SUPABASE_SECRET_KEY)
@@ -352,6 +358,17 @@ async function handleRequest(event,verifiedSupportActor=null){
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
     let current=await getOrder(conf,id);
     if(!current)return result(404,{ok:false,error:'Reparación no encontrada'});
+    // Financed orders must be paid only through an explicit, amount-entered abono.
+    // Reject stale screens or legacy one-click 'Cobrar saldo' clients before any writes.
+    if(['pay','multi_pay'].includes(b.action)&&current.reception_checklist?.__financing?.enabled){
+      const originalPaid=Number(current.amount_paid||0);
+      if(b.payment_intent!=='manual_abono'||b.expected_paid===null||b.expected_paid===undefined||!Number.isFinite(Number(b.expected_paid))){
+        return result(409,{ok:false,error:'Reparación financiada: registra solo el dinero recibido mediante Registrar abono. Actualiza App Ventas antes de cobrar.'});
+      }
+      if(Math.abs(Number(b.expected_paid)-originalPaid)>0.005){
+        return result(409,{ok:false,error:'El monto previamente cobrado cambió. Actualiza la reparación y revisa el historial antes de registrar otro abono.'});
+      }
+    }
     if(b.action==='void_payment'){
       if(!['admin','superadmin'].includes(String(actor.role||'').toLowerCase()))return result(403,{ok:false,error:'Solo un administrador puede anular abonos.'});
       const eventId=clean(b.payment_event_id,55),reason=clean(b.reason,500);
@@ -515,6 +532,7 @@ async function handleRequest(event,verifiedSupportActor=null){
       if(account(current).budget<=0)return result(409,{ok:false,error:'Para combinar métodos primero debe existir un total de reparación.'});
       const hasBs=raw.some(x=>['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs'].includes(String(x?.method||'')));
       let bcv=null;if(hasBs)bcv=await getRate(true);
+      if(hasBs&&clientBcvMismatch(b,bcv))return result(409,{ok:false,rate_changed:true,error:'La tasa BCV cambió desde que se calculó el importe. Actualiza los bolívares y vuelve a confirmar. No se registró el pago.',fx_quote:{rate:bcv.rate,effective_date:bcv.effective_date}});
       let simulated={...current},plans=[];
       try{
         for(const line of raw){const destination=normalizeDestination(line?.method,line?.destination_code,{required:true});const p=paymentPlan(simulated,{method:line?.method,amount:line?.amount,usd_equivalent:line?.usd_equivalent,reference:line?.reference,finalize_no_quote:false},bcv);p.destination_code=destination.code;p.destination_name=destination.name;plans.push(p);simulated={...simulated,amount_paid:p.after}}
@@ -563,6 +581,7 @@ async function handleRequest(event,verifiedSupportActor=null){
     const isBs=['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs'].includes(b.method);
     let bcv=null;
     if(isBs)bcv=await getRate(true);
+    if(isBs&&clientBcvMismatch(b,bcv))return result(409,{ok:false,rate_changed:true,error:'La tasa BCV cambió desde que se calculó el importe. Actualiza los bolívares y vuelve a confirmar. No se registró el pago.',fx_quote:{rate:bcv.rate,effective_date:bcv.effective_date}});
     let destination;try{destination=normalizeDestination(b.method,b.destination_code,{required:true})}catch(e){return result(400,{ok:false,error:e.message})}
     const p=paymentPlan(current,b,bcv);p.destination_code=destination.code;p.destination_name=destination.name;
     const comment=clean(b.note,300);
