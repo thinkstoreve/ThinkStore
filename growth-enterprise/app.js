@@ -3024,10 +3024,27 @@ function renderV9RealMarketing(data){
     head.appendChild(wrap);
   }
 
-  // No crear botones VER genéricos. Los componentes financieros ya tienen
-  // controles específicos con referencias y manejadores de clic propios.
   function markRowsWithSafeActions(){
-    document.querySelectorAll('.prod11-pill,[data-enterprise-row-detail]').forEach(button=>button.remove());
+    document.querySelectorAll('.table-row,.product-row,.activity-item,.status-row').forEach(row=>{
+      if(row.dataset.prod11 === '1' || row.closest('.production-toolbar')) return;
+      row.dataset.prod11 = '1';
+      row.setAttribute('aria-label', 'Ver detalle seguro');
+      const explicit = row.querySelector('[data-petty-detail],[data-audit-expand],[data-ts-credit-detail],[data-sales-row],[data-trace-method],[data-trace-entry],[data-trace-summary]');
+      if(explicit){
+        row.querySelectorAll('.prod11-pill').forEach(pill=>pill.remove());
+        return;
+      }
+      if(!row.querySelector('.prod11-pill')){
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'prod11-pill mini-action';
+        pill.dataset.enterpriseRowDetail = '1';
+        pill.textContent = 'Ver';
+        const label = row.querySelector('b')?.textContent?.trim() || 'registro';
+        pill.setAttribute('aria-label', 'Ver detalle de ' + label);
+        row.appendChild(pill);
+      }
+    });
   }
 
   // Consulta explícita de registros: nunca invoca pagar, anular o guardar.
@@ -3854,8 +3871,45 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
     const main=document.querySelector('#app')||document.body;
     financeCardObserver.observe(main,{childList:true,subtree:true});
   });
-  // Los botones de Ventas, Conciliación y Liquidación se generan una sola
-  // vez en sus renderizadores. No clonar, transferir ni interceptar botones.
+  // One VER per record: retain the original control, transfer tracing attributes,
+  // and remove extra controls inserted by previous releases. Avoid changing business data.
+  function unifyExistingVerButtons(){
+    // Unificar botones de la tarjeta completa, no solo los hijos directos del .table-row.
+    // El VER azul pequeño es el control visible; se le transfiere la acción ya existente.
+    const scopes=[
+      ...document.querySelectorAll('#salesLedger .table-row,.service-profit-row,.ts-audit-item,.ts-audit-item .ts-audit-line'),
+      ...document.querySelectorAll('.ts-audit-item,.ts-audit-line,.fin-table-row')
+    ];
+    const known=['data-audit-expand','data-ts-credit-detail','data-sales-row','data-trace-method','data-trace-entry','data-trace-summary'];
+    for(const scope of new Set(scopes)){
+      if(!scope.isConnected)continue;
+      // Nunca cruzar el límite de una operación o mezclar órdenes diferentes.
+      const candidates=[...scope.querySelectorAll('button')].filter(b=>/^(VER|VER DESGLOSE|OCULTAR)$/i.test(b.textContent.trim()));
+      if(candidates.length<2)continue;
+      const score=b=>{
+        const rect=b.getBoundingClientRect();
+        const style=getComputedStyle(b);
+        const background=style.backgroundColor||'';
+        return (b.classList.contains('mini-action')?100:0)+
+          (b.classList.contains('ts-audit-toggle')?60:0)+
+          (b.classList.contains('ts-original-ver')?30:0)+
+          (rect.width>0&&rect.width<115?40:0)+
+          (/rgb\(?(?:2[0-9]|[0-9]),?/.test(background)?0:0);
+      };
+      const keep=[...candidates].sort((a,b)=>score(b)-score(a))[0];
+      const source=candidates.find(b=>known.some(a=>b.hasAttribute(a)))||keep;
+      for(const name of known){if(source.hasAttribute(name)&&!keep.hasAttribute(name))keep.setAttribute(name,source.getAttribute(name));}
+      if(source.hasAttribute('aria-expanded'))keep.setAttribute('aria-expanded',source.getAttribute('aria-expanded'));
+      for(const btn of candidates)if(btn!==keep)btn.remove();
+      keep.classList.add('ts-ver-single');
+      keep.title='Ver detalle de esta operación';
+    }
+  }
+  const verObserver=new MutationObserver(()=>unifyExistingVerButtons());
+  document.addEventListener('DOMContentLoaded',()=>{
+    unifyExistingVerButtons();
+    verObserver.observe(document.querySelector('#app')||document.body,{subtree:true,childList:true});
+  });
   // Detalles de origen en modo lectura. Nunca modificar ni recalcular importes financieros.
   function traceRows(title,amount,description,rows){
     const list=rows.map((r,i)=>[String(i+1)+' · '+String(r.title||'Registro'),String(r.details||'')]);

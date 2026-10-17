@@ -2372,6 +2372,7 @@ const TSService=(()=>{
     document.getElementById('oBrand').value='Apple';
     if(document.getElementById('oServiceMode'))oServiceMode.value='Presencial';if(document.getElementById('oIntakeSource'))oIntakeSource.value='Recepción directa';
     document.getElementById('oPasswordFlag').value='No';
+    const accessCode=document.getElementById('oDeviceAccessCode');if(accessCode)accessCode.value='';
     document.getElementById('orderModalTitle').textContent='Nueva recepción';
     document.getElementById('orderModalSubtitle').textContent='Complete todos los datos del ingreso. La orden de servicio se genera únicamente al finalizar la recepción.';
     document.getElementById('orderSaveBtn').textContent='Finalizar ingreso y crear orden';
@@ -2417,6 +2418,7 @@ const TSService=(()=>{
     oClient.value=o.client||'';oPhone.value=o.phone||'';oEmail.value=o.email||'';oPriority.value=o.priority||'Normal';applyReceptionClientMeta(o.clientMeta||o.checklist?.__client||{});renderReceptionClientSelected(supportClientFromOrder(o));
     oDevice.value=o.device||'';deviceModelSearch.value=o.device||'';oColor.value=o.color||'';oSerial.value=o.serial||'';oIssue.value=o.issue||'';oAccessories.value=o.accessories||'';oVisual.value=o.visual||'';oTechNotes.value=o.technicalNotes||'';
     oPasswordFlag.value=o.passwordReceived?'Sí':'No';
+    const accessCode=document.getElementById('oDeviceAccessCode');if(accessCode){accessCode.value='';accessCode.placeholder=o.checklist?.__device_access_sealed?'Clave guardada de forma protegida. Déjalo vacío para conservarla.':'PIN o clave de acceso (opcional)';}
     if(document.getElementById('oServiceMode'))oServiceMode.value=o.serviceMode||'Presencial';
     const meta=o.checklist?.__meta||{};
     const savedKind=meta.device_category||((o.deviceType||'').toLowerCase().startsWith('gaming')?'gaming':(o.deviceType||'').toLowerCase().startsWith('other')?'other':'apple');
@@ -2436,27 +2438,20 @@ const TSService=(()=>{
   }
   async function saveOrder(e){
     e.preventDefault();
-    let registered;
-    try{
-      const {data:{session:authSession}}=await supabaseClient.auth.getSession();
-      const intake=collectReceptionClientMeta();
-      const r=await fetch('https://thinkstore.com.ve/.netlify/functions/registered-customer',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(authSession?.access_token||'')},body:JSON.stringify({
-        source:'support',email:intake.email,
-        complete_profile:{name:intake.name,phone:intake.phone,document:intake.document,address:intake.address_short,city:intake.city,state:intake.state}
-      })});
-      const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'No se pudo validar el cliente registrado.');registered=d.customer;
-      oClient.value=registered.name;oPhone.value=registered.phone;oEmail.value=registered.email;
-      applyReceptionClientMeta({...collectReceptionClientMeta(),document:registered.document,address_short:registered.address,city:registered.city,state:registered.state});
-    }catch(err){toast(err.message,'error');return;}
+    // La recepción no requiere una cuenta web: usamos los datos de la cita,
+    // del directorio de Soporte o los proporcionados presencialmente.
+    if(!oClient.value.trim()||!oPhone.value.trim()){
+      toast('Indica el nombre y teléfono del cliente para registrar el equipo.','error');return;
+    }
     const device=receptionDeviceCategory==='apple'?findAppleDevice(oDevice.value):null;
     const existingOrder=activeReceptionOrderId?orders.find(x=>String(x.id)===String(activeReceptionOrderId)):null;
     const previousReceptionMeta=existingOrder?.checklist?.__meta||{};
     const checklist={...(existingOrder?.checklist||{})};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
     checklist.__meta={...previousReceptionMeta,device_category:receptionDeviceCategory,quick_failures:receptionQuickFailures.slice(),reception_v2:true,received_by_name:previousReceptionMeta.received_by_name||session?.name||'',received_by_email:previousReceptionMeta.received_by_email||session?.email||'',received_by_role:previousReceptionMeta.received_by_role||session?.role||'',received_at:previousReceptionMeta.received_at||new Date().toISOString(),last_reception_by_name:session?.name||'',last_reception_by_email:session?.email||'',last_reception_at:new Date().toISOString()};
-    checklist.__client={...collectReceptionClientMeta(),registered_id:registered.id,email_verified:true};
+    checklist.__client={...collectReceptionClientMeta(),source_order_lookup:selectedReceptionClientId||null};
     const signatures={reception:sigReceptionName.value.trim()||session?.name||'',client:sigClientName.value.trim(),technician:sigTechName.value.trim(),supervisor:sigSupervisorName.value.trim()};
     const deviceType=receptionDeviceCategory==='apple'?(device?.category||oCategory.value||'Apple'):receptionDeviceCategory==='gaming'?`Gaming · ${oCategory.value||'Consola / control'}`:`Other · ${oCategory.value||'Otro equipo'}`;
-    const base={client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:deviceType,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:oPasswordFlag.value==='Sí',priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:[oTechNotes.value.trim(),`Ingreso: ${document.getElementById('oIntakeSource')?.value||'Recepción directa'}`].filter(Boolean).join(' · ')||null,service_mode:document.getElementById('oServiceMode')?.value||'Presencial',reception_checklist:checklist,signatures,status:'Recibido'};
+    const base={client_name:oClient.value.trim(),client_phone:oPhone.value.trim(),client_email:oEmail.value.trim()||null,device_type:deviceType,device_model:oDevice.value.trim(),device_color:oColor.value.trim()||null,serial_imei:oSerial.value.trim()||null,password_received:oPasswordFlag.value==='Sí',device_access_code:(document.getElementById('oDeviceAccessCode')?.value||'').trim(),priority:oPriority.value,reported_issue:oIssue.value.trim(),accessories_received:oAccessories.value.trim()||null,visual_condition:oVisual.value.trim()||null,technical_notes:[oTechNotes.value.trim(),`Ingreso: ${document.getElementById('oIntakeSource')?.value||'Recepción directa'}`].filter(Boolean).join(' · ')||null,service_mode:document.getElementById('oServiceMode')?.value||'Presencial',reception_checklist:checklist,signatures,status:'Recibido'};
     if(activeReceptionOrderId){
       const previous=existingOrder;
       const {data,error}=await saveRegisteredReception({...base,order_id:activeReceptionOrderId,expected_updated_at:existingOrder?.updated_at});

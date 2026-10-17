@@ -122,8 +122,9 @@
             <label>Modelo<input id="oDevice" required list="appleDeviceModels" placeholder="Buscar modelo Apple..." oninput="TSService.previewSelectedDevice(this.value)" /></label>
             <div class="grid2 compact">
               <label>Serial / IMEI<input id="oSerial" placeholder="Serial / IMEI" /></label>
-              <label>Contraseña<select id="oPasswordFlag"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
+              <label>¿El equipo tiene clave?<select id="oPasswordFlag"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
             </div>
+            <label>Clave / PIN del equipo (opcional)<input id="oDeviceAccessCode" type="password" autocomplete="off" maxlength="128" placeholder="Escribir solo si el cliente autoriza" /><small>Se guarda cifrada para uso técnico interno. Nunca se incluye en el seguimiento público.</small></label>
             <label>Color<input id="oColor" placeholder="Ej: Space Black, Natural Titanium..." /></label>
             <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, cable, caja, funda..."></textarea></label>
           </div>
