@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=15.39" />
+  <link rel="stylesheet" href="styles.css?v=15.40" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -459,7 +459,12 @@
           <div><strong>Registrar nuevo abono</strong><small>Se contabiliza en la misma caja de App Ventas. No corresponde a guardar el plan de financiación.</small></div>
           <div class="support-receive-payment-grid">
             <label>Método<select id="mNewPayMethod" onchange="TSService.updateManagerPaymentInputs()"><option value="Efectivo USD">Efectivo USD</option><option>Zelle>Zelle</option><option value="Transferencia USD">Transferencia USD</option><option value="USDT">USDT</option><option value="Efectivo Bs">Efectivo Bs</option><option value="Pago Móvil">Pago Móvil</option><option value="Transferencia Bs">Transferencia Bs</option><option value="Punto de venta Bs">Punto de venta Bs</option></select></label>
-            <label>Importe recibido<input id="mNewPayAmount" type="text" placeholder="1.234,56" autocomplete="off" inputmode="decimal"></label>
+            <label id="mNewPayUsdWrap" hidden>Indica el monto en dólares (USD)
+              <input id="mNewPayUsd" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej. 20,00" oninput="TSService.updateManagerUsdConversion()">
+              <small>ThinkStore calculará los bolívares automáticamente.</small>
+            </label>
+            <label><span id="mNewPayAmountLabel">Importe recibido (USD)</span><input id="mNewPayAmount" type="text" placeholder="1.234,56" autocomplete="off" inputmode="decimal" oninput="TSService.managerBolivarEdited()"></label>
+            <div id="mNewPayFxStatus" class="support-fx-conversion" hidden role="status" aria-live="polite">Consultando tasa BCV…</div>
             <label id="mNewPayDestinationWrap" hidden>Cuenta destino<select id="mNewPayDestination"></select></label>
             <label id="mNewPayReferenceWrap" hidden>Referencia<input id="mNewPayReference" maxlength="100" placeholder="Referencia del pago"></label>
           </div>
@@ -553,6 +558,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=2.0.0"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=15.39.1"></script>
+  <script src="app.js?v=15.40.2"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

@@ -82,7 +82,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   let orders=[],orderItems=[],receipts=[],entries=[],settings=[],settlements=[],audits=[],reconciliations=[],orderPayments=[],staffCashSessions=[],staffCashMovements=[],pettyAccounts=[],pettyMovements=[],pettyAudits=[],pettyBankAccounts=[],pettyBankMovements=[];
   let invProductsRaw=[],invSuppliersRaw=[],invPurchasesRaw=[],invStockRaw=[],invUnitsRaw=[],invBridge=[];
   let supportOrders=[],supportEvents=[],supportParts=[],supportPartMoves=[];
-  try{orders=await req(mainUrl,mainKey,'pedidos?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('ventas: '+e.message)}
+  const sourceHealth={store_orders:false,store_payments:false,staff_cash_sessions:false,staff_cash_movements:false,support_orders:false,support_payment_events:false};
+  try{orders=await req(mainUrl,mainKey,'pedidos?select=*&order=created_at.desc&limit=5000');sourceHealth.store_orders=true}catch(e){errors.push('ventas: '+e.message)}
   try{orderItems=await optionalReq(mainUrl,mainKey,'pedido_items?select=*&limit=10000')}catch(e){errors.push('líneas de venta: '+e.message)}
   try{receipts=await optionalReq(mainUrl,mainKey,'comprobantes?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('comprobantes: '+e.message)}
   try{entries=await optionalReq(mainUrl,mainKey,'enterprise_finance_entries?select=*&order=occurred_at.desc&limit=5000')}catch(e){errors.push('finanzas: '+e.message)}
@@ -90,9 +91,9 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   try{settlements=await optionalReq(mainUrl,mainKey,'enterprise_service_settlements?select=*&order=settled_at.desc&limit=3000')}catch(e){errors.push('liquidaciones de servicio: '+e.message)}
   try{audits=await optionalReq(mainUrl,mainKey,'enterprise_weekly_audits?select=*&order=week_start.desc&limit=20')}catch(e){errors.push('auditorías: '+e.message)}
   try{reconciliations=await optionalReq(mainUrl,mainKey,'enterprise_reconciliations?select=*&order=period_start.desc&limit=30')}catch(e){errors.push('conciliaciones: '+e.message)}
-  try{orderPayments=await optionalReq(mainUrl,mainKey,'ts_order_payments?select=*&status=eq.confirmed&order=confirmed_at.desc&limit=10000')}catch(e){errors.push('pagos mixtos: '+e.message)}
-  try{staffCashSessions=await optionalReq(mainUrl,mainKey,'ts_staff_cash_sessions?select=*&order=opened_at.desc&limit=1500')}catch(e){errors.push('caja Staff: '+e.message)}
-  try{staffCashMovements=await optionalReq(mainUrl,mainKey,'ts_staff_cash_movements?select=*&order=created_at.desc&limit=10000')}catch(e){errors.push('movimientos Caja Staff: '+e.message)}
+  try{orderPayments=await optionalReq(mainUrl,mainKey,'ts_order_payments?select=*&status=eq.confirmed&order=confirmed_at.desc&limit=10000');sourceHealth.store_payments=true}catch(e){errors.push('pagos mixtos: '+e.message)}
+  try{staffCashSessions=await optionalReq(mainUrl,mainKey,'ts_staff_cash_sessions?select=*&order=opened_at.desc&limit=1500');sourceHealth.staff_cash_sessions=true}catch(e){errors.push('caja Staff: '+e.message)}
+  try{staffCashMovements=await optionalReq(mainUrl,mainKey,'ts_staff_cash_movements?select=*&order=created_at.desc&limit=10000');sourceHealth.staff_cash_movements=true}catch(e){errors.push('movimientos Caja Staff: '+e.message)}
   try{pettyAccounts=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_accounts?select=*&active=eq.true&order=created_at.asc&limit=20')}catch(e){errors.push('Caja Chica: '+e.message)}
   try{pettyMovements=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_movements?select=*&order=occurred_at.desc&limit=10000')}catch(e){errors.push('movimientos Caja Chica: '+e.message)}
   try{pettyAudits=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_audit?select=*&order=created_at.desc&limit=100')}catch(e){errors.push('auditoría Caja Chica: '+e.message)}
@@ -108,8 +109,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   try{invBridge=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_bridge?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory bridge: '+e.message)}
 
   if(supportUrl&&supportKey){
-    try{supportOrders=await optionalReq(supportUrl,supportKey,'service_orders?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('soporte: '+e.message)}
-    try{supportEvents=await optionalReq(supportUrl,supportKey,'service_payment_events?select=*&order=occurred_at.desc&limit=5000')}catch(e){errors.push('abonos soporte: '+e.message)}
+    try{supportOrders=await optionalReq(supportUrl,supportKey,'service_orders?select=*&order=created_at.desc&limit=5000');sourceHealth.support_orders=true}catch(e){errors.push('soporte: '+e.message)}
+    try{supportEvents=await optionalReq(supportUrl,supportKey,'service_payment_events?select=*&order=occurred_at.desc&limit=5000');sourceHealth.support_payment_events=true}catch(e){errors.push('abonos soporte: '+e.message)}
     try{supportParts=await optionalReq(supportUrl,supportKey,'service_parts?select=*&limit=5000')}catch(e){errors.push('repuestos soporte: '+e.message)}
     try{supportPartMoves=await optionalReq(supportUrl,supportKey,'service_part_movements?select=*&order=created_at.desc&limit=10000')}catch(e){errors.push('consumo repuestos: '+e.message)}
   }else errors.push('soporte: faltan variables SUPPORT_SUPABASE_*');
@@ -199,6 +200,24 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const consumedMove=m=>num(m.quantity)<0||/consumo|salida|utiliz|instalad/.test(norm(m.movement_type));
   const realPartsByOrder=new Map();
   supportPartMoves.filter(consumedMove).forEach(m=>{const p=supportPartMap.get(String(m.part_id)),cost=Math.abs(num(m.quantity))*Math.max(0,num(p?.unit_cost));if(m.order_id){const key=String(m.order_id);realPartsByOrder.set(key,money((realPartsByOrder.get(key)||0)+cost))}});
+  // Auditoría de repuestos por orden (lectura): no mueve fondos ni genera una segunda venta.
+  // Preferir costo capturado en el movimiento; en ausencia de snapshot, marcar el costo como estimado.
+  const supportPartDetailByOrder=new Map();
+  for(const m of supportPartMoves.filter(consumedMove)){
+    const part=supportPartMap.get(String(m.part_id))||{};
+    const orderKey=clean(m.order_id||m.order_code);
+    if(!orderKey)continue;
+    const qty=Math.abs(num(m.quantity));
+    const snapshotRaw=m.unit_cost_usd??m.unit_cost??m.cost_unit_usd??m.metadata?.unit_cost_usd??m.metadata?.cost_unit_usd;
+    const hasSnapshot=snapshotRaw!==null&&snapshotRaw!==undefined&&snapshotRaw!=='';
+    const unitCost=hasSnapshot?num(snapshotRaw):num(part.unit_cost);
+    const priceRaw=m.unit_price_usd??m.sale_price_usd??m.metadata?.unit_price_usd??m.metadata?.sale_price_usd;
+    const hasPrice=priceRaw!==null&&priceRaw!==undefined&&priceRaw!=='';
+    const unitPrice=hasPrice?num(priceRaw):null;
+    const rows=supportPartDetailByOrder.get(orderKey)||[];
+    rows.push({movement_id:m.id||null,part_id:m.part_id||null,name:clean(part.name||part.nombre||m.part_name||'Repuesto'),quantity:qty,unit_cost_usd:money(unitCost),cost_total_usd:money(unitCost*qty),cost_source:hasSnapshot?'movement_snapshot':'current_catalog_estimate',unit_sale_price_usd:unitPrice===null?null:money(unitPrice),sale_total_usd:unitPrice===null?null:money(unitPrice*qty),gross_margin_usd:unitPrice===null?null:money((unitPrice-unitCost)*qty),supplier_id:m.supplier_id||null,purchase_id:m.purchase_id||null,created_at:m.created_at||null});
+    supportPartDetailByOrder.set(orderKey,rows);
+  }
   const weekConsumedMoves=supportPartMoves.filter(m=>consumedMove(m)&&inRange(m.created_at,range));
   const supportPartsActual=sum(weekConsumedMoves,m=>Math.abs(num(m.quantity))*Math.max(0,num(supportPartMap.get(String(m.part_id))?.unit_cost)));
 
@@ -268,29 +287,40 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   // Solo se resta dinero realmente pagado por la empresa; si pagó Freddy/Nelson,
   // queda como deuda con el socio y no altera la caja de ThinkStore hasta el reembolso.
   const reconMap={};
+  // Solo diagnóstico: conserva método original y referencia, sin recalcular saldos.
+  const reconciliationTrace=[];
+  const traceReconciliation=(method,amount,direction,source,record)=>{
+    const normalized=normalizeMethod(method);
+    if(normalized!=='Pago Móvil'&&normalized!=='Sin definir')return;
+    reconciliationTrace.push({method:normalized,raw_method:clean(method)||null,direction,amount_usd:money(amount),source,
+      source_id:clean(record?.id||record?.event_id||record?.payment_id)||null,
+      order_id:clean(record?.pedido_id||record?.order_id||record?.source_id||record?.related_order_id)||null,
+      reference:clean(record?.reference||record?.referencia)||null,
+      occurred_at:record?.occurred_at||record?.confirmed_at||record?.created_at||record?.updated_at||null});
+  };
   const reconLine=method=>{const k=normalizeMethod(method);if(!reconMap[k])reconMap[k]={method:k,inflow:0,outflow:0,in_count:0,out_count:0,sources:{}};return reconMap[k]};
-  const reconIn=(method,amount,source)=>{const x=reconLine(method);x.inflow=money(x.inflow+num(amount));x.in_count++;x.sources[source]=(x.sources[source]||0)+1};
-  const reconOut=(method,amount,source)=>{const x=reconLine(method);x.outflow=money(x.outflow+num(amount));x.out_count++;x.sources[source]=(x.sources[source]||0)+1};
+  const reconIn=(method,amount,source,record)=>{traceReconciliation(method,amount,'in',source,record);const x=reconLine(method);x.inflow=money(x.inflow+num(amount));x.in_count++;x.sources[source]=(x.sources[source]||0)+1};
+  const reconOut=(method,amount,source,record)=>{traceReconciliation(method,amount,'out',source,record);const x=reconLine(method);x.outflow=money(x.outflow+num(amount));x.out_count++;x.sources[source]=(x.sources[source]||0)+1};
   paidSales.forEach(o=>{
     const lines=paymentsByOrder.get(String(o.id))||[];
-    if(lines.length)lines.forEach(p=>reconIn(p.method,num(p.usd_equivalent),'Tienda · pago mixto'));
-    else reconIn(o.metodo_pago||o.payment_method,o.total_usd,'Tienda');
+    if(lines.length)lines.forEach(p=>reconIn(p.method,num(p.usd_equivalent),'Tienda · pago mixto',p));
+    else reconIn(o.metodo_pago||o.payment_method,o.total_usd,'Tienda',o);
   });
-  if(weekSupportEvents.length){weekSupportEvents.forEach(e=>{const a=num(e.amount_delta);if(a>0)reconIn(e.payment_method,a,'Servicio Técnico');else if(a<0)reconOut(e.payment_method,Math.abs(a),'Reverso Servicio Técnico')})}
-  else{supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>reconIn(o.payment_method,o.amount_paid,'Servicio Técnico'))}
-  weekEntries.filter(e=>e.entry_type==='other_income'||e.entry_type==='receivable_collection').forEach(e=>reconIn(e.payment_method,e.amount_usd,'Enterprise'));
-  weekEntries.filter(e=>e.entry_type==='partner_advance').forEach(e=>reconIn(e.payment_method,e.amount_usd,'Aporte socio'));
-  weekEntries.filter(e=>isCashExpenseType(e.entry_type)&&clean(e.funded_by||'company')==='company').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Gasto Enterprise'));
-  weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company').forEach(p=>reconOut(p.payment_method,p.amount_usd,'Compras Inventory'));
-  weekEntries.filter(e=>e.entry_type==='partner_repayment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Devolución socio'));
-  weekEntries.filter(e=>e.entry_type==='technician_payment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Pago técnico'));
-  weekEntries.filter(e=>e.entry_type==='seller_payment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Pago vendedor'));
+  if(weekSupportEvents.length){weekSupportEvents.forEach(e=>{const a=num(e.amount_delta);if(a>0)reconIn(e.payment_method,a,'Servicio Técnico',e);else if(a<0)reconOut(e.payment_method,Math.abs(a),'Reverso Servicio Técnico',e)})}
+  else{supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>reconIn(o.payment_method,o.amount_paid,'Servicio Técnico',o))}
+  weekEntries.filter(e=>e.entry_type==='other_income'||e.entry_type==='receivable_collection').forEach(e=>reconIn(e.payment_method,e.amount_usd,'Enterprise',e));
+  weekEntries.filter(e=>e.entry_type==='partner_advance').forEach(e=>reconIn(e.payment_method,e.amount_usd,'Aporte socio',e));
+  weekEntries.filter(e=>isCashExpenseType(e.entry_type)&&clean(e.funded_by||'company')==='company').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Gasto Enterprise',e));
+  weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company').forEach(p=>reconOut(p.payment_method,p.amount_usd,'Compras Inventory',p));
+  weekEntries.filter(e=>e.entry_type==='partner_repayment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Devolución socio',e));
+  weekEntries.filter(e=>e.entry_type==='technician_payment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Pago técnico',e));
+  weekEntries.filter(e=>e.entry_type==='seller_payment').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Pago vendedor',e));
 
   // Movimientos de Caja Staff ajenos a ventas: entradas/salidas reales por método.
   weekStaffMovements.forEach(m=>{
     const usd=staffMovementUsd(m);if(!(usd>0))return;
-    if(m.direction==='in')reconIn(m.method,usd,'Caja Staff');
-    else reconOut(m.method,usd,'Caja Staff');
+    if(m.direction==='in')reconIn(m.method,usd,'Caja Staff',m);
+    else reconOut(m.method,usd,'Caja Staff',m);
   });
 
   // Caja Chica: la reposición es transferencia interna; el gasto sale desde la propia Caja Chica.
@@ -298,10 +328,10 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     const usd=num(m.usd_equivalent);if(!(usd>0))return;
     const petty=pettyMethod(m);
     if(m.movement_type==='fund'){
-      if(clean(m.funded_by||'company')==='company'&&m.source_payment_method)reconOut(m.source_payment_method,usd,'Fondeo Caja Chica');
-      reconIn(petty,usd,m.funded_by==='company'?'Caja Chica':'Aporte socio Caja Chica');
-    }else if(m.direction==='in')reconIn(petty,usd,'Caja Chica');
-    else reconOut(petty,usd,'Caja Chica');
+      if(clean(m.funded_by||'company')==='company'&&m.source_payment_method)reconOut(m.source_payment_method,usd,'Fondeo Caja Chica',m);
+      reconIn(petty,usd,m.funded_by==='company'?'Caja Chica':'Aporte socio Caja Chica',m);
+    }else if(m.direction==='in')reconIn(petty,usd,'Caja Chica',m);
+    else reconOut(petty,usd,'Caja Chica',m);
   });
 
   const previousRecon=[...reconciliations].filter(r=>r.status==='closed'&&String(r.period_end||'')<range.start).sort((a,b)=>String(b.period_end).localeCompare(String(a.period_end)))[0]||null;
@@ -367,6 +397,28 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const operationalBankMovements=activePettyBankMovements.filter(m=>['sale_receipt','service_receipt'].includes(norm(m.movement_type)));
   const operationalBankUsd=money(operationalBankMovements.filter(m=>clean(m.currency).toUpperCase()==='USD').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   const operationalBankVes=money(operationalBankMovements.filter(m=>clean(m.currency).toUpperCase()==='VES').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
+  // Auditoría informativa: jamás altera saldos, estados, caja ni historial.
+  const settlementByCode=new Map(settlements.map(s=>[clean(s.order_code),s]));
+  const settlementDiscrepancies=supportOrders.flatMap(o=>{
+    const code=clean(o.code||o.order_code),row=settlementByCode.get(code);
+    if(!row||!hasNum(row.collected_usd)||!hasNum(o.amount_paid))return [];
+    const delta=money(num(row.collected_usd)-num(o.amount_paid));
+    return Math.abs(delta)>=0.01?[{order_code:code,enterprise_collected_usd:money(row.collected_usd),support_paid_usd:money(o.amount_paid),difference_usd:delta}]:[];
+  });
+  const paymentLinesByOrder=new Map();
+  orderPayments.filter(p=>norm(p.status)==='confirmed').forEach(p=>{
+    const key=clean(p.pedido_id);
+    if(!paymentLinesByOrder.has(key))paymentLinesByOrder.set(key,[]);
+    paymentLinesByOrder.get(key).push(p);
+  });
+  const partialStoreOrders=orders.flatMap(o=>{
+    const lines=paymentLinesByOrder.get(clean(o.id))||[];
+    if(!lines.length)return [];
+    const amount=sum(lines,p=>p.amount_usd??p.usd_equivalent??0),total=money(o.total_usd);
+    if(amount+0.01>=total)return [];
+    return [{order_id:o.id,order_code:o.codigo||o.code||null,order_total_usd:total,confirmed_payments_usd:amount,unpaid_usd:money(total-amount),payment_approved:paymentApproved(o)}];
+  });
+  const settlementWithoutSupport=settlements.filter(s=>clean(s.order_code)&&!supportOrders.some(o=>clean(o.code||o.order_code)===clean(s.order_code))).map(s=>({order_code:s.order_code,enterprise_collected_usd:money(s.collected_usd)}));
   const pettyAvailableUsd=money(pettyBalanceUsd+operationalBankUsd);
   const pettyAvailableVes=money(pettyBalanceVes+operationalBankVes);
   const pettyBankRows=(pettyBankAccounts||[]).map(a=>{
@@ -487,7 +539,22 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
       history:reconciliations.slice(0,20)
     },
     charts:{daily_cash_flow:dayRows},
+    support_part_details:enrichedSupport.map(o=>({order_code:o.code,order_id:o.id,items:supportPartDetailByOrder.get(String(o.id))||supportPartDetailByOrder.get(String(o.code))||[]})).filter(o=>o.items.length>0),
     entries:weekEntries.slice(0,200),support_orders:enrichedSupport,audits:audits.slice(0,20),
+    source_health:sourceHealth,
+    audit_readonly:{
+      payment_method_trace:{
+        records:reconciliationTrace.slice(0,500),
+        total_found:reconciliationTrace.length,
+        truncated:reconciliationTrace.length>500,
+        method_totals:['Pago Móvil','Sin definir'].map(method=>{const a=reconciliationTrace.filter(x=>x.method===method);return{method,inflow:sum(a.filter(x=>x.direction==='in'),x=>x.amount_usd),outflow:sum(a.filter(x=>x.direction==='out'),x=>x.amount_usd),records:a.length,missing_method:a.filter(x=>!x.raw_method).length}}),
+        note:'Solo lectura. Refleja filas consultadas para la conciliación; no demuestra si sus cobros se duplicaron en otros canales.'
+      },
+      settlement_vs_support:settlementDiscrepancies.slice(0,250),settlement_discrepancy_count:settlementDiscrepancies.length,
+      partial_store_orders:partialStoreOrders.slice(0,250),partial_store_count:partialStoreOrders.length,
+      settlement_without_support:settlementWithoutSupport.slice(0,100),
+      warning:'Información diagnóstica; no se han modificado cifras ni conciliado movimientos automáticamente.'
+    },
     quality:{
       finance_tables_ready:Array.isArray(settings)&&settings.length>0,
       support_payment_events:weekSupportEvents.length>0||supportEvents.length>0,
@@ -495,7 +562,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
       inventory_purchases_table:Array.isArray(invPurchasesRaw),inventory_cost_coverage_pct:costCoverage,
       support_parts_connected:supportParts.length>0||supportPartMoves.length>0,
       reconciliation_table:Array.isArray(reconciliations),
-      mixed_payments_table:Array.isArray(orderPayments),staff_cash_table:Array.isArray(staffCashSessions),
+      mixed_payments_table:sourceHealth.store_payments,staff_cash_table:sourceHealth.staff_cash_sessions&&sourceHealth.staff_cash_movements,
       petty_cash_table:Array.isArray(pettyAccounts),staff_cash_unconverted_ves:unconvertedStaffVes.length,errors
     }
   };

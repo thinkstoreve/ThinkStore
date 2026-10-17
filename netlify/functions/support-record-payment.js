@@ -42,7 +42,8 @@ exports.handler=async event=>{
     // Reject client-submitted billing or actor fields; allow only Staff's cashier inputs.
     const payment={action:'pay',order_id:body.order_id,method:body.method,amount:body.amount,
       usd_equivalent:body.usd_equivalent,reference:body.reference,note:body.note,
-      destination_code:body.destination_code,finalize_no_quote:false};
+      destination_code:body.destination_code,payment_intent:'manual_abono',expected_paid:body.expected_paid,receipt_ack_usd:body.receipt_ack_usd,client_bcv_rate:body.client_bcv_rate,
+      client_bcv_date:body.client_bcv_date,finalize_no_quote:false};
     const request=body.action==='pay'?payment:body.action==='void_payment'?{action:'void_payment',order_id:body.order_id,payment_event_id:body.payment_event_id,reason:body.reason}: {action:'set_financing',order_id:body.order_id,initial_amount:body.initial_amount,due_date:body.due_date};
     const resp=body.action==='pay'?await staffRepairs.payFromVerifiedSupport(request,actor):await staffRepairs.manageFinanceFromVerifiedSupport(request,actor);
     return {...resp,headers:{...(resp.headers||{}),...headers(origin)}};

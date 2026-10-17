@@ -5,6 +5,7 @@ const {authenticateInternal,mainConfig}=require('./staff-auth-core');
 const {getRate}=require('./fx-rate-core');
 const {account,paymentPlan,canAccessRepairs,round}=require('./staff-repairs-core');
 const {render:renderServiceDeliveryNote}=require('./service-delivery-note-template');
+const {render:renderServicePaymentReceipt}=require('./service-payment-receipt-template');
 const {normalize:normalizeDestination}=require('./payment-destinations');
 const WhatsAppEvents=require('./_whatsapp-service-events');
 const H={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Headers':'authorization,content-type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'};
@@ -13,6 +14,12 @@ const clean=(v,n=400)=>String(v??'').trim().slice(0,n);
 const usdText=v=>'$'+Number(v||0).toFixed(2);
 const paymentAmountText=p=>`${p?.currency==='VES'?'Bs.':p?.method==='EUR'?'EUR':p?.method==='USDT'?'USDT':p?.method==='Otro'?'Otro':'USD'} ${Number(p?.amount||0).toFixed(2)}`;
 const validOrderId=v=>/^[0-9]+$/.test(String(v||''))||/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''));
+// V15.40: when the client showed a verified FX rate, refuse a different server rate.
+// Old clients that do not send a quote continue to use only the fresh server BCV rate.
+function clientBcvMismatch(payload,serverQuote){
+  if(payload?.client_bcv_rate===undefined||payload?.client_bcv_rate===null)return false;
+  return !(Number(payload.client_bcv_rate)>0)||Number(payload.client_bcv_rate)!==Number(serverQuote?.rate)||String(payload.client_bcv_date||'')!==String(serverQuote?.effective_date||'');
+}
 function supportConfig(){return{
   url:clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/$/,''),
   key:clean(process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPPORT_SUPABASE_SECRET_KEY)
@@ -266,10 +273,32 @@ async function syncEnterpriseServiceSettlement(order,parts,extras,billing,actor)
   const serviceCommission=round(hardwareCommission+softwareCommission),techCommission=round(partCommission+serviceCommission),sellerCommission=sellerRate===null?0:round(productMargin*sellerRate/100);
   const inventoryRecovery=round(partCost+productCost),directServiceCost=round(hardwareCost+softwareCost),companyProfit=Math.max(0,round(finalTotal-inventoryRecovery-directServiceCost-techCommission-sellerCommission));
   const totalBase=round(partMargin+hardwareBase+softwareBase),effectiveRate=totalBase>0?round(techCommission/totalBase*100):null;
-  const settlement={order_code:order.code,service_order_id:String(order.id||''),technician_email:techEmail||null,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail||null,salesperson_email:sellerEmail||null,subtotal_usd:round(subtotal),discount_usd:round(subtotal-finalTotal),collected_usd:round(finalTotal),parts_revenue_usd:partRevenue,parts_cost_usd:round(partCost),parts_margin_usd:partMargin,parts_rate_pct:partRate,parts_commission_usd:partCommission,hardware_service_revenue_usd:hardwareRevenue,software_service_revenue_usd:softwareRevenue,service_direct_cost_usd:directServiceCost,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,service_commission_usd:serviceCommission,store_product_revenue_usd:productRevenue,store_product_cost_usd:round(productCost),seller_rate_pct:sellerRate,seller_commission_usd:sellerCommission,inventory_recovery_usd:inventoryRecovery,total_commission_usd:round(techCommission+sellerCommission),company_profit_usd:companyProfit,metadata:{discount_factor:factor,base_other_service_usd:round(baseOther),part_commission_base:partMargin,hardware_commission_base:hardwareBase,software_commission_base:softwareBase,product_margin_usd:productMargin,parts_rate_defined:partRate!==null,service_rate_defined:hardwareRate!==null||softwareRate!==null},settled_at:order.paid_at||new Date().toISOString(),updated_at:new Date().toISOString()};
+  // V15.40.3: invoice != collected cash. This is also called after multi-line
+  // payments; a financed repair may have a receivable even when inventory has
+  // already been consumed. Only use the amount confirmed by Support.
+  const receivedUsd=round(Math.max(0,Math.min(finalTotal,Number(order.amount_paid||0))));
+  const receivableUsd=round(Math.max(0,finalTotal-receivedUsd));
+  // Preserve audit/reconciliation metadata across idempotent settlement upserts.
+  // An earlier manual correction must never disappear just because this function
+  // saved the invoice again. Read failure aborts the upsert instead of erasing it.
+  const oldSettlements=await rest(mc,'enterprise_service_settlements',{
+    select:'id,metadata',order_code:`eq.${order.code}`,limit:1
+  });
+  const priorMetadata=oldSettlements?.[0]?.metadata && typeof oldSettlements[0].metadata==='object' && !Array.isArray(oldSettlements[0].metadata)
+    ?oldSettlements[0].metadata:{};
+  const priorReconciliation=priorMetadata.payment_reconciliation && typeof priorMetadata.payment_reconciliation==='object'
+    ?priorMetadata.payment_reconciliation:{};
+  const settlementMetadata={...priorMetadata,
+    discount_factor:factor,base_other_service_usd:round(baseOther),part_commission_base:partMargin,
+    hardware_commission_base:hardwareBase,software_commission_base:softwareBase,product_margin_usd:productMargin,
+    parts_rate_defined:partRate!==null,service_rate_defined:hardwareRate!==null||softwareRate!==null,
+    payment_reconciliation:{...priorReconciliation,invoiced_usd:round(finalTotal),received_usd:receivedUsd,
+      receivable_usd:receivableUsd,source:'support_order.amount_paid',synced_at:new Date().toISOString()}
+  };
+  const settlement={order_code:order.code,service_order_id:String(order.id||''),technician_email:techEmail||null,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail||null,salesperson_email:sellerEmail||null,subtotal_usd:round(subtotal),discount_usd:round(subtotal-finalTotal),collected_usd:receivedUsd,parts_revenue_usd:partRevenue,parts_cost_usd:round(partCost),parts_margin_usd:partMargin,parts_rate_pct:partRate,parts_commission_usd:partCommission,hardware_service_revenue_usd:hardwareRevenue,software_service_revenue_usd:softwareRevenue,service_direct_cost_usd:directServiceCost,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,service_commission_usd:serviceCommission,store_product_revenue_usd:productRevenue,store_product_cost_usd:round(productCost),seller_rate_pct:sellerRate,seller_commission_usd:sellerCommission,inventory_recovery_usd:inventoryRecovery,total_commission_usd:round(techCommission+sellerCommission),company_profit_usd:companyProfit,metadata:settlementMetadata,settled_at:order.paid_at||new Date().toISOString(),updated_at:new Date().toISOString()};
   const saved=await rest(mc,'enterprise_service_settlements',{on_conflict:'order_code'},{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(settlement)});
-  if(techEmail&&techCommission>0){await upsertFinanceCommission(mc,'technician_commission',techCommission,order,actor,techProfile?.full_name||techEmail,{technician_email:techEmail,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail,commission_base:totalBase,rate_pct:effectiveRate,parts_rate_pct:partRate,service_rate_pct:serviceBaseRate,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,parts_commission:partCommission,service_commission:serviceCommission,parts_cost:round(partCost),direct_cost:directServiceCost,gross_service_amount:round(partRevenue+hardwareRevenue+softwareRevenue),settlement_model:'v15.21'})}
-  if(sellerEmail&&sellerCommission>0){await upsertFinanceCommission(mc,'seller_commission',sellerCommission,order,actor,sellerProfile?.full_name||sellerEmail,{salesperson_email:sellerEmail,commission_base:productMargin,rate_pct:sellerRate,store_product_revenue:productRevenue,store_product_cost:round(productCost),settlement_model:'v15.21'})}
+  if(receivableUsd<0.005&&techEmail&&techCommission>0){await upsertFinanceCommission(mc,'technician_commission',techCommission,order,actor,techProfile?.full_name||techEmail,{technician_email:techEmail,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail,commission_base:totalBase,rate_pct:effectiveRate,parts_rate_pct:partRate,service_rate_pct:serviceBaseRate,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,parts_commission:partCommission,service_commission:serviceCommission,parts_cost:round(partCost),direct_cost:directServiceCost,gross_service_amount:round(partRevenue+hardwareRevenue+softwareRevenue),settlement_model:'v15.21'})}
+  if(receivableUsd<0.005&&sellerEmail&&sellerCommission>0){await upsertFinanceCommission(mc,'seller_commission',sellerCommission,order,actor,sellerProfile?.full_name||sellerEmail,{salesperson_email:sellerEmail,commission_base:productMargin,rate_pct:sellerRate,store_product_revenue:productRevenue,store_product_cost:round(productCost),settlement_model:'v15.21'})}
   return saved?.[0]||settlement;
 }
 
@@ -347,11 +376,22 @@ async function handleRequest(event,verifiedSupportActor=null){
       return result(200,{ok:true,...data,refreshed_at:new Date().toISOString()});
     }
     let b;try{b=JSON.parse(event.body||'{}')}catch{return result(400,{ok:false,error:'Solicitud inválida'})}
-    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','add_charge','remove_charge','update_discount','set_financing','void_payment'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
+    if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','view_payment_receipt','add_charge','remove_charge','update_discount','set_financing','void_payment'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
     const id=clean(b.order_id,50);
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
     let current=await getOrder(conf,id);
     if(!current)return result(404,{ok:false,error:'Reparación no encontrada'});
+    // Financed orders must be paid only through an explicit, amount-entered abono.
+    // Reject stale screens or legacy one-click 'Cobrar saldo' clients before any writes.
+    if(['pay','multi_pay'].includes(b.action)&&current.reception_checklist?.__financing?.enabled){
+      const originalPaid=Number(current.amount_paid||0);
+      if(b.payment_intent!=='manual_abono'||b.expected_paid===null||b.expected_paid===undefined||!Number.isFinite(Number(b.expected_paid))){
+        return result(409,{ok:false,error:'Reparación financiada: registra solo el dinero recibido mediante Registrar abono. Actualiza App Ventas antes de cobrar.'});
+      }
+      if(Math.abs(Number(b.expected_paid)-originalPaid)>0.005){
+        return result(409,{ok:false,error:'El monto previamente cobrado cambió. Actualiza la reparación y revisa el historial antes de registrar otro abono.'});
+      }
+    }
     if(b.action==='void_payment'){
       if(!['admin','superadmin'].includes(String(actor.role||'').toLowerCase()))return result(403,{ok:false,error:'Solo un administrador puede anular abonos.'});
       const eventId=clean(b.payment_event_id,55),reason=clean(b.reason,500);
@@ -485,6 +525,12 @@ async function handleRequest(event,verifiedSupportActor=null){
       const finalExtras=await orderExtras(conf,current.code),finalBilling=billingSummary(current,parts,finalExtras);
       return result(200,{ok:true,order:current,billing:finalBilling,extras:finalExtras,parts});
     }
+    if(b.action==='view_payment_receipt'){
+      const a=account(current);
+      if(!current.reception_checklist?.__financing?.enabled||!a.partial)return result(409,{ok:false,error:'El comprobante de abono se habilita solo si hay un abono confirmado y una deuda pendiente.'});
+      const payments=await rest(conf,'service_payment_events',{select:'event_type,amount_delta,payment_method,reference,occurred_at',service_order_id:`eq.${id}`,order:'occurred_at.desc',limit:100});
+      return result(200,{ok:true,html:renderServicePaymentReceipt({order:current,events:payments})});
+    }
     if(['view_delivery_note','resend_delivery_note'].includes(b.action)){
       const acc=account(current);
       if(!acc.paidOff)return result(409,{ok:false,error:'La Nota de Entrega se habilita cuando la reparación está completamente pagada.'});
@@ -509,12 +555,14 @@ async function handleRequest(event,verifiedSupportActor=null){
       if(billing.pending_extra_count>0)await rest(conf,'service_order_sale_items',{order_code:`eq.${current.code}`,status:'eq.active',included_in_quote:'eq.false'},{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({included_in_quote:true,updated_at:new Date().toISOString()})});
       billing=billingSummary(current,billingParts,await orderExtras(conf,current.code));
     }
+    if(b.action==='multi_pay'&&current.reception_checklist?.__financing?.enabled)return result(409,{ok:false,error:'Por seguridad, el pago combinado está suspendido temporalmente en reparaciones financiadas. Registra cada abono por separado.'});
     if(b.action==='multi_pay'){
       const raw=Array.isArray(b.payments)?b.payments:[];
       if(raw.length<2||raw.length>3)return result(400,{ok:false,error:'El pago combinado admite entre 2 y 3 métodos.'});
       if(account(current).budget<=0)return result(409,{ok:false,error:'Para combinar métodos primero debe existir un total de reparación.'});
       const hasBs=raw.some(x=>['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs'].includes(String(x?.method||'')));
       let bcv=null;if(hasBs)bcv=await getRate(true);
+      if(hasBs&&clientBcvMismatch(b,bcv))return result(409,{ok:false,rate_changed:true,error:'La tasa BCV cambió desde que se calculó el importe. Actualiza los bolívares y vuelve a confirmar. No se registró el pago.',fx_quote:{rate:bcv.rate,effective_date:bcv.effective_date}});
       let simulated={...current},plans=[];
       try{
         for(const line of raw){const destination=normalizeDestination(line?.method,line?.destination_code,{required:true});const p=paymentPlan(simulated,{method:line?.method,amount:line?.amount,usd_equivalent:line?.usd_equivalent,reference:line?.reference,finalize_no_quote:false},bcv);p.destination_code=destination.code;p.destination_name=destination.name;plans.push(p);simulated={...simulated,amount_paid:p.after}}
@@ -563,8 +611,23 @@ async function handleRequest(event,verifiedSupportActor=null){
     const isBs=['Efectivo Bs','Pago Móvil','Transferencia Bs','Punto de venta Bs'].includes(b.method);
     let bcv=null;
     if(isBs)bcv=await getRate(true);
+    if(isBs&&clientBcvMismatch(b,bcv))return result(409,{ok:false,rate_changed:true,error:'La tasa BCV cambió desde que se calculó el importe. Actualiza los bolívares y vuelve a confirmar. No se registró el pago.',fx_quote:{rate:bcv.rate,effective_date:bcv.effective_date}});
     let destination;try{destination=normalizeDestination(b.method,b.destination_code,{required:true})}catch(e){return result(400,{ok:false,error:e.message})}
     const p=paymentPlan(current,b,bcv);p.destination_code=destination.code;p.destination_name=destination.name;
+    if(current.reception_checklist?.__financing?.enabled){
+      const expectedPhrase='RECIBIDO '+Number(p.equivalent).toFixed(2);
+      if(String(b.receipt_ack_usd||'').trim().toUpperCase()!==expectedPhrase){
+        return result(409,{ok:false,error:'Cobro financiado bloqueado: confirma expresamente el importe en USD efectivamente recibido. El dinero no fue registrado.'});
+      }
+      // Fail closed if a previous equal receipt could be mistaken for a second cash payment.
+      // This is a short anti-repeat window, not a replacement for database-level idempotency.
+      const minutes=60,after=new Date(Date.now()-minutes*60000).toISOString();
+      let previous;
+      try{previous=await rest(conf,'service_payment_events',{select:'id,occurred_at,amount_delta,payment_method',service_order_id:`eq.${current.id}`,event_type:'eq.payment',amount_delta:`eq.${Number(p.equivalent).toFixed(2)}`,payment_method:`eq.${p.method}`,occurred_at:`gte.${after}`,limit:1});}
+      catch(e){return result(503,{ok:false,error:'No pude comprobar posibles cobros repetidos. No se registró el abono; consulta el historial antes de reintentar.'});}
+      if(previous?.length)return result(409,{ok:false,error:'Existe un abono reciente del mismo importe y método para esta orden. Comprueba el historial y la caja antes de registrar otro; no se realizó el cobro.'});
+    }
+
     const comment=clean(b.note,300);
     const description=`Cobro Staff: ${p.method} · ${paymentAmountText(p)} · equiv. USD ${p.equivalent.toFixed(2)}${p.destination_name?` · Destino ${p.destination_name}`:''}${p.rate?` · BCV ${p.rate}, vigencia ${p.bcv_effective_date}`:''}${p.reference?' · Ref. '+p.reference:''}${comment?' · '+comment:''}${p.bootstrap_quote?' · Total final definido al cobrar':''} · ${actor.email}`;
     // Si la orden todavía no tiene cotización, Staff puede fijar el total final en el mismo acto de cobro.
