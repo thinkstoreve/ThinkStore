@@ -5,8 +5,19 @@ const {createCipheriv,createHash,randomBytes}=require('node:crypto');
 const {randomUUID}=require('node:crypto');
 exports.handler=async e=>{
  let b;try{b=JSON.parse(e.body||'{}')}catch{b={}}
- const H={'Content-Type':'application/json','Cache-Control':'no-store'};
- const out=(s,data)=>({statusCode:s,headers:H,body:JSON.stringify(data)});
+ // El panel de Soporte se sirve desde un dominio diferente al sitio Main.
+ // Solo estos orígenes de confianza pueden consumir la recepción autenticada.
+ const trustedOrigins=new Set(['https://soporte.thinkstore.com.ve','https://thinkstore.com.ve','https://www.thinkstore.com.ve']);
+ const origin=String(e.headers?.origin||e.headers?.Origin||'').trim();
+ const H={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin'};
+ if(origin&&trustedOrigins.has(origin)){
+   H['Access-Control-Allow-Origin']=origin;
+   H['Access-Control-Allow-Methods']='POST, OPTIONS';
+   H['Access-Control-Allow-Headers']='Content-Type, Authorization';
+   H['Access-Control-Max-Age']='600';
+ }
+ const out=(s,data)=>({statusCode:s,headers:H,body:s===204?'':JSON.stringify(data)});
+ if(origin&&!trustedOrigins.has(origin))return out(403,{ok:false,error:'Origen no autorizado.'});
  if(e.httpMethod==='OPTIONS')return out(204,{});
  if(e.httpMethod!=='POST')return out(405,{ok:false,error:'Método no permitido.'});
  try{

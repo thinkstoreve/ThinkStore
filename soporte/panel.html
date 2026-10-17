@@ -283,7 +283,8 @@
                 <button type="button" class="mark-dot mark-yellow" data-mark="rayon" onclick="TSService.setDamageTool('rayon')" title="Rayón"></button>
                 <button type="button" class="mark-dot mark-red" data-mark="golpe" onclick="TSService.setDamageTool('golpe')" title="Golpe"></button>
                 <button type="button" class="mark-dot mark-purple" data-mark="pantalla" onclick="TSService.setDamageTool('pantalla')" title="Pantalla rota"></button>
-                <button type="button" class="mark-tool" onclick="TSService.clearDamageMarks()">Borrar</button>
+                <button type="button" class="mark-tool mark-undo" onclick="TSService.undoLastDamageMark()" title="Quitar la última marca">↶ Deshacer última</button>
+                <button type="button" class="mark-tool mark-clear" onclick="TSService.clearDamageMarks()" title="Borrar todas las marcas">Borrar marcas</button>
               </div>
             </div>
 

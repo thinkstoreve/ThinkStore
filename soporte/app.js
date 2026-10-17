@@ -1965,9 +1965,9 @@ const TSService=(()=>{
   const macbookPro15SharedVisual={
     thumbnail:'assets/macbook-pro-intel-15-2018-2019-thumbnail.png',
     presentation:'assets/macbook-pro-intel-15-2018-2019-presentation.webp',
-    inspection:'assets/macbook-pro-intel-15-2018-2019-front.webp',
+    inspection:'assets/macbook-pro-intel-15-2018-2019-triptych.png',
     inspectionViews:{
-      all:'assets/macbook-pro-intel-15-2018-2019-front.webp',
+      all:'assets/macbook-pro-intel-15-2018-2019-triptych.png',
       front:'assets/macbook-pro-intel-15-2018-2019-front.webp',
       side:'assets/macbook-pro-intel-15-2018-2019-side.webp',
       back:'assets/macbook-pro-intel-15-2018-2019-side-alt.webp'
@@ -2199,7 +2199,16 @@ const TSService=(()=>{
     if(visual) visual.value=damageMarks.map((m,i)=>`${i+1}. ${m.type} [${m.view||'all'}] en X:${m.x.toFixed(1)} Y:${m.y.toFixed(1)}`).join(' | ');
   }
 
+  function undoLastDamageMark(){
+    // Deshacer sobre la vista visible sin alterar marcas de otras vistas.
+    const i=damageMarks.findLastIndex(m=>(m.view||'all')===currentDeviceView);
+    if(i<0){toast('No hay marcas que deshacer en esta vista.');return;}
+    damageMarks.splice(i,1);
+    renderDamageMarks();
+  }
   function clearDamageMarks(){
+    if(!damageMarks.length){toast('No hay marcas que borrar.');return;}
+    if(!confirm('¿Borrar todas las marcas de inspección del equipo?'))return;
     damageMarks=[];
     renderDamageMarks();
   }
@@ -2947,5 +2956,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,toggleDeviceAccessField,toggleDeviceAccessVisibility,revealManagerDeviceAccess,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,updateManagerUsdConversion,managerBolivarEdited,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,toggleDeviceAccessField,toggleDeviceAccessVisibility,revealManagerDeviceAccess,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,updateManagerUsdConversion,managerBolivarEdited,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,undoLastDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

@@ -2150,3 +2150,42 @@ input,select,textarea{max-width:100%;min-width:0}
 #orderModal .premium-model-option img{width:48px!important;height:42px!important;object-fit:contain!important;background:#fff!important;}
 #orderModal .premium-model-option{grid-template-columns:50px minmax(0,1fr) auto!important;}
 @media(max-width:700px){#orderModal .selected-device-summary .device-art.has-model-image{width:88px!important;min-width:88px!important;height:80px!important;}}
+
+/* V8.8.18 – Controles de inspección visibles en la recepción clara */
+#orderModal .diagram-box .device-view-tabs {
+  display:flex!important; flex-wrap:wrap!important; align-items:center; gap:8px!important;
+  margin:12px 0 14px!important; visibility:visible!important; opacity:1!important;
+}
+#orderModal .diagram-box .device-view-tabs button {
+  display:inline-flex!important; align-items:center; justify-content:center;
+  width:auto!important; min-height:36px; padding:8px 14px!important;
+  color:#25415f!important; background:#f1f5fa!important;
+  border:1px solid #b9d0e7!important; border-radius:12px!important;
+  font-size:13px!important; font-weight:700!important; opacity:1!important;
+  visibility:visible!important; cursor:pointer;
+}
+#orderModal .diagram-box .device-view-tabs button.active {
+  color:#fff!important; background:#087af2!important; border-color:#087af2!important;
+  box-shadow:0 3px 8px rgba(0,113,227,.18)!important;
+}
+#orderModal .diagram-box .device-view-tabs button:focus-visible,
+#orderModal .diagram-box .mark-tools button:focus-visible {
+  outline:3px solid rgba(0,113,227,.32)!important; outline-offset:2px;
+}
+#orderModal .diagram-box .mark-tools .mark-tool {
+  display:inline-flex!important; align-items:center; justify-content:center;
+  color:#20496f!important; background:#eaf2fc!important;
+  border:1px solid #91bce8!important; min-height:34px;
+  padding:7px 10px!important; font-size:12px!important;
+  font-weight:750!important; opacity:1!important; visibility:visible!important;
+}
+#orderModal .diagram-box .mark-tools .mark-tool.active {
+  background:#087af2!important; color:#fff!important; border-color:#087af2!important;
+}
+#orderModal .diagram-box .mark-tools .mark-clear {
+  background:#fff5f5!important; color:#a43636!important; border-color:#edbbbb!important;
+}
+#orderModal .diagram-box .mark-tools .mark-undo {
+  background:#f3f5f8!important; color:#283e56!important; border-color:#c8d0da!important;
+}
+@media(max-width:600px){#orderModal .diagram-box .mark-tools{flex-wrap:wrap!important}}
