@@ -1,4 +1,5 @@
 const titles = {
+  operations:["Operación","Ventas, inventario, clientes y Servicio Técnico con datos reales."],
   executive:["Resumen","Libro financiero central de ThinkStore con datos reales."],
   weekly:["Resumen semanal","Ventas online y presenciales, Servicio Técnico, citas, cobros, entregas y reparto 50/25/25."],
   commercial:["Control Comercial ThinkStore","Ventas, clientes, inventario, pagos, notas de entrega y correos con datos reales."],
@@ -3080,7 +3081,7 @@ function renderV9RealMarketing(data){
   }
   function weeklyQuality(data){
     const q=data?.data_quality||{},parts=[];
-    parts.push(q.support_connected?'Soporte conectado':'Soporte sin conexión');
+    parts.push(q.support_connected?'Soporte respondió en la consulta':'Soporte no disponible en esta consulta');
     parts.push(q.support_payment_ready?'Cobranza activa':'Falta migración de cobranza');
     return parts.join(' · ');
   }
@@ -3222,7 +3223,7 @@ function renderV9RealMarketing(data){
     <div class="chart-grid chart-grid-bottom">
       <article class="panel executive-chart"><div class="chart-head"><div><span>RENDIMIENTO</span><h3>Cobrado vs costos</h3></div></div><div class="pnl-bars">${pnlRows}</div><div class="chart-note">Margen tienda ${Number(d.inventory?.gross_margin_pct||0).toFixed(1)}% · inventario a costo ${fm(d.inventory?.value)}</div></article>
       <article class="panel executive-chart"><div class="chart-head"><div><span>COBROS</span><h3>Métodos principales</h3></div><button onclick="switchView('reconciliation')">Conciliar</button></div><div class="method-bars">${methodRows}</div></article>
-      <article class="panel executive-chart health-chart"><div class="chart-head"><div><span>ECOSISTEMA</span><h3>Salud de conexiones</h3></div></div><div class="health-score"><div class="health-ring" style="--health:${healthPct}%"><b>${healthPct}%</b><span>${healthy}/${checks.length} activos</span></div></div><div class="health-chips">${healthRows}</div></article>
+      <article class="panel executive-chart health-chart"><div class="chart-head"><div><span>ECOSISTEMA</span><h3>Disponibilidad de fuentes</h3></div></div><div class="health-score"><div class="health-ring" style="--health:${healthPct}%"><b>${healthPct}%</b><span>${healthy}/${checks.length} detectadas</span></div></div><div class="health-chips">${healthRows}</div></article>
     </div>`;
     requestAnimationFrame(()=>el.classList.add('charts-ready'));
   }
@@ -3301,6 +3302,26 @@ function renderV9RealMarketing(data){
       <p class="book-quality">${safe(quality(d))}</p>
     </section>`;
   }
+  // Auditoría informativa: usa exclusivamente los datos ya cargados por Enterprise.
+  // Nunca modifica abonos, saldos, inventario ni comisiones.
+  function financeAuditPanel(d){
+    const rec=d.receivables||{},total=Number(rec.total||0);
+    const shop=Number(rec.store||0),support=Number(rec.support||0);
+    const manual=Number(rec.manual_total??rec.manual??0);
+    const subtotal=shop+support+manual;
+    const canCompare=rec.manual_total!==undefined||rec.manual!==undefined;
+    const discrepancy=canCompare&&Math.abs(total-subtotal)>0.011;
+    const flagged=(d.reconciliation?.lines||[]).filter(x=>
+      /sin definir|pago m[oó]vil/i.test(String(x.method||'')) ||
+      (x.difference!==null&&Math.abs(Number(x.difference||0))>0.01));
+    const rows=flagged.slice(0,15).map(x=>`<div class="table-row"><div><b>${safe(x.method||'Sin definir')}</b><br><small>Entradas ${fm(x.inflow)} · salidas ${fm(x.outflow)} · ${Number(x.in_count||0)+Number(x.out_count||0)} movimientos</small></div><span>${x.difference===null?'Pendiente de conciliación':fm(x.difference)}</span></div>`).join('');
+    return `<article class="panel" aria-label="Auditoría financiera de solo lectura"><div class="panel-head"><div><span class="finance-kicker">SOLO LECTURA</span><h3>Verificación de cobros y conciliación</h3></div><span class="tag">No realiza ajustes</span></div>
+      <p class="fin-quality">Los valores se muestran desde las fuentes actuales. Una diferencia requiere verificar la orden y los movimientos originales antes de corregirla.</p>
+      <div class="table"><div class="table-row"><div><b>Cuentas por cobrar · total Enterprise</b><br><small>Tienda ${fm(shop)} · Soporte ${fm(support)}${canCompare?` · Manual ${fm(manual)}`:' · Manual: consultar detalle'}</small></div><span>${fm(total)}</span></div>
+      ${discrepancy?`<div class="table-row"><div><b>Advertencia: desglose distinto del total</b><br><small>Comprobar periodos y fuentes de origen, no ajustar automáticamente.</small></div><span>${fm(total-subtotal)}</span></div>`:''}
+      ${rows||'<div class="table-row"><div><b>Conciliación por método</b><br><small>No hay métodos señalados en la respuesta actual; eso no certifica ausencia de incidencias históricas.</small></div></div>'}</div>
+      <p class="fin-quality">Para TS-DA53AC91: contrastar importe facturado, abonos confirmados y saldo pendiente en Staff, Soporte y liquidación Enterprise. Esta vista no presupone un cobro adicional.</p></article>`;
+  }
   function renderTreasury(d){
     const el=qs('treasury');if(!el)return;
     el.innerHTML=`${financeActions()}
@@ -3327,6 +3348,7 @@ function renderV9RealMarketing(data){
 
       <div class="fin-split-card"><div><span>UTILIDAD DISTRIBUIBLE</span><h2>${fm(d.result?.distributable)}</h2><p>Los costos de inventario se reconocen cuando se vende/consume la mercancía. Los préstamos de socios y sus devoluciones quedan fuera de la utilidad.</p></div><div class="fin-split-grid"><article><span>Empresa · ${Number(d.settings?.company_pct||50)}%</span><b>${fm(d.result?.company)}</b></article><article><span>Freddy · ${Number(d.settings?.freddy_pct||25)}%</span><b>${fm(d.result?.freddy)}</b></article><article><span>Nelson · ${Number(d.settings?.nelson_pct||25)}%</span><b>${fm(d.result?.nelson)}</b></article></div></div>
 
+      ${financeAuditPanel(d)}
       <div class="main-grid fin-main-grid">
         <article class="panel"><div class="panel-head"><h3>Proveedores por pagar</h3><span class="tag">${fm(d.inventory?.supplier_payable)}</span></div><div class="table">${purchaseRows(d)}</div></article>
         <article class="panel"><div class="panel-head"><h3>Cuentas por cobrar</h3><span class="tag">${fm(d.receivables?.total)}</span></div><div class="table">${receivableRows(d)}</div></article>
@@ -3549,7 +3571,7 @@ function renderV9RealMarketing(data){
     if(!bank.connected){alert('Primero ejecuta la migración MIGRACION-ENTERPRISE-V10.21-CAJA-CHICA-CUENTAS.sql en el Supabase principal. No borra ningún valor existente.');return}
     const unassigned=c==='VES'?Number(bank.unassigned_ves||0):Number(bank.unassigned_usd||0);
     closeFinModal();const wrap=document.createElement('div');wrap.className='fin-modal petty-bank-modal';
-    const accountCards=accounts.map(a=>`<article class="petty-bank-card" data-bank-card="${safe(a.id)}"><div class="petty-bank-card-head">${pettyBankLogo(a)}<div class="petty-bank-copy"><span>${safe(a.account_type==='wallet'?'BILLETERA / RED':'CUENTA')}</span><h4>${safe(pettyBankName(a))}</h4><small>${a.account_last4?`•••• ${safe(a.account_last4)}`:'Sin terminación registrada'}</small></div><div class="petty-bank-money"><b class="petty-bank-balance">${c==='VES'?`${fn(a.balance)} Bs`:fm(a.balance)}</b><small class="petty-bank-updated">${a.last_movement_at?`Mov. ${fd(a.last_movement_at)}`:'Sin movimientos'}</small></div></div><div class="petty-bank-actions"><button class="petty-bank-action is-primary" type="button" data-petty-bank-menu="${safe(a.id)}">${pettyActionIcon('movement')}<span>Movimiento</span></button><button class="petty-bank-action" type="button" data-petty-bank-transfer="${safe(a.id)}">${pettyActionIcon('transfer')}<span>Transferir</span></button><button class="petty-bank-action" type="button" data-petty-bank-adjust="${safe(a.id)}">${pettyActionIcon('adjust')}<span>Ajustar</span></button><button class="petty-bank-action" type="button" data-petty-bank-history="${safe(a.id)}">${pettyActionIcon('history')}<span>Historial</span></button><button class="petty-bank-action is-icon" type="button" data-bank-settings aria-label="Configurar ${safe(pettyBankName(a))}">${pettyActionIcon('settings')}</button></div></article>`).join('');
+    const accountCards=accounts.map(a=>`<article class="petty-bank-card" data-bank-card="${safe(a.id)}"><div class="petty-bank-card-head">${pettyBankLogo(a)}<div class="petty-bank-copy"><span>${safe(a.account_type==='cash'?'EFECTIVO':a.account_type==='wallet'?'BILLETERA / RED':'CUENTA')}</span><h4>${safe(pettyBankName(a))}</h4><small>${a.account_last4?`•••• ${safe(a.account_last4)}`:a.account_type==='cash'?'Caja física':'Sin terminación registrada'}</small></div><div class="petty-bank-money"><b class="petty-bank-balance">${c==='VES'?`${fn(a.balance)} Bs`:fm(a.balance)}</b><small class="petty-bank-updated">${a.last_movement_at?`Mov. ${fd(a.last_movement_at)}`:'Sin movimientos'}</small></div></div><div class="petty-bank-actions"><button class="petty-bank-action is-primary" type="button" data-petty-bank-menu="${safe(a.id)}">${pettyActionIcon('movement')}<span>Movimiento</span></button><button class="petty-bank-action" type="button" data-petty-bank-transfer="${safe(a.id)}">${pettyActionIcon('transfer')}<span>Transferir</span></button><button class="petty-bank-action" type="button" data-petty-bank-adjust="${safe(a.id)}">${pettyActionIcon('adjust')}<span>Ajustar</span></button><button class="petty-bank-action" type="button" data-petty-bank-history="${safe(a.id)}">${pettyActionIcon('history')}<span>Historial</span></button><button class="petty-bank-action is-icon" type="button" data-bank-settings aria-label="Configurar ${safe(pettyBankName(a))}">${pettyActionIcon('settings')}</button></div></article>`).join('');
     wrap.innerHTML=`<div class="fin-modal-backdrop"></div><div class="fin-modal-card petty-bank-shell"><button class="fin-modal-x">×</button><div class="fin-modal-head"><span>CAJA CHICA · ${safe(c)}</span><h3>Cuentas y saldos</h3><p>El total de Caja Chica no cambia al distribuir o transferir dinero entre cuentas.</p></div><div class="petty-bank-summary"><div><span>Total ${safe(c)}</span><b>${c==='VES'?`${fn(p.balance_ves)} Bs`:fm(p.balance_usd)}</b></div><div><span>Sin asignar</span><b>${c==='VES'?`${fn(unassigned)} Bs`:fm(unassigned)}</b><button type="button" data-petty-bank-allocate="${safe(c)}" ${unassigned<=0?'disabled':''}>Asignar a cuenta</button></div></div><div class="petty-bank-grid">${accountCards||'<div class="fin-empty">No hay cuentas configuradas para esta moneda.</div>'}</div><div class="petty-bank-footer"><button type="button" data-petty-bank-reconcile>Conciliar</button><small>Iconos bancarios locales · fondo transparente · carga rápida.</small></div></div>`;
     document.body.appendChild(wrap);wrap.querySelector('.fin-modal-backdrop').onclick=closeFinModal;wrap.querySelector('.fin-modal-x').onclick=closeFinModal;
   }
@@ -3585,6 +3607,49 @@ function renderV9RealMarketing(data){
 async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este movimiento? No se eliminará: quedará marcado como anulado para conservar la trazabilidad.'))return;const notes=prompt('Motivo de la anulación (opcional):','');try{await finPost({action:'void_entry',id,notes:notes||'Anulado desde Enterprise'});}catch(e){alert(e.message||e)}}
   async function closeWeek(){if(!financeCache)return;const rc=financeCache.reconciliation?.current,rd=financeCache.reconciliation?.totals?.difference;if(!rc||rc.status!=='closed'||(rd!==null&&Math.abs(Number(rd))>.01)){if(!confirm('La conciliación de caja no está cerrada o tiene una diferencia pendiente. ¿Deseas continuar de todos modos con el cierre semanal?'))return}if(!confirm(`Cerrar auditoría ${financeCache.period.start} → ${financeCache.period.end}?\n\nUtilidad distribuible: ${fm(financeCache.result.distributable)}\nEmpresa: ${fm(financeCache.result.company)}\nFreddy: ${fm(financeCache.result.freddy)}\nNelson: ${fm(financeCache.result.nelson)}\n\nUna semana cerrada queda guardada como fotografía de auditoría.`))return;const notes=prompt('Observación del cierre (opcional):','');try{await finPost({action:'close_week',notes:notes||''});alert('Semana cerrada y guardada en auditoría.')}catch(e){alert(e.message||e)}}
 
+  // Detalles de indicadores: lectura de la respuesta ya autorizada por Enterprise.
+  // No ejecuta escrituras ni interpreta agregados como transacciones individuales.
+  function openMetricDetail(title,value,description,items=[],destination=''){
+    document.getElementById('ts-metric-details')?.remove();
+    const overlay=document.createElement('div');overlay.id='ts-metric-details';
+    overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(9,15,25,.6);display:grid;place-items:center;padding:18px';
+    const panel=document.createElement('section');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Detalle de '+title);
+    panel.style.cssText='background:#fff;color:#17202c;border-radius:18px;padding:24px;width:min(620px,100%);max-height:85vh;overflow:auto;box-shadow:0 18px 60px #0004';
+    const h=document.createElement('h2');h.textContent=title;h.style.margin='0 0 12px';panel.append(h);
+    const amount=document.createElement('strong');amount.textContent=value;amount.style.cssText='font-size:28px;display:block;margin-bottom:12px';panel.append(amount);
+    const note=document.createElement('p');note.textContent=description;note.style.cssText='font-size:14px;line-height:1.6';panel.append(note);
+    if(items.length){const list=document.createElement('div');list.style.cssText='border-top:1px solid #ddd;margin-top:12px;padding-top:12px';for(const [label,detail] of items){const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;gap:15px;padding:8px 0;border-bottom:1px solid #eee;font-size:14px';const l=document.createElement('span');l.textContent=label;const r=document.createElement('b');r.textContent=String(detail);row.append(l,r);list.append(row)}panel.append(list)}
+    const foot=document.createElement('div');foot.style.cssText='display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;margin-top:20px';
+    const close=document.createElement('button');close.type='button';close.textContent='Cerrar';close.onclick=()=>overlay.remove();foot.append(close);
+    if(destination&&document.getElementById(destination)){const go=document.createElement('button');go.type='button';go.textContent='Ver registros disponibles →';go.onclick=()=>{overlay.remove();switchView(destination)};foot.append(go)}
+    panel.append(foot);overlay.append(panel);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+    document.body.append(overlay);close.focus();
+    overlay.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.remove()});
+  }
+  const metricDefinitions={
+    'Cobrado semana':['collections','gross','treasury','Tienda, Soporte y otros ingresos registrados en el periodo.',[['Tienda','collections.shop'],['Soporte','collections.support'],['Otros','collections.other']]],
+    'Por cobrar':['receivables','total','treasury','Saldos registrados como pendientes. Revisar órdenes de Staff y Soporte para conciliación.',[['Tienda','receivables.store'],['Soporte','receivables.support'],['Manual','receivables.manual_total']]],
+    'Pendiente por cobrar':['receivables','total','treasury','Saldos por cobrar; la respuesta agregada no incluye todas las órdenes.',[['Tienda','receivables.store'],['Soporte','receivables.support']]],
+    'Gastos operativos':['outflows','operating_expenses','treasury','Gastos operativos reportados para el periodo; el detalle disponible aparece en Movimientos financieros.',[]],
+    'Utilidad semanal real':['result','distributable','weeklyAudit','Resultado informado por Finanzas; revisar costos y conciliación antes del reparto.',[['Empresa','result.company'],['Freddy','result.freddy'],['Nelson','result.nelson']]],
+    'Posición de caja':['cash_position','amount','reconciliation','Saldo reportado por el servidor; verificar si está conciliado o estimado.',[['Modo','cash_position.mode']]],
+    'Proveedores por pagar':['inventory','supplier_payable','treasury','Obligaciones de compras pendientes en Inventory.',[]],
+    'Caja neta hoy':['today','cash_net','reconciliation','Flujo neto de hoy, según los movimientos que devuelve el servidor.',[['Entradas','today.cash_in'],['Salidas','today.cash_out']]],
+    'Disponible USD':['petty_cash','balance_usd','pettyCash','Saldo total USD de Caja Chica. Abrir las cuentas desde Disponible USD.',[['Sin asignar','petty_cash.banking.unassigned_usd']]],
+    'Disponible Bs.':['petty_cash','balance_ves','pettyCash','Saldo total VES de Caja Chica. Abrir las cuentas desde Disponible Bs.',[['Sin asignar','petty_cash.banking.unassigned_ves']]]
+  };
+  function metricPath(source,path){return String(path).split('.').reduce((v,k)=>v?.[k],source)}
+  document.addEventListener('click',e=>{
+    if(e.target.closest('button,a,input,select,textarea,[data-petty-currency],[data-fin-new],[data-fin-collect]'))return;
+    const card=e.target.closest('#operations .exec-kpi-grid article, #executive .exec-kpi-grid article, #treasury .fin-kpis article, #pettyCash .book-kpis article, #enterpriseCharts .exec-kpi-grid article');
+    if(!card||!financeCache)return;
+    const title=card.querySelector('span')?.textContent?.trim()||'';
+    const def=metricDefinitions[title];
+    if(!def){openMetricDetail(title,card.querySelector('b')?.textContent?.trim()||'—','Este valor es un agregado de la fuente Enterprise. No se dispone de una lista completa de operaciones en la respuesta actual. Consulte los módulos correspondientes.');return}
+    const [, ,dest,description,fields]=def;
+    const items=(fields||[]).map(([label,path])=>[label,metricPath(financeCache,path)??'No proporcionado']);
+    openMetricDetail(title,card.querySelector('b')?.textContent?.trim()||'—',description,items,dest);
+  });
   document.addEventListener('click',e=>{const b=e.target.closest('[data-fin-new]');if(b)openEntryForm(b.dataset.finNew);const pn=e.target.closest('[data-petty-new]');if(pn)openPettyForm(pn.dataset.pettyNew);const pc=e.target.closest('[data-petty-currency]');if(pc)openPettyBanks(pc.dataset.pettyCurrency);const bm=e.target.closest('[data-petty-bank-menu]');if(bm)openPettyBankMenu(bm.dataset.pettyBankMenu);const bt=e.target.closest('[data-petty-bank-transfer]');if(bt)openPettyBankTransfer(bt.dataset.pettyBankTransfer);const ba=e.target.closest('[data-petty-bank-adjust]');if(ba)openPettyForm('adjustment',ba.dataset.pettyBankAdjust);const bh=e.target.closest('[data-petty-bank-history]');if(bh)openPettyBankHistory(bh.dataset.pettyBankHistory);const alloc=e.target.closest('[data-petty-bank-allocate]');if(alloc)openPettyBankTransfer('',alloc.dataset.pettyBankAllocate);const mtype=e.target.closest('[data-bank-move-type]');if(mtype){closeFinModal();openPettyForm(mtype.dataset.bankMoveType,mtype.dataset.bankId)}const card=e.target.closest('.petty-bank-card');if(card&&e.target.closest('[data-bank-settings]'))openPettyBankSettings(card.dataset.bankCard);if(e.target.closest('[data-petty-bank-reconcile]')){closeFinModal();switchView('reconciliation')}if(e.target.closest('[data-petty-account]'))openPettyAccount();const pv=e.target.closest('[data-petty-void]');if(pv)voidPetty(pv.dataset.pettyVoid);const c=e.target.closest('[data-fin-collect]');if(c)collectReceivable(c.dataset.finCollect,c.dataset.finDue);const t=e.target.closest('[data-fin-pay-tech]');if(t)payTech(t.dataset.finPayTech,t.dataset.finDue);const ss=e.target.closest('[data-fin-pay-seller]');if(ss)paySeller(ss.dataset.finPaySeller,ss.dataset.finDue);const v=e.target.closest('[data-fin-void]');if(v)voidFinanceEntry(v.dataset.finVoid);if(e.target.closest('[data-fin-save-recon]'))saveReconciliation(false);if(e.target.closest('[data-fin-close-recon]'))saveReconciliation(true);if(e.target.closest('[data-fin-close-week]'))closeWeek();if(e.target.closest('[data-fin-commission-settings]'))openCommissionSettings();if(e.target.closest('[data-fin-refresh]'))loadFinanceCenter(true)},true);
   const prevSwitch=window.switchView||switchView;window.switchView=switchView=function(id){prevSwitch(id);if(id==='treasury'||id==='pettyCash'||id==='reconciliation'||id==='weeklyAudit')setTimeout(()=>loadFinanceCenter(false),30)};
   const oldShow=showApp;showApp=function(){oldShow();setTimeout(()=>loadFinanceCenter(true),480)};
