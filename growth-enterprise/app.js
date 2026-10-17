@@ -2830,7 +2830,7 @@ function renderV9RealMarketing(data){
     document.querySelectorAll('.table-row.v9-row, .table-row:not(.production-row), .product-row, .activity-item, .status-row').forEach(row=>{
       if(row.dataset.productionActive === '1') return;
       row.dataset.productionActive = '1';
-      row.title = 'Toca para ver detalle rápido';
+      row.title = 'Consultar registro y fuente';
       row.addEventListener('click', (event)=>{
         if(event.target.closest('button,a,select,input')) return;
         rowToDetail(row);
@@ -3280,28 +3280,37 @@ function renderV9RealMarketing(data){
     const rows=Array.isArray(d?.treasury_allocations?.settlements)?d.treasury_allocations.settlements:[];
     return rows.slice(0,80).map((x,i)=>{
       const r=receiptAllocation(x);
-      return `<div class="service-profit-row"><div class="service-profit-id"><b>${safe(x.order_code||'Servicio')}</b><small>${fd(x.settled_at||x.updated_at)}${x.technician_name||x.technician_email?` · ${safe(x.technician_name||x.technician_email)}`:''}</small></div><div><span>Cobrado acumulado</span><b>${fm(r.paid)}</b></div><div><span>Costo por recuperar</span><b>${fm(r.inventoryRemaining)}</b></div><div><span>Comisión por reservar</span><b>${fm(r.commissionRemaining)}</b></div><div class="service-profit-company"><span>Excedente provisional</span><b>${fm(r.free)}</b><small>Sin distribuir</small></div><button type="button" class="mini-action" data-ts-credit-detail="${i}">VER DESGLOSE</button></div>`;
+      return `<div class="service-profit-row"><div class="service-profit-id"><b>${safe(x.order_code||'Servicio')}</b><small>${fd(x.settled_at||x.updated_at)}${x.technician_name||x.technician_email?` · ${safe(x.technician_name||x.technician_email)}`:''}</small></div><div><span>Cobrado acumulado</span><b>${fm(r.paid)}</b></div><div><span>Costo por recuperar</span><b>${fm(r.inventoryRemaining)}</b></div><div><span>Comisión por reservar</span><b>${fm(r.commissionRemaining)}</b></div><div class="service-profit-company"><span>Excedente provisional</span><b>${fm(r.free)}</b><small>Sin distribuir</small></div><button type="button" class="mini-action ts-original-ver" data-ts-credit-detail="${i}" aria-expanded="false">VER</button><div class="ts-credit-inline" data-credit-inline="${i}" hidden></div></div>`;
     }).join('')||'<div class="fin-empty">Todavía no hay liquidaciones automáticas de Servicio Técnico en este periodo.</div>';
   }
   document.addEventListener('click',e=>{
     const btn=e.target.closest('[data-ts-credit-detail]');if(!btn)return;
-    e.preventDefault();
-    const row=financeCache?.treasury_allocations?.settlements?.[Number(btn.dataset.tsCreditDetail)];
-    if(!row)return;
+    e.preventDefault();e.stopPropagation();
+    const idx=Number(btn.dataset.tsCreditDetail);
+    const row=financeCache?.treasury_allocations?.settlements?.[idx];
+    const panel=btn.closest('.service-profit-row')?.querySelector('[data-credit-inline]');
+    if(!row||!panel)return;
+    const isOpen=!panel.hidden;
+    document.querySelectorAll('.ts-credit-inline:not([hidden])').forEach(el=>{el.hidden=true;const b=el.closest('.service-profit-row')?.querySelector('[data-ts-credit-detail]');if(b){b.textContent='VER';b.setAttribute('aria-expanded','false')}});
+    if(isOpen)return;
     const a=receiptAllocation(row);
-    openMetricDetail(`Aplicación de cobros · ${row.order_code||'Servicio'}`,fm(a.paid),
-      'Criterio de control: de los abonos recibidos se recupera primero el costo registrado, luego se reserva la comisión. El saldo pendiente del cliente NO se considera dinero recibido. El excedente es provisional: no se distribuye automáticamente, ni se crean movimientos en Caja Chica.',[
+    const items=[
+      ['Orden / fuente',row.order_code||'Servicio Técnico'],
       ['Cobrado acumulado',fm(a.paid)],
-      ['Costo registrado del repuesto',fm(a.inventory)],
-      ['Costo cubierto con abonos',fm(a.recovered)],
-      ['Costo aún por recuperar',fm(a.inventoryRemaining)],
-      ['Comisión técnica/vendedor registrada',fm(a.commission)],
-      ['Comisión cubierta/reservada',fm(a.reserve)],
-      ['Comisión aún por cubrir',fm(a.commissionRemaining)],
-      ['Excedente provisional no distribuido',fm(a.free)],
-      ['Utilidad contractual estimada (NO cobrada)',fm(row.company_profit_usd)],
-      ['Crédito / monto contractual','Consultar orden original en Soporte; no inferido de la liquidación']
-    ],'treasury');
+      ['Costo registrado',fm(a.inventory)],
+      ['Costo cubierto',fm(a.recovered)],
+      ['Costo pendiente de recuperar',fm(a.inventoryRemaining)],
+      ['Comisión registrada',fm(a.commission)],
+      ['Comisión cubierta o reservada',fm(a.reserve)],
+      ['Comisión todavía por cubrir',fm(a.commissionRemaining)],
+      ['Excedente provisional · sin distribuir',fm(a.free)],
+      ['Utilidad contractual estimada · no cobrada',fm(row.company_profit_usd)]
+    ];
+    panel.replaceChildren();
+    const heading=document.createElement('strong');heading.textContent='Detalle de la aplicación del cobro';panel.append(heading);
+    items.forEach(([label,value])=>{const line=document.createElement('div');line.className='ts-credit-detail-line';const l=document.createElement('span');l.textContent=label;const v=document.createElement('b');v.textContent=value;line.append(l,v);panel.append(line)});
+    const note=document.createElement('p');note.textContent='Consulta únicamente: no registra pagos, modifica inventario ni distribuye utilidades. La deuda pendiente se verifica en la orden original.';panel.append(note);
+    panel.hidden=false;btn.textContent='OCULTAR';btn.setAttribute('aria-expanded','true');
   });
   function sellerCommissionRows(d){
     return (d.sellers?.commissions||[]).filter(x=>Number(x.pending_usd||0)>0).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||e.metadata?.seller_name||e.metadata?.seller_email||'Vendedor')}</b><br><small>${safe(e.source_code||e.description)} · venta ${fm(e.metadata?.sale_amount||e.metadata?.gross_sale_amount||0)} · ${Number(e.metadata?.rate_pct||e.metadata?.seller_rate_pct||0)}%</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-pay-seller="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Pagar</button></div>`).join('')||'<div class="fin-empty">No hay comisiones de vendedores pendientes.</div>';
@@ -3362,19 +3371,49 @@ function renderV9RealMarketing(data){
     const shop=Number(rec.store||0),support=Number(rec.support||0);
     const manual=Number(rec.manual_total??rec.manual??0);
     const subtotal=shop+support+manual;
-    const canCompare=rec.manual_total!==undefined||rec.manual!==undefined;
-    const discrepancy=canCompare&&Math.abs(total-subtotal)>0.011;
+    const discrepancy=Math.abs(total-subtotal)>0.011;
     const flagged=(d.reconciliation?.lines||[]).filter(x=>
       /sin definir|pago m[oó]vil/i.test(String(x.method||'')) ||
       (x.difference!==null&&Math.abs(Number(x.difference||0))>0.01));
-    const rows=flagged.slice(0,15).map(x=>`<div class="table-row"><div><b>${safe(x.method||'Sin definir')}</b><br><small>Entradas ${fm(x.inflow)} · salidas ${fm(x.outflow)} · ${Number(x.in_count||0)+Number(x.out_count||0)} movimientos</small></div><span>${x.difference===null?'Pendiente de conciliación':fm(x.difference)}</span></div>`).join('');
-    return `<article class="panel" aria-label="Auditoría financiera de solo lectura"><div class="panel-head"><div><span class="finance-kicker">SOLO LECTURA</span><h3>Verificación de cobros y conciliación</h3></div><span class="tag">No realiza ajustes</span></div>
-      <p class="fin-quality">Los valores se muestran desde las fuentes actuales. Una diferencia requiere verificar la orden y los movimientos originales antes de corregirla.</p>
-      <div class="table"><div class="table-row"><div><b>Cuentas por cobrar · total Enterprise</b><br><small>Tienda ${fm(shop)} · Soporte ${fm(support)}${canCompare?` · Manual ${fm(manual)}`:' · Manual: consultar detalle'}</small></div><span>${fm(total)}</span></div>
-      ${discrepancy?`<div class="table-row"><div><b>Advertencia: desglose distinto del total</b><br><small>Comprobar periodos y fuentes de origen, no ajustar automáticamente.</small></div><span>${fm(total-subtotal)}</span></div>`:''}
-      ${rows||'<div class="table-row"><div><b>Conciliación por método</b><br><small>No hay métodos señalados en la respuesta actual; eso no certifica ausencia de incidencias históricas.</small></div></div>'}</div>
-      <p class="fin-quality">Para TS-DA53AC91: contrastar importe facturado, abonos confirmados y saldo pendiente en Staff, Soporte y liquidación Enterprise. Esta vista no presupone un cobro adicional.</p></article>`;
+    const button=(key)=>`<button type="button" class="ts-audit-toggle" data-audit-expand="${safe(key)}" aria-expanded="false">VER</button>`;
+    const row=(key,heading,description,value)=>`<div class="ts-audit-item"><div class="table-row ts-audit-line"><div><b>${heading}</b><br><small>${description}</small></div><span>${value}</span>${button(key)}</div><div class="ts-audit-detail" data-audit-detail="${safe(key)}" hidden></div></div>`;
+    const rows=flagged.slice(0,15).map((x,i)=>row('method-'+i,safe(x.method||'Sin definir'),`Entradas ${fm(x.inflow)} · salidas ${fm(x.outflow)} · ${Number(x.in_count||0)+Number(x.out_count||0)} movimientos`,x.difference===null?'Pendiente de conciliación':fm(x.difference))).join('');
+    return `<article class="panel ts-audit-panel" aria-label="Verificación de cobros y conciliación"><div class="panel-head"><div><span class="finance-kicker">DETALLE CONSULTABLE</span><h3>Verificación de cobros y conciliación</h3></div><span class="tag">Consulta sin ajustes automáticos</span></div>
+      <p class="fin-quality">Pulsa VER para desplegar el origen bajo cada registro. Revisar no cambia abonos, caja ni inventario. Los ajustes de conciliación se realizan en la sección correspondiente.</p>
+      <div class="table">${row('receivables','Cuentas por cobrar · total Enterprise',`Tienda ${fm(shop)} · Soporte ${fm(support)} · Manual ${fm(manual)}`,fm(total))}
+      ${discrepancy?row('difference','Advertencia: desglose distinto del total','Comprobar periodos y fuentes originales',fm(total-subtotal)):''}
+      ${rows||'<div class="table-row"><div><b>Conciliación por método</b><br><small>No hay métodos señalados en la respuesta actual.</small></div></div>'}</div>
+      <p class="fin-quality">Los pagos en crédito no deben contarse nuevamente como ventas al recibirse el saldo restante.</p></article>`;
   }
+  // Expansión en línea de la auditoría. No hay llamadas POST ni alteraciones contables.
+  document.addEventListener('click',event=>{
+    const btn=event.target.closest('[data-audit-expand]');if(!btn)return;
+    event.preventDefault();event.stopPropagation();
+    const item=btn.closest('.ts-audit-item');const detail=item?.querySelector('.ts-audit-detail');if(!detail)return;
+    if(!detail.hidden){detail.hidden=true;btn.textContent='VER';btn.setAttribute('aria-expanded','false');return}
+    const d=financeCache||{},key=btn.dataset.auditExpand;
+    const content=document.createElement('div');content.className='ts-audit-detail-inner';
+    const add=(label,value)=>{const r=document.createElement('div');r.className='ts-audit-detail-line';const l=document.createElement('span');l.textContent=String(label);const v=document.createElement('strong');v.textContent=String(value??'No disponible');r.append(l,v);content.append(r)};
+    const link=(label,target)=>{if(!document.getElementById(target))return;const b=document.createElement('button');b.type='button';b.className='ts-audit-jump';b.textContent=label+' →';b.onclick=()=>switchView(target);content.append(b)};
+    if(key==='receivables'){
+      add('Tienda',fm(d.receivables?.store));add('Servicio Técnico',fm(d.receivables?.support));add('Cuentas manuales',fm(d.receivables?.manual_total??d.receivables?.manual));
+      for(const r of (d.receivables?.support_rows||[]).slice(0,60))add('Reparación '+(r.order_code||'Sin código'),`Pendiente ${fm(r.pending_usd)} · Abonado ${fm(r.paid_usd)} · Total ${fm(r.quote_usd)}`);
+      for(const r of (d.receivables?.manual_rows||[]).slice(0,30))add(r.counterparty||r.description||'Cuenta manual',`Pendiente ${fm(r.pending_usd)} · ${r.reference||'Sin referencia'}`);
+      if(!(d.receivables?.support_rows||[]).length)add('Detalle por orden','El servidor no facilitó filas individuales verificables para todas las cuentas.');
+      link('Ir a Tesorería','treasury');
+    }else if(key==='difference'){
+      const r=d.receivables||{};add('Total Enterprise',fm(r.total));add('Suma de categorías',fm(Number(r.store||0)+Number(r.support||0)+Number(r.manual_total??r.manual??0)));add('Revisión','Comprobar fuente y periodo; no generar ajustes compensatorios.');link('Ir a Tesorería','treasury');
+    }else if(key.startsWith('method-')){
+      const lines=(d.reconciliation?.lines||[]).filter(x=>/sin definir|pago m[oó]vil/i.test(String(x.method||''))||(x.difference!==null&&Math.abs(Number(x.difference||0))>0.01));
+      const r=lines[Number(key.slice(7))];if(r){add('Método',r.method||'Sin definir');add('Entradas',fm(r.inflow));add('Salidas',fm(r.outflow));add('Saldo inicial',fm(r.opening_balance));add('Saldo esperado',fm(r.expected_closing));add('Saldo real',r.actual_closing===null?'No conciliado':fm(r.actual_closing));add('Diferencia',r.difference===null?'Pendiente':fm(r.difference));
+        const transactions=(d.audit_readonly?.payment_method_trace?.records||[]).filter(x=>String(x.method||'').toLowerCase()===String(r.method||'').toLowerCase());
+        if(transactions.length)for(const tx of transactions.slice(0,50))add(`${tx.direction==='out'?'Salida':'Entrada'} · ${tx.source||'Sin fuente'}`,`${fm(tx.amount_usd)} · ${tx.occurred_at||'Sin fecha'} · Ref: ${tx.order_id||tx.source_id||tx.reference||'Sin identificador'}`);
+        else add('Registros individuales','No disponibles en la respuesta actual; consultar origen en Conciliación.');
+        link('Ir a Conciliación','reconciliation');
+      }
+    }
+    detail.replaceChildren(content);detail.hidden=false;btn.textContent='OCULTAR';btn.setAttribute('aria-expanded','true');
+  },true);
   function renderTreasury(d){
     const el=qs('treasury');if(!el)return;
     el.innerHTML=`${financeActions()}
@@ -3528,9 +3567,10 @@ function renderV9RealMarketing(data){
     for(const id of ['treasury','pettyCash','reconciliation','weeklyAudit']){const el=qs(id);if(el&&!el.innerHTML.trim())el.innerHTML='<article class="panel"><p>Cargando control financiero real…</p></article>'}
     try{
       const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);let r;try{r=await fetch('/.netlify/functions/enterprise-finance',{headers:await finHeaders(),cache:'no-store',signal:controller.signal})}finally{clearTimeout(timer)}const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo cargar Finanzas Centrales');
-      financeCache=d;window.enterpriseFinanceData=d;renderTreasury(d);renderPettyCash(d);renderReconciliation(d);renderWeeklyAudit(d);renderFinanceQuick(d);renderExecutiveCharts(d);hideEnterpriseBoot();setTimeout(()=>showPartnerWelcome(d),220);return d;
+      financeCache=d;window.enterpriseFinanceData=d;window.thinkStoreSalesLedger?.render?.();renderTreasury(d);renderPettyCash(d);renderReconciliation(d);renderWeeklyAudit(d);renderFinanceQuick(d);renderExecutiveCharts(d);hideEnterpriseBoot();setTimeout(()=>showPartnerWelcome(d),220);return d;
     }catch(e){hideEnterpriseBoot();const msg=e?.name==='AbortError'?'La sincronización financiera tardó demasiado. El panel sigue disponible y puedes pulsar Actualizar para reintentar.':(e.message||e);const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(msg)}</p><small>Ejecuta SQL-01-SUPABASE-PRINCIPAL-FINAL.sql y luego MIGRACION-V14.81-ENTERPRISE-V10.13-INTEGRACION.sql en el Supabase principal.</small></article>`;['treasury','pettyCash','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});const home=qs('enterpriseFinanceQuick');if(home)home.innerHTML=html;return null}
   }
+  window.loadFinanceCenter=loadFinanceCenter;
   async function finPost(body){const r=await fetch('/.netlify/functions/enterprise-finance',{method:'POST',headers:await finHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar');financeCache=d.summary||null;await loadFinanceCenter(true);return d}
   function closeFinModal(){document.querySelector('.fin-modal')?.remove()}
   function modalShell(title,subtitle,fields,submitLabel,handler){
@@ -3767,10 +3807,33 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
     const main=document.querySelector('#app')||document.body;
     financeCardObserver.observe(main,{childList:true,subtree:true});
   });
+  // One VER per record: retain the original control, transfer tracing attributes,
+  // and remove extra controls inserted by previous releases. Avoid changing business data.
+  function unifyExistingVerButtons(){
+    const selectors='.fin-table-row,.service-profit-row,.ts-audit-line,#salesLedger .table-row,.table-row';
+    document.querySelectorAll(selectors).forEach(row=>{
+      const buttons=[...row.querySelectorAll('button')].filter(b=>b.closest('.table-row,.service-profit-row,.ts-audit-line')===row && /^(VER|VER DESGLOSE|OCULTAR)$/i.test(b.textContent.trim()));
+      if(!buttons.length)return;
+      const known=['data-audit-expand','data-ts-credit-detail','data-sales-row','data-trace-method','data-trace-entry','data-trace-summary'];
+      const main=buttons.find(b=>known.some(k=>b.hasAttribute(k)))||buttons[0];
+      for(const extra of buttons){
+        if(extra===main)continue;
+        for(const attr of known)if(extra.hasAttribute(attr)&&!main.hasAttribute(attr))main.setAttribute(attr,extra.getAttribute(attr));
+        extra.remove();
+      }
+      main.classList.add('ts-original-ver');
+      main.title='Desplegar detalle de este registro';
+    });
+  }
+  const verObserver=new MutationObserver(()=>unifyExistingVerButtons());
+  document.addEventListener('DOMContentLoaded',()=>{
+    unifyExistingVerButtons();
+    verObserver.observe(document.querySelector('#app')||document.body,{subtree:true,childList:true});
+  });
   // Detalles de origen en modo lectura. Nunca modificar ni recalcular importes financieros.
   function traceRows(title,amount,description,rows){
     const list=rows.map((r,i)=>[String(i+1)+' · '+String(r.title||'Registro'),String(r.details||'')]);
-    openMetricDetail(title,amount,description,list);
+    openMetricDetail(title,amount,description,list,title.startsWith('Método de cobro')?'reconciliation':'treasury');
   }
   document.addEventListener('click',event=>{
     const methodButton=event.target.closest('[data-trace-method]');
@@ -3793,7 +3856,7 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
       const e=(d.entries||[]).find(x=>String(x.id)===entryButton.dataset.traceEntry);
       if(!e){openMetricDetail('Movimiento financiero','—','El registro no se encuentra en el conjunto actual. Actualiza los datos y vuelve a consultar.');return}
       const rows=[['Identificador',e.id],['Orden de origen',e.source_code||'No indicado'],['Tipo',e.entry_type||'No indicado'],['Estado',e.status||'No indicado'],['Categoría',e.category||'No indicada'],['Contraparte',e.counterparty||'No indicada'],['Método',e.payment_method||'No indicado'],['Referencia',e.reference||'No indicada'],['Fecha',e.occurred_at||'No indicada'],['Descripción',e.description||'No indicada']];
-      openMetricDetail('Movimiento · '+(e.source_code||e.entry_type||'Detalle'),fm(e.amount_usd),'Registro financiero devuelto por Enterprise, solo lectura.',rows);
+      openMetricDetail('Movimiento · '+(e.source_code||e.entry_type||'Detalle'),fm(e.amount_usd),'Registro financiero devuelto por Enterprise, solo lectura. Identificador y referencia de origen incluidos cuando están disponibles.',rows,'treasury');
       return;
     }
     if(summaryButton){
@@ -3857,55 +3920,23 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
 })();
 
 
-/* Enterprise · Ventas realizadas y seguimiento de recuperación de costos.
-   Lectura exclusivamente; no escribe en Supabase ni liquida comisiones. */
+/* Enterprise · Ventas reales desde función protegida; una fila por operación. */
 (function(){
-  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const usd=x=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(x)||0);
-  const dt=x=>{try{return x?new Date(x).toLocaleString('es-VE'):'Sin fecha'}catch{return 'Sin fecha'}};
-  const state={items:[],loaded:false,table:'',error:'',complete:false,lastSync:null,busy:false,source:'todos'};
-  const allowPaid=s=>/pagado|pagada|pago recibido|pago verificado|entregado|paid|completed/i.test(String(s||''));
-  function render(){
-    const root=document.getElementById('salesLedger'); if(!root)return;
-    const support=window.enterpriseFinanceData?.treasury_allocations?.settlements||[];
-    const online=state.items.map(o=>({kind:'Tienda online',code:o.codigo||o.code||o.order_code||o.id||'Pedido',total:Number(o.total_usd??o.total??o.amount??0),paid:null,status:o.payment_status||o.estado||o.status||'Sin estado',date:o.created_at||o.fecha||'',source:state.table}));
-    const repairs=support.map(o=>({kind:'Servicio Técnico',code:o.order_code||'Orden',total:null,paid:Number(o.collected_usd||0),status:'Liquidación / abonos',date:o.settled_at||o.updated_at,source:'enterprise_service_settlements'}));
-    const rows=[...online,...repairs].filter(o=>state.source==='todos'||(state.source==='tienda'?o.kind==='Tienda online':o.kind==='Servicio Técnico'));
-    root.innerHTML=`<article class="panel"><div class="panel-head"><div><h3>Ventas realizadas · historial verificable</h3><small>Consulta de solo lectura · No modifica caja, pedidos ni stock</small></div><button type="button" data-sales-refresh>Actualizar</button></div><p class="staff-help">Cada fila muestra su fuente. El total del pedido NO es necesariamente dinero cobrado. Las reparaciones muestran el cobro registrado, no una segunda venta. Los cobros de mostrador que no figuren en estas fuentes requieren su propia fuente verificada.</p><div class="v2-toolbar"><label>Filtrar <select id="tsSalesSource"><option value="todos" ${state.source==='todos'?'selected':''}>Todas las fuentes visibles</option><option value="tienda" ${state.source==='tienda'?'selected':''}>Tienda online</option><option value="soporte" ${state.source==='soporte'?'selected':''}>Servicio Técnico</option></select></label></div><p class="staff-help">Pedidos online: ${state.items.length} consultados ${state.complete?'(consulta terminada)':'(carga pendiente o parcial)'} · Última consulta: ${state.lastSync?dt(state.lastSync):'No realizada'} ${state.error?'· Error: '+esc(state.error):''}</p><div class="table">${rows.map((r,i)=>`<div class="table-row"><div><b>${esc(r.code)}</b><br><small>${esc(r.kind)} · ${esc(r.source)} · ${esc(r.status)} · ${dt(r.date)}</small></div><span>${r.total===null?'Total: consultar origen':'Facturado: '+usd(r.total)}<br><small>${r.paid===null?'Cobro no verificado':'Cobrado: '+usd(r.paid)}</small></span><button type="button" class="mini-action" data-ts-sales-row="${i}">VER</button></div>`).join('')||'<div class="fin-empty">No hay ventas visibles en las fuentes consultadas.</div>'}</div></article>`;
-    root.__details=rows;
-  }
-  async function load(){
-    if(state.busy)return;state.busy=true;state.error='';state.items=[];state.complete=false;render();
-    try{
-      const client=window.supabaseClient;
-      if(!client)throw Error('No hay sesión de Supabase disponible');
-      let successful=false;
-      for(const table of ['pedidos','orders']){
-        let collected=[];let failed=false;
-        for(let from=0;from<10000;from+=500){
-          const res=await client.from(table).select('*').range(from,from+499);
-          if(res.error){failed=true;state.error=res.error.message||'Error de lectura';break;}
-          collected.push(...(res.data||[]));
-          if((res.data||[]).length<500){state.complete=true;break;}
-        }
-        if(!failed){state.items=collected;state.table=table;successful=true;break;}
-      }
-      if(!successful)throw Error(state.error||'No hay tabla de pedidos disponible');
-      if(!state.complete)state.error='Consulta limitada a 10.000 pedidos; no se debe considerar un historial completo';
-    }catch(e){state.error=e.message||String(e)}finally{state.lastSync=new Date().toISOString();state.loaded=true;state.busy=false;render()}
-  }
-  document.addEventListener('click',e=>{
-    const refresh=e.target.closest('[data-sales-refresh]');if(refresh){load();return;}
-    const btn=e.target.closest('[data-ts-sales-row]');if(!btn)return;
-    const root=document.getElementById('salesLedger');const r=root?.__details?.[Number(btn.dataset.tsSalesRow)];if(!r)return;
-    let dlg=document.getElementById('tsSalesReadOnlyDialog');if(!dlg){dlg=document.createElement('dialog');dlg.id='tsSalesReadOnlyDialog';dlg.style.cssText='width:min(760px,94vw);max-height:85vh;overflow:auto;border-radius:16px;padding:24px';document.body.appendChild(dlg)}
-    dlg.innerHTML=`<h3>Origen de venta · ${esc(r.code)}</h3><div class="table"><div class="table-row">Fuente: ${esc(r.kind)} · ${esc(r.source)}</div><div class="table-row">Estado: ${esc(r.status)}</div><div class="table-row">Fecha: ${dt(r.date)}</div><div class="table-row">Total facturado: ${r.total===null?'No disponible':usd(r.total)}</div><div class="table-row">Cobrado: ${r.paid===null?'No verificado; consultar comprobantes':usd(r.paid)}</div></div><p class="staff-help">No se infieren costos, abonos ni utilidades a partir del importe total. Para ver pagos individuales deben estar disponibles las referencias de la fuente.</p><button type="button" data-ts-sales-close>Cerrar</button>`;
-    dlg.querySelector('[data-ts-sales-close]').onclick=()=>dlg.close();dlg.showModal();
-  });
-  document.addEventListener('change',e=>{if(e.target?.id==='tsSalesSource'){state.source=e.target.value;render()}});
-  document.addEventListener('DOMContentLoaded',()=>{
-    const nav=document.querySelector('.nav[data-view="salesLedger"]');
-    nav?.addEventListener('click',()=>{if(!state.loaded)load();else render()});
-  });
-  window.thinkStoreSalesLedger={load,render};
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const usd=x=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(x)||0);
+ const dt=x=>{if(!x)return 'Sin fecha';const d=new Date(x);return Number.isNaN(d.getTime())?'Sin fecha':d.toLocaleString('es-VE')};
+ const st={source:'todos',openKey:null,error:'',loading:false};
+ const list=()=>window.enterpriseFinanceData?.sales_ledger||null;
+ function records(){const raw=list()?.records||[];return raw.filter(r=>st.source==='todos'||(st.source==='soporte'?r.kind==='Servicio Técnico':r.kind!=='Servicio Técnico'));}
+ function render(){
+  const root=document.getElementById('salesLedger');if(!root)return;
+  const ledger=list(),rows=records();
+  const detail=r=>`<div class="ts-sale-inline" style="margin:8px 0 14px;padding:14px;border:1px solid var(--line,#334155);border-radius:12px"><div><b>Fuente:</b> ${esc(r.source)} · <b>ID:</b> ${esc(r.id||r.code)}</div><div><b>Fecha:</b> ${esc(dt(r.date))} · <b>Estado:</b> ${esc(r.status)}</div><div><b>Facturado:</b> ${r.total_usd==null?'No disponible':usd(r.total_usd)} · <b>Cobrado:</b> ${r.collected_usd==null?'No verificado':usd(r.collected_usd)}</div>${r.pending_usd!=null?`<div><b>Saldo a cobrar:</b> ${usd(r.pending_usd)}</div>`:''}${r.parts_cost_usd!=null?`<div><b>Costo registrado de repuestos:</b> ${usd(r.parts_cost_usd)}</div>`:''}${r.technician_commission_usd!=null?`<div><b>Comisión técnica registrada:</b> ${usd(r.technician_commission_usd)}</div>`:''}${r.payment_method?`<div><b>Método:</b> ${esc(r.payment_method)}</div>`:''}${Array.isArray(r.items)&&r.items.length?`<div><b>Conceptos vinculados:</b><ul>${r.items.map(x=>`<li>${esc(x.name||x.product_name||x.description||x.descripcion||'Repuesto / producto')} ${x.quantity!=null?'· '+esc(x.quantity):''}</li>`).join('')}</ul></div>`:''}<p class="staff-help">${esc(r.note||'Consulta sin movimientos nuevos.')} Los cobros requieren verificación con los eventos individuales de su fuente.</p></div>`;
+  root.innerHTML=`<article class="panel"><div class="panel-head"><div><h3>Ventas realizadas</h3><small>Una operación por orden · detalle desplegable y origen</small></div><button type="button" data-sales-refresh ${st.loading?'disabled':''}>${st.loading?'Consultando…':'Actualizar'}</button></div><p class="staff-help">Consulta protegida de Enterprise, sin duplicar pagos, abonos o repuestos instalados. Facturado no significa cobrado.</p><div class="v2-toolbar"><label>Origen <select id="tsSalesSource"><option value="todos" ${st.source==='todos'?'selected':''}>Todas las fuentes</option><option value="tienda" ${st.source==='tienda'?'selected':''}>Tienda / pedidos</option><option value="soporte" ${st.source==='soporte'?'selected':''}>Servicio Técnico</option></select></label></div><p class="staff-help">${ledger?`Órdenes identificadas: ${ledger.total_found} · Última consulta: ${esc(dt(window.enterpriseFinanceData?.generated_at))}`:'Aún no hay respuesta de Finanzas Centrales.'}${ledger?.truncated?' · Advertencia: consulta parcial por límite de registros.':''}</p><p class="staff-help">${esc(ledger?.warning||'Falta validar cobertura de Staff.')} ${ledger&&!ledger.sources?.store_orders?' · Tienda online no accesible.':''} ${ledger&&!ledger.sources?.support_orders?' · Soporte no accesible.':''}${st.error?' · '+esc(st.error):''}</p><div class="table">${rows.map((r,i)=>{const key=r.kind+'|'+r.id;const open=st.openKey===key;return `<div class="table-row"><div><b>${esc(r.code)}</b><br><small>${esc(r.kind)} · ${esc(r.status)} · ${esc(dt(r.date))}</small></div><span>${r.total_usd==null?'Facturado no disponible':'Facturado '+usd(r.total_usd)}<br><small>${r.collected_usd==null?'Cobro no verificado':'Cobrado '+usd(r.collected_usd)}</small></span><button type="button" class="mini-action" data-sales-row="${i}" aria-expanded="${open}">${open?'OCULTAR':'VER'}</button></div>${open?detail(r):''}`}).join('')||'<div class="fin-empty">Sin registros disponibles en las fuentes accesibles. Esto no confirma que no existan ventas en Staff.</div>'}</div></article>`;
+ }
+ async function load(){if(st.loading)return;st.loading=true;st.error='';render();try{if(typeof window.loadFinanceCenter==='function')await window.loadFinanceCenter(true);else document.querySelector('[data-fin-refresh]')?.click();}catch(e){st.error=e.message||String(e)}finally{st.loading=false;render()}}
+ document.addEventListener('click',e=>{if(e.target.closest('[data-sales-refresh]')){load();return}const b=e.target.closest('[data-sales-row]');if(!b)return;const r=records()[Number(b.dataset.salesRow)];if(!r)return;const key=r.kind+'|'+r.id;st.openKey=st.openKey===key?null:key;render()});
+ document.addEventListener('change',e=>{if(e.target?.id==='tsSalesSource'){st.source=e.target.value;st.openKey=null;render()}});
+ document.addEventListener('DOMContentLoaded',()=>{document.querySelector('.nav[data-view="salesLedger"]')?.addEventListener('click',()=>{render();if(!list())load()});render()});
+ window.thinkStoreSalesLedger={load,render};
 })();

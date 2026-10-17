@@ -1,0 +1,1 @@
+Se han corregido exclusivamente los botones VER y el diseño de conciliación, ventas y liquidación. No se ejecutó SQL ni deploy. Mantener todas las carpetas desde la raíz del repositorio. VALIDAR EN NAVEGADOR ANTES DE PUBLICAR.

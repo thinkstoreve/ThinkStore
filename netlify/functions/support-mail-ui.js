@@ -65,7 +65,9 @@ function badge(text,tone='blue'){
 function statusPresentation(status){
   const s=clean(status).toLowerCase();
   if(/cotiz/.test(s))return{eyebrow:'COTIZACIÓN',title:'Tu cotización está lista',lead:'Revisa el trabajo propuesto, el monto y las condiciones antes de aprobar.',cta:'Revisar y aprobar cotización',tone:'blue'};
-  if(/aprob/.test(s))return{eyebrow:'REPARACIÓN AUTORIZADA',title:'Tu reparación fue autorizada',lead:'Ya recibimos tu aprobación y nuestro equipo puede continuar con el trabajo.',cta:'Ver seguimiento',tone:'green'};
+  if(/no aprobado|rechaz|declin/.test(s))return{eyebrow:'DECISIÓN REGISTRADA',title:'Hemos recibido tu decisión',lead:'La cotización no fue aprobada. Nuestro equipo revisará los siguientes pasos contigo.',cta:'Ver seguimiento',tone:'amber'};
+  if(/aprob/.test(s))return{eyebrow:'REPARACIÓN AUTORIZADA',title:'Cotización aprobada',lead:'Ya recibimos tu autorización. Tu equipo puede continuar al proceso de reparación.',cta:'Ver seguimiento',tone:'green'};
+  if(/diagnóstico disponible|diagnostico disponible|diagnóstico complet|diagnostico complet/.test(s))return{eyebrow:'DIAGNÓSTICO LISTO',title:'Diagnóstico de tu equipo disponible',lead:'El diagnóstico técnico ya está publicado y puedes revisarlo desde tu seguimiento seguro.',cta:'Ver diagnóstico',tone:'blue'};
   if(/diagn/.test(s))return{eyebrow:'DIAGNÓSTICO',title:'Estamos revisando tu equipo',lead:'Nuestro equipo técnico está verificando la falla y documentando el diagnóstico.',cta:'Ver seguimiento',tone:'blue'};
   if(/repar/.test(s))return{eyebrow:'EN REPARACIÓN',title:'Tu equipo está en reparación',lead:'El servicio técnico está avanzando con el trabajo autorizado.',cta:'Ver seguimiento',tone:'blue'};
   if(/repuesto|pieza|espera/.test(s))return{eyebrow:'ACTUALIZACIÓN',title:'Estamos esperando un repuesto',lead:'Tu orden sigue activa. Te avisaremos en cuanto podamos continuar con la reparación.',cta:'Ver seguimiento',tone:'amber'};
