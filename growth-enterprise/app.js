@@ -3807,26 +3807,38 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
     const main=document.querySelector('#app')||document.body;
     financeCardObserver.observe(main,{childList:true,subtree:true});
   });
-  // Solo un VER por registro. No crear botones extra ni sustituir el control funcional.
+  // One VER per record: retain the original control, transfer tracing attributes,
+  // and remove extra controls inserted by previous releases. Avoid changing business data.
   function unifyExistingVerButtons(){
-    const containers=[...document.querySelectorAll('.ts-audit-line,.service-profit-row,#salesLedger .table-row')];
-    for(const row of containers){
-      const buttons=[...row.querySelectorAll('button')].filter(b=>{
-        if(b.closest('.ts-audit-line,.service-profit-row,#salesLedger .table-row')!==row)return false;
-        return /^(VER|OCULTAR|VER DESGLOSE)$/i.test((b.textContent||'').trim());
-      });
-      if(!buttons.length)continue;
-      const attrs=['data-audit-expand','data-ts-credit-detail','data-sales-row'];
-      // Conservar el botón con el identificador de acción, no uno recreado visualmente.
-      const primary=buttons.find(b=>attrs.some(a=>b.hasAttribute(a)))||buttons.find(b=>b.classList.contains('mini-action')||b.classList.contains('ts-audit-toggle'))||buttons[0];
-      for(const b of buttons){
-        if(b===primary)continue;
-        for(const a of attrs)if(!primary.hasAttribute(a)&&b.hasAttribute(a))primary.setAttribute(a,b.getAttribute(a));
-        b.remove();
-      }
-      primary.classList.add('ts-original-ver');
-      primary.removeAttribute('style');
-      primary.title='Mostrar u ocultar el detalle de este registro';
+    // Unificar botones de la tarjeta completa, no solo los hijos directos del .table-row.
+    // El VER azul pequeño es el control visible; se le transfiere la acción ya existente.
+    const scopes=[
+      ...document.querySelectorAll('#salesLedger .table-row,.service-profit-row,.ts-audit-item,.ts-audit-item .ts-audit-line'),
+      ...document.querySelectorAll('.ts-audit-item,.ts-audit-line,.fin-table-row')
+    ];
+    const known=['data-audit-expand','data-ts-credit-detail','data-sales-row','data-trace-method','data-trace-entry','data-trace-summary'];
+    for(const scope of new Set(scopes)){
+      if(!scope.isConnected)continue;
+      // Nunca cruzar el límite de una operación o mezclar órdenes diferentes.
+      const candidates=[...scope.querySelectorAll('button')].filter(b=>/^(VER|VER DESGLOSE|OCULTAR)$/i.test(b.textContent.trim()));
+      if(candidates.length<2)continue;
+      const score=b=>{
+        const rect=b.getBoundingClientRect();
+        const style=getComputedStyle(b);
+        const background=style.backgroundColor||'';
+        return (b.classList.contains('mini-action')?100:0)+
+          (b.classList.contains('ts-audit-toggle')?60:0)+
+          (b.classList.contains('ts-original-ver')?30:0)+
+          (rect.width>0&&rect.width<115?40:0)+
+          (/rgb\(?(?:2[0-9]|[0-9]),?/.test(background)?0:0);
+      };
+      const keep=[...candidates].sort((a,b)=>score(b)-score(a))[0];
+      const source=candidates.find(b=>known.some(a=>b.hasAttribute(a)))||keep;
+      for(const name of known){if(source.hasAttribute(name)&&!keep.hasAttribute(name))keep.setAttribute(name,source.getAttribute(name));}
+      if(source.hasAttribute('aria-expanded'))keep.setAttribute('aria-expanded',source.getAttribute('aria-expanded'));
+      for(const btn of candidates)if(btn!==keep)btn.remove();
+      keep.classList.add('ts-ver-single');
+      keep.title='Ver detalle de esta operación';
     }
   }
   const verObserver=new MutationObserver(()=>unifyExistingVerButtons());
