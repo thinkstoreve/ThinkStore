@@ -2051,3 +2051,75 @@ input,select,textarea{max-width:100%;min-width:0}
 .support-finance-reversal{color:#9f352e}
 .support-finance-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:640px){.support-finance-row{align-items:flex-start}.support-finance-row-actions{max-width:54%;justify-content:flex-end}}
+
+/* ThinkStore Soporte V8.8.7 — recepción en una pantalla */
+#orderModal .order-box{border-radius:20px!important;padding:clamp(16px,1.6vw,22px)!important;box-shadow:0 3px 16px rgba(20,34,56,.045)!important;margin-bottom:12px!important}
+#orderModal .order-box>h3{font-size:.89rem!important;letter-spacing:.035em!important;font-weight:750!important;margin-bottom:14px!important}
+#orderModal .order-box label{font-size:.84rem!important;line-height:1.35!important;gap:6px!important}
+#orderModal .order-box input,#orderModal .order-box select,#orderModal .order-box textarea{min-height:44px!important;border-radius:12px!important;font-size:.92rem!important}
+#orderModal .order-box .grid2{gap:10px 14px!important}
+#orderModal .order-box textarea{min-height:78px!important}
+#orderModal .ts-device-access{margin:12px 0 16px;padding:14px 16px;border:1px solid #d9e4f3;border-radius:14px;background:#f5f8fd;color:#27374c}
+#orderModal .ts-device-access[hidden]{display:none!important}
+#orderModal .ts-device-access>label{font-weight:700;margin-bottom:7px;display:block}
+#orderModal .ts-access-field{display:flex;gap:8px;align-items:center}
+#orderModal .ts-access-field input{min-width:0;flex:1;margin:0!important}
+#orderModal .ts-access-toggle{flex:none;width:auto!important;background:#e5edfa!important;border:1px solid #bfd1e9!important;border-radius:11px!important;color:#173b6d!important;padding:10px 14px!important}
+#orderModal .ts-device-access small{display:block;color:#65778d;margin-top:9px;line-height:1.45}
+#orderManagerModal .ts-manager-access{padding:15px;border:1px solid #dce5ee;border-radius:16px;background:#f7f9fc;margin:10px 0 16px}
+#orderManagerModal .ts-manager-access-head{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#orderManagerModal .ts-manager-access-head small{display:block;color:#6d7b8e;margin-top:5px}
+#orderManagerModal .ts-manager-access-value{margin-top:10px;word-break:break-word;color:#364456}
+@media(max-width:760px){#orderModal .order-box{padding:15px!important}#orderModal .ts-access-field{flex-wrap:nowrap}}
+@media print{.ts-device-access,.ts-manager-access{display:none!important}}
+
+/* Soporte V8.8.10 — Recepción compacta, sin cambios de lógica */
+@media (min-width: 1201px) {
+  #orderModal .order-layout {
+    display:grid!important;
+    grid-template-columns:minmax(340px, .80fr) minmax(590px, 1.55fr)!important;
+    grid-template-areas: "customer visual" "customer tests"!important;
+    align-items:start!important;
+    gap:14px 18px!important;
+  }
+  #orderModal .order-left { grid-area:customer!important; min-width:0!important; }
+  #orderModal .order-center { grid-area:visual!important; min-width:0!important; }
+  #orderModal .order-right {
+    grid-area:tests!important; position:static!important;
+    min-width:0!important; align-self:start!important;
+  }
+  #orderModal .checklist-grid {
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:5px 16px!important;
+  }
+  #orderModal .checklist-grid label { min-width:0!important; }
+  #orderModal .diagram-box .device-diagram { min-height:250px!important;max-height:360px!important; }
+  #orderModal .order-box { padding:16px!important; }
+  #orderModal .order-right .order-box { margin-bottom:12px!important; }
+}
+@media (min-width: 1201px) and (max-width: 1450px) {
+  #orderModal .order-layout {grid-template-columns:minmax(315px,.82fr) minmax(535px,1.42fr)!important;}
+  #orderModal .checklist-grid {gap:4px 9px!important;}
+}
+@media (min-width: 761px) and (max-width: 1200px) {
+  #orderModal .order-layout {display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important;}
+  #orderModal .order-left {grid-column:1!important;grid-row:1/span 2!important;}
+  #orderModal .order-center {grid-column:2!important;grid-row:1!important;order:initial!important;}
+  #orderModal .order-right {grid-column:2!important;grid-row:2!important;}
+  #orderModal .checklist-grid {grid-template-columns:1fr!important;}
+}
+@media(max-width:760px) {
+  #orderModal .order-layout {display:block!important;}
+  #orderModal .order-left,#orderModal .order-center,#orderModal .order-right {width:100%!important;min-width:0!important;}
+}
+
+/* V8.8.11 — Visor de recepción centrado sin afectar la interacción de marcas */
+@media(min-width:761px){
+  #orderModal .diagram-box{width:100%;max-width:1020px;margin-inline:auto!important;}
+  #orderModal .diagram-box .device-diagram{min-height:260px!important;max-height:350px!important;width:100%;max-width:880px;margin-inline:auto!important;}
+  #orderModal .diagram-box .diagram-help{margin:8px auto 0!important;text-align:center;}
+}
+@media(max-width:760px){
+  #orderModal .diagram-box .device-diagram{min-height:250px!important;max-height:320px!important;}
+}

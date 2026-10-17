@@ -1,0 +1,6 @@
+ThinkStore Soporte V8.8.9 - Proyecto completo.
+Abrir soporte/panel.html con Live Server desde VS Code.
+Ruta /soporte/index.html redirige a panel.html.
+No subir solo soporte/app.js ni reemplazar archivos con versiones antiguas.
+Las funciones Netlify requieren entorno servidor; Live Server solo permite verificar interfaz y navegacion, no autenticacion en produccion.
+No se ha realizado deploy.

@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=15.40" />
+  <link rel="stylesheet" href="styles.css?v=8.8.10" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -224,10 +224,11 @@
             <input id="oDevice" type="hidden" required />
             <div class="grid2 compact">
               <label>Serial / IMEI<input id="oSerial" placeholder="Serial / IMEI" /></label>
-              <label>Contraseña<select id="oPasswordFlag"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
+              <label>¿El equipo tiene clave?<select id="oPasswordFlag" onchange="TSService.toggleDeviceAccessField()"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
               <label>Modalidad<select id="oServiceMode"><option>Presencial</option><option>A domicilio</option><option>Envío nacional</option></select></label>
               <label>Ingreso<select id="oIntakeSource"><option>Recepción directa</option><option>Cita web</option><option>WhatsApp / Online</option></select></label>
             </div>
+            <div id="oDeviceAccessBlock" class="ts-device-access" hidden><label for="oDeviceAccessCode">Clave / PIN del equipo (opcional)</label><div class="ts-access-field"><input id="oDeviceAccessCode" type="password" autocomplete="new-password" maxlength="128" placeholder="Introducir clave autorizada" /><button type="button" class="ts-access-toggle" onclick="TSService.toggleDeviceAccessVisibility('oDeviceAccessCode',this)" aria-label="Mostrar clave" aria-pressed="false">Mostrar</button></div><small>Uso interno exclusivo del técnico autorizado. No aparece en documentos impresos ni seguimiento.</small></div>
             <label>Color<input id="oColor" placeholder="Ej: Space Black, Natural Titanium..." /></label>
             <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, cable, caja, funda..."></textarea></label>
           </div>
@@ -428,6 +429,7 @@
   <div id="orderManagerModal" class="modal">
     <form class="card wide order-manager" onsubmit="TSService.saveOrderManager(event)">
       <div class="bitacora-header"><div><h2 id="mOrderTitle">Gestionar orden</h2><p>Técnico, diagnóstico, fotos, mensajes y seguimiento del cliente.</p></div><button type="button" class="secondary" onclick="TSService.closeModals()">Cerrar</button></div>
+      <section class="ts-manager-access" id="mDeviceAccessPanel"><div class="ts-manager-access-head"><div><b>Acceso al equipo</b><small>Dato confidencial de uso técnico. Nunca se imprime.</small></div><button type="button" id="mRevealDeviceAccess" class="secondary" onclick="TSService.revealManagerDeviceAccess()">Consultar clave</button></div><div id="mDeviceAccessResult" class="ts-manager-access-value" role="status">Clave oculta. Solo personal autorizado.</div></section>
       <div class="grid2">
         <label>Técnico responsable<select id="mTechnician"></select></label>
         <label>Estado del presupuesto<select id="mQuoteStatus"><option>Pendiente</option><option>Preparado</option><option>Enviado</option><option>Aprobado</option><option>Rechazado</option></select></label>
@@ -558,6 +560,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=2.0.0"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=15.40.2"></script>
+  <script src="app.js?v=8.8.9"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

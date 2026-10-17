@@ -1,0 +1,9 @@
+ThinkStore Soporte V8.8.7 · Recepción unificada
+Base: ThinkStore-main(2).zip enviado por el usuario.
+Formulario de una sola pantalla. Corregidos index.html Y panel.html.
+Clave/PIN solo interna, protegida y consultable desde Gestión por técnico autorizado.
+Nunca imprimir ni mostrar la clave en portal público.
+La función registered-reception.js debe publicarse en netlify/functions de la raíz.
+No se hicieron cambios en Supabase ni despliegues.
+PRUEBAS PENDIENTES: flujo real autenticado, recepción directa, cita, búsqueda de cliente y consulta técnica.
+La clave solo puede usarse si el entorno del servidor dispone de clave criptográfica persistente. No introducir credenciales reales durante pruebas.
