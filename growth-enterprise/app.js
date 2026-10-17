@@ -3264,10 +3264,45 @@ function renderV9RealMarketing(data){
     host.querySelectorAll('[data-expense-row]').forEach(row=>{const date=row.dataset.date||'';const okPeriod=period==='all'||(period==='month'&&date.startsWith(monthPrefix))||(period==='week'&&date>=weekStart&&date<=caracasParts);const okCat=cat==='all'||row.dataset.category===cat;const okFunded=funded==='all'||row.dataset.funded===funded;const okQuery=!query||row.textContent.toLowerCase().includes(query);const show=okPeriod&&okCat&&okFunded&&okQuery;row.hidden=!show;if(show){visible++;const raw=row.querySelector('.expense-amount>b')?.textContent?.replace(/[^0-9.-]/g,'')||0;total+=Number(raw)||0}});
     const count=document.getElementById('expenseVisibleCount'),sumEl=document.getElementById('expenseVisibleTotal');if(count)count.textContent=fn(visible);if(sumEl)sumEl.textContent=fm(total);
   }
+  // Vista de asignación de cobros: no registra movimientos ni modifica el libro mayor.
+  // La reserva se calcula sobre el importe efectivamente cobrado y nunca sobre deuda futura.
+  function receiptAllocation(row){
+    const money=v=>Math.max(0,Number(v)||0);
+    const paid=money(row.collected_usd);
+    const inventory=money(row.inventory_recovery_usd);
+    const commission=money(row.total_commission_usd);
+    const recovered=Math.min(paid,inventory);
+    const reserve=Math.min(Math.max(0,paid-recovered),commission);
+    const free=Math.max(0,paid-recovered-reserve);
+    return {paid,inventory,commission,recovered,reserve,free,inventoryRemaining:Math.max(0,inventory-recovered),commissionRemaining:Math.max(0,commission-reserve)};
+  }
   function settlementRows(d){
     const rows=Array.isArray(d?.treasury_allocations?.settlements)?d.treasury_allocations.settlements:[];
-    return rows.slice(0,80).map(x=>`<div class="service-profit-row"><div class="service-profit-id"><b>${safe(x.order_code||'Servicio')}</b><small>${fd(x.settled_at||x.updated_at)}${x.technician_name||x.technician_email?` · ${safe(x.technician_name||x.technician_email)}`:''}</small></div><div><span>Cliente pagó</span><b>${fm(x.collected_usd)}</b></div><div><span>Recupera inventario</span><b>${fm(x.inventory_recovery_usd)}</b></div><div><span>Comisiones</span><b>${fm(x.total_commission_usd)}</b></div><div class="service-profit-company"><span>Utilidad empresa</span><b>${fm(x.company_profit_usd)}</b></div></div>`).join('')||'<div class="fin-empty">Todavía no hay liquidaciones automáticas de Servicio Técnico en este periodo.</div>';
+    return rows.slice(0,80).map((x,i)=>{
+      const r=receiptAllocation(x);
+      return `<div class="service-profit-row"><div class="service-profit-id"><b>${safe(x.order_code||'Servicio')}</b><small>${fd(x.settled_at||x.updated_at)}${x.technician_name||x.technician_email?` · ${safe(x.technician_name||x.technician_email)}`:''}</small></div><div><span>Cobrado acumulado</span><b>${fm(r.paid)}</b></div><div><span>Costo por recuperar</span><b>${fm(r.inventoryRemaining)}</b></div><div><span>Comisión por reservar</span><b>${fm(r.commissionRemaining)}</b></div><div class="service-profit-company"><span>Excedente provisional</span><b>${fm(r.free)}</b><small>Sin distribuir</small></div><button type="button" class="mini-action" data-ts-credit-detail="${i}">VER DESGLOSE</button></div>`;
+    }).join('')||'<div class="fin-empty">Todavía no hay liquidaciones automáticas de Servicio Técnico en este periodo.</div>';
   }
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest('[data-ts-credit-detail]');if(!btn)return;
+    e.preventDefault();
+    const row=financeCache?.treasury_allocations?.settlements?.[Number(btn.dataset.tsCreditDetail)];
+    if(!row)return;
+    const a=receiptAllocation(row);
+    openMetricDetail(`Aplicación de cobros · ${row.order_code||'Servicio'}`,fm(a.paid),
+      'Criterio de control: de los abonos recibidos se recupera primero el costo registrado, luego se reserva la comisión. El saldo pendiente del cliente NO se considera dinero recibido. El excedente es provisional: no se distribuye automáticamente, ni se crean movimientos en Caja Chica.',[
+      ['Cobrado acumulado',fm(a.paid)],
+      ['Costo registrado del repuesto',fm(a.inventory)],
+      ['Costo cubierto con abonos',fm(a.recovered)],
+      ['Costo aún por recuperar',fm(a.inventoryRemaining)],
+      ['Comisión técnica/vendedor registrada',fm(a.commission)],
+      ['Comisión cubierta/reservada',fm(a.reserve)],
+      ['Comisión aún por cubrir',fm(a.commissionRemaining)],
+      ['Excedente provisional no distribuido',fm(a.free)],
+      ['Utilidad contractual estimada (NO cobrada)',fm(row.company_profit_usd)],
+      ['Crédito / monto contractual','Consultar orden original en Soporte; no inferido de la liquidación']
+    ],'treasury');
+  });
   function sellerCommissionRows(d){
     return (d.sellers?.commissions||[]).filter(x=>Number(x.pending_usd||0)>0).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||e.metadata?.seller_name||e.metadata?.seller_email||'Vendedor')}</b><br><small>${safe(e.source_code||e.description)} · venta ${fm(e.metadata?.sale_amount||e.metadata?.gross_sale_amount||0)} · ${Number(e.metadata?.rate_pct||e.metadata?.seller_rate_pct||0)}%</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-pay-seller="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Pagar</button></div>`).join('')||'<div class="fin-empty">No hay comisiones de vendedores pendientes.</div>';
   }
@@ -3355,7 +3390,7 @@ function renderV9RealMarketing(data){
 
       <div class="fin-partner-grid partner-ledger-grid">${partnerCard(d.partners?.freddy,'Freddy Sedispa')}${partnerCard(d.partners?.nelson,'Nelson Garzon')}</div>
 
-      <article class="panel service-profit-panel"><div class="panel-head"><div><span class="finance-kicker">SERVICIO TÉCNICO</span><h3>Liquidación automática por reparación</h3></div><span class="tag">${fn(d.treasury_allocations?.settlements_week)} esta semana</span></div><div class="service-profit-summary"><div><span>Recuperado a inventario</span><b>${fm(d.treasury_allocations?.inventory_recovery_week)}</b></div><div><span>Comisión técnica</span><b>${fm(d.treasury_allocations?.technician_commissions_week)}</b></div><div><span>Comisión vendedor</span><b>${fm(d.treasury_allocations?.seller_commissions_week)}</b></div><div class="accent"><span>Utilidad empresa</span><b>${fm(d.treasury_allocations?.service_company_profit_week)}</b></div></div><div class="service-profit-table">${settlementRows(d)}</div></article>
+      <article class="panel service-profit-panel"><div class="panel-head"><div><span class="finance-kicker">SERVICIO TÉCNICO</span><h3>Liquidación automática por reparación</h3></div><span class="tag">${fn(d.treasury_allocations?.settlements_week)} esta semana</span></div><div class="service-profit-summary"><div><span>Recuperado a inventario</span><b>${fm(d.treasury_allocations?.inventory_recovery_week)}</b></div><div><span>Comisión técnica</span><b>${fm(d.treasury_allocations?.technician_commissions_week)}</b></div><div><span>Comisión vendedor</span><b>${fm(d.treasury_allocations?.seller_commissions_week)}</b></div><div class="accent"><span>Utilidad contractual estimada (no repartible)</span><b>${fm(d.treasury_allocations?.service_company_profit_week)}</b></div></div><div class="service-profit-table">${settlementRows(d)}</div></article>
 
       <article class="panel expense-center"><div class="panel-head"><div><span class="finance-kicker">GASTOS</span><h3>Historial y comprobantes</h3></div><div class="expense-live-total"><span><b id="expenseVisibleCount">0</b> registros</span><strong id="expenseVisibleTotal">$0.00</strong></div></div>${expenseFilters(d)}<div class="expense-ledger">${expenseRows(d)}</div></article>
 
@@ -3819,4 +3854,58 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
     if(slot.innerHTML!==html)slot.innerHTML=html;
   });
   document.addEventListener('DOMContentLoaded',()=>{const root=document.getElementById('treasury');if(root)observer.observe(root,{childList:true});});
+})();
+
+
+/* Enterprise · Ventas realizadas y seguimiento de recuperación de costos.
+   Lectura exclusivamente; no escribe en Supabase ni liquida comisiones. */
+(function(){
+  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const usd=x=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(x)||0);
+  const dt=x=>{try{return x?new Date(x).toLocaleString('es-VE'):'Sin fecha'}catch{return 'Sin fecha'}};
+  const state={items:[],loaded:false,table:'',error:'',complete:false,lastSync:null,busy:false,source:'todos'};
+  const allowPaid=s=>/pagado|pagada|pago recibido|pago verificado|entregado|paid|completed/i.test(String(s||''));
+  function render(){
+    const root=document.getElementById('salesLedger'); if(!root)return;
+    const support=window.enterpriseFinanceData?.treasury_allocations?.settlements||[];
+    const online=state.items.map(o=>({kind:'Tienda online',code:o.codigo||o.code||o.order_code||o.id||'Pedido',total:Number(o.total_usd??o.total??o.amount??0),paid:null,status:o.payment_status||o.estado||o.status||'Sin estado',date:o.created_at||o.fecha||'',source:state.table}));
+    const repairs=support.map(o=>({kind:'Servicio Técnico',code:o.order_code||'Orden',total:null,paid:Number(o.collected_usd||0),status:'Liquidación / abonos',date:o.settled_at||o.updated_at,source:'enterprise_service_settlements'}));
+    const rows=[...online,...repairs].filter(o=>state.source==='todos'||(state.source==='tienda'?o.kind==='Tienda online':o.kind==='Servicio Técnico'));
+    root.innerHTML=`<article class="panel"><div class="panel-head"><div><h3>Ventas realizadas · historial verificable</h3><small>Consulta de solo lectura · No modifica caja, pedidos ni stock</small></div><button type="button" data-sales-refresh>Actualizar</button></div><p class="staff-help">Cada fila muestra su fuente. El total del pedido NO es necesariamente dinero cobrado. Las reparaciones muestran el cobro registrado, no una segunda venta. Los cobros de mostrador que no figuren en estas fuentes requieren su propia fuente verificada.</p><div class="v2-toolbar"><label>Filtrar <select id="tsSalesSource"><option value="todos" ${state.source==='todos'?'selected':''}>Todas las fuentes visibles</option><option value="tienda" ${state.source==='tienda'?'selected':''}>Tienda online</option><option value="soporte" ${state.source==='soporte'?'selected':''}>Servicio Técnico</option></select></label></div><p class="staff-help">Pedidos online: ${state.items.length} consultados ${state.complete?'(consulta terminada)':'(carga pendiente o parcial)'} · Última consulta: ${state.lastSync?dt(state.lastSync):'No realizada'} ${state.error?'· Error: '+esc(state.error):''}</p><div class="table">${rows.map((r,i)=>`<div class="table-row"><div><b>${esc(r.code)}</b><br><small>${esc(r.kind)} · ${esc(r.source)} · ${esc(r.status)} · ${dt(r.date)}</small></div><span>${r.total===null?'Total: consultar origen':'Facturado: '+usd(r.total)}<br><small>${r.paid===null?'Cobro no verificado':'Cobrado: '+usd(r.paid)}</small></span><button type="button" class="mini-action" data-ts-sales-row="${i}">VER</button></div>`).join('')||'<div class="fin-empty">No hay ventas visibles en las fuentes consultadas.</div>'}</div></article>`;
+    root.__details=rows;
+  }
+  async function load(){
+    if(state.busy)return;state.busy=true;state.error='';state.items=[];state.complete=false;render();
+    try{
+      const client=window.supabaseClient;
+      if(!client)throw Error('No hay sesión de Supabase disponible');
+      let successful=false;
+      for(const table of ['pedidos','orders']){
+        let collected=[];let failed=false;
+        for(let from=0;from<10000;from+=500){
+          const res=await client.from(table).select('*').range(from,from+499);
+          if(res.error){failed=true;state.error=res.error.message||'Error de lectura';break;}
+          collected.push(...(res.data||[]));
+          if((res.data||[]).length<500){state.complete=true;break;}
+        }
+        if(!failed){state.items=collected;state.table=table;successful=true;break;}
+      }
+      if(!successful)throw Error(state.error||'No hay tabla de pedidos disponible');
+      if(!state.complete)state.error='Consulta limitada a 10.000 pedidos; no se debe considerar un historial completo';
+    }catch(e){state.error=e.message||String(e)}finally{state.lastSync=new Date().toISOString();state.loaded=true;state.busy=false;render()}
+  }
+  document.addEventListener('click',e=>{
+    const refresh=e.target.closest('[data-sales-refresh]');if(refresh){load();return;}
+    const btn=e.target.closest('[data-ts-sales-row]');if(!btn)return;
+    const root=document.getElementById('salesLedger');const r=root?.__details?.[Number(btn.dataset.tsSalesRow)];if(!r)return;
+    let dlg=document.getElementById('tsSalesReadOnlyDialog');if(!dlg){dlg=document.createElement('dialog');dlg.id='tsSalesReadOnlyDialog';dlg.style.cssText='width:min(760px,94vw);max-height:85vh;overflow:auto;border-radius:16px;padding:24px';document.body.appendChild(dlg)}
+    dlg.innerHTML=`<h3>Origen de venta · ${esc(r.code)}</h3><div class="table"><div class="table-row">Fuente: ${esc(r.kind)} · ${esc(r.source)}</div><div class="table-row">Estado: ${esc(r.status)}</div><div class="table-row">Fecha: ${dt(r.date)}</div><div class="table-row">Total facturado: ${r.total===null?'No disponible':usd(r.total)}</div><div class="table-row">Cobrado: ${r.paid===null?'No verificado; consultar comprobantes':usd(r.paid)}</div></div><p class="staff-help">No se infieren costos, abonos ni utilidades a partir del importe total. Para ver pagos individuales deben estar disponibles las referencias de la fuente.</p><button type="button" data-ts-sales-close>Cerrar</button>`;
+    dlg.querySelector('[data-ts-sales-close]').onclick=()=>dlg.close();dlg.showModal();
+  });
+  document.addEventListener('change',e=>{if(e.target?.id==='tsSalesSource'){state.source=e.target.value;render()}});
+  document.addEventListener('DOMContentLoaded',()=>{
+    const nav=document.querySelector('.nav[data-view="salesLedger"]');
+    nav?.addEventListener('click',()=>{if(!state.loaded)load();else render()});
+  });
+  window.thinkStoreSalesLedger={load,render};
 })();
