@@ -200,6 +200,24 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const consumedMove=m=>num(m.quantity)<0||/consumo|salida|utiliz|instalad/.test(norm(m.movement_type));
   const realPartsByOrder=new Map();
   supportPartMoves.filter(consumedMove).forEach(m=>{const p=supportPartMap.get(String(m.part_id)),cost=Math.abs(num(m.quantity))*Math.max(0,num(p?.unit_cost));if(m.order_id){const key=String(m.order_id);realPartsByOrder.set(key,money((realPartsByOrder.get(key)||0)+cost))}});
+  // Auditoría de repuestos por orden (lectura): no mueve fondos ni genera una segunda venta.
+  // Preferir costo capturado en el movimiento; en ausencia de snapshot, marcar el costo como estimado.
+  const supportPartDetailByOrder=new Map();
+  for(const m of supportPartMoves.filter(consumedMove)){
+    const part=supportPartMap.get(String(m.part_id))||{};
+    const orderKey=clean(m.order_id||m.order_code);
+    if(!orderKey)continue;
+    const qty=Math.abs(num(m.quantity));
+    const snapshotRaw=m.unit_cost_usd??m.unit_cost??m.cost_unit_usd??m.metadata?.unit_cost_usd??m.metadata?.cost_unit_usd;
+    const hasSnapshot=snapshotRaw!==null&&snapshotRaw!==undefined&&snapshotRaw!=='';
+    const unitCost=hasSnapshot?num(snapshotRaw):num(part.unit_cost);
+    const priceRaw=m.unit_price_usd??m.sale_price_usd??m.metadata?.unit_price_usd??m.metadata?.sale_price_usd;
+    const hasPrice=priceRaw!==null&&priceRaw!==undefined&&priceRaw!=='';
+    const unitPrice=hasPrice?num(priceRaw):null;
+    const rows=supportPartDetailByOrder.get(orderKey)||[];
+    rows.push({movement_id:m.id||null,part_id:m.part_id||null,name:clean(part.name||part.nombre||m.part_name||'Repuesto'),quantity:qty,unit_cost_usd:money(unitCost),cost_total_usd:money(unitCost*qty),cost_source:hasSnapshot?'movement_snapshot':'current_catalog_estimate',unit_sale_price_usd:unitPrice===null?null:money(unitPrice),sale_total_usd:unitPrice===null?null:money(unitPrice*qty),gross_margin_usd:unitPrice===null?null:money((unitPrice-unitCost)*qty),supplier_id:m.supplier_id||null,purchase_id:m.purchase_id||null,created_at:m.created_at||null});
+    supportPartDetailByOrder.set(orderKey,rows);
+  }
   const weekConsumedMoves=supportPartMoves.filter(m=>consumedMove(m)&&inRange(m.created_at,range));
   const supportPartsActual=sum(weekConsumedMoves,m=>Math.abs(num(m.quantity))*Math.max(0,num(supportPartMap.get(String(m.part_id))?.unit_cost)));
 
@@ -521,6 +539,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
       history:reconciliations.slice(0,20)
     },
     charts:{daily_cash_flow:dayRows},
+    support_part_details:enrichedSupport.map(o=>({order_code:o.code,order_id:o.id,items:supportPartDetailByOrder.get(String(o.id))||supportPartDetailByOrder.get(String(o.code))||[]})).filter(o=>o.items.length>0),
     entries:weekEntries.slice(0,200),support_orders:enrichedSupport,audits:audits.slice(0,20),
     source_health:sourceHealth,
     audit_readonly:{
