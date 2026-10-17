@@ -1,0 +1,1 @@
+Ventas realizadas: carga al entrar, actualización manual, filtro de fuente y detalle desplegable. Consulta de solo lectura. No se crean transacciones. Las ventas de Staff no se consideran completas hasta verificar el origen de sus cobros. No publicar como raíz de la web principal; conservar ubicación growth-enterprise y funciones Netlify compartidas.\n

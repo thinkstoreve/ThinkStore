@@ -1,0 +1,7 @@
+{
+  "version": "10.18",
+  "name": "AUTH-BOOT-RESET",
+  "direct_login_required": true,
+  "sso_auto_open": true,
+  "boot_css_failsafe_seconds": 4.2
+}

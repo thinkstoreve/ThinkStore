@@ -1,0 +1,10 @@
+ThinkStore Enterprise - desglose de aplicación de cobros (17-10-2026)
+
+- En Tesorería > Liquidación automática, VER DESGLOSE presenta el dinero realmente cobrado.
+- Aplica el cobro primero al costo registrado de inventario y luego a reservar la comisión; el resto es excedente provisional NO distribuido.
+- La utilidad contractual histórica se conserva como ESTIMACIÓN, no como caja ni reparto.
+- No genera pagos, egresos, abonos, ingresos, ajustes ni mutaciones de Supabase.
+- La liquidación contractual original y las comisiones semanales existentes siguen intactas.
+- El crédito pendiente, la moneda del abono y la fecha del préstamo requieren los datos originales de Soporte/Staff; no se infieren de una suma.
+- Si el costo registrado difiere de la factura real del proveedor, se debe conciliar antes de reconocer utilidad repartible.
+- Antes de publicar, confirmar destino Netlify y probar con una orden real.

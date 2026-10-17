@@ -1,0 +1,9 @@
+THINKSTORE ENTERPRISE — CANDIDATO DE RELEASE CONSOLIDADO
+NO PUBLICADO. Sin SQL. No ejecutar archivos de migraciones anteriores.
+
+VALIDADO LOCALMENTE: sintaxis JS, integridad ZIP, consulta sin escrituras de Ventas realizadas.
+VENTAS: consulta pedidos y órdenes Soporte desde función financiera autenticada. Instalación de repuestos cuenta como componente de orden de reparación, no venta duplicada. Pagos de crédito no son nuevas ventas.
+LIMITACIONES: Staff presencial solo aparece si está representado en fuente de pedidos o en órdenes Soporte. No se garantiza cobertura Staff; exige validación de su fuente real. Resumen financiero existente NO se ha recalculado para corregir potenciales discrepancias.
+Seguridad: no ingresar ni cambiar credenciales. No operar Caja Chica ni generar movimientos.
+DESPLIEGUE: confirmar estructura GitHub/Netlify antes de subir; NO subir este ZIP a raíz de MAIN ni como archivo comprimido en GitHub. La publicación en /growth-enterprise puede exigir copiar frontend a carpeta growth-enterprise y funciones Netlify a la ruta raíz netlify/functions del sitio principal.
+PRUEBAS PREPRODUCCIÓN: entrar con cuenta autorizada, comprobar ventas y detalle, confirmar datos con Staff/Soporte, comprobar botones VER y balance de créditos; si una fuente no carga, NO marcar final.

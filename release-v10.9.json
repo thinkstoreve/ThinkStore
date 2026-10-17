@@ -1,0 +1,13 @@
+{
+  "name": "ThinkStore Enterprise",
+  "version": "10.9",
+  "base": "10.8",
+  "type": "finance-reconciliation-final",
+  "changes": [
+    "conciliacion semanal por metodo de pago",
+    "saldo inicial sugerido desde cierre anterior",
+    "saldos esperados y reales",
+    "diferencias auditables",
+    "integracion Main + Inventory + Soporte + Tesoreria"
+  ]
+}

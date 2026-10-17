@@ -1,0 +1,12 @@
+ThinkStore Enterprise · estabilización de detalle financiero
+
+- Se conserva íntegra la lógica de importes, gastos y reparto existente.
+- Cuentas por cobrar: se entregan órdenes abiertas desde Soporte con cotización, abonado y diferencia.
+- Posición de caja: se muestran las líneas y componentes de la conciliación, sin atribuir el total a dinero efectivo.
+- Datos históricos de TS-DA53AC91: ya rectificados en Supabase; no se vuelven a tocar.
+- El indicador histórico $120 y la posición $220 NO se ajustan arbitrariamente; si persisten, identificar otra orden, fuente o desfase.
+- $40 y +/-$0.14 siguen pendientes de corroboración en vivo.
+- Falta prueba en Netlify con sesión autorizada, y verificación real de clics.
+- No ejecutar SQL ni modificar datos para desplegar esta mejora.
+
+ATENCIÓN: desplegar solo en sitio Netlify independiente de Enterprise con publish='.' y functions='netlify/functions'. Si Enterprise vive en subruta de Main, integrar mediante repositorio Main en vez de subir directamente.

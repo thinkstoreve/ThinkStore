@@ -1,0 +1,1 @@
+Enterprise: se utiliza el VER existente y se deduplican controles de consulta por fila. Los detalles indican origen/identificador disponible; navegación interna a Tesorería o Conciliación. Sin enlaces inventados a Supabase/Soporte. No se escribe en DB. Verificar en Netlify y navegador autenticado. No desplegar ZIP independiente sobre raíz de página principal.

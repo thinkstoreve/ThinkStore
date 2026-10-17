@@ -1,0 +1,1 @@
+Verificación de cobros y conciliación: botones VER originales despliegan datos bajo cada fila, OCULTAR cierra. Mantiene lectura segura sin ajustes automáticos. Saltos a Tesorería y Conciliación; no inventa enlaces directos a órdenes. No altera backend ni datos. Pendiente prueba funcional en navegador autenticado.

@@ -1,0 +1,1 @@
+{"version":"10.16","name":"Non-blocking boot","boot_timeout_ms":3200,"finance_timeout_ms":8000,"background_sync":true}
