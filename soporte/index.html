@@ -20,6 +20,28 @@
 </style>
 <script src="repair-financing.js?v=1"></script>
 <script src="money-input.js?v=15.39"></script>
+
+<style id="ts-reception-comfort-v2">
+/* Recepción: lectura cómoda, controles sobrios y jerarquía clara */
+#orderModal .order-box{border-radius:19px;padding:clamp(16px,2vw,24px);box-shadow:0 3px 18px rgba(21,32,52,.035)}
+#orderModal .order-box>h3{letter-spacing:.025em;margin-bottom:16px}
+#orderModal input,#orderModal select,#orderModal textarea{min-height:46px}
+#orderModal label{line-height:1.35}
+#orderModal .grid2{gap:12px 16px}
+.ts-device-access{margin:12px 0 16px;padding:14px;border:1px solid #dbe4f1;border-radius:14px;background:#f6f9ff}
+.ts-device-access[hidden]{display:none!important}
+.ts-device-access>label{font-weight:700;display:block;margin-bottom:8px}
+.ts-access-field{display:flex;gap:8px;align-items:stretch}
+.ts-access-field input{min-width:0;flex:1;margin:0!important}
+#orderModal .ts-access-toggle{width:auto;min-width:78px;min-height:42px;background:#e5edfa;color:#1b3a67;border:1px solid #c9d8eb;border-radius:11px;font-weight:650}
+.ts-device-access small{display:block;margin-top:8px;color:#5e708a;line-height:1.5}
+.ts-manager-access{padding:16px;border:1px solid #d8e2ef;background:#f5f8fc;border-radius:16px;margin:12px 0 20px}
+.ts-manager-access-head{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.ts-manager-access-head small{display:block;color:#65758a;margin-top:4px}
+.ts-manager-access-value{font-family:system-ui,sans-serif;word-break:break-word;margin-top:12px;font-size:14px;color:#3d4c62}
+@media(max-width:700px){#orderModal .grid2{grid-template-columns:1fr}#orderModal .order-box{padding:16px}.ts-manager-access-head button{width:auto}}
+@media print{.ts-device-access,.ts-manager-access{display:none!important}}
+</style>
 </head>
 <body>
   <main class="ts-service-app">
@@ -122,9 +144,9 @@
             <label>Modelo<input id="oDevice" required list="appleDeviceModels" placeholder="Buscar modelo Apple..." oninput="TSService.previewSelectedDevice(this.value)" /></label>
             <div class="grid2 compact">
               <label>Serial / IMEI<input id="oSerial" placeholder="Serial / IMEI" /></label>
-              <label>¿El equipo tiene clave?<select id="oPasswordFlag"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
+              <label>¿El equipo tiene clave?<select id="oPasswordFlag" onchange="TSService.toggleDeviceAccessField()"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
             </div>
-            <label>Clave / PIN del equipo (opcional)<input id="oDeviceAccessCode" type="password" autocomplete="off" maxlength="128" placeholder="Escribir solo si el cliente autoriza" /><small>Se guarda cifrada para uso técnico interno. Nunca se incluye en el seguimiento público.</small></label>
+            <div id="oDeviceAccessBlock" class="ts-device-access" hidden><label for="oDeviceAccessCode">Clave / PIN del equipo (opcional)</label><div class="ts-access-field"><input id="oDeviceAccessCode" type="password" autocomplete="new-password" maxlength="128" placeholder="Introducir clave autorizada" /><button type="button" class="ts-access-toggle" onclick="TSService.toggleDeviceAccessVisibility('oDeviceAccessCode',this)" aria-label="Mostrar clave" aria-pressed="false">Mostrar</button></div><small>Confidencial · Solo equipo técnico autorizado. Nunca se imprime ni se envía al cliente.</small></div>
             <label>Color<input id="oColor" placeholder="Ej: Space Black, Natural Titanium..." /></label>
             <label>Accesorios recibidos<textarea id="oAccessories" placeholder="Cargador, cable, caja, funda..."></textarea></label>
           </div>
@@ -274,6 +296,7 @@
   <div id="orderManagerModal" class="modal">
     <form class="card wide order-manager" onsubmit="TSService.saveOrderManager(event)">
       <div class="bitacora-header"><div><h2 id="mOrderTitle">Gestionar orden</h2><p>Técnico, presupuesto, garantía, entrega y archivos privados.</p></div><button type="button" class="secondary" onclick="TSService.closeModals()">Cerrar</button></div>
+      <section class="ts-manager-access" id="mDeviceAccessPanel"><div class="ts-manager-access-head"><div><b>Acceso al equipo</b><small>Dato interno · no se imprime ni se comparte con el cliente.</small></div><button type="button" id="mRevealDeviceAccess" class="secondary" onclick="TSService.revealManagerDeviceAccess()">Consultar clave</button></div><div id="mDeviceAccessResult" class="ts-manager-access-value" role="status">Clave oculta. Solo personal técnico autorizado.</div></section>
       <div class="grid2">
         <label>Técnico responsable<select id="mTechnician"></select></label>
         <label>Estado del presupuesto<select id="mQuoteStatus"><option>Pendiente</option><option>Preparado</option><option>Enviado</option><option>Aprobado</option><option>Rechazado</option></select></label>

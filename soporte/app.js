@@ -1608,6 +1608,9 @@ const TSService=(()=>{
   async function openOrderManager(id){
     const o=orders.find(x=>String(x.id)===String(id));if(!o||!requireTechnicianOrder(o))return;
     activeOrderId=o.id;await loadServiceUsers();
+    const accessView=document.getElementById('mDeviceAccessResult');if(accessView){accessView.textContent='Clave oculta. Solo personal técnico autorizado.';accessView.dataset.revealed='false';}
+    const revealBtn=document.getElementById('mRevealDeviceAccess');if(revealBtn){revealBtn.textContent='Consultar clave';revealBtn.hidden=!['technician','admin','superadmin'].includes(session?.role);}
+
     const modal=document.getElementById('orderManagerModal');
     document.getElementById('mOrderTitle').textContent=`${o.code} · ${o.device}`;
     document.getElementById('mTechnician').innerHTML=`<option value="">Sin asignar</option>${serviceUsers.filter(u=>u.activo&&['technician','admin','superadmin'].includes(u.rol)).map(u=>`<option value="${esc(u.email)}" ${u.email===o.tech?'selected':''}>${esc(u.nombre)} · ${esc(u.email)}</option>`).join('')}`;
@@ -2362,6 +2365,31 @@ const TSService=(()=>{
   }
 
 
+  function toggleDeviceAccessField(){
+    const flag=document.getElementById('oPasswordFlag'), block=document.getElementById('oDeviceAccessBlock'),input=document.getElementById('oDeviceAccessCode');
+    if(!flag||!block||!input)return;
+    const enabled=flag.value==='Sí';block.hidden=!enabled;
+    if(!enabled){input.value='';input.type='password';}
+  }
+  function toggleDeviceAccessVisibility(id,button){
+    const input=document.getElementById(id);if(!input)return;
+    const show=input.type==='password';input.type=show?'text':'password';
+    if(button){button.textContent=show?'Ocultar':'Mostrar';button.setAttribute('aria-pressed',String(show));}
+  }
+  async function revealManagerDeviceAccess(){
+    const target=document.getElementById('mDeviceAccessResult'),button=document.getElementById('mRevealDeviceAccess');
+    if(!target||!button||!activeOrderId)return;
+    if(target.dataset.revealed==='true'){target.textContent='Clave oculta. Solo personal técnico autorizado.';target.dataset.revealed='false';button.textContent='Consultar clave';return;}
+    target.textContent='Consultando acceso autorizado...';button.disabled=true;
+    try{
+      const auth=await supabaseClient.auth.getSession();const token=auth?.data?.session?.access_token;
+      if(!token)throw Error('Inicia sesión nuevamente.');
+      const endpoint=String(window.THINKSTORE_MAIN_SITE||'https://thinkstore.com.ve').replace(/\/$/,'')+'/.netlify/functions/registered-reception';
+      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'read_device_access',order_id:activeOrderId}),cache:'no-store'});
+      const result=await response.json();if(!response.ok||!result.ok)throw Error(result.error||'Consulta no autorizada.');
+      target.textContent=result.pin||'Esta orden no tiene clave guardada.';target.dataset.revealed='true';button.textContent='Ocultar clave';
+    }catch(err){target.textContent=err.message||'No se pudo consultar la clave.';}finally{button.disabled=false;}
+  }
   function resetReceptionForm(){
     activeReceptionOrderId=null; pendingAppointmentId=null;
     const form=document.querySelector('#orderModal form');if(form)form.reset();
@@ -2372,7 +2400,7 @@ const TSService=(()=>{
     document.getElementById('oBrand').value='Apple';
     if(document.getElementById('oServiceMode'))oServiceMode.value='Presencial';if(document.getElementById('oIntakeSource'))oIntakeSource.value='Recepción directa';
     document.getElementById('oPasswordFlag').value='No';
-    const accessCode=document.getElementById('oDeviceAccessCode');if(accessCode)accessCode.value='';
+    const accessCode=document.getElementById('oDeviceAccessCode');if(accessCode)accessCode.value='';toggleDeviceAccessField();
     document.getElementById('orderModalTitle').textContent='Nueva recepción';
     document.getElementById('orderModalSubtitle').textContent='Complete todos los datos del ingreso. La orden de servicio se genera únicamente al finalizar la recepción.';
     document.getElementById('orderSaveBtn').textContent='Finalizar ingreso y crear orden';
@@ -2417,7 +2445,7 @@ const TSService=(()=>{
     document.getElementById('orderSaveBtn').textContent='Guardar recepción';
     oClient.value=o.client||'';oPhone.value=o.phone||'';oEmail.value=o.email||'';oPriority.value=o.priority||'Normal';applyReceptionClientMeta(o.clientMeta||o.checklist?.__client||{});renderReceptionClientSelected(supportClientFromOrder(o));
     oDevice.value=o.device||'';deviceModelSearch.value=o.device||'';oColor.value=o.color||'';oSerial.value=o.serial||'';oIssue.value=o.issue||'';oAccessories.value=o.accessories||'';oVisual.value=o.visual||'';oTechNotes.value=o.technicalNotes||'';
-    oPasswordFlag.value=o.passwordReceived?'Sí':'No';
+    oPasswordFlag.value=o.passwordReceived?'Sí':'No';toggleDeviceAccessField();
     const accessCode=document.getElementById('oDeviceAccessCode');if(accessCode){accessCode.value='';accessCode.placeholder=o.checklist?.__device_access_sealed?'Clave guardada de forma protegida. Déjalo vacío para conservarla.':'PIN o clave de acceso (opcional)';}
     if(document.getElementById('oServiceMode'))oServiceMode.value=o.serviceMode||'Presencial';
     const meta=o.checklist?.__meta||{};
@@ -2834,5 +2862,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,updateManagerUsdConversion,managerBolivarEdited,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,toggleDeviceAccessField,toggleDeviceAccessVisibility,revealManagerDeviceAccess,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,updateManagerUsdConversion,managerBolivarEdited,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

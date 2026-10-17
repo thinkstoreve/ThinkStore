@@ -20,6 +20,26 @@ exports.handler=async e=>{
   if(!staff.ok)return out(403,{ok:false,error:'No se pudieron verificar permisos de Soporte.'});
   const [profile]=await staff.json();
   if(!profile||profile.activo===false||!['superadmin','admin','reception','sales'].includes(profile.rol))return out(403,{ok:false,error:'No tienes permiso para registrar ingresos.'});
+  if(b.action==='read_device_access'){
+    if(!['technician','admin','superadmin'].includes(profile.rol))return out(403,{ok:false,error:'Solo el equipo técnico autorizado puede consultar la clave.'});
+    const orderId=String(b.order_id||'');if(!/^(?:\d+|[0-9a-f-]{36})$/i.test(orderId))return out(400,{ok:false,error:'Orden inválida.'});
+    const q=await fetch(url+'/rest/v1/service_orders?id=eq.'+encodeURIComponent(orderId)+'&select=id,assigned_technician_email,reception_checklist&limit=1',{headers:{apikey:key,Authorization:'Bearer '+key}});
+    if(!q.ok)return out(502,{ok:false,error:'No se pudo verificar la orden.'});
+    const order=(await q.json())[0];if(!order)return out(404,{ok:false,error:'Orden no encontrada.'});
+    if(profile.rol==='technician'&&String(order.assigned_technician_email||'').toLowerCase()!==String(user.email||'').toLowerCase())return out(403,{ok:false,error:'La orden no está asignada a este técnico.'});
+    const seal=order.reception_checklist?.__device_access_sealed;
+    if(!seal)return out(200,{ok:true,pin:null});
+    if(seal.v!==1||!seal.iv||!seal.data||!seal.tag)return out(409,{ok:false,error:'Formato de clave no reconocido.'});
+    try{
+      const {createDecipheriv}=require('node:crypto');
+      const secret=process.env.SUPPORT_DEVICE_ACCESS_SECRET||key;
+      const k=createHash('sha256').update('thinkstore-support-device-access-v1:'+secret).digest();
+      const decipher=createDecipheriv('aes-256-gcm',k,Buffer.from(seal.iv,'base64'));
+      decipher.setAuthTag(Buffer.from(seal.tag,'base64'));
+      const pin=Buffer.concat([decipher.update(Buffer.from(seal.data,'base64')),decipher.final()]).toString('utf8');
+      return out(200,{ok:true,pin});
+    }catch{return out(409,{ok:false,error:'No se pudo descifrar la clave. Verifica la configuración de seguridad.'});}
+  }
   const c={name:String(b.client_name||'').trim().slice(0,200),phone:String(b.client_phone||'').trim().slice(0,60),email:String(b.client_email||'').trim().slice(0,254)||null};
   if(!c.name||!c.phone)return out(400,{ok:false,error:'Indica nombre y teléfono del cliente.'});
   const headers={apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'};
@@ -43,7 +63,7 @@ exports.handler=async e=>{
    const iv=randomBytes(12),k=createHash('sha256').update('thinkstore-support-device-access-v1:'+secret).digest();
    const cipher=createCipheriv('aes-256-gcm',k,iv),encrypted=Buffer.concat([cipher.update(pin,'utf8'),cipher.final()]);
    checklist.__device_access_sealed={v:1,iv:iv.toString('base64'),data:encrypted.toString('base64'),tag:cipher.getAuthTag().toString('base64')};
-  }else if(previous?.reception_checklist?.__device_access_sealed){checklist.__device_access_sealed=previous.reception_checklist.__device_access_sealed;}
+  }else if(b.password_received===true&&previous?.reception_checklist?.__device_access_sealed){checklist.__device_access_sealed=previous.reception_checklist.__device_access_sealed;}
   Object.assign(data,{client_name:c.name,client_phone:c.phone,client_email:c.email,reception_checklist:checklist,password_received:b.password_received===true||Boolean(checklist.__device_access_sealed),signatures:b.signatures&&typeof b.signatures==='object'?b.signatures:{}});
   if(!id){
    // La numeración se reserva atómicamente en Supabase; nunca se acepta desde el navegador.
