@@ -433,3 +433,22 @@ button,input,select,textarea{font-size:16px}
   background:#142d52!important; border:1px solid #2d66b3!important; color:#b8d5ff!important;
 }
 .ts-ver-single:focus-visible {outline:2px solid #75b3ff;outline-offset:2px}
+
+/* 2026-10-17: controles de detalle únicos y compactos, sin píldoras automáticas */
+.prod11-pill,[data-enterprise-row-detail]{display:none!important}
+#salesLedger .table-row>button[data-sales-row],
+.ts-audit-item button[data-audit-expand],
+.service-profit-row>button[data-ts-credit-detail],
+.petty-row>button[data-petty-detail],
+.fin-table-row>button[data-trace-method],
+.fin-table-row>button[data-trace-entry]{
+  display:inline-flex!important;justify-self:end!important;align-self:center!important;
+  width:auto!important;max-width:max-content!important;min-width:0!important;
+  min-height:32px!important;padding:6px 14px!important;
+  border-radius:999px!important;background:#12345b!important;
+  border:1px solid #2d68ac!important;color:#c4ddff!important;
+  font-size:12px!important;font-weight:750!important;letter-spacing:.02em!important;
+  box-shadow:none!important;cursor:pointer!important
+}
+.service-profit-row>button[data-ts-credit-detail]{grid-column:auto!important}
+@media(max-width:650px){.service-profit-row>button[data-ts-credit-detail]{grid-column:2!important}}
