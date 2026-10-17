@@ -3029,14 +3029,55 @@ function renderV9RealMarketing(data){
       if(row.dataset.prod11 === '1' || row.closest('.production-toolbar')) return;
       row.dataset.prod11 = '1';
       row.setAttribute('aria-label', 'Ver detalle seguro');
+      const explicit = row.querySelector('[data-petty-detail],[data-audit-expand],[data-ts-credit-detail],[data-sales-row],[data-trace-method],[data-trace-entry],[data-trace-summary]');
+      if(explicit){
+        row.querySelectorAll('.prod11-pill').forEach(pill=>pill.remove());
+        return;
+      }
       if(!row.querySelector('.prod11-pill')){
-        const pill = document.createElement('em');
-        pill.className = 'prod11-pill';
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'prod11-pill mini-action';
+        pill.dataset.enterpriseRowDetail = '1';
         pill.textContent = 'Ver';
+        const label = row.querySelector('b')?.textContent?.trim() || 'registro';
+        pill.setAttribute('aria-label', 'Ver detalle de ' + label);
         row.appendChild(pill);
       }
     });
   }
+
+  // Consulta explícita de registros: nunca invoca pagar, anular o guardar.
+  document.addEventListener('click', event=>{
+    const button=event.target.closest('[data-enterprise-row-detail]');
+    if(!button)return;
+    event.preventDefault();event.stopPropagation();
+    const row=button.closest('.table-row,.product-row,.activity-item,.status-row');
+    if(!row)return;
+    const data=window.enterpriseFinanceData||{};
+    const commissionId=row.querySelector('[data-fin-pay-tech]')?.dataset.finPayTech
+      ||row.querySelector('[data-fin-pay-seller]')?.dataset.finPaySeller;
+    const records=[...(data.technicians?.commissions||[]),...(data.sellers?.commissions||[])];
+    const record=commissionId?records.find(item=>String(item.id)===String(commissionId)):null;
+    let title='Detalle del registro';
+    let details=[];
+    if(record){
+      title='Comisión · '+(record.source_code||record.counterparty||'Detalle');
+      const money=value=>value==null?'No disponible':Number(value).toLocaleString('en-US',{style:'currency',currency:'USD'});
+      details=[['Identificador',record.id],['Orden',record.source_code||'No disponible'],
+        ['Beneficiario',record.counterparty||'No disponible'],['Descripción',record.description||'No disponible'],
+        ['Comisión registrada',money(record.amount_usd)],['Pagado',money(record.paid_usd)],
+        ['Pendiente',money(record.pending_usd)],['Estado',record.status||'No disponible'],
+        ['Fecha',record.occurred_at||'No disponible'],['Fuente',record.source_system||'No disponible']];
+    }else{
+      const copy=row.cloneNode(true);
+      copy.querySelectorAll('button,a,input,select,.prod11-pill').forEach(el=>el.remove());
+      details=[['Contenido disponible',copy.textContent.replace(/\s+/g,' ').trim()||'Sin detalle'],
+        ['Alcance','Resumen visible de la fila. No hay un registro individual vinculado disponible en este control.']];
+    }
+    details.push(['Consulta','Solo lectura']);
+    window.openEnterpriseDetail?.(title,details);
+  },true);
 
   function runProd11(){
     enhanceToolbar();
@@ -3489,9 +3530,32 @@ function renderV9RealMarketing(data){
       const amount=String(m.currency)==='VES'?`${fn(m.amount)} Bs · ${fm(m.usd_equivalent)}`:fm(m.amount);
       const sign=m.direction==='out'?'−':'+';const bank=pettyRelatedBank(m);
       const meta=[bank?pettyBankName(bank):'',m.category,m.vendor,m.reference?`Ref. ${m.reference}`:'',m.funded_by&&m.funded_by!=='company'?`aportó ${partnerLabel(m.funded_by)}`:''].filter(Boolean).map(safe).join(' · ');
-      return `<div class="table-row fin-table-row petty-row"><div><b>${safe(pettyTypeLabel(m.movement_type))} · ${safe(m.description)}</b><br><small>${fd(m.occurred_at)}${meta?` · ${meta}`:''}</small></div><span class="${m.direction==='out'?'cash-negative':''}">${sign}${safe(amount)}</span><button class="mini-action danger" data-petty-void="${safe(m.id)}">Anular</button></div>`;
+      return `<div class="table-row fin-table-row petty-row" data-petty-record="${safe(m.id)}"><div><b>${safe(pettyTypeLabel(m.movement_type))} · ${safe(m.description)}</b><br><small>${fd(m.occurred_at)}${meta?` · ${meta}`:''}</small></div><span class="${m.direction==='out'?'cash-negative':''}">${sign}${safe(amount)}</span><button type="button" class="mini-action" data-petty-detail="${safe(m.id)}" aria-expanded="false">Ver</button><button class="mini-action danger" data-petty-void="${safe(m.id)}">Anular</button></div>`;
     }).join('')||'<div class="fin-empty">Caja Chica todavía no tiene movimientos.</div>';
   }
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('[data-petty-detail]');if(!button)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const row=button.closest('[data-petty-record]');if(!row)return;
+    const existing=row.querySelector('[data-petty-detail-panel]');
+    if(existing){existing.remove();button.textContent='Ver';button.setAttribute('aria-expanded','false');return;}
+    const movement=(financeCache?.petty_cash?.movements||[]).find(m=>String(m.id)===button.dataset.pettyDetail);
+    const panel=document.createElement('div');panel.dataset.pettyDetailPanel='1';
+    panel.style.cssText='grid-column:1/-1;width:100%;padding:16px;border-top:1px solid #dbe3ed;background:#f8fafc;border-radius:10px;';
+    const fields=movement?[
+      ['Movimiento',movement.id],['Tipo',pettyTypeLabel(movement.movement_type)],
+      ['Descripción',movement.description],['Fecha',movement.occurred_at?fd(movement.occurred_at):null],
+      ['Dirección',movement.direction==='out'?'Salida':'Entrada'],['Moneda',movement.currency],
+      ['Monto',movement.amount],['Equivalente USD',movement.usd_equivalent],
+      ['Categoría',movement.category],['Proveedor',movement.vendor],['Referencia',movement.reference],
+      ['Financiado por',partnerLabel(movement.funded_by)],['Estado',movement.status],
+      ['Cuenta',pettyRelatedBank(movement)?pettyBankName(pettyRelatedBank(movement)):'Sin cuenta vinculada']
+    ]:[['Detalle','El movimiento no está disponible. Actualiza los datos y vuelve a consultar.']];
+    fields.forEach(([label,value])=>{const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:16px;padding:6px 0;flex-wrap:wrap';const name=document.createElement('span');name.textContent=label;const content=document.createElement('strong');content.textContent=value==null||value===''?'No disponible':String(value);line.append(name,content);panel.append(line)});
+    row.append(panel);button.textContent='Ocultar';button.setAttribute('aria-expanded','true');
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)panel.animate([{opacity:0,transform:'translateY(-8px)'},{opacity:1,transform:'translateY(0)'}],{duration:200});
+  },true);
+
   function renderPettyCash(d){
     const el=qs('pettyCash');if(!el)return;
     const p=d.petty_cash||{},a=p.account||{},bank=p.banking||{};
