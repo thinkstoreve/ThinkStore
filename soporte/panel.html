@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=8.8.10" />
+  <link rel="stylesheet" href="styles.css?v=8.8.15" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -141,7 +141,7 @@
   </div>
 
   <div id="orderModal" class="modal order-fullscreen">
-    <form class="order-sheet" onsubmit="TSService.saveOrder(event)">
+    <form class="order-sheet" novalidate onsubmit="TSService.saveOrder(event)">
       <header class="order-sheet-head">
         <div>
           <h2 id="orderModalTitle">Nueva recepción</h2>
@@ -223,7 +223,7 @@
             </div>
             <input id="oDevice" type="hidden" required />
             <div class="grid2 compact">
-              <label>Serial / IMEI<input id="oSerial" placeholder="Serial / IMEI" /></label>
+              <div class="ts-serial-field"><div class="ts-serial-header"><label for="oSerial">Serial / IMEI</label><a class="ts-warranty-link" href="https://checkcoverage.apple.com/?locale=es_US" target="_blank" rel="noopener noreferrer" title="Consultar garantía en Apple">Garantía <span aria-hidden="true">↗</span></a></div><input id="oSerial" placeholder="Serial / IMEI" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" /></div>
               <label>¿El equipo tiene clave?<select id="oPasswordFlag" onchange="TSService.toggleDeviceAccessField()"><option>No</option><option>Sí</option><option>No aplica</option></select></label>
               <label>Modalidad<select id="oServiceMode"><option>Presencial</option><option>A domicilio</option><option>Envío nacional</option></select></label>
               <label>Ingreso<select id="oIntakeSource"><option>Recepción directa</option><option>Cita web</option><option>WhatsApp / Online</option></select></label>
@@ -359,8 +359,8 @@
       <section class="order-signatures order-box">
         <h3>Firmas</h3>
         <div class="signature-grid">
-          <label>Recibido por (Recepción)<input id="sigReceptionName" placeholder="Nombre del técnico" /><button type="button" class="secondary">Firmar</button></label>
-          <label>Cliente<input id="sigClientName" placeholder="Nombre del cliente" /><button type="button" class="secondary">Firmar</button></label>
+          <label>Recibido por (Recepción)<input id="sigReceptionName" placeholder="Nombre de la sesión" readonly title="Se completa con la sesión activa" /><button type="button" class="secondary">Firmar</button></label>
+          <label>Cliente<input id="sigClientName" placeholder="Nombre del cliente" readonly title="Se completa desde los datos del cliente" /><button type="button" class="secondary">Firmar</button></label>
           <label>Diagnóstico por (Técnico)<input id="sigTechName" placeholder="Nombre del técnico" /><button type="button" class="secondary">Firmar</button></label>
           <label>Revisado por (Supervisor)<input id="sigSupervisorName" placeholder="Nombre del supervisor" /><button type="button" class="secondary">Firmar</button></label>
         </div>
@@ -368,7 +368,7 @@
 
       <footer class="order-actions">
         <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
-        <button id="orderSaveBtn">Finalizar ingreso y crear orden</button>
+        <div class="ts-save-wrap"><div id="orderSaveFeedback" class="ts-save-feedback" role="status" aria-live="polite"></div><button id="orderSaveBtn" type="submit">Finalizar ingreso y crear orden</button></div>
       </footer>
     </form>
   </div>
@@ -560,6 +560,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=2.0.0"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=8.8.9"></script>
+  <script src="app.js?v=8.8.15"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

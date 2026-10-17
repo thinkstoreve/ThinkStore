@@ -1,0 +1,1 @@
+V8.8.14: Validación visible de nombre, teléfono, modelo y falla; bloqueo de doble envío; mensaje de guardado y errores; animación ligera. No cambia base de datos. Requiere prueba autenticada de creación real.

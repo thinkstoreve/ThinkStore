@@ -2123,3 +2123,30 @@ input,select,textarea{max-width:100%;min-width:0}
 @media(max-width:760px){
   #orderModal .diagram-box .device-diagram{min-height:250px!important;max-height:320px!important;}
 }
+
+/* Soporte V8.8.12: garantía Apple y serial siempre en mayúsculas */
+.ts-serial-field{min-width:0;display:flex;flex-direction:column;gap:8px}
+.ts-serial-header{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.ts-serial-header label{margin:0!important}
+.ts-warranty-link{display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:650;line-height:1.1;padding:6px 9px;border:1px solid #c9d8ee;border-radius:9px;background:#edf4ff;color:#22538e;text-decoration:none;white-space:nowrap;flex-shrink:0}
+.ts-warranty-link:hover,.ts-warranty-link:focus-visible{background:#dcecff;border-color:#8db9ef}
+.ts-serial-field #oSerial{text-transform:uppercase;width:100%;box-sizing:border-box}
+
+/* V8.8.14 · confirmación visible al registrar órdenes */
+#orderModal .ts-save-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:100%}
+#orderModal .ts-save-feedback{font-size:12px;color:#365d89;max-width:460px;text-align:right;min-height:1em}
+#orderModal .ts-save-feedback.error{color:#b42318;font-weight:700}
+#orderModal #orderSaveBtn{transition:transform .16s ease,box-shadow .18s ease,filter .18s ease;cursor:pointer}
+#orderModal #orderSaveBtn:active{transform:scale(.975);filter:brightness(.93)}
+#orderModal #orderSaveBtn.is-saving{cursor:wait;opacity:.82;animation:ts-saving-pulse .9s ease-in-out infinite alternate}
+@keyframes ts-saving-pulse{from{box-shadow:0 4px 10px rgba(0,113,227,.12)}to{box-shadow:0 0 0 7px rgba(0,113,227,.16),0 14px 25px rgba(0,113,227,.23)}}
+@media(max-width:700px){#orderModal .ts-save-wrap{width:100%;align-items:stretch}#orderModal .ts-save-feedback{text-align:left}}
+@media(prefers-reduced-motion:reduce){#orderModal #orderSaveBtn.is-saving{animation:none}}
+
+/* Soporte V8.8.15: miniatura/presentación real MacBook 15 Intel 2018 y 2019 */
+#orderModal .selected-device-summary:has(.has-model-image){min-height:116px!important;}
+#orderModal .selected-device-summary .device-art.has-model-image{width:112px!important;min-width:112px!important;height:94px!important;background:#fff!important;box-shadow:none!important;border:1px solid #ececf0!important;}
+#orderModal .selected-device-summary .selected-device-img{object-fit:contain!important;}
+#orderModal .premium-model-option img{width:48px!important;height:42px!important;object-fit:contain!important;background:#fff!important;}
+#orderModal .premium-model-option{grid-template-columns:50px minmax(0,1fr) auto!important;}
+@media(max-width:700px){#orderModal .selected-device-summary .device-art.has-model-image{width:88px!important;min-width:88px!important;height:80px!important;}}
