@@ -183,6 +183,20 @@ async function getAdminProfile(user){
   try{localStorage.setItem('ts_enterprise_profile',JSON.stringify(currentProfile))}catch{}
   return currentProfile;
 }
+function openEnterpriseUserProfile(){
+  const dialog=qs('enterpriseUserDialog');
+  if(!dialog)return;
+  const profile=currentProfile||{};
+  const text=(id,value)=>{const el=qs(id);if(el)el.textContent=String(value||'—')};
+  text('enterpriseUserName',profile.full_name||profile.nombre||qs('adminName')?.textContent);
+  text('enterpriseUserEmail',profile.email||qs('adminEmailLabel')?.textContent);
+  text('enterpriseUserRole',profile.is_full_admin?'Superadministrador':(profile.enterprise_role==='manager'?'Administrador Enterprise':'Consulta / solo lectura'));
+  text('enterpriseUserStatus',profile.active===false?'Desactivada':'Activa');
+  qs('logoutMini')?.setAttribute('aria-expanded','true');
+  if(typeof dialog.showModal==='function'&&!dialog.open)dialog.showModal();
+}
+function closeEnterpriseUserProfile(){qs('enterpriseUserDialog')?.close();}
+
 function applyAdminIdentity(user, profile={}){
   const email = profile.email || user.email || 'admin@thinkstore.com.ve';
   const name = canonicalOwnerName(email,profile.full_name,profile.nombre,user?.user_metadata?.full_name,user?.user_metadata?.name);
@@ -544,7 +558,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   qs('loginForm')?.addEventListener('submit', unlock);
   qs('forgotPasswordBtn')?.addEventListener('click', sendPasswordRecovery);
   qs('logoutBtn')?.addEventListener('click',logout);
-  qs('logoutMini')?.addEventListener('click',logout);
+  qs('logoutMini')?.addEventListener('click',openEnterpriseUserProfile);
+  qs('enterpriseUserClose')?.addEventListener('click',closeEnterpriseUserProfile);
+  qs('enterpriseUserDismiss')?.addEventListener('click',closeEnterpriseUserProfile);
+  qs('enterpriseUserSignout')?.addEventListener('click',logout);
+  qs('enterpriseUserDialog')?.addEventListener('close',()=>qs('logoutMini')?.setAttribute('aria-expanded','false'));
   document.querySelectorAll('.nav').forEach(btn=>btn.addEventListener('click',()=>switchView(btn.dataset.view)));
   qs('searchInput')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase(); document.querySelectorAll('.module-card,.product-row,.activity-item,.status-row,.table-row').forEach(el=>{el.style.outline = q && el.textContent.toLowerCase().includes(q) ? '1px solid rgba(38,119,255,.7)' : ''})});
   const initialView = new URLSearchParams(location.search).get('view');
@@ -3163,8 +3181,8 @@ function renderV9RealMarketing(data){
   async function finHeaders(){const h={'Content-Type':'application/json'};const {data}=await window.supabaseClient.auth.getSession();if(data?.session?.access_token)h.Authorization=`Bearer ${data.session.access_token}`;return h}
   function quality(d){const q=d?.quality||{};const a=[];a.push(q.finance_tables_ready?'Finanzas centrales activas':'Pendiente migración de Finanzas');a.push(q.inventory_connected?`Inventory conectado · cobertura de costo ${Number(q.inventory_cost_coverage_pct||0).toFixed(1)}%`:'Inventory pendiente de conectar');a.push(q.support_parts_connected?'Repuestos de Soporte conectados':'Repuestos de Soporte sin movimientos');a.push(q.support_payment_events?'Abonos de Soporte con historial':'Historial de abonos de Soporte pendiente');a.push(q.mixed_payments_table?'Pagos mixtos conectados':'Pagos mixtos pendientes');a.push(q.staff_cash_table?'Caja Staff conectada':'Caja Staff pendiente');a.push(q.petty_cash_table?'Caja Chica activa':'Caja Chica pendiente');if(Number(q.staff_cash_unconverted_ves||0)>0)a.push(`${Number(q.staff_cash_unconverted_ves)} movimiento(s) VES históricos sin equivalencia USD`);return a.join(' · ')}
   function financeActions(){return `<div class="fin-actionbar"><button data-fin-new="expense">+ Registrar gasto</button><button data-fin-new="partner_advance">+ Dinero de socio</button><button data-fin-new="partner_repayment">↩ Devolver a socio</button><button data-fin-new="receivable">+ Cuenta por cobrar</button><button data-fin-new="technician_commission">Ajuste comisión</button><button data-fin-commission-settings>Reglas de comisión</button></div><p class="fin-quality">Enterprise controla dinero y rentabilidad. Las compras de mercancía se registran en Inventory y las reparaciones se gestionan en Soporte; aquí llegan automáticamente para contabilidad, auditoría y reparto.</p>`}
-  function paymentRows(d){return (d.payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div><b>${safe(x.method)}</b><br><small>${Object.entries(x.sources||{}).map(([k,v])=>`${safe(k)}: ${fn(v)}`).join(' · ')}</small></div><span>${fm(x.amount)}</span><i class="tag">${fn(x.count)} mov.</i></div>`).join('')||'<div class="fin-empty">Todavía no hay cobros clasificados por método en esta semana.</div>'}
-  function entryRows(d){return (d.entries||[]).slice(0,25).map(e=>`<div class="table-row fin-table-row" data-fin-entry="${safe(e.id)}"><div><b>${safe(typeLabel(e.entry_type))} · ${safe(e.description)}</b><br><small>${safe(e.category||'Sin categoría')} · ${fd(e.occurred_at)}${e.counterparty?` · ${safe(e.counterparty)}`:''}${e.funded_by&&e.funded_by!=='company'?` · pagó ${safe(partnerLabel(e.funded_by))}`:''}</small></div><span>${fm(e.amount_usd)}</span><button class="mini-action danger" data-fin-void="${safe(e.id)}">Anular</button></div>`).join('')||'<div class="fin-empty">Sin movimientos manuales esta semana.</div>'}
+  function paymentRows(d){return (d.payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div><b>${safe(x.method)}</b><br><small>${Object.entries(x.sources||{}).map(([k,v])=>`${safe(k)}: ${fn(v)}`).join(' · ')}</small></div><span>${fm(x.amount)}</span><button type="button" class="mini-action" data-trace-method="${safe(x.method)}">VER</button><i class="tag">${fn(x.count)} mov.</i></div>`).join('')||'<div class="fin-empty">Todavía no hay cobros clasificados por método en esta semana.</div>'}
+  function entryRows(d){return (d.entries||[]).slice(0,25).map(e=>`<div class="table-row fin-table-row" data-fin-entry="${safe(e.id)}"><div><b>${safe(typeLabel(e.entry_type))} · ${safe(e.description)}</b><br><small>${safe(e.category||'Sin categoría')} · ${fd(e.occurred_at)}${e.counterparty?` · ${safe(e.counterparty)}`:''}${e.funded_by&&e.funded_by!=='company'?` · pagó ${safe(partnerLabel(e.funded_by))}`:''}</small></div><span>${fm(e.amount_usd)}</span><button type="button" class="mini-action" data-trace-entry="${safe(e.id)}">VER</button><button class="mini-action danger" data-fin-void="${safe(e.id)}">Anular</button></div>`).join('')||'<div class="fin-empty">Sin movimientos manuales esta semana.</div>'}
   function receivableRows(d){return (d.receivables?.manual_rows||[]).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||'Cliente')} · ${safe(e.description)}</b><br><small>Total ${fm(e.amount_usd)} · cobrado ${fm(e.collected_usd)}</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-collect="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Registrar abono</button></div>`).join('')||'<div class="fin-empty">Sin cuentas por cobrar manuales pendientes.</div>'}
   function commissionRows(d){return (d.technicians?.commissions||[]).filter(x=>Number(x.pending_usd||0)>0).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||e.metadata?.technician_name||e.metadata?.technician_email||'Técnico')}</b><br><small>${safe(e.source_code||e.description)} · base neta ${fm(e.metadata?.commission_base)}${e.metadata?.parts_rate_pct!==undefined?` · repuesto ${e.metadata.parts_rate_pct??'—'}% · servicio ${e.metadata.service_rate_pct??'—'}%`:` · ${Number(e.metadata?.rate_pct||0)}%`}</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-pay-tech="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Pagar</button></div>`).join('')||'<div class="fin-empty">No hay comisiones técnicas pendientes.</div>'}
   function purchaseRows(d){return (d.inventory?.payables||[]).slice(0,20).map(p=>`<div class="table-row fin-table-row"><div><b>${safe(p.supplier_name||'Proveedor')} · ${safe(p.product_name||'Compra')}</b><br><small>${safe(p.purchase_date||'Sin fecha')} · total ${fm(p.total_usd)} · pagado ${fm(p.paid_usd)}${p.reference?` · ${safe(p.reference)}`:''}</small></div><span>${fm(p.pending_usd)}</span><i class="tag">Por pagar</i></div>`).join('')||'<div class="fin-empty">No hay compras pendientes con proveedores.</div>'}
@@ -3351,7 +3369,7 @@ function renderV9RealMarketing(data){
       ${financeAuditPanel(d)}
       <div class="main-grid fin-main-grid">
         <article class="panel"><div class="panel-head"><h3>Proveedores por pagar</h3><span class="tag">${fm(d.inventory?.supplier_payable)}</span></div><div class="table">${purchaseRows(d)}</div></article>
-        <article class="panel"><div class="panel-head"><h3>Cuentas por cobrar</h3><span class="tag">${fm(d.receivables?.total)}</span></div><div class="table">${receivableRows(d)}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Cuentas por cobrar</h3><button type="button" class="tag" data-trace-summary="receivables">${fm(d.receivables?.total)} · VER</button></div><div class="table">${receivableRows(d)}</div></article>
       </div>
       <div class="main-grid fin-main-grid">
         <article class="panel"><div class="panel-head"><h3>Métodos de cobro · semana</h3><span class="tag">Entradas</span></div><div class="table">${paymentRows(d)}</div></article>
@@ -3650,6 +3668,44 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
     const items=(fields||[]).map(([label,path])=>[label,metricPath(financeCache,path)??'No proporcionado']);
     openMetricDetail(title,card.querySelector('b')?.textContent?.trim()||'—',description,items,dest);
   });
+  // Detalles de origen en modo lectura. Nunca modificar ni recalcular importes financieros.
+  function traceRows(title,amount,description,rows){
+    const list=rows.map((r,i)=>[String(i+1)+' · '+String(r.title||'Registro'),String(r.details||'')]);
+    openMetricDetail(title,amount,description,list);
+  }
+  document.addEventListener('click',event=>{
+    const methodButton=event.target.closest('[data-trace-method]');
+    const entryButton=event.target.closest('[data-trace-entry]');
+    const summaryButton=event.target.closest('[data-trace-summary]');
+    if(!methodButton&&!entryButton&&!summaryButton)return;
+    event.preventDefault();event.stopPropagation();
+    const d=financeCache||{};
+    if(methodButton){
+      const method=methodButton.dataset.traceMethod;
+      const group=(d.payment_methods||[]).find(x=>x.method===method);
+      const audit=(d.audit_readonly?.payment_method_trace?.records||[]).filter(x=>x.method===method);
+      const sums=(d.reconciliation?.lines||[]).find(x=>x.method===method);
+      const rows=audit.map(x=>({title:(x.direction==='out'?'Salida':'Entrada')+' · '+(x.source||'Fuente no indicada'),details:`${fm(x.amount_usd)} · ${x.occurred_at?fd(x.occurred_at):'Fecha no disponible'} · ${x.order_id||x.source_id||'Sin identificador'} · Método original: ${x.raw_method||'Sin definir'}${x.reference?' · Ref. '+x.reference:''}`}));
+      const sources=Object.entries(group?.sources||{}).map(([name,n])=>({title:name,details:`${n} operaciones agrupadas (sin detalle individual en la respuesta)`}));
+      traceRows('Método de cobro · '+method,fm(group?.amount),`El monto corresponde al agregado de métodos de cobro para el periodo. ${sums?'Conciliación: entradas '+fm(sums.inflow)+' · salidas '+fm(sums.outflow)+'. ':''}${audit.length?'Los registros siguientes proceden de la auditoría de conciliación y pueden incluir reversos; no son necesariamente el mismo desglose que el agregado de cobros.':'No hay detalle transaccional individual proporcionado para este método.'}${d.audit_readonly?.payment_method_trace?.truncated?' La auditoría fue truncada.':''}`,rows.length?rows:sources);
+      return;
+    }
+    if(entryButton){
+      const e=(d.entries||[]).find(x=>String(x.id)===entryButton.dataset.traceEntry);
+      if(!e){openMetricDetail('Movimiento financiero','—','El registro no se encuentra en el conjunto actual. Actualiza los datos y vuelve a consultar.');return}
+      const rows=[['Identificador',e.id],['Orden de origen',e.source_code||'No indicado'],['Tipo',e.entry_type||'No indicado'],['Estado',e.status||'No indicado'],['Categoría',e.category||'No indicada'],['Contraparte',e.counterparty||'No indicada'],['Método',e.payment_method||'No indicado'],['Referencia',e.reference||'No indicada'],['Fecha',e.occurred_at||'No indicada'],['Descripción',e.description||'No indicada']];
+      openMetricDetail('Movimiento · '+(e.source_code||e.entry_type||'Detalle'),fm(e.amount_usd),'Registro financiero devuelto por Enterprise, solo lectura.',rows);
+      return;
+    }
+    if(summaryButton){
+      const suppliers=summaryButton.dataset.traceSummary==='suppliers';
+      const rows=suppliers?(d.inventory?.payables||[]):(d.receivables?.manual_rows||[]);
+      const total=suppliers?d.inventory?.supplier_payable:d.receivables?.total;
+      const items=rows.map(x=>({title:suppliers?(x.supplier_name||x.product_name||'Proveedor'):(x.counterparty||x.description||'Cliente'),details:`Pendiente ${fm(x.pending_usd)} · total ${fm(x.total_usd??x.amount_usd)} · pagado ${fm(x.paid_usd??x.collected_usd)}`}));
+      if(!suppliers){items.unshift({title:'Soporte · agregado',details:fm(d.receivables?.support)});items.unshift({title:'Tienda · agregado',details:fm(d.receivables?.store)})}
+      traceRows(suppliers?'Proveedores por pagar':'Cuentas por cobrar',fm(total),suppliers?'Compras pendientes disponibles en la respuesta de Inventory.':'Desglose por fuente: solo las cuentas manuales disponen de filas individuales en esta respuesta; Tienda y Soporte son agregados. No se inventan órdenes.',items);
+    }
+  },true);
   document.addEventListener('click',e=>{const b=e.target.closest('[data-fin-new]');if(b)openEntryForm(b.dataset.finNew);const pn=e.target.closest('[data-petty-new]');if(pn)openPettyForm(pn.dataset.pettyNew);const pc=e.target.closest('[data-petty-currency]');if(pc)openPettyBanks(pc.dataset.pettyCurrency);const bm=e.target.closest('[data-petty-bank-menu]');if(bm)openPettyBankMenu(bm.dataset.pettyBankMenu);const bt=e.target.closest('[data-petty-bank-transfer]');if(bt)openPettyBankTransfer(bt.dataset.pettyBankTransfer);const ba=e.target.closest('[data-petty-bank-adjust]');if(ba)openPettyForm('adjustment',ba.dataset.pettyBankAdjust);const bh=e.target.closest('[data-petty-bank-history]');if(bh)openPettyBankHistory(bh.dataset.pettyBankHistory);const alloc=e.target.closest('[data-petty-bank-allocate]');if(alloc)openPettyBankTransfer('',alloc.dataset.pettyBankAllocate);const mtype=e.target.closest('[data-bank-move-type]');if(mtype){closeFinModal();openPettyForm(mtype.dataset.bankMoveType,mtype.dataset.bankId)}const card=e.target.closest('.petty-bank-card');if(card&&e.target.closest('[data-bank-settings]'))openPettyBankSettings(card.dataset.bankCard);if(e.target.closest('[data-petty-bank-reconcile]')){closeFinModal();switchView('reconciliation')}if(e.target.closest('[data-petty-account]'))openPettyAccount();const pv=e.target.closest('[data-petty-void]');if(pv)voidPetty(pv.dataset.pettyVoid);const c=e.target.closest('[data-fin-collect]');if(c)collectReceivable(c.dataset.finCollect,c.dataset.finDue);const t=e.target.closest('[data-fin-pay-tech]');if(t)payTech(t.dataset.finPayTech,t.dataset.finDue);const ss=e.target.closest('[data-fin-pay-seller]');if(ss)paySeller(ss.dataset.finPaySeller,ss.dataset.finDue);const v=e.target.closest('[data-fin-void]');if(v)voidFinanceEntry(v.dataset.finVoid);if(e.target.closest('[data-fin-save-recon]'))saveReconciliation(false);if(e.target.closest('[data-fin-close-recon]'))saveReconciliation(true);if(e.target.closest('[data-fin-close-week]'))closeWeek();if(e.target.closest('[data-fin-commission-settings]'))openCommissionSettings();if(e.target.closest('[data-fin-refresh]'))loadFinanceCenter(true)},true);
   const prevSwitch=window.switchView||switchView;window.switchView=switchView=function(id){prevSwitch(id);if(id==='treasury'||id==='pettyCash'||id==='reconciliation'||id==='weeklyAudit')setTimeout(()=>loadFinanceCenter(false),30)};
   const oldShow=showApp;showApp=function(){oldShow();setTimeout(()=>loadFinanceCenter(true),480)};
@@ -3660,4 +3716,43 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
 (function(){
   const btn=document.getElementById('refreshEnterpriseBtn');
   if(btn){btn.addEventListener('click',async e=>{e.preventDefault();e.stopPropagation();const previous=btn.textContent;btn.disabled=true;btn.textContent='Actualizando…';try{await Promise.allSettled([window.loadFinanceCenter?.(true),window.loadEnterpriseV9?.(),window.loadEnterpriseWeeklySummary?.(true)]);const s=document.getElementById('enterpriseLastSync');if(s)s.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});}finally{btn.disabled=false;btn.textContent=previous||'Actualizar';}})}
+})();
+
+
+/* ThinkStore Enterprise: trazabilidad visual de repuestos, solo lectura.
+   Ningún botón de esta sección genera movimientos ni modifica utilidades. */
+(function(){
+  function moneyPart(v){return Number(v||0).toLocaleString('en-US',{style:'currency',currency:'USD'});}
+  function escPart(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  window.enterpriseShowRepairParts=function(orderCode){
+    const d=window.enterpriseFinanceData||{};
+    const record=(d.support_part_details||[]).find(x=>String(x.order_code)===String(orderCode));
+    const items=record?.items||[];
+    const rows=items.map(x=>`<div class="table-row"><div><b>${escPart(x.name)}</b><br><small>Cantidad ${Number(x.quantity||0)} · ${x.cost_source==='movement_snapshot'?'Costo histórico del movimiento':'Costo estimado del catálogo actual (verificar)'} · ${escPart(x.purchase_id?'Compra '+x.purchase_id:'Sin compra directa vinculada')}</small></div><span>Costo ${moneyPart(x.cost_total_usd)}</span><span>${x.sale_total_usd===null?'Precio de venta no vinculado':'Venta '+moneyPart(x.sale_total_usd)+' · margen bruto '+moneyPart(x.gross_margin_usd)}</span></div>`).join('');
+    const body=`<div class="table">${rows||'<div class="table-row">No hay consumo de repuestos identificado para esta orden.</div>'}</div><p class="staff-help">Los importes solo se muestran: una compra de proveedor no se registra nuevamente como gasto, ni se crea una salida de Caja Chica. El margen se muestra solo si existe precio de venta asociado al movimiento.</p>`;
+    let dialog=document.getElementById('tsRepairPartsDialog');
+    if(!dialog){dialog=document.createElement('dialog');dialog.id='tsRepairPartsDialog';dialog.style.cssText='width:min(780px,94vw);max-height:85vh;overflow:auto;border:1px solid #ddd;border-radius:16px;padding:22px';document.body.appendChild(dialog);}
+    dialog.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h3>Repuestos · '+escPart(orderCode)+'</h3><button type="button" data-ts-close-parts>Cerrar</button></div>'+body;
+    dialog.querySelector('[data-ts-close-parts]').onclick=()=>dialog.close();
+    dialog.showModal();
+  };
+  const oldRenderTreasury=window.renderTreasury;
+  // Entrada desde detalles de órdenes existentes, sin alterar el HTML de los demás módulos.
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-ts-part-order]');if(!b)return;
+    e.preventDefault();window.enterpriseShowRepairParts(b.dataset.tsPartOrder);
+  });
+  window.enterprisePartsAuditButtons=function(){
+    const d=window.enterpriseFinanceData||{};
+    return (d.support_part_details||[]).map(o=>`<button type="button" class="mini-action" data-ts-part-order="${escPart(o.order_code)}">Ver repuestos · ${escPart(o.order_code)}</button>`).join('');
+  };
+  // Adjuntar accesos a la sección de Tesorería después de que carguen los datos.
+  const observer=new MutationObserver(()=>{
+    const root=document.getElementById('treasury');if(!root)return;
+    let slot=document.getElementById('tsRepairPartsAudit');
+    if(!slot){slot=document.createElement('article');slot.id='tsRepairPartsAudit';slot.className='panel';slot.style.marginTop='18px';root.appendChild(slot);}
+    const buttons=window.enterprisePartsAuditButtons();const html='<div class="panel-head"><h3>Repuestos por reparación · auditoría</h3><span class="tag">Solo lectura</span></div>'+(buttons||'<p>Sin movimientos de repuestos vinculados disponibles.</p>');
+    if(slot.innerHTML!==html)slot.innerHTML=html;
+  });
+  document.addEventListener('DOMContentLoaded',()=>{const root=document.getElementById('treasury');if(root)observer.observe(root,{childList:true});});
 })();

@@ -100,7 +100,7 @@
       <div class="admin-card">
         <div class="avatar">A</div>
         <div><b id="adminName">Administrador</b><span id="adminEmailLabel">admin@thinkstore.com.ve</span></div>
-        <button title="Cerrar sesión" id="logoutMini">⌄</button>
+        <button type="button" title="Ver mi perfil" aria-label="Ver mi perfil" aria-haspopup="dialog" aria-expanded="false" id="logoutMini">⌄</button>
       </div>
     </aside>
 
@@ -159,6 +159,18 @@
       <section id="settings" class="view module-view"></section>
     </section>
   </main>
+
+
+  <dialog id="enterpriseUserDialog" aria-labelledby="enterpriseUserDialogTitle" style="border:1px solid #314158;border-radius:18px;background:#101d2e;color:#f4f7fb;padding:0;width:min(420px,calc(100% - 32px));box-shadow:0 24px 64px #0009;max-height:85vh;">
+    <div style="padding:24px;display:grid;gap:15px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><h2 id="enterpriseUserDialogTitle" style="font-size:19px;margin:0;">Mi perfil</h2><button type="button" id="enterpriseUserClose" aria-label="Cerrar perfil" style="border:0;background:transparent;color:inherit;font-size:23px;cursor:pointer;">×</button></div>
+      <div><div style="font-size:12px;color:#a9bdd3;">Nombre</div><strong id="enterpriseUserName"></strong></div>
+      <div><div style="font-size:12px;color:#a9bdd3;">Correo electrónico</div><span id="enterpriseUserEmail" style="overflow-wrap:anywhere;"></span></div>
+      <div><div style="font-size:12px;color:#a9bdd3;">Rol en Enterprise</div><span id="enterpriseUserRole"></span></div>
+      <div><div style="font-size:12px;color:#a9bdd3;">Estado de cuenta</div><span id="enterpriseUserStatus"></span></div>
+      <div style="display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;"><button type="button" id="enterpriseUserDismiss" style="padding:10px 14px;border-radius:10px;border:1px solid #42536b;background:transparent;color:inherit;cursor:pointer;">Volver al panel</button><button type="button" id="enterpriseUserSignout" style="padding:10px 14px;border-radius:10px;border:1px solid #8e4351;background:#43202c;color:#fff;cursor:pointer;">Cerrar sesión</button></div>
+    </div>
+  </dialog>
 
   <script>
 (function(){
