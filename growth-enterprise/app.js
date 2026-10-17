@@ -3807,23 +3807,27 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
     const main=document.querySelector('#app')||document.body;
     financeCardObserver.observe(main,{childList:true,subtree:true});
   });
-  // One VER per record: retain the original control, transfer tracing attributes,
-  // and remove extra controls inserted by previous releases. Avoid changing business data.
+  // Solo un VER por registro. No crear botones extra ni sustituir el control funcional.
   function unifyExistingVerButtons(){
-    const selectors='.fin-table-row,.service-profit-row,.ts-audit-line,#salesLedger .table-row,.table-row';
-    document.querySelectorAll(selectors).forEach(row=>{
-      const buttons=[...row.querySelectorAll('button')].filter(b=>b.closest('.table-row,.service-profit-row,.ts-audit-line')===row && /^(VER|VER DESGLOSE|OCULTAR)$/i.test(b.textContent.trim()));
-      if(!buttons.length)return;
-      const known=['data-audit-expand','data-ts-credit-detail','data-sales-row','data-trace-method','data-trace-entry','data-trace-summary'];
-      const main=buttons.find(b=>known.some(k=>b.hasAttribute(k)))||buttons[0];
-      for(const extra of buttons){
-        if(extra===main)continue;
-        for(const attr of known)if(extra.hasAttribute(attr)&&!main.hasAttribute(attr))main.setAttribute(attr,extra.getAttribute(attr));
-        extra.remove();
+    const containers=[...document.querySelectorAll('.ts-audit-line,.service-profit-row,#salesLedger .table-row')];
+    for(const row of containers){
+      const buttons=[...row.querySelectorAll('button')].filter(b=>{
+        if(b.closest('.ts-audit-line,.service-profit-row,#salesLedger .table-row')!==row)return false;
+        return /^(VER|OCULTAR|VER DESGLOSE)$/i.test((b.textContent||'').trim());
+      });
+      if(!buttons.length)continue;
+      const attrs=['data-audit-expand','data-ts-credit-detail','data-sales-row'];
+      // Conservar el botón con el identificador de acción, no uno recreado visualmente.
+      const primary=buttons.find(b=>attrs.some(a=>b.hasAttribute(a)))||buttons.find(b=>b.classList.contains('mini-action')||b.classList.contains('ts-audit-toggle'))||buttons[0];
+      for(const b of buttons){
+        if(b===primary)continue;
+        for(const a of attrs)if(!primary.hasAttribute(a)&&b.hasAttribute(a))primary.setAttribute(a,b.getAttribute(a));
+        b.remove();
       }
-      main.classList.add('ts-original-ver');
-      main.title='Desplegar detalle de este registro';
-    });
+      primary.classList.add('ts-original-ver');
+      primary.removeAttribute('style');
+      primary.title='Mostrar u ocultar el detalle de este registro';
+    }
   }
   const verObserver=new MutationObserver(()=>unifyExistingVerButtons());
   document.addEventListener('DOMContentLoaded',()=>{
