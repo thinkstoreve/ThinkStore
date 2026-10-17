@@ -194,6 +194,13 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   else supportCollected=sum(supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)),o=>o.amount_paid);
   const supportPendingRows=supportOrders.filter(o=>servicePendingAmount(o)>0);
   const supportPending=sum(supportPendingRows,servicePendingAmount);
+  // Evidencia por orden: preserva los importes de origen y permite explicar el agregado.
+  const supportReceivableRows=supportPendingRows.map(o=>({
+    order_code:clean(o.code||o.order_code),order_id:o.id||null,
+    quote_usd:money(o.quote_amount),paid_usd:money(o.amount_paid),
+    pending_usd:money(servicePendingAmount(o)),payment_status:clean(o.payment_status),
+    status:clean(o.status),updated_at:o.updated_at||null
+  })).sort((a,b)=>b.pending_usd-a.pending_usd);
 
   // Costos reales de repuestos consumidos en Soporte.
   const supportPartMap=new Map(supportParts.map(p=>[String(p.id),p]));
@@ -491,14 +498,14 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     },
     result:{net:distributableRaw,distributable,company:shareCompany,freddy:shareFreddy,nelson:shareNelson,loss_carry:distributableRaw<0?Math.abs(distributableRaw):0},
     cash:{in:cashIn,out:cashOut,net:money(cashIn-cashOut),inventory_purchases_paid:purchaseCashWeek},
-    partners,receivables:{store:sum(pendingSales,o=>o.total_usd),support:supportPending,manual:manualPending,total:pendingTotal,manual_rows:manualReceivableRows.slice(0,100)},
+    partners,receivables:{store:sum(pendingSales,o=>o.total_usd),support:supportPending,manual:manualPending,total:pendingTotal,manual_rows:manualReceivableRows.slice(0,100),support_rows:supportReceivableRows.slice(0,250),support_count:supportReceivableRows.length},
     today:{
       date:todayKey,shop:todayShopCollected,support:todaySupportCollected,other:todayOtherIncome,
       gross:money(todayShopCollected+todaySupportCollected+todayOtherIncome),store_cogs:todayStoreCogs,
       operating_expenses:todayOperatingExpenses,estimated_profit:todayEstimatedProfit,
       cash_in:num(todayCashRow.inflow),cash_out:num(todayCashRow.outflow),cash_net:num(todayCashRow.net)
     },
-    cash_position:{amount:money(cashPosition),mode:cashPositionMode,actual:reconActualTotal,expected:reconExpectedTotal},
+    cash_position:{amount:money(cashPosition),mode:cashPositionMode,actual:reconActualTotal,expected:reconExpectedTotal,lines:reconciliationLines.map(x=>({method:x.method,inflow:x.inflow,outflow:x.outflow,opening_balance:x.opening_balance,expected_closing:x.expected_closing,actual_closing:x.actual_closing,difference:x.difference}))},
     expenses:{rows:expenseHistory},
     partner_history:partnerHistory,
     technicians:{accrued_week:techAccrued,pending_total:techPending,commissions:commissionRows.slice(0,250)},

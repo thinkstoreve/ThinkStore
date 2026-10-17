@@ -370,3 +370,7 @@ button,input,select,textarea{font-size:16px}
   .petty-bank-actions{grid-template-columns:repeat(2,minmax(0,1fr)) 32px}
   .petty-bank-action.is-icon{grid-column:3;grid-row:1}
 }
+/* Enterprise: indicadores de Resumen y Tesorería consultables */
+.ts-clickable-metric{cursor:pointer;transition:border-color .18s ease,transform .18s ease}
+.ts-clickable-metric:hover{border-color:rgba(105,169,255,.72)!important;transform:translateY(-1px)}
+.ts-clickable-metric:focus-visible{outline:3px solid #6caaff;outline-offset:3px}

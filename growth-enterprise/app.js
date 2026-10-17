@@ -3646,27 +3646,91 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
   }
   const metricDefinitions={
     'Cobrado semana':['collections','gross','treasury','Tienda, Soporte y otros ingresos registrados en el periodo.',[['Tienda','collections.shop'],['Soporte','collections.support'],['Otros','collections.other']]],
-    'Por cobrar':['receivables','total','treasury','Saldos registrados como pendientes. Revisar órdenes de Staff y Soporte para conciliación.',[['Tienda','receivables.store'],['Soporte','receivables.support'],['Manual','receivables.manual_total']]],
+    'Por cobrar':['receivables','total','treasury','Saldos registrados como pendientes. Revisar órdenes de Staff y Soporte para conciliación.',[['Tienda','receivables.store'],['Soporte','receivables.support'],['Manual','receivables.manual']]],
     'Pendiente por cobrar':['receivables','total','treasury','Saldos por cobrar; la respuesta agregada no incluye todas las órdenes.',[['Tienda','receivables.store'],['Soporte','receivables.support']]],
     'Gastos operativos':['outflows','operating_expenses','treasury','Gastos operativos reportados para el periodo; el detalle disponible aparece en Movimientos financieros.',[]],
     'Utilidad semanal real':['result','distributable','weeklyAudit','Resultado informado por Finanzas; revisar costos y conciliación antes del reparto.',[['Empresa','result.company'],['Freddy','result.freddy'],['Nelson','result.nelson']]],
-    'Posición de caja':['cash_position','amount','reconciliation','Saldo reportado por el servidor; verificar si está conciliado o estimado.',[['Modo','cash_position.mode']]],
+    'Posición de caja':['cash_position','amount','reconciliation','Estimación por movimientos, salvo conciliación completa; puede incluir importes compensados y debe contrastarse con cuentas reales.',[['Modo','cash_position.mode']]],
     'Proveedores por pagar':['inventory','supplier_payable','treasury','Obligaciones de compras pendientes en Inventory.',[]],
     'Caja neta hoy':['today','cash_net','reconciliation','Flujo neto de hoy, según los movimientos que devuelve el servidor.',[['Entradas','today.cash_in'],['Salidas','today.cash_out']]],
     'Disponible USD':['petty_cash','balance_usd','pettyCash','Saldo total USD de Caja Chica. Abrir las cuentas desde Disponible USD.',[['Sin asignar','petty_cash.banking.unassigned_usd']]],
-    'Disponible Bs.':['petty_cash','balance_ves','pettyCash','Saldo total VES de Caja Chica. Abrir las cuentas desde Disponible Bs.',[['Sin asignar','petty_cash.banking.unassigned_ves']]]
+    'Disponible Bs.':['petty_cash','balance_ves','pettyCash','Saldo total VES de Caja Chica. Abrir las cuentas desde Disponible Bs.',[['Sin asignar','petty_cash.banking.unassigned_ves']]],
+    'Ventas hoy':['today','shop','sales','Cobros de tienda registrados para hoy; la fuente puede venir agregada.',[]],
+    'Servicio Técnico hoy':['today','support','support','Cobros de reparaciones registrados hoy; el detalle por orden requiere eventos individuales de Soporte.',[]],
+    'Gastos hoy':['today','operating_expenses','treasury','Gastos del día de las fuentes operativas y de caja, sin asumir que cada salida es un costo adicional.',[]],
+    'Utilidad estimada hoy':['today','estimated_profit','weeklyAudit','Estimación del servidor, no utilidad liquidada.',[]],
+    'Flujo de caja semana':['cash','net','reconciliation','Entradas y salidas de la semana sin considerarlas automáticamente ingresos o gastos.',[['Entradas','cash.in'],['Salidas','cash.out']]],
+    'Utilidad distribuible':['result','distributable','weeklyAudit','Utilidad del periodo después de los costos reconocidos, según Finanzas.',[['Empresa','result.company'],['Freddy','result.freddy'],['Nelson','result.nelson']]],
+    'Recuperado a inventario':['treasury_allocations','inventory_recovery_week','treasury','Importe clasificado como recuperación del costo de inventario.',[]],
+    'Comisión técnica':['treasury_allocations','technician_commissions_week','treasury','Comisiones técnicas asignadas al periodo; consulte los registros para verificar estado de pago.',[]],
+    'Comisión vendedor':['treasury_allocations','seller_commissions_week','treasury','Comisiones de venta registradas durante el periodo.',[]],
+    'Utilidad empresa':['treasury_allocations','service_company_profit_week','treasury','Utilidad de reparaciones atribuida a la empresa según liquidaciones.',[]],
+    'Empresa · 50%':['result','company','weeklyAudit','Porcentaje correspondiente a ThinkStore.',[]],
+    'Freddy · 25%':['result','freddy','weeklyAudit','Porcentaje correspondiente al socio.',[]],
+    'Nelson · 25%':['result','nelson','weeklyAudit','Porcentaje correspondiente al socio.',[]],
   };
   function metricPath(source,path){return String(path).split('.').reduce((v,k)=>v?.[k],source)}
+  const metricCardSelector=[
+    '#enterpriseFinanceQuick .exec-kpi-grid article', '#enterpriseFinanceQuick .formula-grid div',
+    '#enterpriseFinanceQuick .partner-lines div', '#enterpriseFinanceQuick .split-lines div',
+    '#operations .exec-kpi-grid article', '#executive .exec-kpi-grid article',
+    '#treasury .fin-kpis article', '#treasury .treasury-focus-total',
+    '#treasury .service-profit-summary > div', '#treasury .fin-split-grid article',
+    '#treasury .fin-split-card > div:first-child', '#pettyCash .book-kpis article',
+    '#weeklyAudit .book-kpis article', '#weeklyAudit .fin-audit-grid article',
+    '#enterpriseCharts .exec-kpi-grid article'
+  ].join(',');
+  function showFinanceMetricCard(card){
+    if(!financeCache)return;
+    const label=card.querySelector('span')?.textContent?.trim()||card.querySelector('h3')?.textContent?.trim()||'Indicador financiero';
+    const value=card.querySelector('b,strong,h2')?.textContent?.trim()||'—';
+    const exact=metricDefinitions[label]||metricDefinitions[label.replace(/ · (?:50|25)%$/,' · 25%')];
+    const descriptor=exact?.[3]||'Valor informado por la fuente financiera actual. No se recibió un desglose individual verificable para este indicador.';
+    const items=(exact?.[4]||[]).map(([name,path])=>{
+      const v=metricPath(financeCache,path);
+      return [name,typeof v==='number'?fm(v):v===undefined||v===null?'No disponible':String(v)];
+    });
+    if(label==='Pendiente por cobrar'||label==='Por cobrar'){
+      for(const r of (financeCache.receivables?.support_rows||[]).slice(0,100))items.push([`Soporte · ${r.order_code||'Orden sin código'}`,`Pendiente ${fm(r.pending_usd)} · cotizado ${fm(r.quote_usd)} · abonado ${fm(r.paid_usd)} · ${r.payment_status||'Sin estado de pago'}`]);
+      for(const r of (financeCache.receivables?.manual_rows||[]).slice(0,30))items.push([r.counterparty||r.description||'Cuenta manual',`${fm(r.pending_usd)} · ${r.reference||'Sin referencia'}`]);
+    }
+    if(label==='Posición de caja'){
+      for(const r of (financeCache.cash_position?.lines||[]).slice(0,60))items.push([r.method||'Sin definir',`Apertura ${fm(r.opening_balance)} · entradas ${fm(r.inflow)} · salidas ${fm(r.outflow)} · esperado ${fm(r.expected_closing)} · ${r.actual_closing===null?'Sin conciliación real':'real '+fm(r.actual_closing)}`]);
+    }
+    if(label==='Utilidad semanal real'||label==='Utilidad distribuible'||label==='Utilidad estimada hoy'){
+      items.push(['Verificación','Utilidad sujeta a exactitud de costos, comisiones y saldos de las fuentes. No equivale a efectivo disponible.']);
+    }
+    if(label==='Cobrado semana'||label==='Servicio Técnico hoy'){
+      const settlements=financeCache.treasury_allocations?.settlements||[];
+      if(settlements.length)items.push(...settlements.slice(0,25).map(r=>[r.order_code||'Servicio',`Cobrado ${fm(r.collected_usd)} · ${r.updated_at||r.settled_at||'Sin fecha'}`]));
+    }
+    openMetricDetail(label,value,descriptor,items,exact?.[2]||'treasury');
+  }
   document.addEventListener('click',e=>{
     if(e.target.closest('button,a,input,select,textarea,[data-petty-currency],[data-fin-new],[data-fin-collect]'))return;
-    const card=e.target.closest('#operations .exec-kpi-grid article, #executive .exec-kpi-grid article, #treasury .fin-kpis article, #pettyCash .book-kpis article, #enterpriseCharts .exec-kpi-grid article');
+    const card=e.target.closest(metricCardSelector);
     if(!card||!financeCache)return;
-    const title=card.querySelector('span')?.textContent?.trim()||'';
-    const def=metricDefinitions[title];
-    if(!def){openMetricDetail(title,card.querySelector('b')?.textContent?.trim()||'—','Este valor es un agregado de la fuente Enterprise. No se dispone de una lista completa de operaciones en la respuesta actual. Consulte los módulos correspondientes.');return}
-    const [, ,dest,description,fields]=def;
-    const items=(fields||[]).map(([label,path])=>[label,metricPath(financeCache,path)??'No proporcionado']);
-    openMetricDetail(title,card.querySelector('b')?.textContent?.trim()||'—',description,items,dest);
+    showFinanceMetricCard(card);
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Enter'&&e.key!==' ')return;
+    if(e.target.matches(metricCardSelector)){
+      e.preventDefault();showFinanceMetricCard(e.target);
+    }
+  });
+  function prepareClickableFinanceCards(){
+    for(const el of document.querySelectorAll(metricCardSelector)){
+      if(el.querySelector('button,a,input,select,textarea'))continue;
+      el.setAttribute('role','button');el.setAttribute('tabindex','0');
+      el.setAttribute('aria-label','Ver origen de '+(el.querySelector('span')?.textContent?.trim()||'indicador'));
+      el.classList.add('ts-clickable-metric');
+    }
+  }
+  const financeCardObserver=new MutationObserver(()=>prepareClickableFinanceCards());
+  document.addEventListener('DOMContentLoaded',()=>{
+    prepareClickableFinanceCards();
+    const main=document.querySelector('#app')||document.body;
+    financeCardObserver.observe(main,{childList:true,subtree:true});
   });
   // Detalles de origen en modo lectura. Nunca modificar ni recalcular importes financieros.
   function traceRows(title,amount,description,rows){
