@@ -34,11 +34,11 @@ function catalogImageFallback(p){
   if(name.includes('iphone 18 pro'))return 'assets/hero18/v1382/light-blue-hero-full.webp';
   if(name.includes('iphone ultra'))return 'assets/featured_iphone_card_premium.png';
   if(String(cat).toLowerCase()==='iphone')return 'assets/featured_iphone_card_premium.png';
-  return resolveCatalogAsset(tsCatalogFallbackImage(String(cat).replace('AirPods','Audio').replace('Watch','Apple Watch')))||'assets/logo-thinkstore.png';
+  return resolveCatalogAsset(tsCatalogFallbackImage(String(cat).replace('AirPods','Audio').replace('Watch','Apple Watch'),p?.name))||'assets/logo-thinkstore.png';
 }
 const asset=p=>resolveCatalogAsset(p);
 const getCat=p=>p.category||p.cat||'Catálogo';
-const getDesc=p=>p.description||p.desc||'';
+const getDesc=p=>(p.description||p.desc||'')+(p.image_reference?' · Imagen referencial; el diseño puede variar según el modelo y color.':'');
 const getConfigs=p=>p.storage||p.variants||p.capacities||['Consultar configuración'];
 const getConditions=p=>p.condition||['Nuevo','Pre-Owned','Pre-Order'];
 
@@ -73,7 +73,12 @@ function tsCatalogCategoryForProduct(name,stored){
   if(tsCatalogNorm(name).includes('mac')) return 'Mac';
   return normalized ? stored : inferred;
 }
-function tsCatalogFallbackImage(category){
+function tsCatalogFallbackImage(category,productName=''){
+  // Never use the Pencil/category photo for an unrelated accessory.
+  if(category==='Accesorios'){
+    if(tsIsSiliconeCase({name:productName}))return 'silicone-case-poster.jpg';
+    return 'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"><rect width="800" height="600" fill="#f5f5f7"/><text x="400" y="310" text-anchor="middle" font-family="Arial" font-size="28" fill="#6e6e73">Imagen próximamente</text></svg>');
+  }
   try{
     const c=(typeof CATEGORIES!=='undefined'&&Array.isArray(CATEGORIES)) ? CATEGORIES.find(x=>x.id===category || (category==='Audio'&&x.id==='Audio') || (category==='Apple Watch'&&/watch/i.test(x.id))) : null;
     if(c?.image) return c.image;
@@ -244,8 +249,10 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
     const colors=[...new Set(invRows.map(x=>String(x.color||'').trim()).filter(Boolean))];
     const specs=[...new Set(invRows.map(x=>String(x.compatibility||x.model||x.capacity||'').trim()).filter(Boolean))];
     const conditions=[...new Set(invRows.map(x=>String(x.condition||'Nuevo').trim()).filter(Boolean))];
-    const imageRows=invRows.filter(x=>x.image_url);
-    const main=imageRows[0]?.image_url||tsCatalogFallbackImage('Accesorios');
+    const imageRows=invRows.map(x=>({...x,image_url:String(x.image_url||'').trim()||(Array.isArray(x.image_urls)?x.image_urls.find(u=>/^https:\/\//i.test(String(u))):'')})).filter(x=>x.image_url);
+    const existingMain=String(existing?.main||'');
+    const usableExisting=existingMain&&!existingMain.includes('iphone_assets_sheet')&&!(tsIsSiliconeCase(existing)&&existingMain.includes('0006EEA4-4088-48F6-A287-F0EBB608BB63'));
+    const main=imageRows[0]?.image_url||(usableExisting?existingMain:'')||tsCatalogFallbackImage('Accesorios',group.name);
     const colorMap={};
     colors.forEach(color=>{const hit=imageRows.find(x=>tsCatalogNorm(x.color)===tsCatalogNorm(color));colorMap[color]=hit?.image_url||main;});
     if(!colors.length)colorMap['Disponible']=main;
@@ -253,7 +260,8 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
     const desc=invRows.find(x=>x.description)?.description||invRows.find(x=>x.compatibility)?.compatibility||subcategory;
     if(existing){
       existing.category='Accesorios';existing.cat='Accesorios';existing.subcategory=subcategory;
-      if(!existing.main||String(existing.main).includes('iphone_assets_sheet'))existing.main=main;
+      if(imageRows.length){existing.main=main;existing.gallery=[...new Set(imageRows.map(x=>x.image_url))];}
+      else if(!existing.main||String(existing.main).includes('iphone_assets_sheet')||(tsIsSiliconeCase(existing)&&String(existing.main).includes('0006EEA4-4088-48F6-A287-F0EBB608BB63'))) {existing.main=main;existing.gallery=[main];}
       if(!existing.gallery?.length)existing.gallery=[main];
       if(colors.length)existing.colors={...(existing.colors||{}),...colorMap};
       if(specs.length)existing.storage=specs;
@@ -285,6 +293,20 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
       target.colors=target.colors||{};if(row.color)target.colors[row.color]=target.main;
     }
     if(/^https:\/\//i.test(String(row.video_url||'')))target.video_url=row.video_url;
+  });
+  // A reference photo is explicit, and is replaced as soon as Inventory has its own media.
+  base.filter(tsIsSiliconeCase).forEach(p=>{
+    const wrong=url=>String(url||'').includes('0006EEA4-4088-48F6-A287-F0EBB608BB63');
+    if(!p.main||wrong(p.main))p.main=tsCatalogFallbackImage('Accesorios',p.name);
+    p.gallery=(p.gallery||[]).filter(url=>url&&!wrong(url));
+    if(!p.gallery.length)p.gallery=[p.main];
+    Object.keys(p.colors||{}).forEach(color=>{if(!p.colors[color]||wrong(p.colors[color]))p.colors[color]=p.main;});
+    p.image_reference=String(p.main).includes('silicone-case-poster.jpg');
+    if(p.image_reference)p.badge='Silicone Case · Imagen referencial';
+    else{
+      p.gallery=p.gallery.filter(url=>!String(url).includes('silicone-case-poster.jpg'));
+      Object.keys(p.colors||{}).forEach(color=>{if(String(p.colors[color]).includes('silicone-case-poster.jpg'))p.colors[color]=p.main;});
+    }
   });
   return base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
 }
@@ -3280,6 +3302,7 @@ function cardV2(p){
         <span>${productCategoryV2(p)}</span>
         <h3>${name}</h3>
         <p>${desc}</p>
+        ${p.image_reference?'<small>Imagen referencial · Silicone Cases</small>':''}
         <b>${productPriceV2(p)}</b>
         <div class="ts-v2-card-actions">
           <button class="btn" onclick="openProductFromV2('${String(id).replaceAll("'","\\'")}')">Ver producto</button>
@@ -6901,6 +6924,7 @@ window.addEventListener('load', ()=>{
 // Dedicated collection, using only published products from the live catalog.
 function tsIsSiliconeCase(p){
  const name=tsCatalogNorm(`${p?.name||''} ${p?.subcategory||''}`);
+ if(/pencil|mouse|keyboard|airtag|audifono|corneta|cargador|cable/.test(tsCatalogNorm(p?.name)))return false;
  return /silicone|silicona|silicon case/.test(name)&&/case|funda|forro/.test(name);
 }
 function tsRenderSiliconeCollection(){
@@ -6910,6 +6934,8 @@ function tsRenderSiliconeCollection(){
  document.getElementById('categoryModalV2Title').textContent='Silicone Cases';
  document.getElementById('categoryModalV2Kicker').textContent='Accesorios ThinkStore';
  document.getElementById('categoryModalV2Desc').textContent='Elige tu modelo de iPhone y consulta los colores disponibles.';
+ const models=[...new Set(list.flatMap(p=>(p.storage||[]).map(v=>String(v).match(/iPhone\s+\d+(?:\s+(?:Pro\s+Max|Pro|Plus|Air|Max))?/i)?.[0]).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'es',{numeric:true}));
+ document.getElementById('categoryModalV2Desc').textContent=models.length?'Modelos disponibles: '+models.join(' · ')+'. Elige tu modelo y color al abrir el producto.':'Elige tu modelo de iPhone y consulta los colores disponibles.';
  box.innerHTML=list.length?list.map(cardV2).join(''):'<div class="ts-v2-empty">No hay silicone cases publicados en este momento. Consulta disponibilidad con atención al cliente.</div>';
 }
 async function openSiliconeCasesPromo(){
