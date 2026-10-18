@@ -1,0 +1,1 @@
+document.getElementById('openCustomerAssistant').addEventListener('click',()=>{const launcher=document.getElementById('tsChatLauncher');if(!launcher){document.getElementById('customerAssistantStatus').hidden=false;return;}if(!document.getElementById('tsChat').classList.contains('open'))launcher.click();document.getElementById('tsChatInput')?.focus();});
