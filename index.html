@@ -31,6 +31,22 @@
 <link rel="stylesheet" href="responsive-quality.css?v=15.40.36">
 <link rel="stylesheet" href="product-media.css?v=15.40.41">
 <link rel="stylesheet" href="catalog-video-preview.css?v=15.40.42">
+<style>
+/* Silicone Cases: one collection card, complete photo and compact details. */
+#categoryModalV2[data-collection="silicone-cases"] .ts-v2-category-window{width:min(860px,96vw);max-height:calc(100dvh - 40px);box-sizing:border-box}
+#categoryModalV2[data-collection="silicone-cases"] .ts-v2-category-window-head{margin:8px auto 20px;padding-inline:24px}
+#categoryModalV2[data-collection="silicone-cases"] h2{font-size:clamp(30px,4vw,46px)}
+#categoryModalV2[data-collection="silicone-cases"] .ts-v2-category-window-head p{font-size:15px;line-height:1.5}
+#categoryModalV2[data-collection="silicone-cases"] #categoryModalV2Products{grid-template-columns:minmax(0,1fr)}
+#categoryModalV2[data-collection="silicone-cases"] .ts-v2-product-card{display:grid;grid-template-columns:minmax(180px,.85fr) minmax(220px,1fr);align-items:center}
+#categoryModalV2[data-collection="silicone-cases"] .ts-v2-product-img{height:320px!important;min-height:0!important}
+#categoryModalV2[data-collection="silicone-cases"] .ts-v2-product-body small{display:block;color:#6e6e73;margin-bottom:14px}
+@media(max-width:600px){
+ #categoryModalV2[data-collection="silicone-cases"] .ts-v2-category-window{padding:18px}
+ #categoryModalV2[data-collection="silicone-cases"] .ts-v2-product-card{grid-template-columns:minmax(0,1fr)}
+ #categoryModalV2[data-collection="silicone-cases"] .ts-v2-product-img{height:240px!important}
+}
+</style>
 </head><body data-ts-surface="store">
 <header class="top ts-clean-header">
   <div class="ts-header-left">
