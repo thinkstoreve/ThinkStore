@@ -181,3 +181,15 @@ Base: ThinkStore-main Actual(1).zip.
 - Sin fallback por nombres parciales (Pro/Pro Max separados), stock reservado respetado, filas inactivas excluidas.
 - Dimensiones vacías en Inventory no bloquean compras por descripciones de configuración.
 - Acción principal identificada y sincronizada por stock/condición; resultados asíncronos antiguos descartados.
+
+## Adaptación y claridad
+- Base responsive aplicada a 30 páginas de tienda, cuenta, Soporte, Staff y Enterprise; copias locales por despliegue.
+- Catálogo sin filtros, máscaras o capas de brillo sobre imágenes; colores originales y contain.
+- Rejillas y paneles ajustados a 1180/900/600/380px, formularios móviles 16px, tablas desplazables y ventanas limitadas a viewport.
+- No altera lógica de pagos, inventario, permisos o impresión. Inventory externo no está incluido.
+- La calidad perdida en fotos originales requiere sustituir los archivos desde Inventory.
+
+## Atención al cliente
+- Soporte del menú abre atencion-cliente.html; Servicio Técnico conserva su destino.
+- WhatsApp comercial existente, contacto@ y asistente Thinky reutilizado; aviso si el chat no carga.
+- Diseño responsive independiente y enlace en footer.

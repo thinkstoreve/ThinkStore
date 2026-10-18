@@ -30,8 +30,9 @@ linear-gradient(45deg,#f2f2f4 25%,transparent 25%),linear-gradient(-45deg,#f2f2f
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spacer{height:16px}
 @media(max-width:1050px){.grid{grid-template-columns:1fr}.previewbox{grid-template-columns:180px 1fr}}@media(max-width:650px){.wrap{padding:12px}.hero{padding:20px;align-items:flex-start;flex-direction:column}.fields{grid-template-columns:1fr}.previewbox{grid-template-columns:1fr}.product-stage{height:260px}}
 </style>
+<link rel="stylesheet" href="responsive-quality.css?v=15.40.36">
 </head>
-<body>
+<body data-ts-surface="store">
 <header class="top"><div class="topin"><div class="brand"><img src="logo-thinkstore.png"><div><b>ThinkStore</b><div class="muted" style="font-size:12px">Editor de producto</div></div></div><div class="row"><button class="btn secondary" onclick="location.reload()">Actualizar</button><button class="btn" onclick="window.close()">Cerrar</button></div></div></header>
 <main class="wrap">
 <section class="hero"><div><small>CATÁLOGO + INVENTARIO</small><h1 id="title">Cargando producto…</h1><p>Edita la ficha, imágenes por color y las variantes reales sin alterar los SKU técnicos ni las relaciones existentes.</p></div><div id="syncState" class="muted">Conectando…</div></section>
