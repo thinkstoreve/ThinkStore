@@ -193,3 +193,29 @@ Base: ThinkStore-main Actual(1).zip.
 - Soporte del menú abre atencion-cliente.html; Servicio Técnico conserva su destino.
 - WhatsApp comercial existente, contacto@ y asistente Thinky reutilizado; aviso si el chat no carga.
 - Diseño responsive independiente y enlace en footer.
+
+## Activación Newsletter
+- ACTIVAR-NEWSLETTER.sql crea tabla y permisos de solo inserción pública; campañas leen desde servidor. Requiere ejecutarse en Supabase.
+- Mensajes públicos sin detalles internos y almacenamiento local opcional para no convertir una suscripción exitosa en error.
+
+## Colección Silicone Cases
+- Revisado sitio público: Silicone Case sí publicado, desde USD10, 63 unidades indicadas. Botón abría Accesorios/Cases.
+- Vista dedicada Silicone Cases, ruta index.html?coleccion=silicone-cases y carga sincronizada con Inventory.
+- Hidratación conserva colección abierta; filtro incluye silicona/silicone y no mezcla todos los cases.
+
+## Secciones de accesorios
+- Cases, Accesorios para cases y Sonido siempre visibles en Accesorios.
+- Cases admite silicona, cuero y otros tipos; Sonido agrupa cornetas/audífonos; accesorios para cases admite correas, grips y charms.
+- Clasificación por subcategoría/nombre de Inventory y admite categorías Cases/Sonido/Audio publicadas.
+- No modifica el panel Inventory externo; usar subcategorías Cases, Accesorios para cases o Sonido al crear productos.
+
+## Galería, video y lupa
+- Inventory publica image_urls/video_url dentro del JSON del producto; endpoint público expone URLs HTTPS.
+- Imagen elegida como portada, galería de fotos y video con controles/contain sin autoplay en ficha.
+- Lupa accesible con zoom 1–3x, ajustar y doble clic; video se pausa al cerrar ficha.
+- Requiere desplegar Inventory V3.2.41 en Cloudflare y main actualizado en Netlify. Sin migración SQL.
+
+## Video en tarjeta del catálogo
+- Hover reproduce video mudo/en bucle dentro del mismo recuadro, con contain. Al salir se pausa y vuelve la portada.
+- Botón de reproducción para táctil o movimiento reducido; un video activo a la vez, pausa fuera de pantalla y pestaña oculta.
+- Carga de video solo al interactuar. Inventory V3.2.41 no requiere cambios adicionales.

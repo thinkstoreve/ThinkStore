@@ -30,12 +30,13 @@
     const stock=Number(p.inventory_available||0);
     const pre=/pre.?order/i.test(String(p.badge||''))||stock<=0;
     const pid=safeId(p.id);
+    const video=/^https:\/\//i.test(String(p.video_url||''))?String(p.video_url):'';
     const main=typeof asset==='function'?asset(p.main):('assets/'+String(p.main||''));
     return `<article class="tsc-card">
-      <div class="tsc-media" role="button" tabindex="0" onclick="openProduct('${pid}')" onkeydown="if(event.key==='Enter')openProduct('${pid}')">
+      <div class="tsc-media" ${video?`data-preview-video="${esc(video)}"`:""} role="button" tabindex="0" onclick="openProduct('${pid}')" onkeydown="if(event.key==='Enter')openProduct('${pid}')">
         <span class="tsc-badge ${pre?'preorder':''}">${esc(p.badge||cat)}</span>
         <span class="tsc-heart">♡</span>
-        <img loading="lazy" decoding="async" src="${esc(main)}" alt="${esc(p.name)}">
+        <img loading="lazy" decoding="async" src="${esc(main)}" alt="${esc(p.name)}">${video?`<video class="tsc-preview-video" muted loop playsinline preload="none" aria-hidden="true"></video><button class="tsc-preview-toggle" type="button" aria-label="Reproducir video del producto" onclick="event.stopPropagation()">▶ Video</button>`:""}
       </div>
       <div class="tsc-body">
         <div class="tsc-colors">${colors.slice(0,5).map(c=>`<span class="tsc-swatch" title="${esc(c)}" style="background:${swatch(c)}"></span>`).join('')}${colors.length>5?`<span class="tsc-more">+${colors.length-5}</span>`:''}</div>

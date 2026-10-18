@@ -62,6 +62,7 @@ function tsInventoryCategory(v){
   return 'Accesorios';
 }
 function tsCatalogCategoryForProduct(name,stored){
+  if(/case|funda|forro|corneta|parlante|altavoz|audifono|auricular/.test(tsCatalogNorm(name)))return 'Accesorios';
   const inferred=tsInventoryCategory({product_name:name});
   const normalized=tsCatalogNorm(stored);
   // Evita cruces imposibles guardados anteriormente, como iPhone dentro de Mac.
@@ -225,7 +226,7 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
   // Esto evita que accesorios nuevos queden fuera de la tienda porque catalog_products
   // todavía los tenga como borrador. Solo incorporamos productos activos/publicados.
   const inventoryRows=(inventoryProducts||[]).filter(p=>p&&p.active!==false&&p.published!==false);
-  const accessoryRows=inventoryRows.filter(p=>tsCatalogNorm(p.category).includes('acces'));
+  const accessoryRows=inventoryRows.filter(p=>/acces|case|funda|forro|sonido|audio/.test(tsCatalogNorm(p.category)) && !/airpods/.test(tsCatalogNorm(p.name)));
   const accessoryGroups=new Map();
   accessoryRows.forEach(p=>{
     const groupName=String(p.product_group||p.name||'').trim();
@@ -271,6 +272,19 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
     if(prices.length)p.price=Math.min(...prices);
     if(variantsForGroup.length)enrich(p,variantsForGroup);
     base.push(p);
+  });
+  // Gallery/video published by Inventory. Primary image remains an image, not a video.
+  inventoryRows.forEach(row=>{
+    const key=tsCatalogNorm(row.product_group||row.name||'');
+    const target=base.find(p=>[p.name,p.family,p.model].some(n=>tsCatalogNorm(n)===key));
+    if(!target)return;
+    const urls=(Array.isArray(row.image_urls)?row.image_urls:[]).filter(x=>/^https:\/\//i.test(String(x)));
+    if(urls.length){
+      target.main=row.image_url||urls[0];
+      target.gallery=[...new Set([target.main,...urls,...(target.gallery||[])])].slice(0,24);
+      target.colors=target.colors||{};if(row.color)target.colors[row.color]=target.main;
+    }
+    if(/^https:\/\//i.test(String(row.video_url||'')))target.video_url=row.video_url;
   });
   return base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
 }
@@ -456,6 +470,7 @@ function drawDetail(){
   if(meta){
     meta.innerHTML=`<span>Marca: <b>${p.brand||'Apple'}</b></span><span>Categoría: <b>${getCat(p)}</b></span><span>Modelo: <b>${p.model||p.family||p.name}</b></span>`;
   }
+  if(typeof window.tsRefreshProductMedia==='function')window.tsRefreshProductMedia(p);
 }
 
 function setGal(g){
@@ -3287,21 +3302,28 @@ function renderFeaturedV2(){
   box.innerHTML = featured.slice(0,4).map(cardV2).join('\n');
 }
 function accessoryGroupV2(p){
-  const raw=tsCatalogNorm(`${p?.subcategory||''} ${p?.name||''} ${p?.description||''}`);
-  if(/pencil|mouse|keyboard|airtag/.test(raw)) return 'Otros';
-  if(/silicone|case|funda|forro/.test(raw)) return 'Cases';
-  if(/magsafe/.test(raw)) return 'MagSafe';
-  if(/cargador|charger|adaptador|power adapter/.test(raw)) return 'Cargadores';
-  if(/cable|lightning|usb c|usb-c|thunderbolt/.test(raw)) return 'Cables';
-  if(/vidrio|glass|templado/.test(raw)) return 'Vidrios';
-  return String(p?.subcategory||'Otros').trim()||'Otros';
+ const sub=tsCatalogNorm(p?.subcategory||'');
+ const name=tsCatalogNorm(p?.name||'');
+ const raw=sub+' '+name;
+ if(/accesorios (?:para |de )?(?:silicone |silicona )?cases|accesorios para fundas|case accessories/.test(sub))return 'Accesorios para cases';
+ if(/correa|lanyard|strap|charm|popsocket|pop socket|grip|anillo de agarre|soporte para funda/.test(raw))return 'Accesorios para cases';
+ if(/sonido|audio|corneta|altavoz|parlante|speaker|audifono|auricular|headphone|headset|earbud/.test(raw))return 'Sonido';
+ if(/pencil|mouse|keyboard|airtag/.test(raw))return 'Otros';
+ if(/silicone|silicona|case|funda|forro/.test(raw))return 'Cases';
+ if(/magsafe/.test(raw))return 'MagSafe';
+ if(/cargador|charger|adaptador|power adapter/.test(raw))return 'Cargadores';
+ if(/cable|lightning|usb c|thunderbolt/.test(raw))return 'Cables';
+ if(/vidrio|glass|templado/.test(raw))return 'Vidrios';
+ return 'Otros';
 }
+let tsAccessoryFilterV2='Todos';
 function renderAccessoryCategoryV2(list,filter='Todos'){
   const box=document.getElementById('categoryModalV2Products'); if(!box)return;
   const filtered=filter==='Todos'?list:list.filter(p=>accessoryGroupV2(p)===filter);
   box.innerHTML=filtered.length?filtered.map(cardV2).join('\n'):'<div class="ts-v2-empty">No hay productos en esta subcategoría todavía.</div>';
 }
 function openCategoryModalV2(cat){
+  const collectionModal=document.getElementById('categoryModalV2');if(collectionModal)delete collectionModal.dataset.collection;
   const category = normalizeCategoryV2(cat);
   const modal = document.getElementById('categoryModalV2');
   const title = document.getElementById('categoryModalV2Title');
@@ -3325,15 +3347,16 @@ function openCategoryModalV2(cat){
   const list = productsV2().filter(p=>productCategoryV2(p) === category);
   box.innerHTML = '<div class="ts-loading-products">Cargando productos…</div>';
   requestAnimationFrame(()=>{
-    if(category==='Accesorios' && list.length){
-      const order=['Cases','Cargadores','MagSafe','Cables','Vidrios','Otros'];
+    if(category==='Accesorios'){
+      const order=['Cases','Accesorios para cases','Sonido','Cargadores','MagSafe','Cables','Vidrios','Otros'];
       const present=[...new Set(list.map(accessoryGroupV2))];
-      const groups=['Todos',...order.filter(x=>present.includes(x)),...present.filter(x=>!order.includes(x))];
-      box.innerHTML=`<div class="ts-accessory-browser"><div class="ts-accessory-filters">${groups.map((g,i)=>`<button type="button" class="ts-accessory-chip ${i===0?'active':''}" data-accessory-group="${g}">${g}<small>${g==='Todos'?list.length:list.filter(p=>accessoryGroupV2(p)===g).length}</small></button>`).join('')}</div><div id="tsAccessoryProducts" class="ts-v2-category-products ts-accessory-products"></div></div>`;
+      const groups=['Todos',...order.filter(x=>['Cases','Accesorios para cases','Sonido'].includes(x)||present.includes(x))];
+      if(!groups.includes(tsAccessoryFilterV2))tsAccessoryFilterV2='Todos';
+      box.innerHTML=`<div class="ts-accessory-browser"><div class="ts-accessory-filters">${groups.map((g,i)=>`<button type="button" class="ts-accessory-chip ${g===tsAccessoryFilterV2?'active':''}" data-accessory-group="${g}">${g}<small>${g==='Todos'?list.length:list.filter(p=>accessoryGroupV2(p)===g).length}</small></button>`).join('')}</div><div id="tsAccessoryProducts" class="ts-v2-category-products ts-accessory-products"></div></div>`;
       const inner=document.getElementById('tsAccessoryProducts');
       const draw=(g)=>{const filtered=g==='Todos'?list:list.filter(p=>accessoryGroupV2(p)===g);inner.innerHTML=filtered.length?filtered.map(cardV2).join('\n'):'<div class="ts-v2-empty">No hay productos en esta subcategoría todavía.</div>';};
-      draw('Todos');
-      box.querySelectorAll('[data-accessory-group]').forEach(btn=>btn.onclick=()=>{box.querySelectorAll('[data-accessory-group]').forEach(x=>x.classList.toggle('active',x===btn));draw(btn.dataset.accessoryGroup)});
+      draw(tsAccessoryFilterV2);
+      box.querySelectorAll('[data-accessory-group]').forEach(btn=>btn.onclick=()=>{tsAccessoryFilterV2=btn.dataset.accessoryGroup;box.querySelectorAll('[data-accessory-group]').forEach(x=>x.classList.toggle('active',x===btn));draw(btn.dataset.accessoryGroup)});
     }else{
       box.innerHTML = list.length ? list.map(cardV2).join('\n') : `<div class="ts-v2-empty">No hay productos en esta categoría todavía.</div>`;
     }
@@ -5916,7 +5939,8 @@ window.addEventListener('load', ()=>{
       const catModal=document.getElementById('categoryModalV2');
       if(catModal&&catModal.classList.contains('open')){
         const title=document.getElementById('categoryModalV2Title')?.textContent||'';
-        if(title&&typeof openCategoryModalV2==='function')openCategoryModalV2(title);
+        if(catModal.dataset.collection==='silicone-cases'&&typeof window.tsRenderSiliconeCollection==='function')window.tsRenderSiliconeCollection();
+        else if(title&&typeof openCategoryModalV2==='function')openCategoryModalV2(title);
       }
     }catch(e){console.warn('ThinkStore precios:',e)}
   }
@@ -6874,14 +6898,30 @@ window.addEventListener('load', ()=>{
  };
 })();
 
-// Publicidad silicone case: abre accesorios con el filtro Cases.
-function openSiliconeCasesPromo(){
-  openCategoryModalV2('Accesorios');
-  requestAnimationFrame(()=>{
-    const filter=document.querySelector('#categoryModalV2Products [data-accessory-group="Cases"]');
-    if(filter)filter.click();
-  });
+// Dedicated collection, using only published products from the live catalog.
+function tsIsSiliconeCase(p){
+ const name=tsCatalogNorm(`${p?.name||''} ${p?.subcategory||''}`);
+ return /silicone|silicona|silicon case/.test(name)&&/case|funda|forro/.test(name);
 }
+function tsRenderSiliconeCollection(){
+ const modal=document.getElementById('categoryModalV2'),box=document.getElementById('categoryModalV2Products');
+ if(!modal||!box||!modal.classList.contains('open')||modal.dataset.collection!=='silicone-cases')return;
+ const list=productsV2().filter(p=>p.active!==false&&tsIsSiliconeCase(p));
+ document.getElementById('categoryModalV2Title').textContent='Silicone Cases';
+ document.getElementById('categoryModalV2Kicker').textContent='Accesorios ThinkStore';
+ document.getElementById('categoryModalV2Desc').textContent='Elige tu modelo de iPhone y consulta los colores disponibles.';
+ box.innerHTML=list.length?list.map(cardV2).join(''):'<div class="ts-v2-empty">No hay silicone cases publicados en este momento. Consulta disponibilidad con atención al cliente.</div>';
+}
+async function openSiliconeCasesPromo(){
+ openCategoryModalV2('Accesorios');
+ const modal=document.getElementById('categoryModalV2');if(!modal)return;
+ modal.dataset.collection='silicone-cases';
+ requestAnimationFrame(tsRenderSiliconeCollection);
+ if(typeof window.tsHydrateInventoryPrices==='function')await window.tsHydrateInventoryPrices();
+ tsRenderSiliconeCollection();
+}
+window.tsRenderSiliconeCollection=tsRenderSiliconeCollection;
+window.addEventListener('load',()=>{if(new URLSearchParams(location.search).get('coleccion')==='silicone-cases')openSiliconeCasesPromo();});
 
 function macProChipProducts(){
  return productsV2().filter(p=>{

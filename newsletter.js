@@ -61,7 +61,7 @@
     setState(form, 'loading', 'Guardando tu suscripción…');
     try{
       const result = await subscribe(email, form.dataset.source || 'web');
-      localStorage.setItem('ts_newsletter_email', email.toLowerCase());
+      try{localStorage.setItem('ts_newsletter_email', email.toLowerCase());}catch(_){}
       form.classList.add('is-success');
       setState(form, 'success', result.duplicate
         ? 'Ese correo ya está suscrito a las novedades de ThinkStore. ✓'
@@ -70,9 +70,9 @@
     }catch(error){
       console.warn('ThinkStore newsletter:', error);
       if(String(error?.message || error).includes('newsletter_subscribers') || error?.code === '42P01'){
-        setState(form, 'error', 'La suscripción está lista en la web, pero falta activar la tabla Newsletter en Supabase.');
+        setState(form, 'error', 'Las suscripciones no están disponibles en este momento. Inténtalo más tarde.');
       }else if(String(error?.message || error).includes('SUPABASE_UNAVAILABLE')){
-        setState(form, 'error', 'Conecta Supabase para guardar suscripciones reales.');
+        setState(form, 'error', 'No pudimos conectar con las suscripciones. Inténtalo nuevamente.');
       }else{
         setState(form, 'error', 'No pudimos guardar tu correo ahora. Inténtalo nuevamente.');
       }
@@ -84,7 +84,7 @@
       if(form.dataset.ready === '1') return;
       form.dataset.ready = '1';
       form.addEventListener('submit', onSubmit);
-      const saved = localStorage.getItem('ts_newsletter_email');
+      let saved='';try{saved=localStorage.getItem('ts_newsletter_email')||'';}catch(_){}
       const input = form.querySelector('input[type="email"]');
       if(saved && input && !input.value) input.value = saved;
     });
