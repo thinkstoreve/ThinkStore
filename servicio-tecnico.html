@@ -694,8 +694,8 @@
         <h2>Lo que dicen nuestros clientes.</h2>
         <p id="googleReviewsSummary">Consulta experiencias reales de clientes de ThinkStore en Google.</p>
         <div class="google-review-actions">
-          <a class="btn blue" id="googleReviewsAllLink" href="https://www.google.com/search?q=ThinkStore+Chacao+Caracas" target="_blank" rel="noopener">Ver todas →</a>
-          <a class="btn light" id="googleReviewWriteLink" href="https://www.google.com/search?q=ThinkStore+Chacao+Caracas" target="_blank" rel="noopener">Escribe una reseña</a>
+          <a class="btn blue" id="googleReviewsAllLink" href="https://www.google.com/maps?cid=1425709610864334103" target="_blank" rel="noopener">Ver todas →</a>
+          <a class="btn light" id="googleReviewWriteLink" href="https://www.google.com/maps/place/ThinkStore/data=!4m2!3m1!1s0x8c2a5914663bc5b3:0x13c923565c6dd517#lrd=0x8c2a5914663bc5b3:0x13c923565c6dd517,3,,," target="_blank" rel="noopener">Escribe una reseña</a>
         </div>
       </div>
       <div class="google-reviews-content">
@@ -708,7 +708,7 @@
             <div class="google-rating">
               <div class="google-stars" aria-label="Valoración Google">★★★★★</div>
               <strong id="googleRatingValue">—</strong>
-              <span id="googleReviewCount">Perfil nuevo en Google</span>
+              <span id="googleReviewCount">Ver opiniones en Google</span>
             </div>
           </div>
           <div class="review-source-note">Las valoraciones mostradas aquí corresponden al perfil público de ThinkStore en Google.</div>
@@ -716,8 +716,8 @@
         <div>
           <div class="google-reviews-grid" id="googleReviewsGrid">
             <div class="google-empty" id="googleReviewsEmpty">
-              <div><strong>Estamos estrenando nuestro perfil de Google.</strong><p>Cuando comiencen a llegar reseñas reales, aparecerán aquí. Puedes ser de los primeros clientes en compartir tu experiencia.</p></div>
-              <a class="btn blue" href="https://www.google.com/search?q=ThinkStore+Chacao+Caracas" target="_blank" rel="noopener">Dejar reseña →</a>
+              <div><strong>Consulta las opiniones en Google.</strong><p>Visita el perfil de ThinkStore para leer las reseñas publicadas o compartir tu experiencia.</p></div>
+              <a class="btn blue" href="https://www.google.com/maps/place/ThinkStore/data=!4m2!3m1!1s0x8c2a5914663bc5b3:0x13c923565c6dd517#lrd=0x8c2a5914663bc5b3:0x13c923565c6dd517,3,,," target="_blank" rel="noopener">Dejar reseña →</a>
             </div>
           </div>
           <div class="google-verified">Fuente: Google Business Profile</div>
@@ -824,8 +824,8 @@ function initEvidenceTabs(){
 // Sustituye profileUrl y writeReviewUrl por los enlaces directos de tu Perfil de Empresa.
 // Añade únicamente reseñas reales en `reviews`; si queda vacío se muestra el estado inicial.
 const googleReviewsConfig = {
-  profileUrl: 'https://www.google.com/search?q=ThinkStore+Chacao+Caracas',
-  writeReviewUrl: 'https://www.google.com/search?q=ThinkStore+Chacao+Caracas',
+  profileUrl: 'https://www.google.com/maps?cid=1425709610864334103',
+  writeReviewUrl: 'https://www.google.com/maps/place/ThinkStore/data=!4m2!3m1!1s0x8c2a5914663bc5b3:0x13c923565c6dd517#lrd=0x8c2a5914663bc5b3:0x13c923565c6dd517,3,,,',
   rating: null,
   reviewCount: 0,
   reviews: []
@@ -842,7 +842,7 @@ function renderGoogleReviews(){
   if(all) all.href=cfg.profileUrl;
   if(write) write.href=cfg.writeReviewUrl;
   if(rating) rating.textContent=cfg.rating ? Number(cfg.rating).toFixed(1) : '—';
-  if(count) count.textContent=cfg.reviewCount ? `${cfg.reviewCount} reseña${cfg.reviewCount===1?'':'s'} en Google` : 'Perfil nuevo en Google';
+  if(count) count.textContent=cfg.reviewCount ? `${cfg.reviewCount} reseña${cfg.reviewCount===1?'':'s'} en Google` : 'Ver opiniones en Google';
   if(summary) summary.innerHTML=cfg.rating && cfg.reviewCount ? `<b>${Number(cfg.rating).toFixed(1)} en Google.</b> Experiencias reales de clientes de ThinkStore.` : 'Consulta experiencias reales de clientes de ThinkStore en Google.';
   if(!grid || !Array.isArray(cfg.reviews) || !cfg.reviews.length) return;
   grid.innerHTML=cfg.reviews.slice(0,6).map((r)=>{

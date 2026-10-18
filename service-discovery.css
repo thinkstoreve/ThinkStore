@@ -1,0 +1,17 @@
+
+/* Service windows and fine line icons */
+#servicio-tecnico .servgrid button{position:relative;text-align:left;border:1px solid #e5e5ea;border-radius:26px;padding:26px;background:#fff;box-shadow:0 6px 22px #1d1d1f04;transition:transform .22s,box-shadow .22s,border-color .22s}
+#servicio-tecnico .servgrid button:hover{transform:translateY(-3px);border-color:#b8d6fa;box-shadow:0 12px 30px #1d1d1f0b}
+.ts-service-icon{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:14px;background:#f2f6fc;color:#0071e3;vertical-align:middle;margin-right:12px}.ts-service-icon svg{width:27px;height:27px}
+#servicio-tecnico .servgrid small{display:block;margin-top:12px;color:#6e6e73}
+#tsServiceDialog{box-sizing:border-box;width:min(640px,calc(100% - 28px));max-height:90dvh;overflow:auto;border:1px solid #ffffff80;border-radius:30px;padding:30px;color:#1d1d1f;background:#fff;box-shadow:0 30px 100px #0004}
+#tsServiceDialog::backdrop{background:#10162499;backdrop-filter:blur(7px)}
+#tsServiceDialog[open]{animation:tsServiceIn .25s ease-out}
+.ts-service-dialog-head{display:flex;justify-content:space-between;align-items:center}.ts-service-close{border:0;border-radius:50%;width:36px;height:36px;background:#f0f0f2;font-size:25px;cursor:pointer}
+#tsServiceDialog h2{font-size:32px;letter-spacing:-1px;margin:12px 0}#tsServiceDialog p,#tsServiceDialog li{line-height:1.6}#tsServiceDialog ul{padding-left:22px;color:#54545a}
+.ts-service-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}#tsServiceDialog label{display:block;font-size:13px;font-weight:600;margin:16px 0}#tsServiceDialog select{box-sizing:border-box;display:block;width:100%;margin-top:8px;padding:13px;border:1px solid #d2d2d7;border-radius:12px;background:#fafafa;color:#1d1d1f;font:inherit}
+.ts-service-note{font-size:13px;color:#6e6e73}.ts-service-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+#tsServiceDialog :focus-visible{outline:3px solid #0071e3;outline-offset:3px}
+@keyframes tsServiceIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:560px){#tsServiceDialog{padding:22px}.ts-service-fields{grid-template-columns:1fr;gap:0}.ts-service-actions>*{width:100%;text-align:center}}
+@media(prefers-reduced-motion:reduce){#tsServiceDialog[open]{animation:none}#servicio-tecnico .servgrid button:hover{transform:none}}

@@ -14,10 +14,10 @@ let lastNote='';
 
 const $=id=>document.getElementById(id);
 const TS_LEGACY_IMAGE_MAP={
-  'iphone18/colors/iphone18-pro-max-light-blue.jpg':'assets/hero18/v1382/light-blue-hero-full.webp',
-  'iphone18/colors/iphone18-pro-max-dark-cherry.jpg':'assets/hero18/v1382/dark-cherry-hero-full.webp',
-  'iphone18/colors/iphone18-pro-max-dark-gray.jpg':'assets/featured_iphone_card_premium.png',
-  'iphone18/colors/iphone18-pro-max-silver.jpg':'assets/featured_iphone_card_premium.png',
+  'iphone18/colors/iphone18-pro-max-light-blue.jpg':'assets/iphone18/colors/iphone18-pro-max-light-blue.jpg',
+  'iphone18/colors/iphone18-pro-max-dark-cherry.jpg':'assets/iphone18/colors/iphone18-pro-max-dark-cherry.jpg',
+  'iphone18/colors/iphone18-pro-max-dark-gray.jpg':'assets/iphone18/colors/iphone18-pro-max-dark-gray.jpg',
+  'iphone18/colors/iphone18-pro-max-silver.jpg':'assets/iphone18/colors/iphone18-pro-max-silver.jpg',
   'iphone18/iphone18-pro-burgundy.jpg':'assets/hero18/v1382/dark-cherry-hero-full.webp'
 };
 function resolveCatalogAsset(p){
@@ -499,20 +499,30 @@ async function tsGetInventoryVariants(force=false){
   tsInventoryVariantCache={at:now,rows:out.variants};
   return out.variants;
 }
+function tsInventoryColorKey(value){
+ const map={negro:'black',blanco:'white',azul:'blue',plata:'silver',gris:'gray',dorado:'gold',verde:'green',rojo:'red',rosa:'pink',titanio:'titanium',desierto:'desert'};
+ return tsInventoryNorm(value).split(' ').map(x=>map[x]||x).sort().join(' ');
+}
+function tsInventoryCapacityKey(value){
+ const n=tsInventoryNorm(value);const m=n.match(/(?:ssd )?(\d+(?:[.,]\d+)?)\s*(tb|gb)\b/);
+ return m?String(Number(m[1].replace(',','.'))*(m[2]==='tb'?1024:1))+'gb':n;
+}
+function tsMatchingInventoryRows(rows,product,model,color,capacity){
+ const np=tsInventoryNorm(product),nm=tsInventoryNorm(model);
+ const active=(rows||[]).filter(v=>v&&v.active!==false);
+ let identity=active.filter(v=>tsInventoryNorm(v.product_name)===np);
+ if(!identity.length&&nm){const same=active.filter(v=>tsInventoryNorm(v.model)===nm);if(new Set(same.map(v=>tsInventoryNorm(v.product_name))).size===1)identity=same;}
+ const colors=new Set(identity.map(v=>tsInventoryColorKey(v.color)).filter(Boolean));
+ const caps=new Set(identity.map(v=>tsInventoryCapacityKey(v.capacity)).filter(Boolean));
+ const c=tsInventoryColorKey(color),cap=tsInventoryCapacityKey(capacity);
+ // Missing inventory dimensions are not the product's descriptive configuration.
+ return identity.filter(v=>(!colors.size||!c||tsInventoryColorKey(v.color)===c)&&(!caps.size||!cap||tsInventoryCapacityKey(v.capacity)===cap));
+}
 function tsResolveInventoryVariant(rows,product,model,color,capacity,condition){
-  const np=tsInventoryNorm(product), nm=tsInventoryNorm(model), nc=tsInventoryNorm(color), ncap=tsInventoryNorm(capacity), ncond=tsConditionKey(condition);
-  const candidates=(rows||[]).filter(v=>{
-    const vp=tsInventoryNorm(v.product_name), vc=tsInventoryNorm(v.color), vcap=tsInventoryNorm(v.capacity), vcond=tsConditionKey(v.condition);
-    return vp===np && (!nc||vc===nc) && (!ncap||vcap===ncap) && (!ncond||vcond===ncond);
-  });
-  if(!candidates.length) return null;
-  // El modelo solo desempata. El nombre exacto del producto evita cruces Pro / Pro Max.
-  candidates.sort((a,b)=>{
-    const sa=(tsInventoryNorm(a.model)===nm?4:0)+(Number(a.active!==false)?1:0);
-    const sb=(tsInventoryNorm(b.model)===nm?4:0)+(Number(b.active!==false)?1:0);
-    return sb-sa;
-  });
-  return candidates[0]||null;
+ const key=tsConditionKey(condition);
+ const candidates=tsMatchingInventoryRows(rows,product,model,color,capacity).filter(v=>!key||tsConditionKey(v.condition)===key);
+ candidates.sort((a,b)=>Math.max(0,Number(b.available??(Number(b.stock_on_hand||0)-Number(b.stock_reserved||0))))-Math.max(0,Number(a.available??(Number(a.stock_on_hand||0)-Number(a.stock_reserved||0)))));
+ return candidates[0]||null;
 }
 async function tsFindInventoryVariant(product,model,color,capacity,condition,force=false){
   try{
@@ -3216,16 +3226,28 @@ function openProductFromV2(id){
   alert('Producto seleccionado. Consulta disponibilidad por WhatsApp.');
 }
 
+function consultProductFromV2(id){
+  const product=productsV2().find(p=>String(p.id||p.name||p.title)===String(id));
+  if(!product)return;
+  closeCategoryModalV2();
+  window.selectedProduct=product;
+  window.selectedColor='';
+  window.selectedCondition='';
+  window.tsOpenSmartWhatsApp('producto');
+  const extra=document.getElementById('tsSmartWaExtra');
+  if(extra)extra.value='';
+  const dialog=document.getElementById('tsSmartWhatsappModal');
+  if(dialog)requestAnimationFrame(()=>{
+    const focus=dialog.querySelector('button,textarea,a[href]');
+    if(focus)focus.focus();
+  });
+}
+
 function featuredImageForProductV2(p){
-  const name=String(p.name||p.title||'').toLowerCase();
-  const cat=String(productCategoryV2(p)||'').toLowerCase();
-  if(name.includes('iphone 18 pro max'))return 'assets/hero18/v1382/dark-cherry-hero-full.webp';
-  if(name.includes('iphone 18 pro'))return 'assets/hero18/v1382/light-blue-hero-full.webp';
-  if(name.includes('iphone ultra'))return productImageV2(p)||'assets/featured_iphone_card_premium.png';
-  if(name.includes('iphone 17 pro max'))return 'assets/featured_iphone_card_premium.png';
-  if(name.includes('macbook pro'))return 'assets/featured_macbook_card_premium.png';
-  if(name.includes('airpods pro'))return 'assets/featured_airpods_card_premium.png';
-  if(name.includes('ipad a16')||cat.includes('ipad'))return 'assets/featured_ipad_card_premium.png';
+  // Imagen de grupo aprobada para la tarjeta del iPhone 18 Pro Max.
+  if(String(p.id)==='iphone-18-pro-max')return 'assets/iphone-18-pro-max-colores.webp';
+  if(String(p.id)==='macbook-pro-m4-14-negro-espacial')return 'assets/macbook-pro-14-m4-negro-espacial-v2.webp';
+  if(String(p.id)==='ipad-a16')return 'assets/ipad-a16-colores.jpg';
   return productImageV2(p);
 }
 
@@ -3246,7 +3268,7 @@ function cardV2(p){
         <b>${productPriceV2(p)}</b>
         <div class="ts-v2-card-actions">
           <button class="btn" onclick="openProductFromV2('${String(id).replaceAll("'","\\'")}')">Ver producto</button>
-          <button class="btn ghost" onclick="openWhatsApp()">Consultar</button>
+          <button class="btn ghost" type="button" data-consult-product="${String(id).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;')}" onclick="consultProductFromV2(this.dataset.consultProduct)">Consultar</button>
         </div>
       </div>
     </article>`;
@@ -3255,7 +3277,7 @@ function renderFeaturedV2(){
   const box = document.getElementById('v2FeaturedProducts');
   if(!box) return;
   const list = productsV2();
-  const preferred = ['iPhone 18 Pro Max','MacBook Pro','AirPods Pro','iPad A16'];
+  const preferred = ['iPhone 18 Pro Max','MacBook Pro','AirPods 5','iPad A16'];
   let featured = [];
   preferred.forEach(k=>{
     const found = list.find(p=>String(p.name||'').toLowerCase().includes(k.toLowerCase()));
@@ -3266,12 +3288,12 @@ function renderFeaturedV2(){
 }
 function accessoryGroupV2(p){
   const raw=tsCatalogNorm(`${p?.subcategory||''} ${p?.name||''} ${p?.description||''}`);
+  if(/pencil|mouse|keyboard|airtag/.test(raw)) return 'Otros';
   if(/silicone|case|funda|forro/.test(raw)) return 'Cases';
   if(/magsafe/.test(raw)) return 'MagSafe';
   if(/cargador|charger|adaptador|power adapter/.test(raw)) return 'Cargadores';
   if(/cable|lightning|usb c|usb-c|thunderbolt/.test(raw)) return 'Cables';
   if(/vidrio|glass|templado/.test(raw)) return 'Vidrios';
-  if(/pencil|mouse|keyboard|airtag/.test(raw)) return 'Otros';
   return String(p?.subcategory||'Otros').trim()||'Otros';
 }
 function renderAccessoryCategoryV2(list,filter='Todos'){
@@ -6439,19 +6461,9 @@ window.addEventListener('load', ()=>{
     return b;
   }
   async function exactVariants(){
-    if(!selectedProduct) return [];
-    try{
-      const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'});
-      const out=await res.json().catch(()=>({}));
-      if(!res.ok||!out.ok||!Array.isArray(out.variants)) return [];
-      const np=norm(selectedProduct.name);
-      const nc=norm(typeof selectedColor!=='undefined'?selectedColor:'');
-      const cap=norm(typeof window.tsSelectedCapacity==='function'?window.tsSelectedCapacity():'');
-      return out.variants.filter(v=>{
-        const vp=norm(v.product_name), vc=norm(v.color), vcap=norm(v.capacity);
-        return vp===np && (!nc||vc===nc) && (!cap||vcap===cap);
-      });
-    }catch(e){console.warn('ThinkStore inventario exacto:',e);return []}
+    if(!selectedProduct)return [];
+    try{return tsMatchingInventoryRows(await tsGetInventoryVariants(false),selectedProduct.name,selectedProduct.model||selectedProduct.family||selectedProduct.name,selectedColor,window.tsSelectedCapacity());}
+    catch(e){console.warn('ThinkStore inventario exacto:',e);return [];}
   }
   function available(v){return Math.max(0,Number(v?.available ?? (Number(v?.stock_on_hand||0)-Number(v?.stock_reserved||0))));}
   function conditionVariant(rows,c){
@@ -6550,13 +6562,10 @@ window.addEventListener('load', ()=>{
   function score(v,p){
     const pn=dev(v.product_name),pm=dev(v.model),want=dev(p.name),wm=dev(p.model||p.family||p.name);
     let s=0;if(pn===want)s+=100;if(pm===want||pm===wm)s+=80;if(pn===wm)s+=70;
-    if(!s && (pn.includes(want)||want.includes(pn)))s+=40;
+    
     return s;
   }
-  function matchRows(rows,p,c,capacity){
-    const ck=color(c),cp=cap(capacity);
-    return (rows||[]).map(v=>({v,s:score(v,p)})).filter(x=>x.s>0).filter(x=>!ck||color(x.v.color)===ck).filter(x=>!cp||cap(x.v.capacity)===cp).sort((a,b)=>b.s-a.s).map(x=>x.v);
-  }
+  function matchRows(rows,p,c,capacity){return tsMatchingInventoryRows(rows,p.name,p.model||p.family||p.name,c,capacity);}
   function ckey(v){return typeof tsConditionKey==='function'?tsConditionKey(v):n(v)}
   function price(v){const x=Number(v?.price_usd||0);return x>0?x:0}
   function money2(x){return '$'+Number(x).toLocaleString('en-US',{maximumFractionDigits:2})}
@@ -6564,7 +6573,10 @@ window.addEventListener('load', ()=>{
   async function refreshV165(){
     if(typeof selectedProduct==='undefined'||!selectedProduct)return;
     try{
-      const all=await tsGetInventoryVariants(true),capacity=(window.tsSelectedCapacity?window.tsSelectedCapacity():''),rows=matchRows(all,selectedProduct,(typeof selectedColor!=='undefined'?selectedColor:''),capacity);
+      const requestProduct=selectedProduct,requestColor=selectedColor,requestCondition=selectedCondition,requestCapacity=window.tsSelectedCapacity();
+      const all=await tsGetInventoryVariants(false);
+      if(selectedProduct!==requestProduct||selectedColor!==requestColor||selectedCondition!==requestCondition||window.tsSelectedCapacity()!==requestCapacity)return;
+      const capacity=(window.tsSelectedCapacity?window.tsSelectedCapacity():''),rows=matchRows(all,selectedProduct,(typeof selectedColor!=='undefined'?selectedColor:''),capacity);
       if(!rows.length)return;
       const byCond={};rows.forEach(v=>{const k=ckey(v.condition);if(!byCond[k]||score(v,selectedProduct)>score(byCond[k],selectedProduct))byCond[k]=v});
       const immediate=['Nuevo','Pre-Owned'].filter(c=>{const v=byCond[ckey(c)];return v&&available(v)>0});
@@ -6575,7 +6587,14 @@ window.addEventListener('load', ()=>{
       const inv=byCond[ckey(current)]||null,pr=price(inv);
       let badge=document.getElementById('tsLiveStockDetail');if(!badge){badge=document.createElement('div');badge.id='tsLiveStockDetail';const conditions=document.getElementById('conditions');(conditions?.parentElement||document.getElementById('pname')?.parentElement)?.insertBefore(badge,conditions?.nextSibling||null)}
       badge.style.cssText='margin:12px 0 16px;padding:13px 15px;border:1px solid #e5e5e7;border-radius:16px;font-weight:800;background:#f7f7f8';
-      const q=available(inv),pre=ckey(current)==='preorder';badge.innerHTML=`<div>${pre?'Pre-Order · disponible bajo pedido':(inv&&q>0?`En stock · ${q} ${q===1?'unidad disponible':'unidades disponibles'}`:'Sin stock inmediato')}</div><div id="tsConditionPrice" style="margin-top:8px;font-size:22px;font-weight:950">${pr?`Precio seleccionado · USD ${money2(pr)}`:(pre?'Precio Pre-Order por definir':'Precio por definir')}</div>`;
+      const q=available(inv),pre=ckey(current)==='preorder';
+      // Keep the action in sync with the exact variant used for stock and price.
+      [document.getElementById('tsAddCartButton'),document.getElementById('tsV55BuyNow')].filter(Boolean).forEach(button=>{
+        button.disabled=false;button.hidden=false;button.style.removeProperty('display');
+        button.textContent=!pre&&inv&&q>0?'Añadir al carrito':'Pre-ordenar';
+        button.onclick=!pre&&inv&&q>0?()=>addCart():()=>tsStartPreorder();
+      });
+      badge.innerHTML=`<div>${pre?'Pre-Order · disponible bajo pedido':(inv&&q>0?`En stock · ${q} ${q===1?'unidad disponible':'unidades disponibles'}`:'Sin stock inmediato')}</div><div id="tsConditionPrice" style="margin-top:8px;font-size:22px;font-weight:950">${pr?`Precio seleccionado · USD ${money2(pr)}`:(pre?'Precio Pre-Order por definir':'Precio por definir')}</div>`;
       if(pr){selectedProduct.price=pr;['pprice','productPrice','detailPrice'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=money2(pr)})}
       // Anota precios de cada capacidad para la condición seleccionada.
       const wantCond=ckey(current),prodRows=(all||[]).map(v=>({v,s:score(v,selectedProduct)})).filter(x=>x.s>0&&(!color(selectedColor)||color(x.v.color)===color(selectedColor))&&ckey(x.v.condition)===wantCond).sort((a,b)=>b.s-a.s).map(x=>x.v);
@@ -6854,3 +6873,32 @@ window.addEventListener('load', ()=>{
    return result;
  };
 })();
+
+// Publicidad silicone case: abre accesorios con el filtro Cases.
+function openSiliconeCasesPromo(){
+  openCategoryModalV2('Accesorios');
+  requestAnimationFrame(()=>{
+    const filter=document.querySelector('#categoryModalV2Products [data-accessory-group="Cases"]');
+    if(filter)filter.click();
+  });
+}
+
+function macProChipProducts(){
+ return productsV2().filter(p=>{
+  const name=tsCatalogNorm(`${p.name||''} ${p.model||''}`);
+  const specs=tsCatalogNorm(JSON.stringify([p.details||{},p.storage||[],p.configGroups||[]]));
+  return name.includes('macbook pro')&&/m4 (pro|max)/.test(name+' '+specs);
+ });
+}
+function openMacProChipCatalog(){
+ openCategoryModalV2('Mac');
+ requestAnimationFrame(()=>{
+  const title=document.getElementById('categoryModalV2Title');
+  const desc=document.getElementById('categoryModalV2Desc');
+  const box=document.getElementById('categoryModalV2Products');
+  if(title)title.textContent='MacBook Pro · M4 Pro y M4 Max';
+  if(desc)desc.textContent='Explora los modelos de 14 y 16 pulgadas y consulta sus configuraciones de chip, memoria y almacenamiento.';
+  const list=macProChipProducts();
+  if(box)box.innerHTML=list.length?list.map(cardV2).join('\n'):'<div class="ts-v2-empty">Consulta disponibilidad de MacBook Pro con M4 Pro y M4 Max.</div>';
+ });
+}

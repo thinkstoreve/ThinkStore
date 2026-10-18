@@ -3942,3 +3942,114 @@ footer {
 .ts-home-license-note{display:block;color:var(--muted);font-size:10.5px;line-height:1.45;margin-top:13px;padding:0 2px}
 @media(max-width:900px){.ts-home-service-promo{grid-template-columns:1fr}.ts-home-service-heading{align-items:flex-start}.ts-home-repair-card{min-height:300px}}
 @media(max-width:620px){.ts-home-service-heading{display:block}.ts-home-service-more{display:inline-block;margin-top:8px}.ts-home-repair-card,.ts-home-software-card{border-radius:24px;padding:22px}.ts-home-repair-card h3{font-size:32px}.ts-home-repair-actions{display:grid}.ts-home-repair-actions .btn{justify-content:center}.ts-home-software-head{display:block}.ts-home-software-head>a{display:inline-block;margin-top:9px}.ts-home-software-item{grid-template-columns:44px 1fr;padding:13px}.ts-home-ms-symbol{width:42px;height:42px}.ts-home-cc-symbol{width:44px;height:44px;border-radius:13px}}
+
+/* Categorías y destacados: foto completa, sin recortes ni filtros */
+#categoryModalV2Products .ts-v2-product-img,
+#v2FeaturedProducts .ts-v2-product-img{display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;padding:20px!important;background:#f7f7f8!important;aspect-ratio:4/3;height:auto!important;min-height:190px;box-sizing:border-box}
+#categoryModalV2Products .ts-v2-product-img::before,
+#categoryModalV2Products .ts-v2-product-img::after,
+#v2FeaturedProducts .ts-v2-product-img::before,
+#v2FeaturedProducts .ts-v2-product-img::after{display:none!important}
+#categoryModalV2Products .ts-v2-product-img img,
+#v2FeaturedProducts .ts-v2-product-img img{position:static!important;display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;object-position:center!important;transform:none!important;filter:none!important;opacity:1!important;border-radius:0!important}
+
+/* V15.40.9 · Presentación neutra de fotos existentes */
+#categoryModalV2Products .ts-v2-product-img,
+#v2FeaturedProducts .ts-v2-product-img{
+ background:transparent!important;
+ height:clamp(210px,22vw,300px)!important;
+ aspect-ratio:auto!important;
+ padding:clamp(16px,2vw,28px)!important;
+ margin:0!important;
+ isolation:isolate;
+}
+#categoryModalV2Products .ts-v2-product-img img,
+#v2FeaturedProducts .ts-v2-product-img img{
+ flex:0 1 auto!important;
+ min-width:0!important;
+ min-height:0!important;
+ margin:auto!important;
+ object-fit:contain!important;
+ object-position:50% 50%!important;
+ image-rendering:auto;
+ mix-blend-mode:normal!important;
+ box-shadow:none!important;
+ background:transparent!important;
+}
+#categoryModalV2Products .ts-v2-product-card,
+#v2FeaturedProducts .ts-v2-product-card{
+ border-radius:26px!important;
+ border:1px solid rgba(29,29,31,.07)!important;
+ box-shadow:0 8px 28px rgba(0,0,0,.045)!important;
+}
+#categoryModalV2Products .ts-v2-product-card:focus-within,
+#v2FeaturedProducts .ts-v2-product-card:focus-within{outline:2px solid #0071e3;outline-offset:3px}
+@media(max-width:560px){
+ #categoryModalV2Products .ts-v2-product-img,
+ #v2FeaturedProducts .ts-v2-product-img{height:250px!important;padding:20px!important}
+}
+
+/* La consulta de producto queda sobre cualquier otra ventana del catálogo. */
+#tsSmartWhatsappModal{z-index:10050!important}
+
+/* Interacciones suaves sin demorar acciones ni bloquear clics. */
+@media(prefers-reduced-motion:no-preference){
+ button,a.btn,[role="button"]{transition-property:background-color,border-color,color,box-shadow;transition-duration:180ms;transition-timing-function:ease-out}
+ button:enabled:active,a.btn:active,[role="button"]:active{filter:brightness(.96)}
+}
+button:focus-visible,a.btn:focus-visible,[role="button"]:focus-visible{outline:2px solid #0071e3;outline-offset:3px}
+
+/* Publicidad de accesorios y servicio técnico bajo destacados. */
+#inicio-premium.ts-home-dual-promo{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:22px!important;min-height:0!important;height:auto!important;margin:44px auto 76px!important;padding:0 24px!important;width:100%!important;max-width:1560px!important;background:transparent!important;overflow:visible!important}
+.ts-home-ad{position:relative;isolation:isolate;overflow:hidden;border-radius:30px;min-height:440px;background:#07101a;color:#fff;display:flex;align-items:flex-end;padding:36px}
+.ts-home-ad-image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:65% center;z-index:-2;opacity:.8}
+.ts-home-ad::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(3,8,15,.08),rgba(3,8,15,.72) 42%,rgba(3,8,15,.97))}
+.ts-home-ad--service .ts-home-ad-image{object-position:80% center}
+.ts-home-ad-copy{max-width:550px}
+.ts-home-ad-kicker{font-size:11px!important;font-weight:800;letter-spacing:.16em;color:#cfdef1!important;margin:0 0 14px!important}
+.ts-home-ad h2{font-size:clamp(32px,3vw,48px);line-height:1.05;letter-spacing:-.045em;margin:0 0 16px;color:#fff}
+.ts-home-ad-copy>p:not(.ts-home-ad-kicker){font-size:16px;line-height:1.5;color:#e0e5ed;max-width:450px;margin:0}
+.ts-home-ad-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.ts-home-ad-actions .btn{margin:0;background:#fff;color:#131820;padding:14px 20px;font-size:13px}
+.ts-home-ad-actions .btn.ghost{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.4);color:#fff}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){.ts-home-ad-image{transition:transform 700ms ease}.ts-home-ad:hover .ts-home-ad-image{transform:scale(1.025)}}
+@media(max-width:820px){#inicio-premium.ts-home-dual-promo{grid-template-columns:1fr!important;padding:0 18px!important;gap:18px!important}.ts-home-ad{min-height:410px;padding:28px;border-radius:26px}.ts-home-ad h2{font-size:38px}}
+@media(max-width:380px){.ts-home-ad{padding:22px}.ts-home-ad h2{font-size:33px}.ts-home-ad-actions .btn{padding:13px 16px;font-size:12px}}
+
+/* Video completo, sin recorte, con fondo azul de contraste. */
+.ts-home-ad--video{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,.8fr);gap:20px;align-items:center;background:radial-gradient(ellipse at right,#203d58,#081523 65%);padding:28px;min-height:470px}
+.ts-home-ad--video::after{display:none}
+.ts-home-ad--video .ts-home-ad-copy{grid-column:1;grid-row:1;min-width:0}
+.ts-home-service-video{grid-column:2;grid-row:1;align-self:stretch;display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;border-radius:18px;background:#03080e}
+.ts-home-service-video video{display:block;width:100%;height:100%;max-height:480px;object-fit:contain;background:#03080e}
+.ts-home-ad--video h2{font-size:clamp(29px,2.5vw,40px)}
+@media(max-width:1100px) and (min-width:821px){.ts-home-ad--video{grid-template-columns:1fr;gap:22px}.ts-home-ad--video .ts-home-ad-copy{grid-column:1;grid-row:1}.ts-home-service-video{grid-column:1;grid-row:2;height:330px}.ts-home-service-video video{max-height:330px}}
+@media(max-width:560px){.ts-home-ad--video{grid-template-columns:1fr;gap:24px;padding:24px}.ts-home-ad--video .ts-home-ad-copy{grid-column:1;grid-row:1}.ts-home-service-video{grid-column:1;grid-row:2;height:420px}.ts-home-service-video video{max-height:420px}}
+
+.ts-home-ad--accessories.ts-home-ad--video{background:radial-gradient(ellipse at right,#48404f,#17121e 70%)}
+
+/* Barra de categorías: iconos vectoriales y acabado sobrio. */
+.cats.ts-premium-category-bar{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:10px!important;margin:0 auto 36px!important;padding:12px!important;width:calc(100% - 48px)!important;max-width:1512px!important;background:rgba(245,245,247,.94)!important;border:1px solid rgba(0,0,0,.06)!important;border-radius:24px!important;box-shadow:0 8px 28px rgba(0,0,0,.04)!important;backdrop-filter:blur(16px);position:relative!important}
+.cats.ts-premium-category-bar button{display:flex!important;align-items:center!important;justify-content:center!important;gap:12px!important;min-width:0!important;min-height:76px!important;padding:14px 18px!important;background:#fff!important;color:#1d1d1f!important;border:1px solid rgba(0,0,0,.065)!important;border-radius:17px!important;box-shadow:0 2px 5px rgba(0,0,0,.025)!important;transform:none!important;text-shadow:none!important;transition:background .2s ease,border-color .2s ease,box-shadow .2s ease!important}
+.cats.ts-premium-category-bar button b{font-size:16px!important;font-weight:600!important;letter-spacing:-.02em!important;color:inherit!important}
+.cats.ts-premium-category-bar .ts-category-symbol{display:flex!important;align-items:center;justify-content:center;width:32px!important;height:32px!important;flex:0 0 32px;font-size:0!important}
+.cats.ts-premium-category-bar svg{display:block;width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.55;stroke-linecap:round;stroke-linejoin:round}
+@media(hover:hover){.cats.ts-premium-category-bar button:hover{background:#f2f7fd!important;border-color:rgba(0,113,227,.28)!important;color:#0071e3!important;box-shadow:0 4px 12px rgba(0,113,227,.07)!important}}
+.cats.ts-premium-category-bar button:active{background:#eaf2fc!important}
+.cats.ts-premium-category-bar button:focus-visible{outline:2px solid #0071e3!important;outline-offset:3px!important}
+@media(max-width:760px){.cats.ts-premium-category-bar{width:calc(100% - 36px)!important;gap:7px!important;padding:9px!important;border-radius:20px!important}.cats.ts-premium-category-bar button{flex-direction:column;gap:7px!important;min-height:82px!important;padding:10px 4px!important;border-radius:13px!important}.cats.ts-premium-category-bar button b{font-size:12px!important}.cats.ts-premium-category-bar svg{width:25px;height:25px}}
+@media(max-width:380px){.cats.ts-premium-category-bar button b{font-size:10px!important}}
+
+/* MacBook Pro: apps y movimiento contenido. */
+.ts-mac-pro-promo{overflow:hidden}
+.ts-mac-pro-promo>img{object-fit:contain!important;max-width:100%;height:auto!important}
+.ts-mac-apps{display:flex;flex-wrap:wrap;gap:18px;margin:24px 0 12px}
+.ts-mac-app-group{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ts-app-badge{width:36px;height:36px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;letter-spacing:-.04em;box-shadow:0 3px 8px #0001}
+.ts-app-word{background:#185abd;color:white}.ts-app-excel{background:#107c41;color:white}.ts-app-powerpoint{background:#c43e1c;color:white}
+.ts-app-ps{background:#001e36;color:#31a8ff}.ts-app-ai{background:#330000;color:#ff9a00}.ts-app-pr{background:#00005b;color:#9999ff}
+.ts-app-caption{font-size:12px;color:#52525b;flex-basis:100%;margin-top:3px}
+.ts-mac-pro-promo .ts-mac-license{font-size:12px!important;line-height:1.5;color:#6e6e73;margin:0 0 18px}
+@keyframes ts-chip-float{0%,100%{translate:0 0}50%{translate:0 -6px}}
+@media(prefers-reduced-motion:no-preference){.ts-mac-pro-promo>img{animation:ts-chip-float 7s ease-in-out infinite}.ts-mac-pro-promo .ts-app-badge{transition:translate .2s ease}.ts-mac-pro-promo .ts-app-badge:hover{translate:0 -3px}}
+@media(max-width:560px){.ts-mac-apps{gap:14px}.ts-app-badge{width:32px;height:32px;font-size:16px}}

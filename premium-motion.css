@@ -1,0 +1,10 @@
+/* Deliberate motion, without changing native scrolling or interaction timing. */
+@media(prefers-reduced-motion:no-preference){
+ html{scroll-behavior:smooth;scroll-padding-top:110px}
+ .btn,.ts-controller-link,.ts-footer-premium a,.ts-footer-premium button{transition:background-color .2s ease,color .2s ease,box-shadow .25s ease,border-color .2s ease}
+ .ts-home-ad,.ts-console-hero-photo,.ts-reviews-invite,#envios .panels>article{transition:box-shadow .3s ease,border-color .3s ease}
+ @media(hover:hover){.btn:hover{box-shadow:0 6px 20px #00000015}.ts-home-ad:hover,.ts-reviews-invite:hover,#envios .panels>article:hover{box-shadow:0 14px 36px #0000000b}}
+ dialog::backdrop{animation:tsPremiumBackdrop .22s ease-out}
+ @keyframes tsPremiumBackdrop{from{opacity:0}to{opacity:1}}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}.ts-home-ad,.ts-console-hero-photo,.ts-reviews-invite,#envios .panels>article{transition:none!important}dialog::backdrop{animation:none!important}}
