@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="app.css?v=15.40">
 <script src="repair-financing.js?v=15.37.2"></script>
 <link rel="stylesheet" href="responsive-quality.css?v=15.40.36">
+<link rel="stylesheet" href="sale-pos.css?v=1.0">
 </head>
 <body data-ts-surface="staff">
 <svg class="ts-icon-sprite" aria-hidden="true" focusable="false">
@@ -112,10 +113,12 @@
         <div id="staffSaleStep1" class="staff-sale-page active">
           <div class="staff-sale-panel">
             <div class="staff-sale-heading"><h1>Nueva venta presencial</h1><p>No requiere registro del cliente. Estos datos quedan vinculados únicamente a la compra.</p></div>
+            <div class="pos-customer-actions"><button type="button" id="chooseSaleCustomer" class="secondary">Buscar cliente existente</button><button type="button" id="manualSaleCustomer" class="secondary">Ingresar datos manualmente</button><span id="saleCustomerStatus" role="status">Cliente de esta compra · sin cuenta obligatoria</span></div>
+            <div id="saleCustomerPicker" class="pos-customer-picker hidden"><form id="saleCustomerSearchForm"><label for="saleCustomerQuery">Nombre, correo, cédula o teléfono</label><div><input id="saleCustomerQuery" type="search" minlength="3" autocomplete="off" placeholder="Buscar cliente…"><button type="submit" class="primary">Buscar</button><button type="button" id="closeSaleCustomerPicker" class="secondary">Cerrar</button></div></form><div id="saleCustomerResults" role="status" aria-live="polite"></div></div>
             <form id="staffCustomerForm">
               <div class="form-grid staff-customer-grid">
                 <label>Nombre y apellido<input id="customerName" autocomplete="name" required></label>
-                <label>Correo del cliente registrado<input id="customerEmail" type="email" autocomplete="email" required></label><button type="button" id="loadRegisteredCustomer" class="secondary">Cargar cliente registrado</button><p>El cliente debe completar su perfil y confirmar el correo. <a href="../login.html" target="_blank" rel="noopener">Registro de cliente</a></p>
+                <label>Correo para la compra<input id="customerEmail" type="email" autocomplete="email" required></label>
                 <label>Cédula de identidad / RIF<input id="customerDocument" required></label>
                 <label>Teléfono<input id="customerPhone" type="tel" autocomplete="tel" required></label>
                 <label class="span2">Dirección<input id="customerAddress" autocomplete="street-address" required></label>
@@ -130,11 +133,8 @@
           <div class="staff-sale-panel staff-products-panel">
             <div class="section-head sell-heading"><div><h1>Seleccionar productos</h1><p>Catálogo, variantes y stock real de ThinkStore.</p></div><button id="cartButton" class="cart-button" type="button"><span>Carrito</span><b id="cartCount">0</b></button></div>
             <div id="storeArea">
-              <div class="store-toolbar"><div class="search-box"><span><svg class="ui-icon"><use href="#i-search"/></svg></span><input id="productSearch" type="search" placeholder="Buscar productos, color, capacidad…"></div><button id="refreshStore" class="icon-button" type="button" title="Actualizar inventario"><svg class="ui-icon"><use href="#i-refresh"/></svg></button></div>
-              <div class="barcode-sale-box" id="barcodeSaleBox">
-                <div class="barcode-sale-icon"><svg class="ui-icon"><use href="#i-scan"/></svg></div><div class="barcode-sale-copy"><b>Escanear para añadir</b><small>Lee una etiqueta TSP, TSU, SKU, serial o IMEI. Un lector USB/Bluetooth puede escribir aquí y enviar Enter.</small></div>
-                <form id="barcodeScanForm" class="barcode-scan-form"><input id="barcodeScanInput" autocomplete="off" inputmode="none" placeholder="Escanea el código…"><button class="primary" type="submit">Añadir</button></form>
-              </div>
+              <form id="productSearchForm" class="store-toolbar pos-unified-search"><div class="search-box"><span><svg class="ui-icon"><use href="#i-search"/></svg></span><input id="productSearch" type="search" autocomplete="off" aria-label="Buscar productos y variantes" placeholder="Producto, modelo, color, capacidad o SKU…"></div><button class="secondary" type="submit">Leer código</button><button id="refreshStore" class="icon-button" type="button" title="Actualizar inventario"><svg class="ui-icon"><use href="#i-refresh"/></svg></button></form>
+              <p class="pos-search-hint">Combina palabras en cualquier orden, por ejemplo: iPhone negro 256 GB. Para una etiqueta, serial o IMEI, escanea aquí y pulsa Enter o Leer código.</p>
               <div id="categoryChips" class="category-chips"></div>
               <div id="productGrid" class="product-grid"></div>
               <div class="staff-cart-preview"><div><b>Carrito de venta</b><small id="staffCartOverview">Aún no hay productos seleccionados.</small></div><button id="staffReviewCart" class="secondary" type="button">Revisar carrito</button></div>
@@ -311,6 +311,7 @@
 <script src="../ts-payment-split.js?v=15.27"></script>
 <script src="cash.js?v=15.37.2"></script>
 <script src="repairs.js?v=15.40.4"></script>
-<script src="app.js?v=15.37.2"></script>
+<script src="sale-search.js?v=1.0"></script>
+<script src="app.js?v=15.41"></script>
 </body>
 </html>
