@@ -27,3 +27,20 @@ body:has(#cart.open)>header{z-index:50!important}
 #cart .pay-data-grid b{color:#1d1d1f!important}
 #cart .pay-details-head>img{width:70px!important;height:36px!important;object-fit:contain!important}
 #cart .copy-pay-btn{background:#fff!important;color:#0071e3!important;border:1px solid #d2d2d7!important;box-shadow:none!important}
+
+/* Pago Móvil compacto: QR cuadrado junto a los datos. La imagen original no se modifica. */
+#cart .co-banesco-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+#cart .co-banesco-head img{width:130px!important;height:76px!important;object-fit:contain!important;background:transparent!important}
+#cart .co-banesco-head span{font-size:11px;color:#6e6e73}
+#cart .co-bank-layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:22px;align-items:start}
+.co-qr-square{position:relative;aspect-ratio:1;overflow:hidden;background:white;border:1px solid #e5e5ea;border-radius:12px;width:100%;box-sizing:border-box}
+#cart .co-qr-square img,.co-qr-dialog .co-qr-square img{position:absolute!important;display:block;width:111.24%!important;max-width:none!important;height:auto!important;left:-5.62%!important;top:-54.65%!important;margin:0!important;border-radius:0!important;object-fit:contain!important;transform:none!important}
+#cart .co-qr-side .btn{width:100%;margin-top:10px;padding:9px!important;min-height:38px}
+#cart .co-bank-info h4{font-size:17px;margin:0 0 12px;color:#1d1d1f}
+#cart .co-bank-info dl{margin:0 0 14px}#cart .co-bank-info dl>div{padding:7px 0;border-bottom:1px solid #e5e5ea}
+#cart .co-bank-info dt{font-size:11px;color:#6e6e73}#cart .co-bank-info dd{font-size:14px;font-weight:650;color:#1d1d1f;margin:4px 0 0}
+#cart .co-bank-info p{font-size:11px;line-height:1.5}
+.co-qr-dialog{width:min(460px,90vw);box-sizing:border-box;border:1px solid #e5e5ea;border-radius:22px;padding:25px;background:white;color:#1d1d1f;box-shadow:0 20px 70px #0003;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.co-qr-dialog::backdrop{background:#17212c80;backdrop-filter:blur(8px)}.co-qr-close{float:right;background:#f5f5f7;border:0;border-radius:50%;width:36px;height:36px;font-size:22px;cursor:pointer}.co-qr-dialog h3{margin:0 0 20px}.co-qr-dialog p{text-align:center;font-size:13px}
+@media(max-width:560px){#cart .co-bank-layout{grid-template-columns:150px minmax(0,1fr);gap:14px}#cart .co-banesco-head{align-items:center}#cart .co-banesco-head img{width:110px!important;height:64px!important}}
+@media(max-width:380px){#cart .co-bank-layout{grid-template-columns:minmax(0,1fr)}#cart .co-qr-side{width:180px;margin:auto}}
