@@ -54,3 +54,9 @@ test('authorized CRM search returns manual records without querying customer Aut
  global.fetch=async(u)=>{const url=String(u);if(url.endsWith('/auth/v1/user'))return response({id:'staff-id',email:'seller@example.test'});if(url.includes('/profiles?'))return response([{id:'staff-id',role:'vendedor',is_internal:true,active:true}]);if(url.includes('/roles_usuarios?'))return response([]);if(url.includes('/clientes?')){path=url;return response([customer]);}throw Error('Unexpected '+url);};
  try{const r=await require('../netlify/functions/staff-customers').handler({httpMethod:'GET',headers:{authorization:'Bearer staff-token'},queryStringParameters:{q:'manual@example.test'}});assert.equal(r.statusCode,200,r.body);assert.equal(JSON.parse(r.body).customers[0].id,id);assert.match(path,/limit=21/);assert.match(path,/manual%40example.test/);}finally{global.fetch=old;if(oldKey===undefined)delete process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY;else process.env.MAIN_SUPABASE_SERVICE_ROLE_KEY=oldKey;}
 });
+test('server applies 50 percent to the $20 sale as $10, without trusting a client total',async()=>{
+ const {r,writes}=await sale({...base,discount_type:'percent',discount_value:50,total_final_usd:0});assert.equal(r.statusCode,200,r.body);const order=writes.find(x=>x.url.endsWith('/pedidos')).body;assert.equal(order.discount_usd,10);assert.equal(order.total_usd,10);
+});
+test('server rejects a USD discount over subtotal before writing or reserving stock',async()=>{
+ const {r,writes}=await sale({...base,discount_type:'usd',discount_value:50});assert.equal(r.statusCode,400,r.body);assert.equal(writes.length,0);
+});
