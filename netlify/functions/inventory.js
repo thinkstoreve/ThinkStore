@@ -48,6 +48,7 @@ exports.handler=async(event)=>{
             id:String(row.id||''),sku:String(d.sku||''),name:String(d.name||''),product_group:String(d.product_group||''),
             category:String(d.category||''),subcategory:String(d.subcategory||''),compatibility:String(d.compatibility||''),model:String(d.model||''),
             capacity:String(d.capacity||''),color:String(d.color||''),condition:String(d.condition||'Nuevo'),brand:String(d.brand||'Apple'),
+            case_style:String(d.case_style||''),case_family:String(d.case_family||''),variant_model:String(d.variant_model||''),variant_color:String(d.variant_color||''),
             sale_price:Number(d.sale_price||0),published:d.published!==false,active:d.active!==false,image_url:String(d.image_url||''),
             description:String(d.catalog_description||d.description||''),sort_order:Number(d.sort_order||1000),tracking_mode:String(d.tracking_mode||''),
             image_urls:Array.isArray(d.image_urls)?d.image_urls.filter(x=>typeof x==='string'&&/^https:\/\//i.test(x)).slice(0,8):[],video_url:/^https:\/\//i.test(String(d.video_url||''))?String(d.video_url):'',media_fit:'contain'
