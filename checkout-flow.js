@@ -2,7 +2,12 @@
 (function(){
  'use strict';
  const P=window.ThinkStoreCheckoutPolicy,E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- let step=1,busy=false,settings=null;
+ let step=1,busy=false,settings=null,qrPromise=null;
+ function loadPaymentQr(method){
+  if(!qrPromise)qrPromise=fetch('/payment-qr.json?v=15.41.2').then(r=>{if(!r.ok)throw Error('QR no disponible');return r.json();}).catch(()=>{qrPromise=null;return null;});
+  qrPromise.then(data=>{if(!data||$('payMethod')?.value!==method)return;const img=$('coPaymentQr');if(img){img.src=data[method==='Binance'?'binance':'banesco'];img.hidden=false;}});
+ }
+
  const money=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  function pricing(){try{return P.quote(cart,$('payMethod')?.value||'Pago Móvil');}catch{return {subtotal_usd:cartSubtotalValue(),discount_usd:0,total_usd:cartSubtotalValue(),discount_value:0};}}
  function mount(){
@@ -37,9 +42,21 @@
  const oldDetails=renderPaymentDetails;
  renderPaymentDetails=function(method){
   if(['Binance','USDT'].includes(method)){
-   const id=settings?.binance_pay_id,address=settings?.usdt_address,network=settings?.usdt_network;
+   const id='308962598',address=settings?.usdt_address,network=settings?.usdt_network;
+   if(method==='Binance'){
+    const amount=pricing().total_usd.toFixed(2);
+    $('paymentDetailsCard').innerHTML=`<h4>Binance Pay</h4><p>Binance ID (UID): <b>${id}</b></p><div class="co-inline-actions"><button class="btn ghost" type="button" id="coCopyBinanceUid">Copiar UID</button><button class="btn ghost" type="button" id="coCopyBinanceAmount">Copiar monto</button></div><p>Envía <b>${amount} USDT</b> por Binance Pay. El descuento del 20% ya está incluido.</p><img class="co-binance-qr" id="coPaymentQr" hidden alt="QR de cobro Binance Pay" style="display:block;width:min(100%,300px);height:auto;object-fit:contain;margin:18px auto;border-radius:14px;background:white"><p>Escanea el QR con Binance o usa el UID. Verifica los datos del destinatario en Binance y selecciona USDT antes de enviar.</p><small id="coBinanceCopyStatus" role="status"></small><p>Después, indica la referencia del pago. ThinkStore revisará el abono; el QR no confirma el pago automáticamente.</p>`;
+    const copy=async(value)=>{try{await navigator.clipboard.writeText(value);$('coBinanceCopyStatus').textContent='Copiado.';}catch{$('coBinanceCopyStatus').textContent='No se pudo copiar. Mantén pulsado el dato para copiarlo.';}};
+    loadPaymentQr(method);$('coCopyBinanceUid').onclick=()=>copy(id);$('coCopyBinanceAmount').onclick=()=>copy(amount);
+    if($('paymentInputs'))$('paymentInputs').style.display='grid';if($('paymentUploadPanel'))$('paymentUploadPanel').style.display='block';return;
+   }
    $('paymentDetailsCard').innerHTML=`<h4>${E(method==='Binance'?'Binance Pay':'USDT · transferencia por red')}</h4>${method==='Binance'&&id?`<p>Pay ID: <b>${E(id)}</b></p>`:method==='USDT'&&address&&network?`<p>Red: <b>${E(network)}</b></p><p class="co-wallet">${E(address)}</p><p>Usa únicamente esta red y verifica los datos antes de transferir.</p>`:`<p>Coordinamos ${method==='Binance'?'el Pay ID o QR receptor':'la dirección y la red exacta'} con tu pedido. No transfieras sin confirmar esos datos.</p><a class="co-contact" href="https://wa.me/584241706142?text=${encodeURIComponent('Hola ThinkStore, deseo confirmar los datos receptores para pagar con '+method)}" target="_blank" rel="noopener">Solicitar datos de ${E(method)} ↗</a>`}<p>El abono será revisado por ThinkStore.</p>`;
-  }else oldDetails(method);
+  }else {
+   oldDetails(method);
+   if(method==='Pago Móvil'){
+    $('paymentDetailsCard').insertAdjacentHTML('beforeend','<img id="coPaymentQr" hidden alt="QR para recibir Pago Móvil Banesco" style="display:block;width:min(100%,320px);height:auto;object-fit:contain;margin:18px auto;border-radius:14px"><p>Escanea el QR desde tu banco y comprueba los datos antes de pagar.</p>');loadPaymentQr(method);
+   }
+  }
   if($('paymentInputs'))$('paymentInputs').style.display='grid';if($('paymentUploadPanel'))$('paymentUploadPanel').style.display='block';
  };
  tsSyncPaymentAmount=async function(){const m=$('payMethod')?.value,q=pricing();if(!$('paymentAmount'))return;if(m==='Pago Móvil'){try{await window.ThinkStoreFX?.refresh();const s=window.ThinkStoreFX?.snapshot(q.total_usd);if($('payMethod')?.value!==m)return;$('paymentAmount').value=s?Number(s.total_ves).toFixed(2):'';$('paymentAmountHint').textContent=s?`Bs. ${Number(s.total_ves).toLocaleString('es-VE')} · Tasa BCV ${s.rate}`:'Consultando tasa BCV…';}catch{$('paymentAmount').value='';$('paymentAmountHint').textContent='No se pudo consultar la tasa. Intenta nuevamente.';}}else{$('paymentAmount').value=q.total_usd.toFixed(2);$('paymentAmountHint').textContent=m==='USDT'?'Equivalente en USDT. Confirma red y datos receptores.':'Monto en USD · '+(q.discount_usd?'Descuento del 20% aplicado.':'Sin descuento por método de pago.');}};
