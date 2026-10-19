@@ -1,0 +1,17 @@
+#categoryModalV2[data-collection="silicone-cases"] .ts-v2-category-window{width:min(1040px,96vw)}
+.ts-case-shop{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:28px;padding:24px;background:#fff;border-radius:24px;align-items:center}
+.ts-case-photo{min-width:0;text-align:center}.ts-case-photo img{width:100%;height:390px;object-fit:contain;object-position:center;display:block}.ts-case-photo small{display:block;color:#6e6e73;margin-top:10px}
+.ts-case-summary{min-width:0}.ts-case-summary h3{font-size:26px;letter-spacing:-.04em;margin:6px 0 22px}.ts-case-eyebrow{font-size:12px;color:#0071e3;font-weight:650}.ts-case-price{display:block;font-size:27px;margin-top:20px}.ts-case-stock{color:#606168;font-size:14px}
+.ts-case-options label{display:block;font-size:14px;font-weight:600}.ts-case-options select{display:block;width:100%;padding:12px;margin-top:8px;border:1px solid #d2d2d7;border-radius:12px;background:#fff;font:inherit;min-height:46px;color:#1d1d1f}
+.ts-case-options fieldset{border:0;padding:0;margin:20px 0 0;min-width:0}.ts-case-options legend{padding:0;font-size:14px;font-weight:400;margin-bottom:10px}.ts-case-options legend b{font-weight:650}
+.ts-case-styles,.ts-case-colors{display:flex;flex-wrap:wrap;gap:8px}.ts-case-styles button{padding:10px 14px;min-height:44px;border:1px solid #d2d2d7;border-radius:12px;background:#fff;font:inherit;font-size:14px;cursor:pointer;color:#1d1d1f}
+.ts-case-styles button[aria-pressed="true"],.ts-case-colors button[aria-pressed="true"]{border-color:#0071e3;box-shadow:0 0 0 1px #0071e3;background:#f4f9ff}
+.ts-case-colors button{display:flex;align-items:center;gap:7px;border:1px solid #dedee2;background:#fff;padding:7px 9px;border-radius:12px;min-height:44px;cursor:pointer;color:#1d1d1f;font:inherit;font-size:12px}.ts-case-colors i{display:inline-block;width:23px;height:23px;border-radius:50%;border:1px solid #0002;flex-shrink:0}.ts-case-colors .is-unavailable{border-style:dashed}.ts-case-options button:focus-visible,.ts-case-options select:focus-visible{outline:3px solid #0071e3;outline-offset:3px}
+#modal.ts-case-detail #colors,#modal.ts-case-detail #vars,#modal.ts-case-detail #conditions{display:none!important}
+#modal.ts-case-detail #colors+label,#modal.ts-case-detail #vars+label,#modal.ts-case-detail #tsCaseDetailOptions+label{display:none!important}
+#modal.ts-case-detail #tsCaseDetailOptions~#colors{display:none!important}
+#modal.ts-case-detail #tsCaseDetailOptions{margin:18px 0}
+#modal.ts-case-detail #mainImg{object-fit:contain!important;max-height:65vh}
+#modal.ts-case-detail .opts:empty{display:none}
+@media(max-width:700px){.ts-case-shop{grid-template-columns:minmax(0,1fr);padding:18px;gap:20px}.ts-case-photo img{height:250px}.ts-case-summary h3{font-size:23px}.ts-case-options select{font-size:16px}.ts-case-photo{order:0}.ts-case-summary{order:1}}
+@media(prefers-reduced-motion:no-preference){.ts-case-options button{transition:border-color .16s,box-shadow .16s,background .16s}.ts-case-options button:active{transform:scale(.97)}}
