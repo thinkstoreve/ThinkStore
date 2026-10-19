@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="app.css?v=15.40">
 <script src="repair-financing.js?v=15.37.2"></script>
 <link rel="stylesheet" href="responsive-quality.css?v=15.40.36">
-<link rel="stylesheet" href="sale-pos.css?v=1.0">
+<link rel="stylesheet" href="sale-pos.css?v=1.1">
 </head>
 <body data-ts-surface="staff">
 <svg class="ts-icon-sprite" aria-hidden="true" focusable="false">
@@ -297,7 +297,7 @@
   </nav>
 </div>
 
-<div id="productModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="productModal"></div><div class="sheet product-sheet"><button class="sheet-close" data-close="productModal" type="button">×</button><div id="productModalBody"></div></div></div>
+<div id="productModal" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="productModal"></div><div class="sheet product-sheet" role="dialog" aria-modal="true" aria-labelledby="modalProductName"><button class="sheet-close" data-close="productModal" type="button" aria-label="Cerrar producto">×</button><div id="productModalBody"></div></div></div>
 <div id="cartDrawer" class="modal" aria-hidden="true"><div class="modal-backdrop" data-close="cartDrawer"></div><div class="sheet cart-sheet"><div class="sheet-head"><div><span class="eyebrow">VENTA ACTUAL</span><h2>Carrito</h2></div><button class="sheet-close static" data-close="cartDrawer" type="button">×</button></div><div id="cartItems" class="cart-items"></div><div class="cart-total"><span>Total</span><b id="cartTotal">$0.00</b></div><button id="checkoutButton" class="primary wide" type="button">Continuar al cobro</button></div></div>
 <div id="repairsModal" class="modal" aria-hidden="true"><div id="repairsBackdrop" class="modal-backdrop"></div><div class="sheet repairs-sheet"><div class="sheet-head"><div><span class="eyebrow">APP VENTAS · REPARACIONES</span><h2 id="repairsModalTitle">Reparación</h2></div><button id="repairsClose" class="sheet-close static" type="button" aria-label="Cerrar">×</button></div><div id="repairsModalBody" class="repairs-details"></div></div></div>
 <div id="successModal" class="success-modal hidden"><div class="success-card"><div class="success-check">✓</div><span class="eyebrow">VENTA REGISTRADA</span><h2>Todo listo.</h2><p id="successMessage">La venta fue registrada correctamente.</p><div class="success-actions"><button id="newSaleButton" class="primary" type="button">Nueva venta</button><button class="secondary" data-view="sales" type="button">Ver ventas</button></div></div></div>
@@ -312,6 +312,6 @@
 <script src="cash.js?v=15.37.2"></script>
 <script src="repairs.js?v=15.40.4"></script>
 <script src="sale-search.js?v=1.0"></script>
-<script src="app.js?v=15.41"></script>
+<script src="app.js?v=15.41.1"></script>
 </body>
 </html>
