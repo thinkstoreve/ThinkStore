@@ -21,3 +21,9 @@ body:has(#cart.open)>header{z-index:50!important}
 
 #cart .checkout-summary .summary-line>span{color:#6e6e73!important}
 #cart .checkout-close{position:absolute!important;top:14px!important;right:16px!important;color:#1d1d1f!important;background:#e5e5ea!important;z-index:2!important}
+
+#cart .pay-data-grid>div{background:#fff!important;border:1px solid #e5e5ea!important}
+#cart .pay-data-grid small{color:#6e6e73!important}
+#cart .pay-data-grid b{color:#1d1d1f!important}
+#cart .pay-details-head>img{width:70px!important;height:36px!important;object-fit:contain!important}
+#cart .copy-pay-btn{background:#fff!important;color:#0071e3!important;border:1px solid #d2d2d7!important;box-shadow:none!important}
