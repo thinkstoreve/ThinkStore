@@ -1,6 +1,7 @@
 /* Scoped presentation. No changes to finance modals or other sections. */
 #treasury.tr-ready{color:#243247;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 body[data-enterprise-view="treasury"] .workspace{background:#f6f7f9}
+body[data-enterprise-view="treasury"] .topbar h1,body[data-enterprise-view="treasury"] .topbar strong{color:#26374e}body[data-enterprise-view="treasury"] .topbar small,body[data-enterprise-view="treasury"] .topbar p{color:#6b7b91}
 #treasury.tr-ready>.production-toolbar{display:none!important}
 #treasury .tr-head{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:10px 0 24px}
 #treasury .tr-kicker{font-size:10px;letter-spacing:.12em;color:#748197;font-weight:700}
