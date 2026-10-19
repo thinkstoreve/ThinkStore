@@ -44,3 +44,6 @@ body:has(#cart.open)>header{z-index:50!important}
 .co-qr-dialog::backdrop{background:#17212c80;backdrop-filter:blur(8px)}.co-qr-close{float:right;background:#f5f5f7;border:0;border-radius:50%;width:36px;height:36px;font-size:22px;cursor:pointer}.co-qr-dialog h3{margin:0 0 20px}.co-qr-dialog p{text-align:center;font-size:13px}
 @media(max-width:560px){#cart .co-bank-layout{grid-template-columns:150px minmax(0,1fr);gap:14px}#cart .co-banesco-head{align-items:center}#cart .co-banesco-head img{width:110px!important;height:64px!important}}
 @media(max-width:380px){#cart .co-bank-layout{grid-template-columns:minmax(0,1fr)}#cart .co-qr-side{width:180px;margin:auto}}
+
+#cart .co-crypto-qr img,.co-qr-dialog .co-crypto-qr img{width:169.88%!important;left:-34.78%!important;top:-13.31%!important}
+#cart .co-crypto-head img{width:48px!important;height:48px!important}
