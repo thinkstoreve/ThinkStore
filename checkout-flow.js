@@ -4,7 +4,7 @@
  const P=window.ThinkStoreCheckoutPolicy,E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let step=1,busy=false,settings=null,qrPromise=null;
  function loadPaymentQr(method){
-  if(!qrPromise)qrPromise=fetch('/payment-qr.json?v=15.41.2').then(r=>{if(!r.ok)throw Error('QR no disponible');return r.json();}).catch(()=>{qrPromise=null;return null;});
+  if(!qrPromise)qrPromise=fetch('/payment-qr.json?v=15.41.4').then(r=>{if(!r.ok)throw Error('QR no disponible');return r.json();}).catch(()=>{qrPromise=null;return null;});
   qrPromise.then(data=>{if(!data||$('payMethod')?.value!==method)return;const img=$('coPaymentQr');if(img){img.src=data[method==='Binance'?'binance':'banesco'];img.hidden=false;}});
  }
 
@@ -54,7 +54,11 @@
   }else {
    oldDetails(method);
    if(method==='Pago Móvil'){
-    $('paymentDetailsCard').insertAdjacentHTML('beforeend','<img id="coPaymentQr" hidden alt="QR para recibir Pago Móvil Banesco" style="display:block;width:min(100%,320px);height:auto;object-fit:contain;margin:18px auto;border-radius:14px"><p>Escanea el QR desde tu banco y comprueba los datos antes de pagar.</p>');loadPaymentQr(method);
+    const box=$('paymentDetailsCard');
+    box.innerHTML='<div class="co-banesco-head"><img id="coBanescoLogo" hidden alt="Banesco"><span>Pago Móvil · Verificación manual</span></div><div class="co-bank-layout"><div class="co-qr-side"><div class="co-qr-square"><img id="coPaymentQr" hidden alt="QR para recibir Pago Móvil Banesco"></div><button type="button" class="btn ghost" id="coEnlargeQr">Ampliar QR</button></div><div class="co-bank-info"><h4>Escanea y paga</h4><dl><div><dt>Banco</dt><dd>Banesco</dd></div><div><dt>Teléfono</dt><dd>0424-2631449</dd></div><div><dt>Cédula</dt><dd>V-22382698</dd></div></dl><button class="btn ghost" type="button" id="coCopyBanesco">Copiar datos</button><p>Comprueba los datos del destinatario antes de confirmar el pago en tu banco.</p></div></div>';
+    $('coCopyBanesco').onclick=()=>tsCopyText('Pago Móvil Banesco\nTeléfono: 0424-2631449\nCédula: V-22382698');
+    $('coEnlargeQr').onclick=()=>{const img=$('coPaymentQr');if(!img?.src)return;const dialog=document.createElement('dialog');dialog.className='co-qr-dialog';dialog.innerHTML='<button type="button" class="co-qr-close" aria-label="Cerrar QR">×</button><h3>Pago Móvil Banesco</h3><div class="co-qr-square"><img alt="QR ampliado de Pago Móvil Banesco"></div><p>0424-2631449 · V-22382698</p>';dialog.querySelector('img').src=img.src;dialog.querySelector('button').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();};
+    loadPaymentQr(method);fetch('/banesco-logo.json?v=15.41.4').then(r=>r.json()).then(data=>{const logo=$('coBanescoLogo');if(logo&&data.image){logo.src=data.image;logo.hidden=false;}}).catch(()=>{});
    }
   }
   if($('paymentInputs'))$('paymentInputs').style.display='grid';if($('paymentUploadPanel'))$('paymentUploadPanel').style.display='block';
