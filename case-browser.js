@@ -33,7 +33,7 @@
  function imageFor(v){return v.image||(/silicon/.test(norm(v.style||v.name))?'silicone-case-poster.jpg':tsCatalogFallbackImage('Accesorios',v.name));}
  function colorHex(label){const n=norm(label),map={"Medianoche":"#344350","Guayaba brillante":"#fa6d7e","Neblina púrpura":"#746d88","Terracota":"#b46b49","Vainilla":"#fff1da","Azul ancla":"#607580","Lavanda eléctrica":"#ce87bd","Musgo claro":"#929d70","Amarillo neón":"#e8f47c","Púrpura":"#685775","Siena":"#b77543","Rosa suave":"#f4dedd","Transparente":"linear-gradient(135deg,#fff,#e6edf3)","Borgoña":"#8d2948",negro:'#222326',blanco:'#f4f4f0',gris:'#99999e',azul:'#527da9',celeste:'#9fc8dc',verde:'#789780',rosa:'#d7a4b1',fucsia:'#c45287',rojo:'#b74343',morado:'#80678e',naranja:'#d97b42',amarillo:'#e2ca68',beige:'#d6c8b7',borgona:'#8d2948'};if(n.includes('transparente'))return '#edf1f5';if(n==='azul marino')return '#273a59';if(n==='verde oliva')return '#7b7d4d';return Object.entries(map).find(([key])=>norm(key)===n)?.[1]||'#b6b8bd';}
  function picker(box,selected,onChange){
-  const rows=all(),models=unique(rows.map(v=>v.model));
+  const rows=all().filter(v=>String(v.parent_id)===String(selected.parent_id)),models=unique(rows.map(v=>v.model));
   const byModel=rows.filter(v=>norm(v.model)===norm(selected.model));
   const styles=unique(byModel.map(v=>v.style));
   const byStyle=byModel.filter(v=>norm(v.style)===norm(selected.style));
@@ -79,7 +79,7 @@
  function renderCollection(){
   const modal=document.getElementById('categoryModalV2'),box=document.getElementById('categoryModalV2Products');
   if(!modal?.classList.contains('open')||modal.dataset.collection!=='silicone-cases'||!box)return;
-  const rows=all();if(!rows.length){box.innerHTML='<p class="ts-v2-empty">Cargando cases publicados…</p>';return;}
+  const rows=all().filter(v=>/silicon/.test(norm(v.style||v.name))&&(!v.type||v.type==='Cases para iPhone'));if(!rows.length){box.innerHTML='<p class="ts-v2-empty">Cargando cases publicados…</p>';return;}
   const selection=choose(rows,collectionCurrent||{style:'Silicona'});if(!selection)return;collectionCurrent=selection;
   document.getElementById('categoryModalV2Title').textContent='Encuentra tu case';
   document.getElementById('categoryModalV2Desc').textContent='Elige tu modelo, estilo y color.';
@@ -88,7 +88,7 @@
   picker(box.querySelector('#tsCaseCollectionOptions'),selection,v=>{collectionCurrent=v;renderCollection();});
   box.querySelector('[data-case-open]').onclick=()=>{window.openProduct(selection.parent_id);select(selection);};
  }
- window.tsRenderSiliconeCollection=renderCollection;
- document.addEventListener('click',e=>{const b=e.target.closest('[data-accessory-group="Cases"]');if(b)requestAnimationFrame(()=>{const m=document.getElementById('categoryModalV2');if(m){m.dataset.collection='silicone-cases';renderCollection();}});});
+ window.tsRenderSiliconeCollection=renderCollection;window.tsSelectCaseVariant=select;
+
  window.addEventListener('load',()=>{if(new URLSearchParams(location.search).get('coleccion')==='silicone-cases')renderCollection();});
 })(typeof window!=='undefined'?window:globalThis);
