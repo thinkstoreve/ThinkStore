@@ -35,7 +35,7 @@
   box.querySelectorAll('[data-acc-open]').forEach(b=>b.onclick=()=>{window.openProduct(b.dataset.accOpen);const p=products.find(p=>String(p.id)===b.dataset.accOpen),v=p?.case_variants?.find(v=>v.sku===b.dataset.accSku);if(v)window.tsSelectCaseVariant(v);});
  }
  const originalOpen=openCategoryModalV2;
- openCategoryModalV2=function(cat){const result=originalOpen.apply(this,arguments);if(normalizeCategoryV2(cat)==='Accesorios'){requestAnimationFrame(()=>{const m=document.getElementById('categoryModalV2');m.dataset.collection='accessories-organized';render();});}return result;};
+ openCategoryModalV2=function(cat){const result=originalOpen.apply(this,arguments);if(normalizeCategoryV2(cat)==='Accesorios'){requestAnimationFrame(()=>{const m=document.getElementById('categoryModalV2');if(m.dataset.collection==='silicone-cases')return;m.dataset.collection='accessories-organized';render();});}return result;};
  window.tsRenderAccessoryOrganizer=render;
  window.addEventListener('load',()=>{if(new URLSearchParams(location.search).get('coleccion')==='accesorios')openCategoryModalV2('Accesorios');});
 })(typeof window!=='undefined'?window:globalThis);
