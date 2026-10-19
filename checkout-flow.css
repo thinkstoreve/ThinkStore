@@ -18,3 +18,6 @@ body:has(#cart.open)>header{z-index:50!important}
 #cart .customer-summary,#cart .customer-summary *{color:#515159!important}
 #cart .customer-summary b,#cart .customer-summary strong,#cart #cartItems strong{color:#1d1d1f!important}
 #cart #cartItems small,#cart #cartItems em,#cart #cartItems .muted{color:#6e6e73!important}
+
+#cart .checkout-summary .summary-line>span{color:#6e6e73!important}
+#cart .checkout-close{position:absolute!important;top:14px!important;right:16px!important;color:#1d1d1f!important;background:#e5e5ea!important;z-index:2!important}
