@@ -1,7 +1,7 @@
 const {test,after}=require('node:test');const assert=require('node:assert/strict');const policy=require('../checkout-policy');
-test('20% only applies to Zelle, Binance and USDT, with cents and quantities',()=>{
- for(const method of ['Zelle','Binance','USDT']){const q=policy.quote([{price:100,qty:1}],method);assert.equal(q.total_usd,80);assert.equal(q.discount_usd,20);assert.equal(q.shipping_usd,0);}
- for(const method of ['Pago Móvil','Punto de venta','Efectivo'])assert.equal(policy.quote([{price:100,qty:1}],method).total_usd,100);
+test('20% applies to Zelle, Binance, USDT and USD cash, with cents and quantities',()=>{
+ for(const method of ['Zelle','Binance','USDT','Efectivo']){const q=policy.quote([{price:100,qty:1}],method);assert.equal(q.total_usd,80);assert.equal(q.discount_usd,20);assert.equal(q.shipping_usd,0);}
+ for(const method of ['Pago Móvil','Punto de venta'])assert.equal(policy.quote([{price:100,qty:1}],method).total_usd,100);
  assert.equal(policy.quote([{price:100.01,qty:3}],'USDT').total_usd,240.02);
  assert.throws(()=>policy.quote([{price:0,qty:1}],'Zelle'));assert.throws(()=>policy.quote([{price:2,qty:-1}],'Zelle'));assert.throws(()=>policy.quote([{price:10,qty:1}],'Inventado'));
 });
@@ -29,6 +29,10 @@ test('server uses inventory price and persists pending status and original subto
  const inserted=calls.find(c=>c.path==='pedidos'&&c.method==='POST').body;assert.equal(inserted.subtotal_usd,100);assert.equal(inserted.discount_usd,20);assert.equal(inserted.total_usd,80);assert.equal(inserted.estado,'Pedido recibido');
  const items=calls.find(c=>c.path==='pedido_items'&&c.method==='POST').body;assert.equal(items[0].precio_usd,100);assert.equal(items[0].producto,'Producto real');
  assert.ok(calls.some(c=>c.method==='PATCH'&&c.body.estado==='Pago por verificar'));assert.ok(!calls.some(c=>c.body?.estado==='Pago verificado'));
+});
+test('cash USD receives the server discount and stays pending manual collection',async()=>{
+ const calls=fixture();const response=await handler(event({method:'Efectivo'}));assert.equal(response.statusCode,200);assert.equal(JSON.parse(response.body).pricing.total_usd,80);
+ const order=calls.find(c=>c.path==='pedidos'&&c.method==='POST').body;assert.equal(order.metodo_pago,'Efectivo');assert.equal(order.discount_usd,20);assert.match(order.discount_reason,/efectivo USD/);assert.ok(!calls.some(c=>c.body?.estado==='Pago verificado'));
 });
 test('price changes and missing authentication do not create orders',async()=>{
  let calls=fixture({price:120});assert.equal((await handler(event())).statusCode,409);assert.ok(!calls.some(c=>c.method==='POST'&&c.path==='pedidos'));
