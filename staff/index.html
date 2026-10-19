@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="app.css?v=15.40">
 <script src="repair-financing.js?v=15.37.2"></script>
 <link rel="stylesheet" href="responsive-quality.css?v=15.40.36">
-<link rel="stylesheet" href="sale-pos.css?v=1.1">
+<link rel="stylesheet" href="sale-pos.css?v=1.2">
 </head>
 <body data-ts-surface="staff">
 <svg class="ts-icon-sprite" aria-hidden="true" focusable="false">
@@ -136,6 +136,7 @@
               <form id="productSearchForm" class="store-toolbar pos-unified-search"><div class="search-box"><span><svg class="ui-icon"><use href="#i-search"/></svg></span><input id="productSearch" type="search" autocomplete="off" aria-label="Buscar productos y variantes" placeholder="Producto, modelo, color, capacidad o SKU…"></div><button class="secondary" type="submit">Leer código</button><button id="refreshStore" class="icon-button" type="button" title="Actualizar inventario"><svg class="ui-icon"><use href="#i-refresh"/></svg></button></form>
               <p class="pos-search-hint">Combina palabras en cualquier orden, por ejemplo: iPhone negro 256 GB. Para una etiqueta, serial o IMEI, escanea aquí y pulsa Enter o Leer código.</p>
               <div id="categoryChips" class="category-chips"></div>
+              <p id="posMediaStatus" class="pos-error hidden" role="status"></p>
               <div id="productGrid" class="product-grid"></div>
               <div class="staff-cart-preview"><div><b>Carrito de venta</b><small id="staffCartOverview">Aún no hay productos seleccionados.</small></div><button id="staffReviewCart" class="secondary" type="button">Revisar carrito</button></div>
             </div>
@@ -153,21 +154,21 @@
                 </div>
                 <div id="paymentDestinationPanel" class="staff-payment-destination hidden"></div>
                 <label id="paymentRefWrap" class="hidden staff-payment-ref">Referencia de pago<input id="paymentRef" placeholder="Referencia / confirmación"></label>
-                <div id="paymentFx" class="fx-box hidden"></div>
+                
                 <div id="staffSplitPayment" hidden></div>
               </div>
               <div class="form-section"><h3>Entrega y descuento</h3>
                 <div class="form-grid">
                   <label>Forma de entrega<select id="deliveryMethod"><option>Retiro en tienda</option><option>Delivery</option><option>Envío nacional</option></select></label>
                   <label id="shippingWrap" class="hidden">Empresa de envío<select id="shippingCompany"><option>MRW</option><option>Zoom</option><option>TEALCA</option></select></label>
-                  <label>Tipo de descuento<select id="discountType"><option value="usd">Monto USD</option><option value="percent">Porcentaje %</option></select></label>
-                  <label>Descuento<input id="discountValue" type="number" min="0" step="0.01" value="0"></label>
+                  <label>Aplicar descuento como<select id="discountType"><option value="percent">Porcentaje (%)</option><option value="usd">Importe en dólares (USD)</option></select></label>
+                  <label><span id="discountValueLabel">Descuento (%)</span><input id="discountValue" type="text" inputmode="decimal" value="0" aria-describedby="discountExplanation" autocomplete="off"></label><p class="span2 pos-discount-help" id="discountExplanation" aria-live="polite"></p>
                   <label class="span2">Motivo del descuento<input id="discountReason" maxlength="160" placeholder="Opcional"></label>
                   <label class="span2">Nota de venta<textarea id="saleNote" placeholder="Observación interna opcional"></textarea></label>
                 </div>
               </div>
               <div class="checkout-summary"><div><span>Subtotal</span><b id="checkoutSubtotal">$0.00</b></div><div><span>Descuento</span><b id="checkoutDiscount">-$0.00</b></div><div class="grand"><span>Total final</span><b id="checkoutTotal">$0.00</b></div></div>
-              <div class="staff-sale-notice"><b>Guardar en espera:</b> el pedido quedará como «Pago por verificar». Para confirmar un pago distinto a efectivo, indica su referencia.</div>
+              <div id="paymentFx" class="fx-box hidden" aria-live="polite"></div><div class="staff-sale-notice"><b>Guardar en espera:</b> el pedido quedará como «Pago por verificar». Para confirmar un pago distinto a efectivo, indica su referencia.</div>
               <div class="staff-step-actions between"><button id="staffBackProducts" class="secondary" type="button">← Productos</button><div class="checkout-actions"><button id="holdSaleButton" class="secondary" type="button">Guardar en espera</button><button id="confirmSaleButton" class="primary" type="submit">Confirmar pago y finalizar venta</button></div></div>
             </form>
           </div>
@@ -311,7 +312,8 @@
 <script src="../ts-payment-split.js?v=15.27"></script>
 <script src="cash.js?v=15.37.2"></script>
 <script src="repairs.js?v=15.40.4"></script>
+<script src="../pos-pricing.js?v=1.0"></script>
 <script src="sale-search.js?v=1.0"></script>
-<script src="app.js?v=15.41.1"></script>
+<script src="app.js?v=15.42"></script>
 </body>
 </html>
