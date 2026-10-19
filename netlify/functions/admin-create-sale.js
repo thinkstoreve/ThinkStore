@@ -78,9 +78,9 @@ exports.handler=async function(event){
   async function first(path){try{const d=await req(path);return Array.isArray(d)?d[0]:null}catch{return null}}
 
   try{
-    const canonical=await require('./registered-customer-core').load({url,key:service},guest.email);
-    Object.assign(guest,canonical);
-    const customer={id:canonical.id};
+    // Walk-in sales keep purchase data without requiring a website account.
+    // Link only an explicitly selected, server-checked CRM record.
+    const customer=await require('./pos-customer-core').selectedCustomer({url,key:service},b.customer_id,guest.email);
 
     const variants=[], reserve=[];
     for(const item of items){
