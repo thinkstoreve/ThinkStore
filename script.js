@@ -899,13 +899,13 @@ function renderPaymentDetails(pay){
   const method=String(pay||'Pago Móvil');
   let html='',needsProof=tsCheckoutNeedsProof(method);
   if(method==='Pago Móvil'){
-    html=`<div class="pay-details-head"><img src="assets/bancamiga.svg" alt="Bancamiga"><span class="pay-status">Esperando comprobante</span></div>
+    html=`<div class="pay-details-head"><img src="assets/banks/banesco.svg" alt="Banesco"><span class="pay-status">Esperando comprobante</span></div>
       <div class="pay-data-grid">
-        <div><small>Banco</small><b>Bancamiga</b></div>
-        <div><small>Teléfono</small><b>0412-0142898</b></div>
-        <div><small>C.I./RIF</small><b>E-84554142</b></div>
+        <div><small>Banco</small><b>Banesco</b></div>
+        <div><small>Teléfono</small><b>0424-2631449</b></div>
+        <div><small>C.I./RIF</small><b>V-22382698</b></div>
       </div>
-      <button type="button" class="copy-pay-btn" onclick="tsCopyText('Pago Móvil Bancamiga\\nTeléfono: 0412-0142898\\nC.I./RIF: E-84554142')">📋 Copiar datos de pago</button>`;
+      <button type="button" class="copy-pay-btn" onclick="tsCopyText('Pago Móvil Banesco\\nTeléfono: 0424-2631449\\nC.I./RIF: V-22382698')">📋 Copiar datos de pago</button>`;
   }else if(method==='Punto de venta'){
     html=`<div class="pay-details-head"><div class="cash-mark">💳 Punto de venta</div><span class="pay-status">Pago presencial</span></div>
       <p class="cash-note">No necesitas cargar comprobante ni referencia. El monto se confirma directamente en el punto de venta.</p>`;
@@ -2220,7 +2220,7 @@ let adminSettings = JSON.parse(localStorage.getItem('ts_admin_settings') || 'nul
   whatsapp: '584241706142',
   email: 'ventas@thinkstore.com.ve',
   instagram: '@thinkstore',
-  payments: 'Pago Móvil Bancamiga: 0412-0142898 / E-84554142\nZelle: (954) 445-9161\nEfectivo: Pagar en tienda o delivery\nUSDT: Por configurar',
+  payments: 'Pago Móvil Banesco: 0424-2631449 / V-22382698\nZelle: (954) 445-9161\nEfectivo: Pagar en tienda o delivery\nUSDT: Por configurar',
   shipping: {MRW:true, Zoom:true, Tealca:true, Pickup:true}
 };
 // V15.34 · migra automáticamente números comerciales antiguos guardados en este dispositivo.
