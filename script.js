@@ -308,6 +308,16 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
       Object.keys(p.colors||{}).forEach(color=>{if(String(p.colors[color]).includes('silicone-case-poster.jpg'))p.colors[color]=p.main;});
     }
   });
+  // Keep the exact Inventory SKU behind every case option, including legacy cases.
+  accessoryGroups.forEach(group=>{
+    const product=base.find(p=>tsCatalogNorm(p.name)===tsCatalogNorm(group.name));
+    if(!product||!/case|funda|forro/.test(tsCatalogNorm(group.name+' '+product.subcategory)))return;
+    if(/accesorios para|correa|grip|pencil/.test(tsCatalogNorm(group.name+' '+product.subcategory)))return;
+    product.case_variants=group.rows.map(row=>{
+      const variant=rows.find(v=>String(v.sku)===String(row.sku));
+      return {id:row.id,sku:row.sku,parent_id:product.id,name:row.name||group.name,style:row.case_style||'',family:row.case_family||'',model:row.variant_model||row.compatibility||row.model||'',color:row.variant_color||row.color||'Único',price:Number(variant?.price_usd||row.sale_price||0),available:variant?Math.max(0,Number(variant.stock_on_hand||0)-Number(variant.stock_reserved||0)):0,image:row.image_url||row.image_urls?.[0]||'',images:row.image_urls||[],video:row.video_url||'',condition:row.condition||'Nuevo'};
+    }).filter(v=>v.sku);
+  });
   return base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
 }
 function tsCatalogProducts(){
@@ -544,9 +554,10 @@ function tsInventoryCapacityKey(value){
  const n=tsInventoryNorm(value);const m=n.match(/(?:ssd )?(\d+(?:[.,]\d+)?)\s*(tb|gb)\b/);
  return m?String(Number(m[1].replace(',','.'))*(m[2]==='tb'?1024:1))+'gb':n;
 }
-function tsMatchingInventoryRows(rows,product,model,color,capacity){
+function tsMatchingInventoryRows(rows,product,model,color,capacity,exactSku=''){
  const np=tsInventoryNorm(product),nm=tsInventoryNorm(model);
  const active=(rows||[]).filter(v=>v&&v.active!==false);
+ if(exactSku)return active.filter(v=>String(v.sku)===String(exactSku));
  let identity=active.filter(v=>tsInventoryNorm(v.product_name)===np);
  if(!identity.length&&nm){const same=active.filter(v=>tsInventoryNorm(v.model)===nm);if(new Set(same.map(v=>tsInventoryNorm(v.product_name))).size===1)identity=same;}
  const colors=new Set(identity.map(v=>tsInventoryColorKey(v.color)).filter(Boolean));
@@ -555,16 +566,16 @@ function tsMatchingInventoryRows(rows,product,model,color,capacity){
  // Missing inventory dimensions are not the product's descriptive configuration.
  return identity.filter(v=>(!colors.size||!c||tsInventoryColorKey(v.color)===c)&&(!caps.size||!cap||tsInventoryCapacityKey(v.capacity)===cap));
 }
-function tsResolveInventoryVariant(rows,product,model,color,capacity,condition){
+function tsResolveInventoryVariant(rows,product,model,color,capacity,condition,exactSku=''){
  const key=tsConditionKey(condition);
- const candidates=tsMatchingInventoryRows(rows,product,model,color,capacity).filter(v=>!key||tsConditionKey(v.condition)===key);
+ const candidates=tsMatchingInventoryRows(rows,product,model,color,capacity,exactSku).filter(v=>!key||tsConditionKey(v.condition)===key);
  candidates.sort((a,b)=>Math.max(0,Number(b.available??(Number(b.stock_on_hand||0)-Number(b.stock_reserved||0))))-Math.max(0,Number(a.available??(Number(a.stock_on_hand||0)-Number(a.stock_reserved||0)))));
  return candidates[0]||null;
 }
-async function tsFindInventoryVariant(product,model,color,capacity,condition,force=false){
+async function tsFindInventoryVariant(product,model,color,capacity,condition,force=false,exactSku=''){
   try{
     const rows=await tsGetInventoryVariants(force);
-    return tsResolveInventoryVariant(rows,product,model,color,capacity,condition);
+    return tsResolveInventoryVariant(rows,product,model,color,capacity,condition,exactSku);
   }catch(e){ console.warn('ThinkStore inventario: no se pudo resolver variante',e); return null; }
 }
 async function tsLoadCartConditionPrices(item){
@@ -572,7 +583,7 @@ async function tsLoadCartConditionPrices(item){
     const rows=await tsGetInventoryVariants(true);
     const prices={};
     ['Nuevo','Pre-Owned','Pre-Order'].forEach(c=>{
-      const v=tsResolveInventoryVariant(rows,item.product,item.model||item.product,item.color,item.capacity||'',c);
+      const v=tsResolveInventoryVariant(rows,item.product,item.model||item.product,item.color,item.capacity||'',c,item.case_variant_sku||'');
       if(v&&Number(v.price_usd||0)>0) prices[tsConditionKey(c)]=Number(v.price_usd);
     });
     item.condition_prices=prices;
@@ -601,7 +612,7 @@ async function addCart(){
   if(!selectedProduct) return;
   const model=selectedProduct.family||selectedProduct.model||selectedProduct.name;
   const capacity=tsSelectedCapacity();
-  const inv=await tsFindInventoryVariant(selectedProduct.name,model,selectedColor,capacity,selectedCondition);
+  const inv=await tsFindInventoryVariant(selectedProduct.name,model,selectedColor,capacity,selectedCondition,false,selectedProduct.case_variant_sku||'');
   const available=Number(inv?.available||0);
   const isPreorder=tsIsPreorderCondition(selectedCondition);
 
@@ -632,7 +643,8 @@ async function addCart(){
     image:(selectedProduct.colors||{})[selectedColor]||selectedProduct.main,
     variant_id:(inv && available>0 && !tsIsPreorderCondition(selectedCondition)) ? inv.id : null,
     inventory_variant_id:(inv && available>0 && !tsIsPreorderCondition(selectedCondition)) ? inv.id : null,
-    sku:inv?.sku||null
+    sku:inv?.sku||null,
+    case_variant_sku:selectedProduct.case_variant_sku||null
   });
   count();
   closeProduct();
@@ -6509,7 +6521,7 @@ window.addEventListener('load', ()=>{
   }
   async function exactVariants(){
     if(!selectedProduct)return [];
-    try{return tsMatchingInventoryRows(await tsGetInventoryVariants(false),selectedProduct.name,selectedProduct.model||selectedProduct.family||selectedProduct.name,selectedColor,window.tsSelectedCapacity());}
+    try{return tsMatchingInventoryRows(await tsGetInventoryVariants(false),selectedProduct.name,selectedProduct.model||selectedProduct.family||selectedProduct.name,selectedColor,window.tsSelectedCapacity(),selectedProduct.case_variant_sku||'');}
     catch(e){console.warn('ThinkStore inventario exacto:',e);return [];}
   }
   function available(v){return Math.max(0,Number(v?.available ?? (Number(v?.stock_on_hand||0)-Number(v?.stock_reserved||0))));}
@@ -6612,7 +6624,7 @@ window.addEventListener('load', ()=>{
     
     return s;
   }
-  function matchRows(rows,p,c,capacity){return tsMatchingInventoryRows(rows,p.name,p.model||p.family||p.name,c,capacity);}
+  function matchRows(rows,p,c,capacity){return tsMatchingInventoryRows(rows,p.name,p.model||p.family||p.name,c,capacity,p.case_variant_sku||'');}
   function ckey(v){return typeof tsConditionKey==='function'?tsConditionKey(v):n(v)}
   function price(v){const x=Number(v?.price_usd||0);return x>0?x:0}
   function money2(x){return '$'+Number(x).toLocaleString('en-US',{maximumFractionDigits:2})}
