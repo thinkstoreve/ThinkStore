@@ -234,3 +234,7 @@
 #catalogo .ts71-color-grid--ultra{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 #catalogo .ts71-color-grid--ultra .ts71-color-media{height:clamp(250px,30vw,430px)!important;padding:18px}
 @media(max-width:620px){#catalogo .ts71-color-grid--ultra{grid-template-columns:1fr!important}}
+
+/* Full-width photo backgrounds; crop the surrounding scenery, keeping the phone complete. */
+#catalogo .ts71-color-grid:not(.ts71-color-grid--ultra) .ts71-color-media{height:auto!important;aspect-ratio:5/9!important;max-height:none!important;background:#eef1f5!important}
+#catalogo .ts71-color-grid:not(.ts71-color-grid--ultra) .ts71-color-media>img{position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;border-radius:0!important;translate:none!important}
