@@ -30,7 +30,7 @@
  const catalog=()=>typeof productsV2==='function'?productsV2():[];
  const all=()=>normalize(catalog().flatMap(p=>p.case_variants||[]));
  let current=null,collectionCurrent=null;
- function imageFor(v){const p=catalog().find(p=>String(p.id)===String(v.parent_id));return v.image||p?.main||'silicone-case-poster.jpg';}
+ function imageFor(v){return v.image||(/silicon/.test(norm(v.style||v.name))?'silicone-case-poster.jpg':tsCatalogFallbackImage('Accesorios',v.name));}
  function colorHex(label){const n=norm(label),map={negro:'#222326',blanco:'#f4f4f0',gris:'#99999e',azul:'#527da9',celeste:'#9fc8dc',verde:'#789780',rosa:'#d7a4b1',fucsia:'#c45287',rojo:'#b74343',morado:'#80678e',naranja:'#d97b42',amarillo:'#e2ca68',beige:'#d6c8b7',borgona:'#8d2948'};if(n.includes('transparente'))return '#edf1f5';if(n==='azul marino')return '#273a59';if(n==='verde oliva')return '#7b7d4d';return map[n]||'#b6b8bd';}
  function picker(box,selected,onChange){
   const rows=all(),models=unique(rows.map(v=>v.model));
@@ -48,7 +48,7 @@
   const parent=catalog().find(p=>String(p.id)===String(v.parent_id));if(!parent)return;
   current=v;
   const img=imageFor(v),gallery=v.images?.length?v.images:[img];
-  selectedProduct={...parent,main:img,gallery,colors:{[v.color]:img},model:v.model,family:v.model,price:v.price,video_url:v.video||'',case_variant_sku:v.sku,case_selection:v,image_reference:!v.image&&!!parent.image_reference};
+  selectedProduct={...parent,main:img,gallery,colors:{[v.color]:img},model:v.model,family:v.model,price:v.price,video_url:v.video||'',case_variant_sku:v.sku,case_selection:v,image_reference:!v.image};
   selectedColor=v.color;selectedCondition=v.available>0?v.condition:'Pre-Order';selectedGallery=img;
   selectedConfig={Modelo:v.model,Estilo:v.style};
   drawDetail();
