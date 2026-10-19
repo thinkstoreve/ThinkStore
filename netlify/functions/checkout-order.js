@@ -12,7 +12,7 @@ exports.handler=async(event)=>{
  async function sb(path,options={}){const r=await fetch(url+'/rest/v1/'+path,{...options,headers:{...headers,...options.headers}});const data=await r.json().catch(()=>null);if(!r.ok){const e=Error(data?.message||data?.error||'No se pudo guardar el pedido.');e.status=r.status;throw e;}return data;}
  if(event.httpMethod==='GET'){
   let ready=true;try{await sb('pedidos?select=subtotal_usd,discount_type,discount_value,discount_usd,discount_reason&limit=0');}catch{ready=false;}
-  return reply(200,{ok:true,discount_storage_ready:ready,verification:'manual',discount_percent:20,discount_methods:['Zelle','Binance','USDT'],binance_pay_id:clean(process.env.THINKSTORE_BINANCE_PAY_ID),usdt_address:clean(process.env.THINKSTORE_USDT_ADDRESS),usdt_network:clean(process.env.THINKSTORE_USDT_NETWORK)});
+  return reply(200,{ok:true,discount_storage_ready:ready,verification:'manual',discount_percent:20,discount_methods:['Zelle','Binance','USDT','Efectivo'],binance_pay_id:clean(process.env.THINKSTORE_BINANCE_PAY_ID),usdt_address:clean(process.env.THINKSTORE_USDT_ADDRESS),usdt_network:clean(process.env.THINKSTORE_USDT_NETWORK)});
  }
  if(event.httpMethod!=='POST')return reply(405,{ok:false,error:'Método no permitido'});
  let b;try{b=JSON.parse(event.body||'{}');}catch{return reply(400,{ok:false,error:'JSON inválido'});}
