@@ -16,7 +16,7 @@
  function normalize(rows){return rows.filter(v=>v.sku).map(v=>({...v,model:model(v.model)||'Consultar modelo',style:style(v),color:String(v.color||'Único').trim()}));}
  function choose(rows,want={},axis){
   let pool=rows;
-  for(const key of ['model','style','color']){
+  for(const key of (axis==='color'?['model','color','style']:['model','style','color'])){
    const matches=pool.filter(v=>norm(v[key])===norm(want[key]));
    if(matches.length)pool=matches;else if(axis===key)return null;
   }
@@ -31,14 +31,14 @@
  const all=()=>normalize(catalog().flatMap(p=>p.case_variants||[]));
  let current=null,collectionCurrent=null;
  function imageFor(v){return v.image||(/silicon/.test(norm(v.style||v.name))?'silicone-case-poster.jpg':tsCatalogFallbackImage('Accesorios',v.name));}
- function colorHex(label){const n=norm(label),map={negro:'#222326',blanco:'#f4f4f0',gris:'#99999e',azul:'#527da9',celeste:'#9fc8dc',verde:'#789780',rosa:'#d7a4b1',fucsia:'#c45287',rojo:'#b74343',morado:'#80678e',naranja:'#d97b42',amarillo:'#e2ca68',beige:'#d6c8b7',borgona:'#8d2948'};if(n.includes('transparente'))return '#edf1f5';if(n==='azul marino')return '#273a59';if(n==='verde oliva')return '#7b7d4d';return map[n]||'#b6b8bd';}
+ function colorHex(label){const n=norm(label),map={"Medianoche":"#344350","Guayaba brillante":"#fa6d7e","Neblina púrpura":"#746d88","Terracota":"#b46b49","Vainilla":"#fff1da","Azul ancla":"#607580","Lavanda eléctrica":"#ce87bd","Musgo claro":"#929d70","Amarillo neón":"#e8f47c","Púrpura":"#685775","Siena":"#b77543","Rosa suave":"#f4dedd","Transparente":"linear-gradient(135deg,#fff,#e6edf3)","Borgoña":"#8d2948",negro:'#222326',blanco:'#f4f4f0',gris:'#99999e',azul:'#527da9',celeste:'#9fc8dc',verde:'#789780',rosa:'#d7a4b1',fucsia:'#c45287',rojo:'#b74343',morado:'#80678e',naranja:'#d97b42',amarillo:'#e2ca68',beige:'#d6c8b7',borgona:'#8d2948'};if(n.includes('transparente'))return '#edf1f5';if(n==='azul marino')return '#273a59';if(n==='verde oliva')return '#7b7d4d';return Object.entries(map).find(([key])=>norm(key)===n)?.[1]||'#b6b8bd';}
  function picker(box,selected,onChange){
   const rows=all(),models=unique(rows.map(v=>v.model));
   const byModel=rows.filter(v=>norm(v.model)===norm(selected.model));
   const styles=unique(byModel.map(v=>v.style));
   const byStyle=byModel.filter(v=>norm(v.style)===norm(selected.style));
-  const colors=unique(byStyle.map(v=>v.color));
-  box.innerHTML=`<div class="ts-case-options"><label>Modelo<select data-case-model aria-label="Modelo del case">${models.map(m=>`<option ${norm(m)===norm(selected.model)?'selected':''}>${esc(m)}</option>`).join('')}</select></label><fieldset><legend>Estilo: <b>${esc(selected.style)}</b></legend><div class="ts-case-styles">${styles.map(s=>`<button type="button" data-case-style="${esc(s)}" aria-pressed="${norm(s)===norm(selected.style)}">${esc(s)}</button>`).join('')}</div></fieldset><fieldset><legend>Color: <b>${esc(selected.color)}</b></legend><div class="ts-case-colors">${colors.map(c=>{const available=byStyle.some(v=>norm(v.color)===norm(c)&&v.available>0);return `<button type="button" data-case-color="${esc(c)}" title="${esc(c)}${available?'':' · bajo pedido'}" aria-label="${esc(c)}${available?'':' · bajo pedido'}" aria-pressed="${norm(c)===norm(selected.color)}" class="${available?'':'is-unavailable'}"><i style="background:${colorHex(c)}"></i><span>${esc(c)}</span></button>`;}).join('')}</div></fieldset></div>`;
+  const colors=unique(byModel.map(v=>v.color));
+  box.innerHTML=`<div class="ts-case-options"><label>Modelo<select data-case-model aria-label="Modelo del case">${models.map(m=>`<option ${norm(m)===norm(selected.model)?'selected':''}>${esc(m)}</option>`).join('')}</select></label><fieldset><legend>Estilo: <b>${esc(selected.style)}</b></legend><div class="ts-case-styles">${styles.map(s=>`<button type="button" data-case-style="${esc(s)}" aria-pressed="${norm(s)===norm(selected.style)}">${esc(s)}</button>`).join('')}</div></fieldset><fieldset><legend>Color: <b>${esc(selected.color)}</b></legend><div class="ts-case-colors">${colors.map(c=>{const available=byModel.some(v=>norm(v.color)===norm(c)&&v.available>0);return `<button type="button" data-case-color="${esc(c)}" title="${esc(c)}${available?'':' · bajo pedido'}" aria-label="${esc(c)}${available?'':' · bajo pedido'}" aria-pressed="${norm(c)===norm(selected.color)}" class="${available?'':'is-unavailable'}"><i style="background:${colorHex(c)}" aria-hidden="true"></i><span>${esc(c)}</span></button>`;}).join('')}</div></fieldset></div>`;
   box.querySelector('[data-case-model]').onchange=e=>onChange(choose(rows,{...selected,model:e.target.value},'model'));
   box.querySelectorAll('[data-case-style]').forEach(b=>b.onclick=()=>onChange(choose(rows,{...selected,style:b.dataset.caseStyle},'style')));
   box.querySelectorAll('[data-case-color]').forEach(b=>b.onclick=()=>onChange(choose(rows,{...selected,color:b.dataset.caseColor},'color')));
