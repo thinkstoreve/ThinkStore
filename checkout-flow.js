@@ -25,8 +25,8 @@
   $('paymentFile').onchange=()=>{const f=$('paymentFile').files?.[0];$('paymentFileStatus').textContent=f?f.name:'PNG, JPG o PDF · Máximo 8 MB';};
   $('coCarrier').onchange=syncCheckoutCards;go(1);
  }
- function go(n){
-  if(busy)return;if(n>1){syncCurrentUser();if(!cart.length){$('coError').textContent='Agrega un producto para continuar.';return;}if(!currentUser){$('coError').textContent='Inicia sesión o crea tu cuenta para continuar.';openClientLogin();return;}}
+ async function go(n){
+  if(busy)return;if(n>1){syncCurrentUser();if(!cart.length){$('coError').textContent='Agrega un producto para continuar.';return;}if(!currentUser){$('coError').textContent='Inicia sesión o crea tu cuenta para continuar.';openClientLogin();return;}try{if(!await tsCompleteCheckoutProfile()){ $('coError').textContent='Completa tus datos personales para continuar.';return;}}catch(e){ $('coError').textContent=e.message||'No se pudo guardar tu perfil.';return;}}
   step=n;document.querySelectorAll('[data-co-panel]').forEach(p=>p.hidden=Number(p.dataset.coPanel)!==n);document.querySelectorAll('[data-co-step]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.coStep)===n);b.setAttribute('aria-current',Number(b.dataset.coStep)===n?'step':'false');});
   $('coError').textContent='';tsUpdateCheckoutEligibility();document.querySelector('#cart>.card').scrollTop=0;
  }
@@ -68,6 +68,7 @@
  checkoutWhatsApp=async function(){
   if(busy)return;if(step<3){go(step+1);return;}
   syncCurrentUser();if(!currentUser){openClientLogin();return;}
+  try{if(!await tsCompleteCheckoutProfile()){$('coError').textContent='Debes completar tu cédula, dirección y los demás datos para comprar.';return;}}catch(e){$('coError').textContent=e.message||'No se pudieron guardar los datos del cliente.';return;}
   let q;try{q=P.quote(cart,$('payMethod').value);}catch(e){$('coError').textContent=e.message;return;}
   const file=$('paymentFile').files?.[0];if(file&&(file.size>8*1024*1024||!['image/png','image/jpeg','application/pdf'].includes(file.type))){$('coError').textContent='Adjunta un PNG, JPG o PDF de hasta 8 MB.';return;}
   busy=true;tsUpdateCheckoutEligibility();$('coError').textContent='';

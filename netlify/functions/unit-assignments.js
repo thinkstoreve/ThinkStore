@@ -1,3 +1,4 @@
+const {requiresSerial}=require('./serial-policy');
 const H={'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization, x-admin-secret','Access-Control-Allow-Methods':'POST,OPTIONS'};
 const clean=v=>String(v??'').trim();
 const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -80,9 +81,10 @@ exports.handler=async(event)=>{
   }
   function coverage(order,assignments){
     const items=Array.isArray(order?.pedido_items)?order.pedido_items:[];
-    const slots=items.reduce((n,i)=>n+itemQty(i),0);
-    const active=(assignments||[]).filter(x=>x.active!==false).length;
-    return{required:slots,assigned:active,complete:slots>0&&active>=slots};
+    const slots=items.filter(requiresSerial).reduce((n,i)=>n+itemQty(i),0);
+    const eligible=new Set(items.filter(requiresSerial).map(i=>String(i.id)));
+    const active=(assignments||[]).filter(x=>x.active!==false&&eligible.has(String(x.pedido_item_id))).length;
+    return{required:slots,assigned:active,complete:active>=slots};
   }
   async function invalidateNotes(orderId,reason){
     try{
@@ -144,7 +146,7 @@ exports.handler=async(event)=>{
       try{
         const current=await assignmentsFor(order);
         const assignedSlots=new Set(current.map(a=>`${a.pedido_item_id}:${Number(a.slot_index||1)}`));
-        for(const item of order.pedido_items||[]){
+        for(const item of (order.pedido_items||[]).filter(requiresSerial)){
           const serial=clean(item.numero_serie||item.serial_number||item.serial);
           if(!serial||assignedSlots.has(`${item.id}:1`)||isPreOwned(itemCondition(item)))continue;
           let unit=(await req(`inventory_units?select=*&serial_number=ilike.${encodeURIComponent(serial)}&limit=1`))?.[0]||null;
@@ -168,7 +170,7 @@ exports.handler=async(event)=>{
       }catch(e){console.warn('Legacy serial bootstrap:',e.message)}
       const assignments=await assignmentsFor(order),cov=coverage(order,assignments);
       const available=await req('inventory_units?select=*&status=eq.available&order=product_name.asc,created_at.desc&limit=500');
-      return reply(200,{ok:true,order:{id:order.id,code:order.codigo||order.code,estado:order.estado||order.status,items:order.pedido_items||[]},assignments,coverage:cov,available_units:(available||[]).map(unitPublic)});
+      return reply(200,{ok:true,order:{id:order.id,code:order.codigo||order.code,estado:order.estado||order.status,items:(order.pedido_items||[]).filter(requiresSerial)},assignments,coverage:cov,available_units:(available||[]).map(unitPublic)});
     }
 
     if(action==='assign'){
@@ -178,6 +180,7 @@ exports.handler=async(event)=>{
       if(!paymentReady)return reply(409,{ok:false,payment_required:true,error:'Confirma el pago antes de asignar una unidad física al pedido.'});
       const itemId=clean(b.pedido_item_id),slot=Math.max(1,Number(b.slot_index||1)||1);
       const item=(order.pedido_items||[]).find(i=>String(i.id)===itemId);
+      if(item&&!requiresSerial(item))return reply(409,{ok:false,error:"Este producto no requiere asignación de serial."});
       if(!item)return reply(404,{ok:false,error:'Producto del pedido no encontrado'});
       if(slot>itemQty(item))return reply(400,{ok:false,error:'La posición de unidad no corresponde a la cantidad comprada'});
 

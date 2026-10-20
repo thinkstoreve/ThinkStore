@@ -1,3 +1,4 @@
+const {requiresSerial}=require('./serial-policy');
 const WhatsAppEvents=require('./_whatsapp-service-events');
 const {mainConfig,authenticateInternal}=require('./staff-auth-core');
 const crypto=require('crypto');
@@ -113,6 +114,7 @@ exports.handler = async function(event) {
   async function normalizedWithUnits(raw){
     const p=normalized(raw);
     const items=p.items||[];
+    if(!items.some(requiresSerial))return{p,coverage:{required:0,assigned:0,complete:true},assignments:[]};
     if(!p.id)return{p,coverage:{required:0,assigned:0,complete:false},assignments:[]};
     let assignments=[];
     try{
@@ -142,9 +144,11 @@ exports.handler = async function(event) {
       });
     });
     p.items=items.map(i=>({...i,assigned_units:(byItem.get(String(i.id))||[]).sort((a,b)=>a.slot_index-b.slot_index)}));
-    const required=items.reduce((n,i)=>n+Math.max(1,Number(i.cantidad||i.qty||1)||1),0);
-    const assigned=assignments.length;
-    return{p,coverage:{required,assigned,complete:required>0&&assigned>=required},assignments};
+    const eligible=items.filter(requiresSerial);
+    const required=eligible.reduce((n,i)=>n+Math.max(1,Number(i.cantidad||i.qty||1)||1),0);
+    const eligibleIds=new Set(eligible.map(i=>String(i.id)));
+    const assigned=assignments.filter(a=>eligibleIds.has(String(a.pedido_item_id))).length;
+    return{p,coverage:{required,assigned,complete:assigned>=required},assignments};
   }
   function assignmentFingerprint(p){
     const rows=(p.items||[]).flatMap(i=>(i.assigned_units||[]).map(u=>[i.id||'',u.slot_index||1,u.unit_id||'',u.serial_number||'',u.imei||'',u.battery_health_pct??'',u.general_condition||''].join('|'))).sort();
@@ -178,6 +182,24 @@ exports.handler = async function(event) {
   function shell(title,subtitle,content,buttonUrl){
     return `<div class="ts-note-doc" style="margin:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:14px 8px"><tr><td align="center"><table role="presentation" width="680" class="ts-note-card" style="max-width:680px;width:100%;background:#fff;border:1px solid #e5e5ea;border-radius:16px;overflow:hidden"><tr><td class="ts-note-head" style="padding:16px 22px 13px;border-bottom:1px solid #e5e5ea"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td valign="middle"><img class="ts-note-logo" src="https://thinkstore.com.ve/logo-thinkstore.png" alt="" width="32" height="32" style="display:block;width:32px;height:32px;object-fit:contain;border:0"></td><td valign="middle" style="padding-left:8px"><span class="ts-note-wordmark" style="display:block;color:#111;font-size:20px;line-height:1;font-weight:800;letter-spacing:-.4px">ThinkStore</span></td></tr></table><h1 class="ts-note-title" style="color:#1d1d1f;margin:13px 0 3px;font-size:23px;line-height:1.15;font-weight:760;letter-spacing:-.35px">${esc(title)}</h1><div class="ts-note-subtitle" style="color:#6e6e73;font-size:12px">${esc(subtitle)}</div></td></tr><tr><td class="ts-note-content" style="padding:16px 22px">${content}${buttonUrl?`<div class="ts-note-action" style="text-align:center;margin:18px 0 2px"><a href="${esc(buttonUrl)}" style="background:#1d1d1f;color:#fff;text-decoration:none;border-radius:999px;padding:10px 18px;font-size:13px;font-weight:700">Ver pedido</a></div>`:''}</td></tr><tr><td class="ts-note-footer" style="background:#f5f5f7;padding:12px;text-align:center;color:#6e6e73;font-size:10px;line-height:1.45"><b style="color:#1d1d1f">ThinkStore</b> · Chacao, Caracas · Venezuela<br>ventas@thinkstore.com.ve</td></tr></table></td></tr></table></div>`;
   }
+
+  async function hydrateNoteImages(p){
+    const items=Array.isArray(p.items)?p.items:[];
+    if(!items.some(i=>!i.image_url&&!i.image&&!i.img))return p;
+    try{
+      const [products,images]=await Promise.all([
+        sb('catalog_products?select=product_key,product_name,image_url&limit=2000'),
+        sb('catalog_product_images?select=product_key,image_url,is_primary,sort_order&order=sort_order.asc&limit=3000')
+      ]);
+      const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const primary=new Map();
+      for(const im of (images||[])){const k=String(im.product_key||'');if(k&&im.image_url&&(!primary.has(k)||im.is_primary))primary.set(k,im.image_url)}
+      const byName=new Map();for(const cp of(products||[])){const k=norm(cp.product_name);if(k)byName.set(k,primary.get(String(cp.product_key))||cp.image_url||'')}
+      p.items=items.map(i=>({...i,image_url:i.image_url||i.image||i.img||byName.get(norm(i.producto||i.product_name||i.nombre))||''}));
+    }catch(err){console.warn('Nota entrega: imagen de catálogo no disponible',err.message)}
+    return p;
+  }
+
   function deliveryNoteEmail(p){
     const html=require('./delivery-note-template').render(p);
     const text=`NOTA DE ENTREGA THINKSTORE\nGracias por tu compra, ${p.customerName}.\nPedido: ${p.code}\nCliente: ${p.customerName}\nDocumento: ${p.customerDocument||'No indicado'}\nCorreo: ${p.customerEmail}\nTeléfono: ${p.customerPhone}\nPago: ${p.paymentMethod||'Por confirmar'}\n${p.paymentLines?.length?`Abonos: ${p.paymentLines.map(l=>`${l.method}: ${l.currency==='VES'?'Bs.':'USD'} ${Number(l.amount).toFixed(2)}${l.reference?' (Ref. '+l.reference+')':''}`).join(' | ')}\n`:`Referencia: ${p.paymentRef||'No aplica'}\n`}Estado: ${p.status}\n\n${p.items.map((i,n)=>{const units=Array.isArray(i.assigned_units)&&i.assigned_units.length?i.assigned_units.map((u,k)=>`Unidad ${k+1}: Serial ${u.serial_number||'—'}${u.imei?` | IMEI ${u.imei}`:''}${u.general_condition?` | ${u.general_condition}`:''}${u.battery_health_pct?` | Batería ${u.battery_health_pct}%`:''}`).join(' / '):`Serie: ${itemSerial(i)}`;return `${n+1}. ${itemName(i)} | ${[i.color,i.capacidad||i.capacity,i.chip,i.ram,i.model_code].filter(Boolean).join(' · ')} | ${itemCondition(i)} | ${units}${itemWarranty(i)?` | Garantía: ${itemWarranty(i)} días`:''} | ${itemQty(i)} x ${money(itemPrice(i))}`}).join('\n')}\n\n${p.subtotal>0?`Subtotal: ${money(p.subtotal)}\n`:''}${p.discountUsd>0?`Descuento: -${money(p.discountUsd)}${p.discountReason?` · ${p.discountReason}`:''}\n`:''}Total: ${p.total>0?money(p.total):'A confirmar'}\n\nPOLÍTICA DE GARANTÍA\nLa garantía cubre fallas de funcionamiento atribuibles al equipo durante el plazo indicado. No cubre golpes, humedad, manipulación externa, accesorios de terceros ni intervenciones no autorizadas. La evaluación técnica determina la procedencia.\nConserva esta Nota de Entrega y el serial del equipo como respaldo para cualquier solicitud de garantía.\n\nSeguimiento: ${trackingUrl(p)}`;
@@ -444,6 +466,7 @@ exports.handler = async function(event) {
       const full=await fullPedido(found);
       const state=await normalizedWithUnits(full);
       if(!state.coverage.complete)return reply(409,{ok:false,note_locked:true,coverage:state.coverage,error:`Asigna todas las unidades físicas antes de generar la nota (${state.coverage.assigned}/${state.coverage.required}).`});
+      await hydrateNoteImages(state.p);
       const note=deliveryNoteEmail(state.p);
       const version=await recordDeliveryNoteVersion(state.p,note);
       return reply(200,{ok:true,pedido:state.p,coverage:state.coverage,version,html:note.html,text:note.text,subject:note.subject});
@@ -453,6 +476,7 @@ exports.handler = async function(event) {
       const full=await fullPedido(found);
       const state=await normalizedWithUnits(full);
       if(!state.coverage.complete)return reply(409,{ok:false,note_locked:true,coverage:state.coverage,error:`Asigna todas las unidades físicas antes de enviar la nota (${state.coverage.assigned}/${state.coverage.required}).`});
+      await hydrateNoteImages(state.p);
       const note=deliveryNoteEmail(state.p);
       const version=await recordDeliveryNoteVersion(state.p,note);
       const r=await send(note,state.p.customerEmail); await logEmail(state.p,'nota_entrega_reenvio',r);

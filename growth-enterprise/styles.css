@@ -433,3 +433,16 @@ button,input,select,textarea{font-size:16px}
   background:#142d52!important; border:1px solid #2d66b3!important; color:#b8d5ff!important;
 }
 .ts-ver-single:focus-visible {outline:2px solid #75b3ff;outline-offset:2px}
+
+/* V8.8.29: logotipos locales en conciliación, cobros y selección de cuentas. */
+.fin-method-identity{display:flex;align-items:center;gap:11px;min-width:0}
+.fin-method-identity>div{min-width:0}
+.fin-method-logo,.fin-method-fallback{display:inline-grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid #e7eaf0;overflow:hidden}
+.fin-method-logo img{width:31px;height:31px;object-fit:contain}
+.fin-method-fallback{font-size:11px;font-style:normal;font-weight:800;color:#475569}
+.fin-method-logo .fin-method-fallback{border:0;flex:1;width:100%;height:100%}
+.fin-account-picker{display:flex;align-items:center;gap:9px}
+.fin-account-picker select{flex:1;min-width:0}
+.fin-account-preview{display:inline-flex;align-items:center;justify-content:center;flex:0 0 42px}
+.fin-account-preview .petty-bank-logo,.fin-account-preview .petty-bank-logo-fallback{background:#fff!important;border:1px solid #e7eaf0;border-radius:10px;width:38px;height:38px;min-width:38px}
+@media(max-width:640px){.fin-method-logo,.fin-method-fallback{width:32px;height:32px;flex-basis:32px}.fin-method-logo img{width:27px;height:27px}}

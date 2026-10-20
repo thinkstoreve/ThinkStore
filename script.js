@@ -990,25 +990,85 @@ function tsCustomerDocument(c){
 }
 
 
-function tsSaveCheckoutUser(patch){
-  currentUser={...(currentUser||{}),...(patch||{})};
-  customer=currentUser;
-  try{localStorage.setItem('ts_current_user',JSON.stringify(currentUser));localStorage.setItem('ts_customer',JSON.stringify(currentUser))}catch(_){}
-  try{drawCustomerSummary()}catch(_){}
+function tsRequiredCustomerFields(c){
+  const missing=[];
+  if(!String(c?.name||'').trim())missing.push('nombre completo');
+  if(!tsCustomerDocument(c))missing.push('cédula o RIF');
+  if(!String(c?.phone||'').trim())missing.push('teléfono');
+  if(!String(c?.address||'').trim())missing.push('dirección');
+  if(!String(c?.city||'').trim())missing.push('ciudad');
+  if(!String(c?.state||'').trim())missing.push('estado');
+  return missing;
 }
-function tsEditCheckoutCustomer(field){
+async function tsSaveCheckoutUser(patch){
+  const previous={...(currentUser||customer||{})};
+  const proposed={...previous,...(patch||{})};
+  if(!window.tsSupabase)throw new Error('No hay conexión con el sistema de clientes.');
+  const {data:{session},error:authError}=await window.tsSupabase.auth.getSession();
+  if(authError||!session?.user?.id)throw new Error('Inicia sesión para guardar tus datos.');
+  const uid=session.user.id;
+  const fields={
+    nombre:String(proposed.name||'').trim(),
+    correo:session.user.email||proposed.email||'',
+    telefono:String(proposed.phone||'').trim(),
+    cedula_rif:tsCustomerDocument(proposed)||null,
+    direccion:String(proposed.address||'').trim(),
+    ciudad:String(proposed.city||'').trim(),
+    estado:String(proposed.state||'').trim(),
+    referencia:String(proposed.ref||'').trim()
+  };
+  const existing=await window.tsSupabase.from('clientes').select('id').eq('id',uid).maybeSingle();
+  if(existing.error)throw existing.error;
+  const query=existing.data
+    ?window.tsSupabase.from('clientes').update(fields).eq('id',uid)
+    :window.tsSupabase.from('clientes').insert({id:uid,...fields});
+  const {error}=await query;
+  if(error)throw new Error('No se pudieron guardar tus datos: '+error.message);
+  currentUser={...proposed,id:fields.cedula_rif||'',document:fields.cedula_rif||'',cedula_rif:fields.cedula_rif||'',supabase_id:uid,email:fields.correo};
+  customer=currentUser;
+  localStorage.setItem('ts_current_user',JSON.stringify(currentUser));
+  localStorage.setItem('ts_customer',JSON.stringify(currentUser));
+  drawCustomerSummary();
+  return currentUser;
+}
+async function tsEditCheckoutCustomer(field){
   const c=currentUser||customer||{};
   const config={
-    document:{label:'C.I. / RIF',value:tsCustomerDocument(c)},
+    document:{label:'Cédula / RIF',value:tsCustomerDocument(c)},
     phone:{label:'Teléfono',value:c.phone||''},
-    address:{label:'Dirección de envío',value:c.address||''}
+    address:{label:'Dirección completa',value:c.address||''},
+    city:{label:'Ciudad',value:c.city||''},
+    state:{label:'Estado',value:c.state||''}
   }[field];
   if(!config)return;
   const value=prompt(`Editar ${config.label}:`,config.value||'');
   if(value===null)return;
   const clean=String(value).trim();
-  if(field==='document')tsSaveCheckoutUser({document:clean,cedula_rif:clean,id:tsLooksLikeUuid(c.id)?c.id:(clean||c.id)});
-  else tsSaveCheckoutUser({[field]:clean});
+  if(!clean){alert('Este campo es obligatorio para poder comprar.');return;}
+  const patch=field==='document'?{document:clean,cedula_rif:clean,id:clean}:{[field]:clean};
+  try{await tsSaveCheckoutUser(patch);}
+  catch(error){alert(error.message||'No se pudieron guardar los datos. Intenta nuevamente.');}
+}
+async function tsCompleteCheckoutProfile(){
+  const c=currentUser||customer||{};
+  const missing=tsRequiredCustomerFields(c);
+  if(!missing.length){
+    // Confirmar que los datos también están en Supabase, no solamente en localStorage.
+    await tsSaveCheckoutUser({});
+    return true;
+  }
+  for(const field of ['name','document','phone','address','city','state']){
+    const labels={name:'Nombre y apellido',document:'Cédula o RIF',phone:'Teléfono',address:'Dirección completa',city:'Ciudad',state:'Estado'};
+    const current=currentUser||customer||{};
+    const value=field==='document'?tsCustomerDocument(current):String(current[field]||'').trim();
+    if(value)continue;
+    const answer=prompt(`Para completar la compra indica ${labels[field]}:`, '');
+    if(answer===null)return false;
+    const clean=String(answer).trim();
+    if(!clean){alert('Debes completar '+labels[field]+'.');return false;}
+    await tsSaveCheckoutUser(field==='document'?{document:clean,cedula_rif:clean,id:clean}:{[field]:clean});
+  }
+  return tsRequiredCustomerFields(currentUser).length===0;
 }
 function tsCaptureDeliveryLocation(){
   const status=$('deliveryGpsStatus');
@@ -1042,7 +1102,7 @@ function drawCustomerSummary(){
     <button type="button" class="customer-card customer-id customer-edit-card" onclick="tsEditCheckoutCustomer('document')"><span>🪪 C.I / RIF</span><b>${doc||'Por definir'}</b><small>${doc?'Editar':'Toca para añadir'}</small></button>
     <button type="button" class="customer-card customer-phone customer-edit-card" onclick="tsEditCheckoutCustomer('phone')"><span>📞 Teléfono</span><b>${c.phone||'Por definir'}</b><small>${c.phone?'Editar':'Toca para añadir'}</small></button>
     <div class="customer-card customer-ship"><span>🚚 Envío</span><b>${$('deliveryType')?.value||c.shipping||'Por definir'}</b><small>${c.agency||''}</small></div>
-    <button type="button" class="customer-card customer-address customer-edit-card" onclick="tsEditCheckoutCustomer('address')"><span>📍 Dirección de envío</span><b>${c.address||'Por definir'}</b><small>${[locationLine,c.delivery_lat&&c.delivery_lng?'GPS guardado':''].filter(Boolean).join(' · ')||gps}</small></button>
+    <button type="button" class="customer-card customer-address customer-edit-card" onclick="tsEditCheckoutCustomer('address')"><span>📍 Dirección de envío</span><b>${c.address||'Por definir'}</b><small>${[locationLine,c.delivery_lat&&c.delivery_lng?'GPS guardado':''].filter(Boolean).join(' · ')||gps}</small></button><div class="customer-card"><span>Ciudad y estado</span><b>${locationLine||'Por completar'}</b><small><button type="button" onclick="tsEditCheckoutCustomer('city')">Editar ciudad</button> · <button type="button" onclick="tsEditCheckoutCustomer('state')">Editar estado</button></small></div>
   </div>`;
 }
 function noteText(){
@@ -2672,10 +2732,10 @@ async function tsEnsureClientProfile(authUser, fallback={}){
     nombre: fallback.name || meta.name || meta.full_name || authUser.email?.split('@')[0] || 'Cliente ThinkStore',
     correo: fallback.email || authUser.email || '',
     telefono: fallback.phone || meta.phone || '',
-    cedula_rif: fallback.id && fallback.id !== uid && !tsLooksLikeUuid(fallback.id) ? fallback.id : null,
-    direccion: fallback.address || '',
-    ciudad: fallback.city || '',
-    estado: fallback.state || '',
+    cedula_rif: tsCustomerDocument(fallback) || meta.cedula_rif || null,
+    direccion: fallback.address || meta.direccion || '',
+    ciudad: fallback.city || meta.ciudad || '',
+    estado: fallback.state || meta.estado || '',
     referencia: fallback.ref || '',
     metodo_envio_preferido: fallback.shipping || '',
     agencia_destino: fallback.agency || ''
@@ -2962,6 +3022,8 @@ async function saveCustomer(e){
   const prefix = e.target && e.target.id === 'quickRegisterForm' ? 'qr' : 'r';
   const c = customerFrom(prefix);
   if(!c.email || !c.pass){ alert('Debes colocar correo y contraseña.'); return; }
+  const missing=tsRequiredCustomerFields(c);
+  if(missing.length){ alert('Para registrarte completa: '+missing.join(', ')+'.'); return; }
 
   if(tsConfigMissing()){
     if(tsLocalSaveCustomer) return tsLocalSaveCustomer(e);
@@ -2977,7 +3039,7 @@ async function saveCustomer(e){
       password: c.pass,
       options: {
         emailRedirectTo,
-        data: { name: c.name, phone: c.phone, thinkstore_internal: false }
+        data: { name: c.name, phone: c.phone, cedula_rif: c.id, direccion: c.address, ciudad: c.city, estado: c.state, thinkstore_internal: false }
       }
     });
     if(error) throw error;
