@@ -849,3 +849,6 @@ exports.handler=async event=>{
     return out(status,{ok:false,error:error.message||'Error interno'});
   }
 };
+
+// Reuse the same Enterprise authorization for payment scheduling.
+exports.authorizeManager=authManager;
