@@ -1,4 +1,3 @@
-const {requiresSerial}=require('./unit-serial-policy');
 const WhatsAppEvents=require('./_whatsapp-service-events');
 const {mainConfig,authenticateInternal}=require('./staff-auth-core');
 const crypto=require('crypto');
@@ -115,13 +114,6 @@ exports.handler = async function(event) {
     const p=normalized(raw);
     const items=p.items||[];
     if(!p.id)return{p,coverage:{required:0,assigned:0,complete:false},assignments:[]};
-    // Accesorios sin serial no requieren tablas de asignación de unidades.
-    // Pueden generar Nota de Entrega aunque la migración de unidades aún no exista.
-    const required=items.reduce((n,i)=>n+(requiresSerial(i)?Math.max(1,Number(i.cantidad||i.qty||1)||1):0),0);
-    if(required===0){
-      p.items=items.map(i=>({...i,assigned_units:[]}));
-      return{p,coverage:{required:0,assigned:0,complete:true},assignments:[]};
-    }
     let assignments=[];
     try{
       assignments=await sb(`order_unit_assignments?select=*&pedido_id=eq.${encodeURIComponent(p.id)}&active=eq.true&order=pedido_item_id.asc,slot_index.asc`)||[];
@@ -150,8 +142,9 @@ exports.handler = async function(event) {
       });
     });
     p.items=items.map(i=>({...i,assigned_units:(byItem.get(String(i.id))||[]).sort((a,b)=>a.slot_index-b.slot_index)}));
+    const required=items.reduce((n,i)=>n+Math.max(1,Number(i.cantidad||i.qty||1)||1),0);
     const assigned=assignments.length;
-    return{p,coverage:{required,assigned,complete:required===0||assigned>=required},assignments};
+    return{p,coverage:{required,assigned,complete:required>0&&assigned>=required},assignments};
   }
   function assignmentFingerprint(p){
     const rows=(p.items||[]).flatMap(i=>(i.assigned_units||[]).map(u=>[i.id||'',u.slot_index||1,u.unit_id||'',u.serial_number||'',u.imei||'',u.battery_health_pct??'',u.general_condition||''].join('|'))).sort();
@@ -180,7 +173,7 @@ exports.handler = async function(event) {
   function itemPrice(i){return Number(i.precio_usd||i.price||0)||0}
   function itemQty(i){return Number(i.cantidad||i.qty||1)||1}
   function money(v){return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
-  function trackingUrl(p){return `https://thinkstore.com.ve/?tracking=${encodeURIComponent(p.code)}#estatus`}
+  function trackingUrl(p){return `https://thinkstore.com.ve/compra-seguimiento.html?code=${encodeURIComponent(p.code)}`} 
 
   function shell(title,subtitle,content,buttonUrl){
     return `<div class="ts-note-doc" style="margin:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:14px 8px"><tr><td align="center"><table role="presentation" width="680" class="ts-note-card" style="max-width:680px;width:100%;background:#fff;border:1px solid #e5e5ea;border-radius:16px;overflow:hidden"><tr><td class="ts-note-head" style="padding:16px 22px 13px;border-bottom:1px solid #e5e5ea"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td valign="middle"><img class="ts-note-logo" src="https://thinkstore.com.ve/logo-thinkstore.png" alt="" width="32" height="32" style="display:block;width:32px;height:32px;object-fit:contain;border:0"></td><td valign="middle" style="padding-left:8px"><span class="ts-note-wordmark" style="display:block;color:#111;font-size:20px;line-height:1;font-weight:800;letter-spacing:-.4px">ThinkStore</span></td></tr></table><h1 class="ts-note-title" style="color:#1d1d1f;margin:13px 0 3px;font-size:23px;line-height:1.15;font-weight:760;letter-spacing:-.35px">${esc(title)}</h1><div class="ts-note-subtitle" style="color:#6e6e73;font-size:12px">${esc(subtitle)}</div></td></tr><tr><td class="ts-note-content" style="padding:16px 22px">${content}${buttonUrl?`<div class="ts-note-action" style="text-align:center;margin:18px 0 2px"><a href="${esc(buttonUrl)}" style="background:#1d1d1f;color:#fff;text-decoration:none;border-radius:999px;padding:10px 18px;font-size:13px;font-weight:700">Ver pedido</a></div>`:''}</td></tr><tr><td class="ts-note-footer" style="background:#f5f5f7;padding:12px;text-align:center;color:#6e6e73;font-size:10px;line-height:1.45"><b style="color:#1d1d1f">ThinkStore</b> · Chacao, Caracas · Venezuela<br>ventas@thinkstore.com.ve</td></tr></table></td></tr></table></div>`;
@@ -405,27 +398,7 @@ exports.handler = async function(event) {
       const p=normalized(await fullPedido(changed));
       const statusResult=await send(statusEmail(p),p.customerEmail); await logEmail(p,'estado',statusResult);
     const whatsapp=await WhatsAppEvents.orderUpdate(p).catch(()=>({status:'error'}));
-      // Venta presencial: pago ya verificado en caja. Generar/enviar la Nota de Entrega
-      // sin aprobación adicional cuando no quedan unidades por identificar.
-      // Si requiere serial y aún no está asignado, nunca emitir una nota incompleta.
-      let noteResult={skipped:true,reason:'Pago no aprobado'};
-      if(approved){
-        try{
-          const state=await normalizedWithUnits(await fullPedido(changed));
-          if(state.coverage.complete){
-            const note=deliveryNoteEmail(state.p);
-            const version=await recordDeliveryNoteVersion(state.p,note);
-            const delivery=await send(note,state.p.customerEmail);
-            await logEmail(state.p,'nota_entrega_venta_presencial',delivery);
-            noteResult={...delivery,version,coverage:state.coverage};
-          }else{
-            noteResult={skipped:true,pending_assignment:true,coverage:state.coverage,reason:'Falta asignar serial de los equipos para enviar la nota.'};
-          }
-        }catch(noteError){
-          console.error('Nota presencial: pago confirmado; envío pendiente',noteError);
-          noteResult={skipped:true,error:clean(noteError.message),reason:'Pago confirmado; nota pendiente de emisión.'};
-        }
-      }
+      const noteResult={skipped:true,reason:approved?'La nota se habilita cuando todas las unidades físicas estén asignadas.':'Pago no aprobado'};
       const inventory=await inventoryTransition(p,status);
       return reply(200,{ok:true,pedido:changed,normalized:p,email:statusResult,whatsapp,deliveryNoteEmail:noteResult,inventory,payment:{decision,locked:true},fx_quote:updatedFx,bank_receipts:bankReceipts,bank_warnings:bankWarnings});
     }
@@ -496,6 +469,9 @@ exports.handler = async function(event) {
         return reply(409,{ok:false,locked:true,error:'El pago fue rechazado y la decisión está protegida. Gerencia debe desbloquearla antes de continuar el pedido.'});
       }
     }
+    const alreadyPaid=lock.decision==='approved'||/pago verificado|preparando|comprando proveedor|transito|disponible|enviado|entregado/.test(norm(found.estado));
+    if(!alreadyPaid&&/pago verificado|preparando|comprando proveedor|transito|disponible|enviado|entregado/.test(target))return reply(409,{ok:false,error:'Confirma primero el abono con Aprobar pago. Después podrás preparar, enviar o entregar el pedido.'});
+    if(alreadyPaid&&/verificando|por verificar/.test(target))return reply(409,{ok:false,error:'El pago ya está confirmado. Solicita a Gerencia el desbloqueo para corregirlo.'});
     const payload={estado:nextStatus}; if(guide)payload.numero_guia=guide;
     const updated=await updatePedido(found,payload);
     const changed=Array.isArray(updated)?updated[0]:found;

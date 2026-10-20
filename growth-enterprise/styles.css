@@ -433,37 +433,3 @@ button,input,select,textarea{font-size:16px}
   background:#142d52!important; border:1px solid #2d66b3!important; color:#b8d5ff!important;
 }
 .ts-ver-single:focus-visible {outline:2px solid #75b3ff;outline-offset:2px}
-
-/* Enterprise Finance: menú simplificado de cinco módulos y accesos internos. */
-.fin-hub{padding:clamp(22px,3vw,36px)!important;max-width:1160px;margin:0 auto}.fin-hub-kicker{font-size:11px;letter-spacing:.15em;font-weight:800;color:#80acff}.fin-hub h2{font-size:clamp(26px,3vw,38px);margin:10px 0 8px}.fin-hub>p{color:#aebdd1;line-height:1.6;max-width:750px}.fin-hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:25px}.fin-hub-grid button{background:#101c2c;color:#eef4ff;text-align:left;border:1px solid #29405b;border-radius:18px;min-height:155px;padding:20px;display:flex;flex-direction:column;gap:12px;cursor:pointer}.fin-hub-grid button:hover,.fin-hub-grid button:focus-visible{background:#142c46;border-color:#5a91e3}.fin-hub-grid b{font-size:16px}.fin-hub-grid small{font-size:12px;color:#9fb3cc;line-height:1.5}.fin-hub-grid strong{margin-top:auto;font-size:12px;color:#80b4ff}.nav-list{min-width:0!important}.nav b{font-size:13px!important}.nav-list .nav-group-title{display:block}@media(max-width:760px){.nav-list{grid-template-columns:repeat(5,minmax(0,1fr))!important;min-width:0!important;overflow:visible!important}.nav{min-width:0!important}.nav b{font-size:10px!important}.fin-hub-grid{grid-template-columns:1fr}.fin-hub-grid button{min-height:110px}.fin-hub h2{font-size:26px}}
-
-/* V8.8.23 · Experiencia financiera inspirada en las referencias proporcionadas. */
-#app:not(.hidden){--fin-lavender:#f7f7fb;--fin-ink:#20232a;--fin-border:#e8eaf1}
-#executive .finance-hero{background:linear-gradient(120deg,#fafbff,#f1f5ff)!important;border:1px solid #dfe6f5!important;color:#202b42!important;box-shadow:0 12px 35px rgba(20,35,65,.06)!important}
-#executive .finance-hero h2{color:#18263e!important}
-#executive .finance-hero p,#executive .finance-hero-status{color:#516078!important}
-#executive .finance-kicker{color:#4368af!important}
-#enterpriseFinanceQuick .book-summary{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
-#enterpriseFinanceQuick .executive-today-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:22px 0 15px}
-#enterpriseFinanceQuick .executive-today-head h3{font-size:clamp(24px,2.5vw,36px);color:#f4f7ff;letter-spacing:-.025em}
-#enterpriseFinanceQuick .exec-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important}
-#enterpriseFinanceQuick .exec-kpi-grid article{min-width:0!important;background:linear-gradient(160deg,#fff,#f5f7fe)!important;border:1px solid #e5e8f4!important;border-radius:21px!important;color:#232739!important;box-shadow:0 10px 30px rgba(0,0,0,.08)!important;padding:clamp(17px,1.8vw,25px)!important}
-#enterpriseFinanceQuick .exec-kpi-grid article span,#enterpriseFinanceQuick .exec-kpi-grid article small{color:#60677a!important}
-#enterpriseFinanceQuick .exec-kpi-grid article b{color:#1d2332!important;font-size:clamp(23px,2.3vw,36px)!important;letter-spacing:-.04em}
-#enterpriseFinanceQuick .exec-kpi-grid article.primary{background:linear-gradient(135deg,#6c37cc,#9155e8)!important;border-color:#955de6!important}
-#enterpriseFinanceQuick .exec-kpi-grid article.primary span,#enterpriseFinanceQuick .exec-kpi-grid article.primary small,#enterpriseFinanceQuick .exec-kpi-grid article.primary b{color:#fff!important}
-.fina-finance-actions{display:flex;flex-wrap:wrap;gap:11px;margin:8px 0 18px}
-.fina-finance-actions button{cursor:pointer;border:1px solid #b7c8e7;background:#f7faff;color:#244b85;border-radius:11px;padding:11px 15px;font:700 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:space-between;gap:22px}
-.fina-finance-actions button:first-child{background:#6632d7;border-color:#6632d7;color:#fff}
-.fina-finance-actions button:hover{transform:translateY(-1px);filter:brightness(1.05)}
-#enterpriseFinanceQuick .book-formula,#enterpriseFinanceQuick .book-partners,#enterpriseFinanceQuick .book-split,#enterpriseCharts .executive-chart{border-radius:20px!important}
-#enterpriseCharts .chart-grid{gap:17px!important}
-#enterpriseCharts .chart-grid .panel{box-shadow:0 10px 30px rgba(0,0,0,.07)!important}
-#treasury .panel,#pettyCash .panel,#reconciliation .panel,#reports .panel,#weeklyAudit .panel{border-radius:18px}
-#movementHub .fin-hub,#obligationHub .fin-hub,#reportHub .fin-hub{background:linear-gradient(135deg,#fdfdff,#f2f4fb)!important;border-color:#e4e7f3!important;color:#202735!important}
-#movementHub .fin-hub h2,#obligationHub .fin-hub h2,#reportHub .fin-hub h2{color:#1d2638!important}
-#movementHub .fin-hub>p,#obligationHub .fin-hub>p,#reportHub .fin-hub>p{color:#647084!important}
-#movementHub .fin-hub button,#obligationHub .fin-hub button,#reportHub .fin-hub button{background:#fff!important;border:1px solid #e0e4ef!important;color:#25334a!important;box-shadow:0 8px 22px #1a28400b}
-#movementHub .fin-hub button small,#obligationHub .fin-hub button small,#reportHub .fin-hub button small{color:#67748a!important}
-@media(max-width:1160px){#enterpriseFinanceQuick .exec-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-@media(max-width:640px){#enterpriseFinanceQuick .exec-kpi-grid{grid-template-columns:1fr 1fr!important;gap:9px!important}#enterpriseFinanceQuick .exec-kpi-grid article{padding:14px!important;border-radius:15px!important}#enterpriseFinanceQuick .exec-kpi-grid article b{font-size:clamp(19px,5vw,26px)!important}#enterpriseFinanceQuick .exec-kpi-grid article span{font-size:12px!important}#enterpriseFinanceQuick .executive-today-head{align-items:start;flex-direction:column} .fina-finance-actions{display:grid;grid-template-columns:1fr;gap:8px}.fina-finance-actions button{width:100%}}

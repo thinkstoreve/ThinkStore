@@ -170,7 +170,19 @@ async function loadCatalog(url,service){
     if(ir.ok)images=await ir.json().catch(()=>[]);
     if(catr.ok){const rows=await catr.json().catch(()=>[]);if(Array.isArray(rows)&&rows.length)categories=rows;}
   }catch(_){ }
+  let central=[],links=[],mediaWarning='';
+  try{
+    const [pr,br]=await Promise.all([
+      fetch(`${url}/rest/v1/thinkstore_inventory_products?select=id,data&workspace_key=eq.main&limit=5000`,{headers:sh}),
+      fetch(`${url}/rest/v1/thinkstore_inventory_bridge?select=inventory_product_id,variant_id,sku&workspace_key=eq.main&limit=5000`,{headers:sh})
+    ]);
+    if(!pr.ok)throw Error('No se pudieron consultar las imágenes del Inventory central.');
+    central=await pr.json();if(!Array.isArray(central))throw Error('Respuesta de imágenes inválida.');
+    if(br.ok)links=await br.json();
+    variants=require('./pos-media-core').enrich(Array.isArray(variants)?variants:[],central,Array.isArray(links)?links:[]);
+  }catch(e){mediaWarning=e.message;}
   return{
+    media_warning:mediaWarning,
     variants:(Array.isArray(variants)?variants:[]).map(v=>({...v,available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))})),
     catalog_products:Array.isArray(catalog)?catalog:[],catalog_images:Array.isArray(images)?images:[],catalog_categories:Array.isArray(categories)?categories:DEFAULT_CATEGORIES
   };

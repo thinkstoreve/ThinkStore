@@ -1,0 +1,29 @@
+THINKSTORE — CIERRE DE CAMBIOS
+Fecha de etapa: 19 de octubre de 2026
+Referencia de código: 813b049
+
+Contenido: proyecto completo, no un parche.
+
+Incluye las mejoras acumuladas de esta conversación en la tienda, Enterprise,
+Tesorería y App Ventas. Último cierre: descuentos por porcentaje o USD con
+validación compartida, conversión del saldo final a bolívares con tasa BCV,
+imágenes del Inventory central enlazadas por variante/SKU, venta presencial
+sin cuenta web obligatoria, selección de clientes existentes y búsqueda única
+de productos y variantes. Incluye la ventana de producto con imágenes contenidas.
+
+Enterprise: navegación simplificada, filtros, sumas, detalle de movimientos y
+consulta histórica. Tesorería: Resumen, Socios, Pendientes, Movimientos, Gastos
+y Utilidades. Los registros existentes permanecen en las bases de datos.
+
+VALIDACIÓN
+17 pruebas automáticas de precios, ventas, selección de clientes y medios
+pasaron en este cierre. Se comprobó en pantalla la carga de fotos R2 del
+cargador y cable Mcdodo. No se confirmaron ventas ni cobros reales de prueba.
+
+USO
+Extrae la carpeta ThinkStore y conserva la configuración de los servicios
+actuales. Este archivo contiene código y recursos; no contiene un respaldo
+de las bases de datos, variables privadas de despliegue ni los objetos de R2.
+No ejecutes migraciones SQL antiguas por el solo hecho de estar incluidas.
+El ZIP corresponde al cierre indicado, no incorpora ediciones posteriores
+hechas fuera de esta conversación.
