@@ -34,7 +34,18 @@ function orderCancelled(o){return /cancel|rechaz|anulad/.test(norm(o.estado||o.s
 function orderPending(o){return !orderCancelled(o)&&!paymentApproved(o)&&/pago por verificar|pago recibido|pendiente/.test(norm(o.estado||o.status))}
 function orderPaidDate(o){return o.payment_decision_at||o.updated_at||o.created_at||''}
 function serviceCancelled(o){return /cancel|no aprobado|rechaz/.test(norm(o.status))}
-function servicePendingAmount(o){return serviceCancelled(o)?0:Math.max(0,num(o.quote_amount)-num(o.amount_paid))}
+function servicePendingAmount(o){return serviceCancelled(o)?0:Math.max(0,money(num(o.quote_amount)-num(o.amount_paid)))}
+function storeReceivable(o,payments=[]){
+  if(orderCancelled(o))return null;
+  const total=money(o.total_usd??o.total??o.monto_total);
+  const actual=payments.filter(p=>String(p.pedido_id)===String(o.id)&&norm(p.status)==='confirmed');
+  const explicit=o.paid_usd??o.amount_paid??o.monto_pagado;
+  if(!orderPending(o)&&!paymentApproved(o)&&!hasNum(explicit)&&!actual.length)return null;
+  const paid=hasNum(explicit)?money(explicit):actual.length?sum(actual,p=>p.usd_equivalent):paymentApproved(o)?total:0;
+  const pending=Math.max(0,money(total-paid));
+  if(!pending)return null;
+  return {order_id:o.id,order_code:clean(o.codigo||o.numero_pedido||o.order_code||o.id),client_name:clean(o.client_name||o.customer_name||o.nombre_cliente||o.nombre),quote_usd:total,paid_usd:paid,pending_usd:pending,status:clean(o.estado||o.status),source:'pedidos',updated_at:o.updated_at||null};
+}
 function isOperatingExpenseType(t){return ['expense','refund','fee','warranty_cost'].includes(t)}
 function isCashExpenseType(t){return ['expense','purchase','refund','fee','warranty_cost'].includes(t)}
 function dataRow(r){const d=r?.data&&typeof r.data==='object'&&!Array.isArray(r.data)?r.data:r||{};return{...d,id:d.id??r?.id,workspace_key:r?.workspace_key??d.workspace_key}}
@@ -125,7 +136,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const weekEntries=entries.filter(e=>entryActive(e)&&inRange(entryDate(e),range));
   const activeEntries=entries.filter(entryActive);
   const paidSales=orders.filter(o=>paymentApproved(o)&&inRange(orderPaidDate(o),range));
-  const pendingSales=orders.filter(orderPending);
+  const storeReceivableRows=orders.map(o=>storeReceivable(o,orderPayments)).filter(Boolean);
+  const storePending=sum(storeReceivableRows,o=>o.pending_usd);
   const paidOrderIds=new Set(paidSales.map(o=>String(o.id)));
   const paidItems=orderItems.filter(i=>paidOrderIds.has(String(i.pedido_id)));
   const shopCollected=sum(paidSales,o=>o.total_usd);
@@ -197,6 +209,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   // Evidencia por orden: preserva los importes de origen y permite explicar el agregado.
   const supportReceivableRows=supportPendingRows.map(o=>({
     order_code:clean(o.code||o.order_code),order_id:o.id||null,
+    client_name:clean(o.client_name),device_model:clean(o.device_model),currency:clean(o.quote_currency)||'USD',
+    financing:o.reception_checklist?.__financing?.enabled===true,due_date:o.reception_checklist?.__financing?.due_date||null,
     quote_usd:money(o.quote_amount),paid_usd:money(o.amount_paid),
     pending_usd:money(servicePendingAmount(o)),payment_status:clean(o.payment_status),
     status:clean(o.status),updated_at:o.updated_at||null
@@ -268,7 +282,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   activeEntries.filter(e=>e.entry_type==='receivable_collection'&&e.related_entry_id).forEach(e=>linkedCollections.set(e.related_entry_id,money((linkedCollections.get(e.related_entry_id)||0)+num(e.amount_usd))));
   const manualReceivableRows=manualReceivables.map(e=>({...e,collected_usd:linkedCollections.get(e.id)||0,pending_usd:Math.max(0,money(num(e.amount_usd)-(linkedCollections.get(e.id)||0)))})).filter(e=>e.pending_usd>0);
   const manualPending=sum(manualReceivableRows,e=>e.pending_usd);
-  const pendingTotal=money(sum(pendingSales,o=>o.total_usd)+supportPending+manualPending);
+  const pendingTotal=money(storePending+supportPending+manualPending);
 
   const commissions=activeEntries.filter(e=>e.entry_type==='technician_commission');
   const techPayments=new Map();
@@ -516,8 +530,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const supportCodes=new Set([...saleSettlementByCode.keys(),...supportByCode.keys()]);
   supportCodes.forEach(code=>{
     const t=saleSettlementByCode.get(code)||{},o=supportByCode.get(code)||{};
-    const paid=t.collected_usd??o.amount_paid;
-    const total=t.total_usd??t.quote_usd??o.quote_amount;
+    const paid=o.amount_paid??t.collected_usd;
+    const total=o.quote_amount??t.total_usd??t.quote_usd;
     const remaining=(hasNum(total)&&hasNum(paid))?Math.max(0,money(num(total)-num(paid))):null;
     saleRows.push({kind:'Servicio Técnico',source:clean(t.id)?'enterprise_service_settlements + service_orders':'service_orders',
       id:clean(t.id||o.id||code),code,date:t.settled_at||o.created_at||t.created_at||null,
@@ -549,7 +563,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     },
     result:{net:distributableRaw,distributable,company:shareCompany,freddy:shareFreddy,nelson:shareNelson,loss_carry:distributableRaw<0?Math.abs(distributableRaw):0},
     cash:{in:cashIn,out:cashOut,net:money(cashIn-cashOut),inventory_purchases_paid:purchaseCashWeek},
-    partners,receivables:{store:sum(pendingSales,o=>o.total_usd),support:supportPending,manual:manualPending,total:pendingTotal,manual_rows:manualReceivableRows.slice(0,100),support_rows:supportReceivableRows.slice(0,250),support_count:supportReceivableRows.length},
+    partners,receivables:{store:storePending,store_rows:storeReceivableRows,support:supportPending,manual:manualPending,total:pendingTotal,manual_rows:manualReceivableRows.slice(0,100),support_rows:supportReceivableRows.slice(0,250),support_count:supportReceivableRows.length},
     today:{
       date:todayKey,shop:todayShopCollected,support:todaySupportCollected,other:todayOtherIncome,
       gross:money(todayShopCollected+todaySupportCollected+todayOtherIncome),store_cogs:todayStoreCogs,
@@ -852,3 +866,5 @@ exports.handler=async event=>{
 
 // Reuse the same Enterprise authorization for payment scheduling.
 exports.authorizeManager=authManager;
+
+exports.receivableModel={storeReceivable,servicePendingAmount};
