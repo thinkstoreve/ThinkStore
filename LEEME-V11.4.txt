@@ -1,0 +1,30 @@
+THINKSTORE ENTERPRISE V11.4 — GASTOS Y VENCIMIENTOS
+ESTADO: PREPARADO; NO ACTIVADO NI PUBLICADO.
+
+Este ZIP es un PARCHE sobre la versión actual del repositorio (8c3071b),
+no un respaldo completo del sistema ni de la base de datos.
+
+Incluye:
+- Agenda compartida de alquiler, servicios, suscripciones, personal y otros pagos.
+- Vencidos, vencen hoy y próximos según días de anticipación.
+- Avisos dentro de Enterprise al abrir la aplicación.
+- Edición de fechas y archivo de avisos, sin borrar el historial.
+- Programar no afecta caja ni utilidad.
+- Registrar un pago realizado crea el gasto y salda el vencimiento de forma atómica.
+- Reintentar no duplica un pago; pagos cambiados por otro usuario se rechazan.
+- Los proveedores de mercancía se gestionan en Inventory para evitar duplicados.
+- Importes previstos separados de los importes realmente pagados.
+
+ACTIVACIÓN PENDIENTE:
+1. Iniciar sesión en Supabase con acceso al proyecto PRINCIPAL clhnndxsgzqnihhtrout.
+2. Revisar y ejecutar growth-enterprise/MIGRACION-ENTERPRISE-V11.4-VENCIMIENTOS.sql.
+   La migración es aditiva y no cambia los saldos ni los movimientos existentes.
+3. Verificar la estructura creada y luego publicar los archivos incluidos.
+4. Comprobar la lectura, fechas y formularios sin registrar cobros reales de prueba.
+
+VALIDACIÓN:
+19 pruebas automáticas pasaron. La migración SQL y la transacción de pago
+requieren todavía verificación contra Supabase; no se afirma que estén activas.
+No se crearon gastos ni pagos reales.
+Los recordatorios no envían WhatsApp, correo ni avisos con Enterprise cerrado.
+Cada vencimiento se programa individualmente; no genera obligaciones recurrentes.

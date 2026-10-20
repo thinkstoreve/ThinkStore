@@ -1,9 +1,0 @@
-[build]
-  ignore = "node ./netlify-ignore.cjs enterprise"
-  publish = "."
-  functions = "netlify/functions"
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"

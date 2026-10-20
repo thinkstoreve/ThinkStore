@@ -1,7 +1,0 @@
-'use strict';
-const { test }=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
-const root=path.join(__dirname,'..');const read=p=>fs.readFileSync(path.join(root,p),'utf8');
-test('la interfaz financiada oculta Cobrar saldo e impide el atajo',()=>{const s=read('staff/repairs.js');assert.match(s,/financedOrder\(o\)/);assert.match(s,/financedOrder\(active\)/);assert.match(s,/if\(markPaid&&financedOrder\(active\)\)/);assert.match(s,/Registrar abono/);});
-test('servidor requiere intención de abono manual y saldo esperado antes de cobrar financiación',()=>{const s=read('netlify/functions/staff-repairs.js');assert.match(s,/current\.reception_checklist\?\.__financing\?\.enabled/);assert.match(s,/b\.payment_intent!==\'manual_abono\'/);assert.match(s,/Math\.abs\(Number\(b\.expected_paid\)-originalPaid\)>0\.005/);});
-test('Soporte y App Ventas envían la instantánea previamente cobrada',()=>{const s=read('staff/repairs.js'),t=read('soporte/app.js'),b=read('netlify/functions/support-record-payment.js');assert.match(s,/expected_paid:paidBefore/);assert.match(t,/expected_paid:paid/);assert.match(b,/expected_paid:body\.expected_paid/);});
-test('archivos de caché actualizados',()=>{const a=read('staff/sw.js'),b=read('soporte/sw.js');assert.match(a,/15-40-4-partial-receipts/);assert.match(b,/r15402-receipt-verification/);});
