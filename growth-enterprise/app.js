@@ -3659,7 +3659,37 @@ function renderV9RealMarketing(data){
   async function finPost(body){const r=await fetch('/.netlify/functions/enterprise-finance',{method:'POST',headers:await finHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar');financeCache=d.summary||null;await loadFinanceCenter(true);return d}
   function closeFinModal(){document.querySelector('.fin-modal')?.remove()}
   function modalShell(title,subtitle,fields,submitLabel,handler){
-    closeFinModal();const wrap=document.createElement('div');wrap.className='fin-modal';wrap.innerHTML=`<div class="fin-modal-backdrop"></div><div class="fin-modal-card"><button class="fin-modal-x">×</button><div class="fin-modal-head"><span>ENTERPRISE FINANZAS</span><h3>${safe(title)}</h3><p>${safe(subtitle)}</p></div><form class="fin-form">${fields}<div class="fin-form-status"></div><div class="fin-form-actions"><button type="button" class="fin-cancel">Cancelar</button><button class="fin-submit">${safe(submitLabel)}</button></div></form></div>`;document.body.appendChild(wrap);wrap.querySelector('.fin-modal-backdrop').onclick=closeFinModal;wrap.querySelector('.fin-modal-x').onclick=closeFinModal;wrap.querySelector('.fin-cancel').onclick=closeFinModal;const form=wrap.querySelector('form');form.onsubmit=async e=>{e.preventDefault();const status=wrap.querySelector('.fin-form-status'),btn=wrap.querySelector('.fin-submit');btn.disabled=true;status.textContent='Guardando…';try{await handler(Object.fromEntries(new FormData(form)));closeFinModal()}catch(err){status.textContent=err.message||String(err);btn.disabled=false}};
+    closeFinModal();const wrap=document.createElement('div');wrap.className='fin-modal';wrap.innerHTML=`<div class="fin-modal-backdrop"></div><div class="fin-modal-card"><button class="fin-modal-x">×</button><div class="fin-modal-head"><span>ENTERPRISE FINANZAS</span><h3>${safe(title)}</h3><p>${safe(subtitle)}</p></div><form class="fin-form">${fields}<div class="fin-form-status"></div><div class="fin-form-actions"><button type="button" class="fin-cancel">Cancelar</button><button class="fin-submit">${safe(submitLabel)}</button></div></form></div>`;document.body.appendChild(wrap);wrap.querySelector('.fin-modal-backdrop').onclick=closeFinModal;wrap.querySelector('.fin-modal-x').onclick=closeFinModal;wrap.querySelector('.fin-cancel').onclick=closeFinModal;const form=wrap.querySelector('form');
+    // Entrada rápida tipo Rial: conserva el formulario, sus validaciones y finPost existente.
+    const amountInput=form.querySelector('input[name="amount_usd"]');
+    if(amountInput){
+      const amountLabel=amountInput.closest('label');
+      if(amountLabel){
+        amountLabel.classList.add('fin-amount-entry');
+        amountInput.setAttribute('inputmode','decimal');
+        amountInput.setAttribute('autocomplete','off');
+        amountInput.setAttribute('aria-label','Monto en dólares estadounidenses');
+        const quick=document.createElement('div');
+        quick.className='fin-amount-shortcuts';
+        quick.setAttribute('aria-label','Atajos para ingresar montos');
+        quick.innerHTML='<span>Agregar importe</span><button type="button" data-fin-plus="5">+$5</button><button type="button" data-fin-plus="10">+$10</button><button type="button" data-fin-plus="50">+$50</button><button type="button" data-fin-plus="100">+$100</button><button type="button" data-fin-clear="1">Limpiar</button>';
+        amountLabel.after(quick);
+        form.prepend(amountLabel);
+        amountLabel.after(quick);
+        quick.addEventListener('click',e=>{
+          const add=e.target.closest('[data-fin-plus]');
+          const clear=e.target.closest('[data-fin-clear]');
+          if(!add&&!clear)return;
+          if(clear){amountInput.value='';amountInput.focus();return;}
+          const current=Number(amountInput.value)||0;
+          const delta=Number(add.dataset.finPlus)||0;
+          amountInput.value=(Math.round((current+delta)*100)/100).toFixed(2);
+          amountInput.dispatchEvent(new Event('input',{bubbles:true}));
+          amountInput.focus();
+        });
+      }
+    }
+    form.onsubmit=async e=>{e.preventDefault();const status=wrap.querySelector('.fin-form-status'),btn=wrap.querySelector('.fin-submit');btn.disabled=true;status.textContent='Guardando…';try{await handler(Object.fromEntries(new FormData(form)));closeFinModal()}catch(err){status.textContent=err.message||String(err);btn.disabled=false}};
   }
   const field=(name,label,type='text',extra='')=>`<label>${safe(label)}<input name="${safe(name)}" type="${safe(type)}" ${extra}></label>`;
   const select=(name,label,opts)=>`<label>${safe(label)}<select name="${safe(name)}">${opts.map(([v,l])=>`<option value="${safe(v)}">${safe(l)}</option>`).join('')}</select></label>`;
