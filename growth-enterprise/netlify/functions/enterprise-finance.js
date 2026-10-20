@@ -296,10 +296,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const reconMap={};
   // Solo diagnóstico: conserva método original y referencia, sin recalcular saldos.
   const reconciliationTrace=[];
-  const movementLedger=[];
   const traceReconciliation=(method,amount,direction,source,record)=>{
     const normalized=normalizeMethod(method);
-    movementLedger.push({method:normalized,raw_method:clean(method)||null,direction,amount_usd:money(amount),source,source_id:clean(record?.id||record?.event_id||record?.payment_id)||null,order_id:clean(record?.pedido_id||record?.order_id||record?.source_id||record?.related_order_id)||null,reference:clean(record?.reference||record?.referencia)||null,occurred_at:record?.occurred_at||record?.confirmed_at||record?.created_at||record?.updated_at||null});
     if(normalized!=='Pago Móvil'&&normalized!=='Sin definir')return;
     reconciliationTrace.push({method:normalized,raw_method:clean(method)||null,direction,amount_usd:money(amount),source,
       source_id:clean(record?.id||record?.event_id||record?.payment_id)||null,
@@ -540,7 +538,6 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     ok:true,generated_at:new Date().toISOString(),timezone:'America/Caracas',period:{start:range.start,end:range.end},
     settings:{company_pct:num(cfg.company_share_pct)||50,freddy_pct:num(cfg.freddy_share_pct)||25,nelson_pct:num(cfg.nelson_share_pct)||25,technician_pct:num(cfg.technician_default_pct)||50,technician_parts_pct:cfg.technician_parts_default_pct??null,technician_service_pct:cfg.technician_service_default_pct??null,technician_hardware_pct:cfg.technician_hardware_default_pct??null,technician_software_pct:cfg.technician_software_default_pct??null,seller_pct:cfg.seller_default_pct??null},
     sales_ledger:salesLedger,
-    movement_ledger:{records:movementLedger.slice(0,2000),total_found:movementLedger.length,truncated:movementLedger.length>2000,scope:"cash_reconciliation"},
     collections:{shop:shopCollected,support:supportCollected,other:otherIncome,gross:grossCollected},
     outflows:{
       operating_expenses:operatingExpenses,store_cogs:storeCogs,support_parts:supportPartsCost,support_store_products:supportStoreProductCost,support_direct:supportDirectCosts,

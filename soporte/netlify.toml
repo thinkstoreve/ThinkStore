@@ -1,5 +1,4 @@
 [build]
-  ignore = "node ./netlify-ignore.cjs support"
   publish = "."
 
 [[redirects]]

@@ -50,22 +50,6 @@ exports.handler = async function(event) {
     return true;
   };
 
-  if(body.action==='get_status'){
-    const fields=['id','codigo','estado','metodo_pago','referencia_pago','metodo_envio','empresa_envio','numero_guia','total_usd','total_bs','subtotal_usd','discount_usd','discount_value','discount_reason','created_at','updated_at'];
-    const safe=Object.fromEntries(fields.map(k=>[k,order[k]??null]));
-    safe.items=(order.pedido_items||[]).map(i=>({producto:i.producto,color:i.color,capacidad:i.capacidad,cantidad:i.cantidad,precio_usd:i.precio_usd}));
-    return reply(200,{ok:true,pedido:safe,payment_verified:approved,note_pending:!approved});
-  }
-  if(body.action==='report_payment'){
-    if(approved||order.payment_decision_locked===true||/cancelado|rechazado|entregado/.test(statusNorm))return reply(409,{ok:false,error:'Este pago ya está en una etapa protegida. Contacta con ThinkStore para corregirlo.'});
-    const reference=clean(body.reference);if(reference.length<3||reference.length>160)return reply(400,{ok:false,error:'Escribe una referencia válida de 3 a 160 caracteres.'});
-    try{
-      await sb('pedidos?id=eq.'+encodeURIComponent(order.id)+'&cliente_id=eq.'+encodeURIComponent(authUser.id),{method:'PATCH',body:JSON.stringify({referencia_pago:reference,estado:'Pago por verificar'})});
-      try{await sb('order_status_history',{method:'POST',body:JSON.stringify({pedido_id:order.id,estado:'Pago por verificar',nota:'El cliente reportó el pago. Pendiente de comprobar el abono desde Administración.'})});}catch(_){}
-      return reply(200,{ok:true,message:'Pago reportado. ThinkStore revisará el abono.'});
-    }catch(e){return reply(500,{ok:false,error:e.message});}
-  }
-
   if(body.action==='update_delivery'){
     if(!canChangeDelivery())return reply(409,{ok:false,error:'La modalidad de entrega ya no puede modificarse porque el envío fue asignado o alcanzó una etapa final.'});
     const method=clean(body.delivery_method);

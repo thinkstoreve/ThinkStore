@@ -15,13 +15,6 @@
     {name:'Plata',img:'assets/iphone18/colors/iphone18-pro-max-silver.jpg',hex:'#cfd2d6'}
   ];
 
-  function colorsForModel(p){
-    if(String(p?.id)==='iphone-ultra')return [
-      {name:'Blanco Estelar',img:'assets/iphone-ultra-star-white.webp',hex:'#e9e8e2'},
-      {name:'Cielo Nocturno',img:'assets/iphone-ultra-night-sky.webp',hex:'#263242'}
-    ];
-    return colorOrder;
-  }
   let selectedModel='iphone-18-pro-max';
 
   const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -156,10 +149,10 @@
           ${modelOrder.map(m=>`<button class="ts71-model-tab ${m.id===selectedModel?'active':''}" onclick="ts71SelectModel('${m.id}')">${esc(m.label)}</button>`).join('')}
         </div>
       </div>
-      <div class="ts71-color-grid ${selectedModel==='iphone-ultra'?'ts71-color-grid--ultra':''}">${colorsForModel(p).map(c=>colorCard(p,c)).join('')}</div>
+      <div class="ts71-color-grid">${colorOrder.map(c=>colorCard(p,c)).join('')}</div>
       <div class="ts71-color-strip">
         <b>Colores disponibles:</b>
-        ${colorsForModel(p).map(c=>`<span class="ts71-color-choice"><i class="ts71-dot" style="background:${c.hex}"></i>${esc(c.name)}</span>`).join('')}
+        ${colorOrder.map(c=>`<span class="ts71-color-choice"><i class="ts71-dot" style="background:${c.hex}"></i>${esc(c.name)}</span>`).join('')}
         <span class="ts71-color-choice" style="margin-left:auto;color:#6e6e73">Encuentra el color que va contigo.</span>
       </div>
     </section>`;

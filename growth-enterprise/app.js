@@ -1,4 +1,7 @@
 const titles = {
+  movementHub:["Movimientos","Ingresos, cobros, gastos y caja, sin registros duplicados."],
+  obligationHub:["Obligaciones","Cuentas pendientes, proveedores y préstamos de socios."],
+  reportHub:["Reportes","Conciliación de saldos, cierres y utilidad distribuible."],
   operations:["Operación","Ventas, inventario, clientes y Servicio Técnico con datos reales."],
   executive:["Resumen","Libro financiero central de ThinkStore con datos reales."],
   weekly:["Resumen semanal","Ventas online y presenciales, Servicio Técnico, citas, cobros, entregas y reparto 50/25/25."],
@@ -366,9 +369,12 @@ function renderModules(){
 }
 function switchView(id){
   document.querySelectorAll('.nav,.view').forEach(x=>x.classList.remove('active'));
+  const group = {salesLedger:'movementHub',pettyCash:'movementHub',reconciliation:'reportHub',weeklyAudit:'reportHub'};
   document.querySelector(`.nav[data-view="${id}"]`)?.classList.add('active');
+  if(group[id]) document.querySelector(`.nav[data-view="${group[id]}"]`)?.classList.add('active');
   qs(id)?.classList.add('active');
   if(titles[id]){ qs('pageTitle').textContent = titles[id][0]; qs('pageSubtitle').textContent = titles[id][1]; }
+  if(id === 'salesLedger' && window.thinkStoreSalesLedger){ window.thinkStoreSalesLedger.render(); if(!window.enterpriseFinanceData?.sales_ledger) window.thinkStoreSalesLedger.load(); }
   if(id === 'staff') loadStaffAccess();
   if(id === 'commercial') loadEnterpriseV1Real();
   if(['support','client360','warranties','alerts'].includes(id)) loadEnterpriseV6Support();
@@ -3364,16 +3370,21 @@ function renderV9RealMarketing(data){
     const today=d.today||{},cash=d.cash_position||{};
     const sync=qs('enterpriseLastSync');if(sync)sync.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});
     el.innerHTML=`<section class="book-summary executive-v1020">
-      <div class="executive-today-head"><div><span>HOY · ${safe(today.date||'')}</span><h3>Lo que está pasando ahora</h3></div><small>Los valores registrados se conservan; esta vista solo los organiza.</small></div>
+      <div class="executive-today-head"><div><span>HOY · ${safe(today.date||'')}</span><h3>Resumen financiero de ThinkStore</h3></div><small>Los valores registrados se conservan; esta vista solo los organiza.</small></div>
+      <div class="fina-finance-actions" role="group" aria-label="Accesos financieros rápidos">
+        <button type="button" onclick="switchView('treasury')">Cuentas y tesorería <span>→</span></button>
+        <button type="button" onclick="switchView('obligationHub')">Cobrar / pagar <span>→</span></button>
+        <button type="button" onclick="switchView('reportHub')">Generar reportes <span>→</span></button>
+      </div>
       <div class="exec-kpi-grid">
-        <article><span>Ventas hoy</span><b>${fm(today.shop)}</b><small>Tienda</small></article>
-        <article><span>Servicio Técnico hoy</span><b>${fm(today.support)}</b><small>Cobros registrados</small></article>
+        <article><span>Facturación tienda · hoy</span><b>${fm(today.shop)}</b><small>Tienda</small></article>
+        <article><span>Servicio Técnico · hoy</span><b>${fm(today.support)}</b><small>Cobros registrados</small></article>
         <article><span>Gastos hoy</span><b>${fm(today.operating_expenses)}</b><small>Operación + Caja Staff + Caja Chica</small></article>
-        <article class="primary"><span>Utilidad estimada hoy</span><b>${fm(today.estimated_profit)}</b><small>Lectura contable del día</small></article>
+        <article class="primary"><span>Utilidad estimada · hoy</span><b>${fm(today.estimated_profit)}</b><small>Lectura contable del día</small></article>
         <article><span>Caja neta hoy</span><b>${fm(today.cash_net)}</b><small>Entradas ${fm(today.cash_in)} · salidas ${fm(today.cash_out)}</small></article>
         <article><span>Posición de caja</span><b>${fm(cash.amount)}</b><small>${cash.mode==='actual'?'Saldo conciliado':'Saldo esperado según movimientos'}</small></article>
         <article><span>Pendiente por cobrar</span><b>${fm(d.receivables?.total)}</b><small>Tienda + Soporte + manual</small></article>
-        <article class="primary"><span>Utilidad semanal real</span><b>${fm(d.result?.distributable)}</b><small>${d.result?.loss_carry>0?`Pérdida por compensar ${fm(d.result.loss_carry)}`:'Disponible para cierre/reparto'}</small></article>
+        <article class="primary"><span>Utilidad distribuible · semana</span><b>${fm(d.result?.distributable)}</b><small>${d.result?.loss_carry>0?`Pérdida por compensar ${fm(d.result.loss_carry)}`:'Disponible para cierre/reparto'}</small></article>
       </div>
       <article class="book-formula panel">
         <div class="formula-head"><div><span>RESULTADO SEMANAL</span><h3>De dónde sale la utilidad</h3></div><button onclick="switchView('weeklyAudit')">Ver cierre</button></div>
@@ -4044,3 +4055,13 @@ async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este mov
  document.addEventListener('DOMContentLoaded',()=>{document.querySelector('.nav[data-view="salesLedger"]')?.addEventListener('click',()=>{render();if(!list())load()});render()});
  window.thinkStoreSalesLedger={load,render};
 })();
+
+// Enterprise: cinco secciones, con enlaces seguros a módulos existentes.
+document.addEventListener('click', e => {
+  const target = e.target.closest('[data-fin-destination]');
+  if (!target || !target.closest('.fin-hub')) return;
+  const destination = target.getAttribute('data-fin-destination');
+  if (!['executive','salesLedger','treasury','pettyCash','reconciliation','weeklyAudit'].includes(destination)) return;
+  switchView(destination);
+  document.querySelector('.workspace')?.scrollIntoView({block:'start',behavior:'auto'});
+});

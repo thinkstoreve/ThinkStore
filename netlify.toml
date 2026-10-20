@@ -1,5 +1,4 @@
 [build]
-  ignore = "node ./netlify-ignore.cjs main"
   publish = "."
   functions = "netlify/functions"
 

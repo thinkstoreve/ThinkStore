@@ -20,7 +20,6 @@ const RULES={
   'Transferencia USD':{currency:'USD',allowed:['boa','chase','pichincha'],defaultCode:null},
   'Zelle':{currency:'USD',allowed:['zelle'],defaultCode:'zelle'},
   'USDT':{currency:'USD',allowed:['binance'],defaultCode:'binance'},
-  'Binance':{currency:'USD',allowed:['binance'],defaultCode:'binance'},
   'EUR':{currency:'EUR',allowed:[],defaultCode:null},
   'Otro':{currency:'USD',allowed:[],defaultCode:null}
 };

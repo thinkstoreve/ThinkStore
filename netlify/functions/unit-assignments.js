@@ -1,3 +1,4 @@
+const {requiresSerial}=require('./unit-serial-policy');
 const H={'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization, x-admin-secret','Access-Control-Allow-Methods':'POST,OPTIONS'};
 const clean=v=>String(v??'').trim();
 const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -80,9 +81,9 @@ exports.handler=async(event)=>{
   }
   function coverage(order,assignments){
     const items=Array.isArray(order?.pedido_items)?order.pedido_items:[];
-    const slots=items.reduce((n,i)=>n+itemQty(i),0);
+    const slots=items.reduce((n,i)=>n+(requiresSerial(i)?itemQty(i):0),0);
     const active=(assignments||[]).filter(x=>x.active!==false).length;
-    return{required:slots,assigned:active,complete:slots>0&&active>=slots};
+    return{required:slots,assigned:active,complete:slots===0||active>=slots};
   }
   async function invalidateNotes(orderId,reason){
     try{
@@ -145,6 +146,7 @@ exports.handler=async(event)=>{
         const current=await assignmentsFor(order);
         const assignedSlots=new Set(current.map(a=>`${a.pedido_item_id}:${Number(a.slot_index||1)}`));
         for(const item of order.pedido_items||[]){
+          if(!requiresSerial(item))continue;
           const serial=clean(item.numero_serie||item.serial_number||item.serial);
           if(!serial||assignedSlots.has(`${item.id}:1`)||isPreOwned(itemCondition(item)))continue;
           let unit=(await req(`inventory_units?select=*&serial_number=ilike.${encodeURIComponent(serial)}&limit=1`))?.[0]||null;
@@ -179,6 +181,7 @@ exports.handler=async(event)=>{
       const itemId=clean(b.pedido_item_id),slot=Math.max(1,Number(b.slot_index||1)||1);
       const item=(order.pedido_items||[]).find(i=>String(i.id)===itemId);
       if(!item)return reply(404,{ok:false,error:'Producto del pedido no encontrado'});
+      if(!requiresSerial(item))return reply(400,{ok:false,error:'Este accesorio no requiere asignación individual por serial.'});
       if(slot>itemQty(item))return reply(400,{ok:false,error:'La posición de unidad no corresponde a la cantidad comprada'});
 
       let unit=null;

@@ -39,85 +39,18 @@ const CATEGORIES = [
 
 const PRODUCTS = [
   {
-  "id": "airpods-5",
-  "brand": "Apple",
-  "category": "Audio",
-  "family": "AirPods",
-  "model": "AirPods 5",
-  "name": "AirPods 5",
-  "badge": "Nuevo",
-  "main": "airpods-5.webp",
-  "gallery": [
-    "airpods-5.webp"
-  ],
-  "colors": {
-    "Blanco": "airpods-5.webp"
+    "id":"iphone-ultra","brand":"Apple","category":"iPhone","family":"Serie iPhone 18","model":"iPhone Ultra","name":"iPhone Ultra","badge":"Nuevo · Pre-Order","main":"featured_iphone_card_premium.png",
+    "gallery":["featured_iphone_card_premium.png"],
+    "colors":{"Negro":"featured_iphone_card_premium.png","Plata":"featured_iphone_card_premium.png","Glaciar":"featured_iphone_card_premium.png","Borgoña":"featured_iphone_card_premium.png"},
+    "storage":["256GB","512GB","1TB","2TB"],"condition":["Nuevo","Pre-Order"],
+    "features":["Diseño Ultra de nueva generación","Apple Intelligence","Hasta 2 TB","Cámara Pro avanzada"],
+    "details":{"Pantalla":"Configuración Ultra","Chip":"Nueva generación","Cámara principal":"Sistema Pro avanzado","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS · Apple Intelligence","Colores":"Borgoña · Glaciar · Plata · Negro"},
+    "desc":"iPhone Ultra presentado en el catálogo ThinkStore como opción de la nueva generación, disponible para Pre-Order."
   },
-  "storage": [
-    "Consultar versión de estuche"
-  ],
-  "condition": [
-    "Nuevo",
-    "Pre-Order"
-  ],
-  "features": [
-    "Cancelación activa de ruido",
-    "Diseño abierto",
-    "Audio espacial personalizado"
-  ],
-  "details": {
-    "Diseño": "Abierto, sin almohadillas de silicona",
-    "Audio": "Cancelación activa de ruido y modo Transparencia",
-    "Configuración": "Consultar versión de estuche y disponibilidad"
-  },
-  "desc": "AirPods 5 con diseño abierto, cancelación activa de ruido, modo Transparencia y audio espacial personalizado. Disfruta tu música y tus llamadas con un formato ligero para el día a día. Consulta la versión de estuche y disponibilidad."
-},
   {
-  "id": "iphone-ultra",
-  "brand": "Apple",
-  "category": "iPhone",
-  "family": "iPhone Ultra",
-  "model": "iPhone Ultra",
-  "name": "iPhone Ultra",
-  "badge": "Nuevo · Pre-Order",
-  "main": "iphone-ultra-star-white.webp",
-  "gallery": [
-    "iphone-ultra-star-white.webp",
-    "iphone-ultra-night-sky.webp"
-  ],
-  "colors": {
-    "Blanco Estelar": "iphone-ultra-star-white.webp",
-    "Cielo Nocturno": "iphone-ultra-night-sky.webp"
-  },
-  "storage": [
-    "256GB",
-    "512GB",
-    "1TB",
-    "2TB"
-  ],
-  "condition": [
-    "Nuevo",
-    "Pre-Order"
-  ],
-  "features": [
-    "Diseño Ultra de nueva generación",
-    "Apple Intelligence",
-    "Hasta 2 TB",
-    "Cámara Pro avanzada"
-  ],
-  "details": {
-    "Pantalla": "Configuración Ultra",
-    "Chip": "Nueva generación",
-    "Cámara principal": "Sistema Pro avanzado",
-    "Capacidad": "256GB · 512GB · 1TB · 2TB",
-    "Colores": "Blanco Estelar · Cielo Nocturno"
-  },
-  "desc": "iPhone Ultra disponible para consulta y preorden en Blanco Estelar y Cielo Nocturno. Elige tu color y consulta configuración y disponibilidad."
-},
-  {
-    "id":"iphone-18-pro-max","brand":"Apple","category":"iPhone","family":"Serie iPhone 18 Pro","model":"iPhone 18 Pro Max","name":"iPhone 18 Pro Max","badge":"Nuevo · Pre-Order","main":"iphone-18-pro-max-colores.webp",
-    "gallery":["iphone18/colors/iphone18-pro-max-light-blue.jpg","iphone18/colors/iphone18-pro-max-dark-cherry.jpg","iphone18/colors/iphone18-pro-max-dark-gray.jpg","iphone18/colors/iphone18-pro-max-silver.jpg"],
-    "colors":{"Glaciar":"iphone18/colors/iphone18-pro-max-light-blue.jpg","Borgoña":"iphone18/colors/iphone18-pro-max-dark-cherry.jpg","Negro":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Plata":"iphone18/colors/iphone18-pro-max-silver.jpg"},
+    "id":"iphone-18-pro-max","brand":"Apple","category":"iPhone","family":"Serie iPhone 18 Pro","model":"iPhone 18 Pro Max","name":"iPhone 18 Pro Max","badge":"Nuevo · Pre-Order","main":"hero18/v1382/dark-cherry-hero-full.webp",
+    "gallery":["hero18/v1382/light-blue-hero-full.webp","hero18/v1382/dark-cherry-hero-full.webp","featured_iphone_card_premium.png","featured_iphone_card_premium.png"],
+    "colors":{"Glaciar":"hero18/v1382/light-blue-hero-full.webp","Borgoña":"hero18/v1382/dark-cherry-hero-full.webp","Negro":"featured_iphone_card_premium.png","Plata":"featured_iphone_card_premium.png"},
     "storage":["256GB","512GB","1TB","2TB"],"condition":["Nuevo","Pre-Order"],
     "features":["Pantalla Super Retina XDR OLED de 6.9 pulgadas","Chip A20 Pro","Cámara Fusion principal de 48 MP con apertura variable","ProMotion hasta 120 Hz","Hasta 43 horas de reproducción de video","Apple Intelligence y Siri AI","Ceramic Shield 2","Resistencia IP68"],
     "details":{"Pantalla":"6.9” Super Retina XDR OLED · 2868 × 1320 · 460 ppi","Chip":"A20 Pro","Cámara principal":"Fusion 48 MP con apertura variable","Diseño":"Unibody de aluminio · Ceramic Shield 2","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS 27 · Apple Intelligence · Siri AI","Colores":"Borgoña · Glaciar · Plata · Negro"},
@@ -125,8 +58,8 @@ const PRODUCTS = [
   },
   {
     "id":"iphone-18-pro","brand":"Apple","category":"iPhone","family":"Serie iPhone 18 Pro","model":"iPhone 18 Pro","name":"iPhone 18 Pro","badge":"Nuevo · Pre-Order","main":"hero18/v1382/light-blue-hero-full.webp",
-    "gallery":["iphone18/colors/iphone18-pro-max-light-blue.jpg","iphone18/colors/iphone18-pro-max-dark-cherry.jpg","iphone18/colors/iphone18-pro-max-dark-gray.jpg","iphone18/colors/iphone18-pro-max-silver.jpg"],
-    "colors":{"Glaciar":"iphone18/colors/iphone18-pro-max-light-blue.jpg","Borgoña":"iphone18/colors/iphone18-pro-max-dark-cherry.jpg","Negro":"iphone18/colors/iphone18-pro-max-dark-gray.jpg","Plata":"iphone18/colors/iphone18-pro-max-silver.jpg"},
+    "gallery":["hero18/v1382/light-blue-hero-full.webp","hero18/v1382/dark-cherry-hero-full.webp","featured_iphone_card_premium.png","featured_iphone_card_premium.png"],
+    "colors":{"Glaciar":"hero18/v1382/light-blue-hero-full.webp","Borgoña":"hero18/v1382/dark-cherry-hero-full.webp","Negro":"featured_iphone_card_premium.png","Plata":"featured_iphone_card_premium.png"},
     "storage":["256GB","512GB","1TB","2TB"],"condition":["Nuevo","Pre-Order"],
     "features":["Pantalla Super Retina XDR OLED de 6.3 pulgadas","Chip A20 Pro","Cámara Fusion principal de 48 MP con apertura variable","ProMotion hasta 120 Hz","Apple Intelligence y Siri AI","Ceramic Shield 2","Resistencia IP68"],
     "details":{"Pantalla":"6.3” Super Retina XDR OLED · 2622 × 1206 · 460 ppi","Chip":"A20 Pro","Cámara principal":"Fusion 48 MP con apertura variable","Diseño":"Unibody de aluminio · Ceramic Shield 2","Capacidad":"256GB · 512GB · 1TB · 2TB","Sistema":"iOS 27 · Apple Intelligence · Siri AI","Colores":"Borgoña · Glaciar · Plata · Negro"},
@@ -592,7 +525,7 @@ const PRODUCTS = [
     "model": "MacBook Pro 14” M4",
     "name": "MacBook Pro 14” M4 · Negro Espacial",
     "badge": "M4 Pro / Max",
-    "main": "macbook-pro-14-m4-negro-espacial-v2.webp",
+    "main": "808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg",
     "gallery": [
       "808305CE-598A-4D9B-8E47-B54AE9A0ACD9.jpeg",
       "53CDC13A-6D5B-494D-89A3-499F59FE04BA.jpeg",
@@ -849,7 +782,7 @@ const PRODUCTS = [
     "model": "iPad A16",
     "name": "iPad A16",
     "badge": "iPad",
-    "main": "ipad-a16-colores.jpg",
+    "main": "C1D43603-926A-4ACF-AA49-5AD3866E8AC5.jpeg",
     "gallery": [
       "C1D43603-926A-4ACF-AA49-5AD3866E8AC5.jpeg",
       "DB026A04-BE10-4DFE-BAD8-CB143E67D14D.jpeg",

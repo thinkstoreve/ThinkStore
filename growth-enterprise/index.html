@@ -27,11 +27,8 @@
 </style>
 <script>window.__THINKSTORE_ENTERPRISE_BUILD__="10.22-session-ui-fixes";</script>
 <script src="repair-financing.js?v=1"></script>
-<link rel="stylesheet" href="responsive-quality.css?v=15.40.36">
-<link rel="stylesheet" href="enterprise-workspace.css?v=11.1">
-<link rel="stylesheet" href="treasury-workspace.css?v=1.1">
 </head>
-<body data-ts-surface="enterprise">
+<body>
 
   <div id="enterpriseBoot" class="enterprise-boot hidden" aria-live="polite">
     <div class="enterprise-boot-inner">
@@ -91,14 +88,12 @@
       </div>
 
       <nav class="nav-list" aria-label="Enterprise ThinkStore">
-        <div class="nav-group-title">CONTROL</div>
-        <button class="nav active" data-view="executive"><span class="nav-mark"></span><span><b>Resumen</b><small>Estado financiero</small></span></button>
-        <button class="nav" data-view="salesLedger"><span class="nav-mark"></span><span><b>Ventas realizadas</b><small>Historial y origen de cobros</small></span></button>
-        <button class="nav" data-view="treasury"><span class="nav-mark"></span><span><b>Tesorería & Socios</b><small>Dinero, gastos y deudas</small></span></button>
-        <button class="nav" data-view="pettyCash"><span class="nav-mark"></span><span><b>Caja Chica</b><small>Fondos y gastos menores</small></span></button>
-        <button class="nav" data-view="operations"><span class="nav-mark"></span><span><b>Operación</b><small>Ventas, stock y soporte</small></span></button>
-        <button class="nav" data-view="reconciliation"><span class="nav-mark"></span><span><b>Conciliación</b><small>Caja y métodos de pago</small></span></button>
-        <button class="nav" data-view="weeklyAudit"><span class="nav-mark"></span><span><b>Auditoría semanal</b><small>Cierre y reparto</small></span></button>
+        <div class="nav-group-title">FINANZAS</div>
+        <button class="nav active" data-view="executive"><span class="nav-mark"></span><span><b>Inicio</b><small>Resultados y saldos</small></span></button>
+        <button class="nav" data-view="treasury"><span class="nav-mark"></span><span><b>Tesorería</b><small>Cuentas y fondos</small></span></button>
+        <button class="nav" data-view="movementHub"><span class="nav-mark"></span><span><b>Movimientos</b><small>Ingresos y gastos</small></span></button>
+        <button class="nav" data-view="obligationHub"><span class="nav-mark"></span><span><b>Obligaciones</b><small>Deudas y socios</small></span></button>
+        <button class="nav" data-view="reportHub"><span class="nav-mark"></span><span><b>Reportes</b><small>Conciliación y cierres</small></span></button>
       </nav>
 
       <div class="admin-card">
@@ -136,6 +131,9 @@
         <section id="enterpriseCharts" class="enterprise-charts" aria-label="Gráficas ejecutivas"></section>
       </section>
 
+      <section id="movementHub" class="view module-view"><article class="panel fin-hub"><span class="fin-hub-kicker">MOVIMIENTOS</span><h2>Todo lo que entra y sale</h2><p>Consulta las ventas cobradas o registra ingresos, compras y gastos desde las herramientas existentes. Un movimiento interno entre cuentas no es una venta.</p><div class="fin-hub-grid"><button type="button" data-fin-destination="salesLedger"><b>Ventas y cobros</b><small>Operaciones reales, método de pago y origen</small><strong>Abrir →</strong></button><button type="button" data-fin-destination="treasury"><b>Registrar movimiento</b><small>Ingresos, compras, gastos y transferencias</small><strong>Abrir →</strong></button><button type="button" data-fin-destination="pettyCash"><b>Caja chica</b><small>Fondos y egresos menores por cuenta</small><strong>Abrir →</strong></button></div></article></section>
+      <section id="obligationHub" class="view module-view"><article class="panel fin-hub"><span class="fin-hub-kicker">OBLIGACIONES</span><h2>Lo que debemos y nos deben</h2><p>Consulta las cuentas pendientes y los aportes o préstamos de socios. Las devoluciones de préstamos no vuelven a contabilizarse como gastos.</p><div class="fin-hub-grid"><button type="button" data-fin-destination="treasury"><b>Proveedores y cuentas por pagar</b><small>Obligaciones, compras y vencimientos</small><strong>Abrir →</strong></button><button type="button" data-fin-destination="treasury"><b>Clientes y cuentas por cobrar</b><small>Deudas y abonos registrados</small><strong>Abrir →</strong></button><button type="button" data-fin-destination="treasury"><b>Socios y préstamos</b><small>Aportes, devoluciones y saldos</small><strong>Abrir →</strong></button></div></article></section>
+      <section id="reportHub" class="view module-view"><article class="panel fin-hub"><span class="fin-hub-kicker">REPORTES</span><h2>Resultados que se pueden comprobar</h2><p>Concilia primero los saldos reales; revisa después la utilidad distribuible y cierra la semana. No se crean cálculos paralelos.</p><div class="fin-hub-grid"><button type="button" data-fin-destination="reconciliation"><b>Conciliación</b><small>Saldo esperado frente al saldo real</small><strong>Abrir →</strong></button><button type="button" data-fin-destination="weeklyAudit"><b>Cierre financiero semanal</b><small>Ingresos, costos y reparto de utilidades</small><strong>Abrir →</strong></button><button type="button" data-fin-destination="executive"><b>Indicadores generales</b><small>Gráficas y visión consolidada</small><strong>Abrir →</strong></button></div></article></section>
       <section id="weekly" class="view module-view"></section>
       <section id="operations" class="view module-view"></section>
       <section id="mobile" class="view module-view"></section>
@@ -202,11 +200,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.js"></script>
 <script src="support-config.js"></script>
-<script src="app.js?v=10.27-ventas-activas"></script>
+<script src="app.js?v=10.28-finanzas-ui"></script>
 <script src="ts-fx.js?v=13.40"></script>
 
-<script src="enterprise-workspace-model.js?v=11.0"></script>
-<script src="enterprise-workspace.js?v=11.1"></script>
-<script src="treasury-workspace.js?v=1.0"></script>
 </body>
 </html>

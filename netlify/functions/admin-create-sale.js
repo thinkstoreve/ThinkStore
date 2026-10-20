@@ -71,17 +71,16 @@ exports.handler=async function(event){
   if(payment!=='Pago mixto'){try{paymentDestination=normalizeDestination(payment,b.payment_destination_code,{required:true})}catch(e){return r(400,{ok:false,error:e.message})}}
 
   const discountType=clean(b.discount_type||'usd')==='percent'?'percent':'usd';
-  const discountValue=require('../../pos-pricing').decimal(b.discount_value);
-  if(!Number.isFinite(discountValue))return r(400,{ok:false,error:'Descuento inválido.'});
+  const discountValue=Math.max(0,Number(b.discount_value||0));
   const discountReason=clean(b.discount_reason||'').slice(0,160);
 
   async function req(path,options={}){const rr=await fetch(`${url}/rest/v1/${path}`,{...options,headers:{...sh,...(options.headers||{})}});const txt=await rr.text();let d=null;try{d=txt?JSON.parse(txt):null}catch{d=txt};if(!rr.ok){const e=new Error(d?.message||d?.error||d?.details||`Supabase ${rr.status}`);e.data=d;throw e}return d}
   async function first(path){try{const d=await req(path);return Array.isArray(d)?d[0]:null}catch{return null}}
 
   try{
-    // Walk-in sales keep purchase data without requiring a website account.
-    // Link only an explicitly selected, server-checked CRM record.
-    const customer=await require('./pos-customer-core').selectedCustomer({url,key:service},b.customer_id,guest.email);
+    const canonical=await require('./registered-customer-core').load({url,key:service},guest.email);
+    Object.assign(guest,canonical);
+    const customer={id:canonical.id};
 
     const variants=[], reserve=[];
     for(const item of items){
@@ -102,9 +101,10 @@ exports.handler=async function(event){
     }
 
     const subtotal=Math.round(variants.reduce((n,x)=>n+x.item.price,0)*100)/100;
-    const pricing=require('../../pos-pricing').calculate(subtotal,discountType,discountValue);
-    if(pricing.error)return r(400,{ok:false,error:pricing.error});
-    const discountUsd=pricing.discount,total=pricing.total;
+    const discountRaw=discountType==='percent'?subtotal*Math.min(discountValue,100)/100:Math.min(discountValue,subtotal);
+    const discountUsd=Math.round(discountRaw*100)/100;
+    const total=Math.round((subtotal-discountUsd)*100)/100;
+    if(total<0)throw new Error('El descuento no puede superar el subtotal.');
     let fxQuote=null, mixed=null;
     if(payment==='Pago mixto'){
       try{
