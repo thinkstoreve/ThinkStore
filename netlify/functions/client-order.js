@@ -107,17 +107,7 @@ exports.handler = async function(event) {
       const required=items.reduce((n,i)=>n+Math.max(1,Number(i.cantidad||i.qty||1)||1),0);
       if(required<1||assignments.length<required)return reply(409,{ok:false,note_locked:true,error:`Tu equipo todavía está pendiente de asignación (${assignments.length}/${required}). La nota se habilitará cuando ThinkStore registre el serial/IMEI correspondiente.`});
       order.pedido_items=items.map(i=>({...i,assigned_units:(byItem.get(String(i.id))||[]).sort((a,b)=>a.slot_index-b.slot_index)}));
-      try{
-        const missing=order.pedido_items.filter(i=>!i.image_url&&!i.image);
-        if(missing.length){
-          const products=await sb('catalog_products?select=product_name,product_key,image_url&limit=2000');
-          const pictures=await sb('catalog_product_images?select=product_key,image_url,is_primary,sort_order&order=sort_order.asc&limit=3000');
-          const key=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
-          const imageByKey=new Map();for(const im of pictures||[])if(im.image_url&&(!imageByKey.has(im.product_key)||im.is_primary))imageByKey.set(im.product_key,im.image_url);
-          const byName=new Map();for(const p of products||[])byName.set(key(p.product_name),imageByKey.get(p.product_key)||p.image_url||'');
-          order.pedido_items=order.pedido_items.map(i=>({...i,image_url:i.image_url||i.image||byName.get(key(i.producto||i.product_name||i.nombre))||''}));
-        }
-      }catch(err){console.warn('Imagen nota cliente',err.message)}
+      order.pedido_items=await require('./delivery-note-images').hydrate(order.pedido_items,sb);
       const html=require('./delivery-note-template').render(order);
       return reply(200,{ok:true,html,coverage:{required,assigned:assignments.length,complete:true}});
     }catch(e){
