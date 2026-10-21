@@ -745,12 +745,12 @@ function requestAdminSecret(force=false){
 async function tsSecureAdminSession(){
   if(!window.tsPanelSupabase)return null;
   try{
-    let resp=await window.tsPanelSupabase.auth.getSession();
+    let resp=await tsPanelWithTimeout(window.tsPanelSupabase.auth.getSession(),7000,null);
     let session=resp?.data?.session||null;
     const now=Math.floor(Date.now()/1000);
     if(session?.access_token && (!session.expires_at || Number(session.expires_at)>now+45))return session;
 
-    const refreshed=await window.tsPanelSupabase.auth.refreshSession();
+    const refreshed=await tsPanelWithTimeout(window.tsPanelSupabase.auth.refreshSession(),7000,null);
     session=refreshed?.data?.session||null;
     if(session?.access_token)return session;
   }catch(e){
@@ -812,8 +812,8 @@ async function refreshRealData(opts={}){
   if(realState.loading&&!opts.force)return;
   realState.loading=true; realState.error=''; refreshKpis();
   try{
-    const headers=await adminApiHeaders();
-    const res=await fetch('/.netlify/functions/admin-data',{headers,cache:'no-store'}); const data=await res.json().catch(()=>({}));
+    const headers=await adminApiHeaders({},{requireAuth:true});
+    const res=await fetch('/.netlify/functions/admin-data',{headers,cache:'no-store',signal:AbortSignal.timeout(25000)}); const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudieron cargar los datos reales');
     realState.clientes=(data.clientes||[]).map(mapClient); realState.pedidos=(data.pedidos||[]).map(mapOrder); realState.comprobantes=data.comprobantes||[]; realState.lastRefresh=data.refreshed_at||new Date().toISOString();
     // Usuarios internos: nunca cargar aquí todos los perfiles públicos.
@@ -901,8 +901,8 @@ let tsCampaignHistory=[];
 async function loadCampaignHistory(){
   const host=$('campaignHistoryHost');if(host)host.innerHTML='<div class="muted">Cargando historial…</div>';
   try{
-    const headers=await adminApiHeaders();
-    const res=await fetch('/.netlify/functions/campaign-history',{headers,cache:'no-store'});
+    const headers=await adminApiHeaders({},{requireAuth:true});
+    const res=await fetch('/.netlify/functions/campaign-history',{headers,cache:'no-store',signal:AbortSignal.timeout(25000)});
     const d=await res.json().catch(()=>({}));
     if(!res.ok||!d.ok)throw new Error(d.error||'No se pudo cargar el historial.');
     tsCampaignHistory=Array.isArray(d.rows)?d.rows:[];
@@ -989,7 +989,8 @@ function refreshKpis(){
  if($('kpi1'))$('kpi1').textContent=orders().length;if($('kpi2'))$('kpi2').textContent=customers().length;if($('kpi3'))$('kpi3').textContent=tickets().length;if($('kpi4'))$('kpi4').textContent=shipments().length;
  if($('kpiLabel1'))$('kpiLabel1').textContent='Pedidos';if($('kpiLabel2'))$('kpiLabel2').textContent='Clientes';if($('kpiLabel3'))$('kpiLabel3').textContent='Tickets';if($('kpiLabel4'))$('kpiLabel4').textContent='Envíos';
 }
-function realBar(){const client=role()==='cliente';return `<div class="realbar ${client?'client-sync':''}"><span class="dot"></span><b>${client?'Cuenta sincronizada':'Datos reales'}</b><small>${realState.lastRefresh?'Actualizado '+esc(fmtDate(realState.lastRefresh,{hour:'2-digit',minute:'2-digit'})):(client?'Conectando con ThinkStore…':'Pendiente de sincronizar')}</small><button class="btn ghost" onclick="refreshAndRender()">Actualizar</button></div><pre id="globalStatus" class="result" style="display:none"></pre>`}
+function realBar(){const client=role()==='cliente',failed=!!realState.error;return `<div class="realbar ${client?'client-sync':''}"><span class="dot"></span><b>${failed?'No se pudo sincronizar':realState.loading?'Actualizando…':realState.lastRefresh?(client?'Cuenta sincronizada':'Datos reales'):'Conectando con ThinkStore…'}</b><small>${realState.lastRefresh?'Última consulta '+esc(fmtDate(realState.lastRefresh,{hour:'2-digit',minute:'2-digit'})):'Todavía no hay una consulta verificada'}</small><button class="btn ghost" onclick="refreshAndRender()">Actualizar</button></div>${failed?`<div class="notice warn" role="alert"><b>Los pedidos no se han podido consultar.</b><p>${esc(realState.error)}</p><p>Una lista vacía no significa que no tengas pedidos.</p><a class="btn ghost" href="panel-login.html?reauth=1&next=panel.html">Volver a iniciar sesión</a></div>`:''}<pre id="globalStatus" class="result" style="display:none"></pre>`}
+
 async function refreshAndRender(){if(role()==='cliente')await refreshClientRealData();else await refreshRealData();openModule(window.currentModule||'dashboard')}
 
 const STATUS_OPTIONS=['Pedido recibido','Verificando pago','Pago por verificar','Pago recibido','Pago verificado','Pago rechazado','Preparando pedido','Comprando proveedor','En tránsito','Disponible para entrega','Enviado','Entregado','Cancelado'];
@@ -1286,7 +1287,7 @@ function tsRoleStatusBadge(v=''){const t=String(v||'').toLowerCase();const cls=/
 async function tsLoadRoleDashboard(force=false){
   if(!force&&tsRoleDashboardCache&&Date.now()-tsRoleDashboardLoadedAt<15000)return tsRoleDashboardCache;
   const headers=await adminApiHeaders({},{requireAuth:true});
-  const res=await fetch('/.netlify/functions/role-dashboard',{headers,cache:'no-store'});
+  const res=await fetch('/.netlify/functions/role-dashboard',{headers,cache:'no-store',signal:AbortSignal.timeout(25000)});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.ok)throw new Error(data.error||'No se pudieron cargar tus estadísticas');
   tsRoleDashboardCache=data;tsRoleDashboardLoadedAt=Date.now();return data;
