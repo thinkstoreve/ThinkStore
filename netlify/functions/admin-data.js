@@ -3,14 +3,16 @@ exports.handler = async function(event) {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, x-admin-secret, Authorization',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Cache-Control':'no-store'
   };
 
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
   if (event.httpMethod !== 'GET') return { statusCode: 405, headers, body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const cfg=require('./staff-auth-core').mainConfig();
+  const SUPABASE_URL = cfg.url;
+  const SUPABASE_SERVICE_ROLE_KEY = cfg.service;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return { statusCode: 501, headers, body: JSON.stringify({ ok: false, error: 'Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en Netlify.' }) };
   }
