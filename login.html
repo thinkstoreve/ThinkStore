@@ -294,7 +294,7 @@ body img:first-of-type{animation:tsLoginLogoIn .42s ease-out .06s both}
     async function cacheUser(user){
       let profile=null;
       try{const r=await sb.from('clientes').select('*').eq('id',user.id).maybeSingle();profile=r.data||null;}catch(e){}
-      const c={id:profile?.cedula_rif||'',supabase_id:user.id,name:profile?.nombre||user.user_metadata?.name||user.email?.split('@')[0]||'Cliente ThinkStore',email:profile?.correo||user.email||'',phone:profile?.telefono||'',address:profile?.direccion||'',city:profile?.ciudad||'',state:profile?.estado||'',ref:profile?.referencia||'',shipping:profile?.metodo_envio_preferido||'',agency:profile?.agencia_destino||'',role:'cliente',rol:'cliente',is_internal:false};
+      const c={id:user.id,supabase_id:user.id,document:profile?.cedula_rif||'',name:profile?.nombre||user.user_metadata?.name||user.email?.split('@')[0]||'Cliente ThinkStore',email:profile?.correo||user.email||'',phone:profile?.telefono||'',address:profile?.direccion||'',city:profile?.ciudad||'',state:profile?.estado||'',ref:profile?.referencia||'',shipping:profile?.metodo_envio_preferido||'',agency:profile?.agencia_destino||'',role:'cliente',rol:'cliente',is_internal:false};
       localStorage.setItem('ts_current_user',JSON.stringify(c));localStorage.setItem('ts_customer',JSON.stringify(c));return c;
     }
 
@@ -316,7 +316,7 @@ body img:first-of-type{animation:tsLoginLogoIn .42s ease-out .06s both}
 
     sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY') show('recovery');});
     if(params.get('verified')==='1'){const pe=sessionStorage.getItem('ts_pending_verify_email')||'';if(pe)$('email').value=pe;status('loginStatus','Correo verificado correctamente. Estamos preparando tu cuenta…','ok');}
-    sb.auth.getSession().then(({data})=>{if(data?.session?.user&&params.get('verified')==='1'){sessionStorage.removeItem('ts_pending_verify_email');showWelcome(data.session.user);}else if(data?.session?.user&&!params.get('view')){cacheUser(data.session.user).then(()=>{sessionStorage.removeItem('ts_pending_verify_email');location.href=safeNext();});}else if(params.get('verified')==='1'){show('login');status('loginStatus','Correo verificado correctamente. Ingresa tu contraseña para continuar.','ok');}});
+    sb.auth.getSession().then(({data})=>{if(data?.session?.user&&params.get('verified')==='1'){sessionStorage.removeItem('ts_pending_verify_email');showWelcome(data.session.user);}else if(data?.session?.user&&!params.get('view')&&params.get('reauth')!=='1'){cacheUser(data.session.user).then(()=>{sessionStorage.removeItem('ts_pending_verify_email');location.href=safeNext();});}else if(params.get('verified')==='1'){show('login');status('loginStatus','Correo verificado correctamente. Ingresa tu contraseña para continuar.','ok');}});
   })();
   </script>
   <script src="chatbot.js?v=15.35"></script>
