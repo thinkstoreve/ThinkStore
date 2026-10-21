@@ -1,3 +1,4 @@
+const CampaignCards = require('../../campaign-card-model');
 exports.handler = async function(event) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -80,7 +81,9 @@ exports.handler = async function(event) {
   const manualEmails = Array.isArray(payload.manualEmails) ? payload.manualEmails.map(clean).filter(v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)).slice(0,500) : [];
   const campaignStyle = clean(payload.campaignStyle || 'premium').toLowerCase();
   const occasion = clean(payload.occasion || '').toLowerCase();
-  const isServiceCampaign = campaignStyle === 'service' || occasion === 'servicio' || /servicio\s+t[eé]cnico/i.test(productName);
+  const isServiceCampaign = campaignStyle === 'service' || occasion === 'servicio';
+  const priceCards = Array.isArray(payload.priceCards) ? payload.priceCards.slice(0,2).map(c=>({...c,imageUrl:CampaignCards.normalize(c).imageUrl})) : CampaignCards.defaults(isServiceCampaign).map((c,i)=>({...c,...([pricePro,priceProMax][i]?{mode:'text',text:[pricePro,priceProMax][i]}:{})}));
+  for(const c of priceCards){if(c.mode==='price'&&(CampaignCards.amount(c.price)===null||Number(c.discount)<0||Number(c.discount)>100))return {statusCode:400,headers,body:JSON.stringify({ok:false,error:'Precio o descuento inválido en tarjeta.'})};}
 
   const api = SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/';
   const baseHeaders = {
@@ -196,8 +199,6 @@ exports.handler = async function(event) {
 
   function serviceHtmlFor(name) {
     const hero = bannerUrl || 'https://thinkstore.com.ve/assets/marketing/servicio-tecnico-macbook-battery.jpg';
-    const iphoneCard = 'https://thinkstore.com.ve/assets/featured_iphone_card_premium.png';
-    const macCard = 'https://thinkstore.com.ve/assets/featured_macbook_card_premium.png';
     const repairPrice = pricePro || '9,99';
     const reviewPrice = priceProMax || 'Revisión gratuita';
     const serviceUrl = actionUrl || 'https://thinkstore.com.ve/servicio-tecnico.html';
@@ -242,26 +243,7 @@ exports.handler = async function(event) {
               <p style="font-size:15px;line-height:1.55;margin:0 0 16px;color:#515154;">${esc(productDetails || 'Pantallas, baterías, cámaras, carga, software, microsoldadura y más.')}</p>
               <div style="display:inline-block;background:#fff;border:1px solid #d9d9de;border-radius:999px;padding:9px 14px;font-size:13px;font-weight:800;color:#1d1d1f;">${esc(offer || 'Diagnóstico y reparación · Agenda disponible')}</div>
               <div style="font-size:10px;letter-spacing:.16em;color:#86868b;font-weight:800;text-transform:uppercase;margin:22px 0 11px;">PRECIOS</div>
-              <table role="presentation" class="ts-two" width="100%" cellpadding="0" cellspacing="0"><tr>
-                <td class="ts-cell" width="50%" valign="top" style="padding:0 6px 0 0;">
-                  <div style="min-height:190px;background:#fff;border:1px solid #e0e0e5;border-radius:20px;padding:18px;position:relative;overflow:hidden;">
-                    <div style="font-size:10px;letter-spacing:.13em;font-weight:800;color:#6e6e73;text-transform:uppercase;">REPARACIONES</div>
-                    <div style="font-size:12px;color:#6e6e73;font-weight:700;margin-top:9px;">Desde</div>
-                    <div style="font-size:37px;line-height:1;font-weight:800;letter-spacing:-.045em;color:#111;margin-top:4px;">${esc(repairPrice)}</div>
-                    <div style="font-size:12px;color:#86868b;margin-top:8px;">A partir de</div>
-                    <img src="${iphoneCard}" alt="Reparaciones iPhone" width="112" style="display:block;width:112px;height:auto;margin:10px 0 0 auto;border:0;">
-                  </div>
-                </td>
-                <td class="ts-cell" width="50%" valign="top" style="padding:0 0 0 6px;">
-                  <div style="min-height:190px;background:#fff;border:1px solid #e0e0e5;border-radius:20px;padding:18px;position:relative;overflow:hidden;">
-                    <div style="font-size:10px;letter-spacing:.13em;font-weight:800;color:#6e6e73;text-transform:uppercase;">REVISIONES</div>
-                    <div style="font-size:12px;color:#6e6e73;font-weight:700;margin-top:9px;">Desde</div>
-                    <div style="font-size:32px;line-height:1.02;font-weight:800;letter-spacing:-.04em;color:#111;margin-top:4px;">${esc(reviewPrice)}</div>
-                    <div style="font-size:12px;color:#86868b;margin-top:8px;">Sin costo inicial</div>
-                    <img src="${macCard}" alt="Revisión MacBook" width="112" style="display:block;width:112px;height:auto;margin:10px 0 0 auto;border:0;">
-                  </div>
-                </td>
-              </tr></table>
+              ${CampaignCards.table(priceCards)}
             </div>
             <div style="text-align:center;margin:24px 0 10px;">
               <a class="ts-btn" href="${esc(serviceUrl)}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;border-radius:999px;padding:14px 22px;font-size:14px;font-weight:800;margin:5px;">${esc(serviceLabel)} →</a>
@@ -287,10 +269,7 @@ exports.handler = async function(event) {
   function htmlFor(name) {
     if (isServiceCampaign) return serviceHtmlFor(name);
     const banner = bannerUrl ? `<div style="margin:0 0 28px;text-align:center;"><img src="${esc(bannerUrl)}" alt="iPhone 18 · Preventa ThinkStore" style="display:block;width:100%;max-width:100%;height:auto;border:0;margin:0 auto;background:transparent;"></div>` : '';
-    const priceCells = [];
-    if (pricePro) priceCells.push(`<td valign="top" style="width:${priceProMax?'50%':'100%'};padding:${priceProMax?'0 6px 0 0':'0'};"><div style="background:linear-gradient(180deg,#ffffff 0%,#fbfbfd 100%);border:1px solid #e6e6eb;border-radius:22px;padding:18px 18px 16px;box-shadow:0 10px 24px rgba(0,0,0,.04);"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#86868b;font-weight:800;margin-bottom:7px;">iPhone 18 Pro</div><div style="font-size:12px;line-height:1.2;color:#6e6e73;font-weight:700;margin-bottom:4px;">Desde</div><div style="font-size:34px;line-height:1;letter-spacing:-.045em;color:#1d1d1f;font-weight:800;">${esc(pricePro)}</div><div style="font-size:12px;line-height:1.45;color:#86868b;margin-top:8px;">Precio preventa</div></div></td>`);
-    if (priceProMax) priceCells.push(`<td valign="top" style="width:${pricePro?'50%':'100%'};padding:${pricePro?'0 0 0 6px':'0'};"><div style="background:linear-gradient(180deg,#ffffff 0%,#fbfbfd 100%);border:1px solid #e6e6eb;border-radius:22px;padding:18px 18px 16px;box-shadow:0 10px 24px rgba(0,0,0,.04);"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#86868b;font-weight:800;margin-bottom:7px;">iPhone 18 Pro Max</div><div style="font-size:12px;line-height:1.2;color:#6e6e73;font-weight:700;margin-bottom:4px;">Desde</div><div style="font-size:34px;line-height:1;letter-spacing:-.045em;color:#1d1d1f;font-weight:800;">${esc(priceProMax)}</div><div style="font-size:12px;line-height:1.45;color:#86868b;margin-top:8px;">Precio preventa</div></div></td>`);
-    const priceHtml = priceCells.length ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#86868b;font-weight:800;margin:22px 0 12px;">Precio preventa</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${priceCells.join('')}</tr></table>` : '';
+    const priceHtml = CampaignCards.table(priceCards);
     return `
     ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${esc(preheader)}</div>` : ''}
     <div style="margin:0;padding:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f;">
@@ -356,8 +335,7 @@ ${message}
 ${productName}
 ${productDetails}
 ${offer}
-Reparaciones desde: ${pricePro || '9,99'}
-Revisiones: ${priceProMax || 'Revisión gratuita'}
+${priceCards.map(c=>{const n=CampaignCards.normalize(c);return `${n.label}: ${n.prefix} ${n.display}${n.original?' (antes '+n.original+', descuento '+n.discount+'%)':''} · ${n.note}`}).join('\n')}
 
 Consultar servicio técnico: ${actionUrl || 'https://thinkstore.com.ve/servicio-tecnico.html'}
 Agenda tu cita: https://thinkstore.com.ve/agenda-soporte.html${secondaryActionLabel&&secondaryActionUrl?`
@@ -370,9 +348,8 @@ ${message}
 
 ${productName}
 ${productDetails}
-${offer}${pricePro?`
-Opción 1: ${pricePro}`:''}${priceProMax?`
-Opción 2: ${priceProMax}`:''}
+${offer}
+${priceCards.map(c=>{const n=CampaignCards.normalize(c);return `${n.label}: ${n.display}${n.original?' (antes '+n.original+', descuento '+n.discount+'%)':''}`}).join('\n')}
 
 ${actionUrl}${secondaryActionLabel&&secondaryActionUrl?`
 ${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
@@ -389,7 +366,7 @@ ${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
     subject, title, subtitle, audience,
     recipients_count: recipients.length, sent_count: sent, failed_count: failed,
     banner_url: bannerUrl || null,
-    content_json: { message, productName, productDetails, offer, pricePro, priceProMax, actionUrl, actionLabel, secondaryActionUrl, secondaryActionLabel, kicker, badge, preheader, bannerFit, bannerPosition, campaignStyle, occasion, manualCount: manualEmails.length },
+    content_json: { priceCards, message, productName, productDetails, offer, pricePro, priceProMax, actionUrl, actionLabel, secondaryActionUrl, secondaryActionLabel, kicker, badge, preheader, bannerFit, bannerPosition, campaignStyle, occasion, manualCount: manualEmails.length },
     created_at: new Date().toISOString()
   }]);
 
