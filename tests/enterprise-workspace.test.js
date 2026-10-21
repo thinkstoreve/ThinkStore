@@ -36,3 +36,5 @@ test('unknown or disconnected balances cannot look like verified zeros',()=>{
 test('calculator accepts decimal comma and converts both directions without movements',()=>{
  assert.equal(M.converted('12,5',880,'usd'),11000);assert.equal(M.converted(11000,880,'ves'),12.5);assert.equal(M.converted(-1,880),null);assert.equal(M.converted('texto',880),null);assert.equal(M.converted(25,null),null);
 });
+
+test('gastos usan referencia corta estable conservando el ID original',()=>{const id='a758bc36-2d09-4061-bc18-3b2e66ee63eb',r=M.expenses({expenses:{rows:[{id}]}})[0];assert.equal(r.code,'GAS-A758BC362D');assert.equal(r.id,id);});
