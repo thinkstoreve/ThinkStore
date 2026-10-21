@@ -15,7 +15,7 @@ exports.handler = async function(event) {
   const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const cfg=require('./staff-auth-core').mainConfig();
   const SUPABASE_URL=cfg.url;
-  const SERVICE=cfg.service;
+  const SERVICE=process.env.SUPABASE_SERVICE_ROLE_KEY||cfg.service;
   if(!SUPABASE_URL||!SERVICE)return reply(501,{ok:false,error:'La integración de pedidos no está configurada.'});
 
   let body={};try{body=JSON.parse(event.body||'{}')}catch{return reply(400,{ok:false,error:'JSON inválido'})}
