@@ -2189,3 +2189,17 @@ input,select,textarea{max-width:100%;min-width:0}
   background:#f3f5f8!important; color:#283e56!important; border-color:#c8d0da!important;
 }
 @media(max-width:600px){#orderModal .diagram-box .mark-tools{flex-wrap:wrap!important}}
+
+/* V8.8.31 · Recuperación de contraseña de personal de Soporte */
+.support-login-recover{display:flex;justify-content:flex-end;margin:9px 0 0}
+.support-recover-link{border:0;background:transparent!important;color:#9fcaff!important;padding:5px 0!important;border-radius:0!important;font-size:13px;font-weight:650;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.support-recover-link:hover{color:#fff!important}
+.support-recovery-submit{width:100%;min-height:51px;margin-top:18px}
+.support-recover-back{width:100%;margin-top:12px;min-height:48px}
+.support-auth-status{min-height:0;margin:12px 0 0;color:#c3d6f4;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+.support-auth-status:empty{display:none}
+.support-auth-status.error{color:#ffb8b8}
+.support-auth-status.success{color:#adf0cd}
+.support-unified-recovery{border-top:1px solid rgba(255,255,255,.12);margin-top:22px;padding-top:17px;font-size:12px;line-height:1.6;color:#acb9cd}
+.support-unified-recovery a{color:#9fcaff;text-underline-offset:3px}
+@media(max-width:600px){.support-recover-link{min-height:32px}.support-login-card .support-recovery-submit{min-height:49px}}

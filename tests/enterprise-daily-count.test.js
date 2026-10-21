@@ -1,0 +1,6 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const M=require('../growth-enterprise/daily-count-model');
+test('no confunde saldo desconocido o conteo vacío con cero',()=>{const d=M.evaluate([{id:'a',currency:'USD',balance:null},{id:'b',currency:'USD',balance:0}],{a:'0',b:''});assert.equal(d.complete,false);assert.equal(d.rows[0].expected,null);assert.equal(d.rows[1].counted,null);assert.equal(d.totals.USD.complete,false);});
+test('monedas se totalizan por separado y aceptan coma decimal',()=>{const d=M.evaluate([{id:'a',currency:'USD',balance:10.25},{id:'b',currency:'VES',balance:500}],{a:'10,25',b:'500'});assert.equal(d.complete,true);assert.equal(d.explained,true);assert.equal(d.totals.USD.counted,10.25);assert.equal(d.totals.VES.counted,500);});
+test('faltante y sobrante no se compensan sin explicar cada cuenta',()=>{const rows=[{id:'a',currency:'USD',balance:10},{id:'b',currency:'USD',balance:10}];const a=M.evaluate(rows,{a:'9',b:'11'});assert.equal(a.totals.USD.difference,0);assert.equal(a.differences,2);assert.equal(a.explained,false);assert.equal(M.evaluate(rows,{a:'9',b:'11'},{a:'Falta contado',b:'Sobra contado'}).explained,true);});
+test('rechaza conteos negativos con más de dos decimales o no numéricos',()=>{for(const v of ['-1','0.001','1e2','abc',''])assert.equal(M.amount(v),null);assert.equal(M.amount('0'),0);});

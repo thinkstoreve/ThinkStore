@@ -1,0 +1,16 @@
+{
+  "version": "10.20",
+  "name": "Control financiero ejecutivo + responsive",
+  "base": "10.19",
+  "requires_sql": false,
+  "preserves_existing_data": true,
+  "changes": [
+    "executive_today",
+    "partner_treasury",
+    "expense_filters",
+    "service_profitability",
+    "seller_commissions",
+    "weekly_audit",
+    "responsive"
+  ]
+}

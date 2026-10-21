@@ -2,6 +2,8 @@ const TSService=(()=>{
   const SUPABASE_URL='https://tnezvnziqnjxhcwjtcuy.supabase.co';
   const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRuZXp2bnppcW5qeGhjd2p0Y3V5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwODk5ODUsImV4cCI6MjA5NzY2NTk4NX0.OsFkefVeW4FN_uVML1ncE0i6FR_Dmg8eLPY9TEnezpM';
   const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  const SUPPORT_PASSWORD_ENDPOINT='https://thinkstore.com.ve/.netlify/functions/support-password-recovery';
+  let passwordSetupMode='invite';
   if(window.ThinkStoreOffline)window.ThinkStoreOffline.setTokenProvider(async()=>{const {data}=await supabaseClient.auth.getSession();return data?.session?.access_token||''});
 
   const roles={
@@ -637,9 +639,59 @@ const TSService=(()=>{
     document.body.classList.add('support-panel-ready');
     openLogin();
   }
-  function openLogin(){document.getElementById('loginModal').classList.add('open')}
+  function supportAuthStatus(id,message,isError=false){
+    const el=document.getElementById(id);if(!el)return;
+    el.textContent=message||'';
+    el.classList.toggle('error',Boolean(isError));
+    el.classList.toggle('success',Boolean(message)&&!isError);
+  }
+  function openLogin(){
+    document.getElementById('forgotPasswordModal')?.classList.remove('open');
+    document.getElementById('loginModal')?.classList.add('open');
+  }
+  function openForgotPassword(){
+    document.getElementById('loginModal')?.classList.remove('open');
+    supportAuthStatus('supportForgotStatus','');
+    const email=document.getElementById('loginUser')?.value?.trim()||'';
+    if(email)document.getElementById('supportForgotEmail').value=email;
+    document.getElementById('forgotPasswordModal')?.classList.add('open');
+    document.getElementById('supportForgotEmail')?.focus();
+  }
+  async function requestPasswordRecovery(e){
+    e.preventDefault();
+    const email=String(document.getElementById('supportForgotEmail')?.value||'').trim().toLowerCase();
+    const btn=document.getElementById('supportForgotSubmit');
+    if(!email||!document.getElementById('supportForgotEmail')?.checkValidity())return;
+    btn.disabled=true;
+    supportAuthStatus('supportForgotStatus','Procesando solicitud…');
+    try{
+      const res=await fetch(SUPPORT_PASSWORD_ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||data.ok!==true)throw new Error('No se pudo procesar la solicitud. Intenta nuevamente más tarde.');
+      supportAuthStatus('supportForgotStatus','Si el correo pertenece a una cuenta activa de Soporte, recibirás un enlace para restablecer tu contraseña. Revisa también Spam.');
+    }catch(err){
+      supportAuthStatus('supportForgotStatus',err?.message||'Error de conexión. Inténtalo de nuevo.',true);
+    }finally{btn.disabled=false;}
+  }
   function openClientLookup(){document.getElementById('clientLookupModal').classList.add('open')}
-  function openPasswordSetup(){document.getElementById('passwordSetupModal').classList.add('open')}
+  function openPasswordSetup(mode='invite'){
+    passwordSetupMode=mode;
+    document.getElementById('loginModal')?.classList.remove('open');
+    document.getElementById('forgotPasswordModal')?.classList.remove('open');
+    document.getElementById('supportPasswordTitle').textContent=mode==='recovery'?'Nueva contraseña':'Crear contraseña';
+    document.getElementById('newPassword').value='';
+    document.getElementById('confirmPassword').value='';
+    supportAuthStatus('passwordSetupMsg','');
+    document.getElementById('passwordSetupModal').classList.add('open');
+  }
+  async function cancelPasswordSetup(){
+    closeModals();
+    await supabaseClient.auth.signOut();
+    localStorage.removeItem('ts_service_session');session=null;
+    passwordSetupMode='invite';
+    history.replaceState(null,'',location.pathname);
+    showSupportLoginScreen();
+  }
   function closeModals(){stopOrderMessagePolling();document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'))}
 
   function supportProfileInitials(value=session?.name||session?.email||'TS'){
@@ -776,12 +828,24 @@ const TSService=(()=>{
     const p1=document.getElementById('newPassword').value;
     const p2=document.getElementById('confirmPassword').value;
     const msg=document.getElementById('passwordSetupMsg');
-    if(p1!==p2){msg.textContent='Las contraseñas no coinciden.';return}
-    if(p1.length<8){msg.textContent='La contraseña debe tener mínimo 8 caracteres.';return}
-
+    if(p1!==p2){supportAuthStatus('passwordSetupMsg','Las contraseñas no coinciden.',true);return}
+    if(p1.length<8){supportAuthStatus('passwordSetupMsg','La contraseña debe tener mínimo 8 caracteres.',true);return}
+    const btn=document.getElementById('supportPasswordSubmit');btn.disabled=true;
+    const {data:current}=await supabaseClient.auth.getSession();
+    if(!current?.session){supportAuthStatus('passwordSetupMsg','El enlace venció. Solicita uno nuevo.',true);btn.disabled=false;return;}
     const {error}=await supabaseClient.auth.updateUser({password:p1});
-    if(error){msg.textContent='No se pudo guardar: '+error.message;return}
+    if(error){supportAuthStatus('passwordSetupMsg','No se pudo guardar la contraseña. Solicita otro enlace si ha vencido.',true);btn.disabled=false;return}
 
+    if(passwordSetupMode==='recovery'){
+      await supabaseClient.auth.signOut();
+      localStorage.removeItem('ts_service_session');session=null;
+      history.replaceState(null,'',location.pathname);
+      closeModals();passwordSetupMode='invite';
+      showSupportLoginScreen();
+      supportAuthStatus('supportLoginStatus','Contraseña actualizada correctamente. Ya puedes iniciar sesión.');
+      btn.disabled=false;
+      return;
+    }
     msg.textContent='Contraseña creada correctamente. Iniciando panel...';
     const {data:{user}}=await supabaseClient.auth.getUser();
     if(user?.email){
@@ -797,6 +861,7 @@ const TSService=(()=>{
         msg.textContent=err.message||'Contraseña creada, pero el correo no está autorizado en service_users.';
       }
     }
+    btn.disabled=false;
   }
 
   async function logout(){
@@ -2896,6 +2961,33 @@ const TSService=(()=>{
   async function lookupOrder(e){e.preventDefault();const q=lookupCode.value.trim().toUpperCase();lookupResult.innerHTML='<p>Consultando…</p>';const {data,error}=await supabaseClient.rpc('lookup_service_order',{p_code:q});const o=Array.isArray(data)?data[0]:data;lookupResult.innerHTML=!error&&o?`<div class="metric"><b>${o.status}</b><p>${o.device_model}<br>Última actualización: ${dateText(o.updated_at)}</p></div>`:`<p>No encontré esa orden.</p>`}
 
   async function initAuth(){
+    // Recuperación de Soporte mediante token hash de un solo uso (no expuesto al servidor web).
+    const recoveryHash=new URLSearchParams(location.hash.replace(/^#/,''));
+    if(recoveryHash.get('support_recovery')==='1'){
+      const token=recoveryHash.get('token_hash')||'';
+      const tokenType=recoveryHash.get('type');
+      try{
+        if(tokenType!=='recovery'||!token)throw new Error('Enlace incompleto');
+        const {error}=await supabaseClient.auth.verifyOtp({token_hash:token,type:'recovery'});
+        if(error)throw error;
+        history.replaceState(null,'',location.pathname+location.search);
+        // Verificar que aún existe un perfil habilitado; no se modifican permisos ni roles.
+        const {data:{user}}=await supabaseClient.auth.getUser();
+        if(!user?.email)throw new Error('Sesión no válida');
+        await getServiceProfile(user.email);
+        document.getElementById('supportPanelLoader')?.classList.add('done');
+        document.body.classList.add('support-panel-ready');
+        openPasswordSetup('recovery');
+      }catch(err){
+        console.warn('Soporte recovery invalid:',err?.message||err);
+        history.replaceState(null,'',location.pathname+location.search);
+        await supabaseClient.auth.signOut();
+        localStorage.removeItem('ts_service_session');session=null;
+        showSupportLoginScreen();
+        supportAuthStatus('supportLoginStatus','El enlace de recuperación no es válido o ha vencido. Solicita uno nuevo.',true);
+      }
+      return;
+    }
     // V14.93 · Compatibilidad SSO del Main unificado. Interfaz V8.8.7 intacta.
     const ssoQuery=new URLSearchParams(location.search);
     const ssoToken=ssoQuery.get('sso_token_hash');
@@ -2915,7 +3007,7 @@ const TSService=(()=>{
     const accessToken=params.get('access_token');
 
     if(accessToken&&(type==='invite'||type==='recovery')){
-      openPasswordSetup();
+      openPasswordSetup(type==='recovery'?'recovery':'invite');
       return;
     }
 
@@ -2956,5 +3048,5 @@ const TSService=(()=>{
     if(q){openClientLookup();lookupCode.value=q;}
   });
 
-  return{openLogin,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,toggleDeviceAccessField,toggleDeviceAccessVisibility,revealManagerDeviceAccess,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,updateManagerUsdConversion,managerBolivarEdited,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,undoLastDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
+  return{openLogin,openForgotPassword,requestPasswordRecovery,cancelPasswordSetup,openClientLookup,closeModals,login,logout,backToMainPanel,openProfilePhoto,previewProfilePhoto,saveProfilePhoto,removeProfilePhoto,renderPanel,updateAppointmentStatus,convertAppointment,openServiceOrder,openExistingReception,toggleDeviceAccessField,toggleDeviceAccessVisibility,revealManagerDeviceAccess,openReceptionClientSearch,closeReceptionClientSearch,searchReceptionClients,selectReceptionClient,startNewReceptionClient,saveOrder,updateStatus,printOrder,printLabel,printCompletedReception,printCompletedLabel,openCompletedTracking,lookupOrder,saveNewPassword,openBitacora,saveBitacora,sendBitacoraUpdate,applyBitacoraTemplate,renderBitacoraPreview,syncBitacoraVisibility,renderBitacoraClientHistory,openSupportNotification,markNotificationRead,markAllNotificationsRead,setNotificationFilter,loadSupportAlerts,toggleNotificationClientGroup,openNotificationOrder,sendQuoteToClient,openOrderManager,saveOrderManager,openCashierForOrder,refreshManagerPaymentView,recordManagerPayment,voidManagerPayment,updateManagerFinancing,updateManagerPaymentInputs,updateManagerUsdConversion,managerBolivarEdited,uploadOrderFile,toggleOrderFileVisibility,confirmDeleteOrderFile,openOrderImage,retryOrderImage,renderOrderMessages,sendStaffOrderMessage,notifyOrderClient,openPartEditor,savePart,openPartMovement,savePartMovement,filterTechnicianInventory,filterRepairParts,addRepairPart,setRepairPartQty,changeRepairPartQty,removeRepairPart,commitRepairParts,renderOrderPartPicker,previewSelectedDevice,selectDeviceFromSearch,handleModelSearch,openModelDropdown,closeModelDropdown,toggleModelDropdown,chooseModelFromDropdown,clearSelectedModel,setDamageTool,addDamageMark,undoLastDamageMark,clearDamageMarks,filterDeviceCategory,setDeviceView,setReceptionDeviceCategory,toggleQuickFailure,clearQuickFailures,previewReceptionPhoto,removeReceptionPhoto};
 })();

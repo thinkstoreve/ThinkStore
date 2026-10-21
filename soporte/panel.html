@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0f0f10"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Panel de Soporte | ThinkStore</title>
-  <link rel="stylesheet" href="styles.css?v=8.8.15" />
+  <link rel="stylesheet" href="styles.css?v=8.8.31" />
 
 <style id="ts-v12-8-icon-spacing">
 /* V12.8: acercar únicamente los iconos de cuenta, carrito y búsqueda */
@@ -120,24 +120,43 @@
       <div class="unified-access-divider"><span>o cuenta local de soporte</span></div>
       <label>Correo electrónico<input id="loginUser" type="email" required placeholder="nombre@correo.com" autocomplete="email" inputmode="email" /></label>
       <label>Contraseña<input id="loginPass" type="password" required placeholder="Contraseña" autocomplete="current-password" /></label>
+      <div class="support-login-recover"><button type="button" class="support-recover-link" onclick="TSService.openForgotPassword()">¿Olvidaste tu contraseña?</button></div>
       <div class="support-login-actions">
         <button class="support-login-submit">Ingresar</button>
         <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
       </div>
+      <p id="supportLoginStatus" class="support-auth-status" role="status" aria-live="polite"></p>
       <small class="support-login-help">Vendedores con acceso a Servicio Técnico pueden entrar como <b>Recepcionista</b> usando su misma cuenta ThinkStore.</small>
     </form>
   </div>
 
+  <div id="forgotPasswordModal" class="modal support-login-modal" role="dialog" aria-modal="true" aria-labelledby="supportForgotTitle">
+    <form class="card support-login-card" onsubmit="TSService.requestPasswordRecovery(event)">
+      <div class="support-login-brand"><img src="assets/thinkstore-logo-white.png" alt="ThinkStore" /><div><span>SEGURIDAD DE CUENTA</span><b>ThinkStore Soporte</b></div></div>
+      <h2 id="supportForgotTitle">Recuperar contraseña</h2>
+      <p class="support-login-copy">Escribe el correo registrado en Soporte. Si la cuenta está activa, recibirás un enlace seguro para crear una nueva contraseña.</p>
+      <label for="supportForgotEmail">Correo electrónico
+        <input id="supportForgotEmail" type="email" placeholder="nombre@correo.com" inputmode="email" autocomplete="email" required maxlength="254" />
+      </label>
+      <button id="supportForgotSubmit" type="submit" class="support-login-submit support-recovery-submit">Enviar enlace de recuperación</button>
+      <p id="supportForgotStatus" class="support-auth-status" role="status" aria-live="polite"></p>
+      <button type="button" class="support-recover-back secondary" onclick="TSService.openLogin()">Volver a iniciar sesión</button>
+      <div class="support-unified-recovery">¿Utilizas la cuenta unificada de ThinkStore? <a href="https://thinkstore.com.ve/login.html?view=forgot">Recupérala aquí</a>.</div>
+    </form>
+  </div>
 
-  <div id="passwordSetupModal" class="modal">
-    <form class="card" onsubmit="TSService.saveNewPassword(event)">
-      <h2>Crear contraseña</h2>
-      <p>Define tu contraseña para acceder al panel de soporte ThinkStore.</p>
-      <label>Nueva contraseña</label><input id="newPassword" type="password" required minlength="8" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
-      <label>Confirmar contraseña</label><input id="confirmPassword" type="password" required minlength="8" placeholder="Repite la contraseña" autocomplete="new-password" />
-      <button>Guardar contraseña</button>
-      <button type="button" class="secondary" onclick="TSService.closeModals()">Cancelar</button>
-      <p id="passwordSetupMsg"></p>
+  <div id="passwordSetupModal" class="modal support-login-modal" role="dialog" aria-modal="true" aria-labelledby="supportPasswordTitle">
+    <form class="card support-login-card" onsubmit="TSService.saveNewPassword(event)">
+      <div class="support-login-brand"><img src="assets/thinkstore-logo-white.png" alt="ThinkStore" /><div><span>ACCESO SEGURO</span><b>ThinkStore Soporte</b></div></div>
+      <h2 id="supportPasswordTitle">Crear contraseña</h2>
+      <p class="support-login-copy">Define tu nueva contraseña para acceder a Soporte ThinkStore.</p>
+      <label for="newPassword">Nueva contraseña<input id="newPassword" type="password" required minlength="8" maxlength="128" placeholder="Mínimo 8 caracteres" autocomplete="new-password" /></label>
+      <label for="confirmPassword">Confirmar contraseña<input id="confirmPassword" type="password" required minlength="8" maxlength="128" placeholder="Repite la contraseña" autocomplete="new-password" /></label>
+      <div class="support-login-actions">
+        <button id="supportPasswordSubmit" type="submit" class="support-login-submit">Guardar contraseña</button>
+        <button type="button" class="secondary" onclick="TSService.cancelPasswordSetup()">Cancelar</button>
+      </div>
+      <p id="passwordSetupMsg" class="support-auth-status" role="status" aria-live="polite"></p>
     </form>
   </div>
 
@@ -562,6 +581,6 @@
 <script>window.THINKSTORE_OFFLINE_CONFIG={app:"support"};</script><script src="offline-runtime.js?v=2.0.0"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="app.js?v=8.8.15"></script>
+  <script src="app.js?v=8.8.31"></script>
 <script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body>
 </html>

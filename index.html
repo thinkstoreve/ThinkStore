@@ -47,6 +47,7 @@
  #categoryModalV2[data-collection="silicone-cases"] .ts-v2-product-img{height:240px!important}
 }
 </style>
+<link rel="stylesheet" href="mobile-header.css?v=15.41.6">
 </head><body data-ts-surface="store">
 <header class="top ts-clean-header">
   <div class="ts-header-left">
@@ -54,6 +55,9 @@
       <img loading="eager" decoding="async" src="assets/logo-thinkstore.png" alt="ThinkStore">
       <span><b>ThinkStore</b><small>Tecnología. Todo en un solo lugar.</small></span>
     </a>
+    <button class="ts-mobile-toggle" id="tsMobileMenuToggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="tsMobileMenu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="ts-menu-bars" d="M4 6.5h16 M4 12h16 M4 17.5h16"/><path class="ts-menu-close" d="M6 6l12 12 M18 6L6 18"/></svg>
+    </button>
     <a class="ts-home-link" href="#inicio" aria-label="Inicio">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/></svg>
       <span>Inicio</span>
@@ -75,6 +79,14 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.2 4.2"/></svg>
     </button>
   </nav>
+  <div class="ts-mobile-panel" id="tsMobileMenu" role="navigation" aria-label="Menú principal móvil" hidden>
+    <a href="#inicio">Inicio</a>
+    <a href="trade-in.html">Trade-IN</a>
+    <a href="servicio-tecnico.html" target="_blank" rel="noopener">Servicio Técnico</a>
+    <a href="nosotros.html">Nosotros</a>
+    <a href="atencion-cliente.html">Soporte</a>
+    <a href="contacto.html">Contacto</a>
+  </div>
 </header>
 
 <!-- ThinkStore BUILD V13.84 · HERO 5 SLIDES · COLORES APPLE · HEADER SHRINK ESTABLE -->
@@ -1164,4 +1176,5 @@
 <script src="checkout-policy.js?v=15.41.5"></script>
 <link rel="stylesheet" href="checkout-flow.css?v=15.41.5">
 <script src="checkout-flow.js?v=15.41.5"></script>
+<script src="mobile-header.js?v=15.41.6" defer></script>
 </body></html>

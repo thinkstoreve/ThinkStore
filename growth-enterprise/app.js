@@ -1,0 +1,4097 @@
+const titles = {
+  operations:["Operación","Ventas, inventario, clientes y Servicio Técnico con datos reales."],
+  executive:["Resumen","Libro financiero central de ThinkStore con datos reales."],
+  weekly:["Resumen semanal","Ventas online y presenciales, Servicio Técnico, citas, cobros, entregas y reparto 50/25/25."],
+  commercial:["Control Comercial ThinkStore","Ventas, clientes, inventario, pagos, notas de entrega y correos con datos reales."],
+  sales:["Ventas","Pedidos, ingresos, canales y rendimiento comercial."],
+  products:["Productos","Catálogo estratégico, top ventas y rentabilidad por modelo."],
+  inventory:["Inventario Pro","Stock crítico, agotados, rotación y reposición preparada."],
+  clients:["CRM Clientes","Clientes VIP, frecuentes, inactivos y valor comercial."],
+  staff:["Accesos de vendedores","Crea, administra y limita accesos del equipo como Shopify Staff."],
+  marketing:["Marketing Center","Audiencias reales y acceso al remitente oficial de campañas."],
+  finance:["Finanzas Pro","Ventas, ticket promedio, pagos pendientes y control financiero."],
+  treasury:["Tesorería & Socios","Gastos, compras, aportes de socios, devoluciones, cuentas por cobrar, abonos y comisiones técnicas."],
+  pettyCash:["Caja Chica","Fondos menores, reposiciones, gastos, comprobantes y saldo disponible."],
+  reconciliation:["Conciliación de caja","Compara los movimientos esperados por Zelle, Pago Móvil, efectivo, bancos y otros métodos con los saldos reales."],
+  weeklyAudit:["Auditoría semanal","Cierre financiero semanal, utilidad distribuible y reparto 50% empresa · 25% Freddy · 25% Nelson."],
+  reports:["Inteligencia Comercial","BI, segmentos, top clientes, productos y reportes ejecutivos."],
+  support:["Centro de Soporte","Control ejecutivo de soporte.thinkstore.com.ve: órdenes, diagnósticos, técnicos y entregas."],
+  client360:["Cliente 360","Ficha consolidada de cliente con compras, soporte, garantías y alertas."],
+  warranties:["Garantías","Garantías activas, vencidas y próximas a vencer por cliente/equipo."],
+  alerts:["Centro de Alertas","Alertas comerciales, soporte, pagos, inventario y seguimiento ejecutivo."],
+  integrations:["Integraciones","Conexiones con Supabase, Stripe, Shopify, correo y logística."],
+  automations:["Automatizaciones","Flujos inteligentes para ventas, soporte y marketing."],
+  settings:["Configuración","Permisos, roles, accesos y seguridad del panel."]
+};
+
+const PRIMARY_OWNER_EMAIL='thinkstore.ve@gmail.com';
+const PRIMARY_OWNER_NAME='Freddy Sedispa';
+function canonicalOwnerName(email,...values){
+  const normalized=String(email||'').trim().toLowerCase();
+  if(normalized===PRIMARY_OWNER_EMAIL)return PRIMARY_OWNER_NAME;
+  for(const value of values){const name=String(value||'').trim();if(name)return name;}
+  return normalized?normalized.split('@')[0]:'Administrador';
+}
+
+let currentProfile = null;
+let deferredPwaPrompt = null;
+let pwaReady = false;
+let enterpriseBootStarted = false;
+let enterpriseWelcomeShown = false;
+
+function firstName(value){
+  const clean=String(value||'').trim();
+  return clean ? clean.split(/\s+/)[0] : 'Socio';
+}
+function caracasHour(){
+  try{
+    const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Caracas',hour:'2-digit',hour12:false}).formatToParts(new Date());
+    return Number(parts.find(x=>x.type==='hour')?.value||12);
+  }catch{return new Date().getHours()}
+}
+function enterpriseGreeting(){
+  const h=caracasHour();
+  if(h<12)return 'Buenos días';
+  if(h<19)return 'Buenas tardes';
+  return 'Buenas noches';
+}
+let enterpriseBootFailsafeTimer=null;
+function forceEnterpriseOpen(){
+  try{
+    const app=qs('app'),lock=qs('lockScreen'),boot=qs('enterpriseBoot');
+    app?.classList.remove('hidden');
+    lock?.classList.add('hidden');
+    if(boot){
+      boot.classList.add('hidden');
+      boot.classList.remove('boot-show','boot-leave');
+      boot.style.display='none';
+      boot.setAttribute('aria-hidden','true');
+    }
+  }catch(_error){}
+}
+function showEnterpriseBoot(name){
+  const el=qs('enterpriseBoot'); if(!el)return;
+  enterpriseBootStarted=true;
+  el.style.display='';
+  el.removeAttribute('aria-hidden');
+  const n=firstName(name);
+  if(qs('enterpriseBootTitle'))qs('enterpriseBootTitle').textContent=`${enterpriseGreeting()}, ${n}`;
+  if(qs('enterpriseBootText'))qs('enterpriseBootText').textContent='Sincronizando ventas, caja, inventario, soporte y finanzas…';
+  el.classList.remove('hidden','boot-leave');
+  requestAnimationFrame(()=>el.classList.add('boot-show'));
+  clearTimeout(enterpriseBootFailsafeTimer);
+  enterpriseBootFailsafeTimer=setTimeout(forceEnterpriseOpen,2600);
+}
+function hideEnterpriseBoot(){
+  clearTimeout(enterpriseBootFailsafeTimer);
+  enterpriseBootFailsafeTimer=null;
+  const el=qs('enterpriseBoot'); if(!el)return;
+  el.classList.add('boot-leave');
+  setTimeout(forceEnterpriseOpen,360);
+}
+function showPartnerWelcome(data){
+  if(enterpriseWelcomeShown)return;
+  const el=qs('partnerWelcome'); if(!el)return;
+  enterpriseWelcomeShown=true;
+  const name=firstName(currentProfile?.full_name||currentProfile?.nombre||'Socio');
+  const money=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const open=Number(data?.staff_cash?.open_sessions||0);
+  if(qs('partnerWelcomeTitle'))qs('partnerWelcomeTitle').textContent=`${enterpriseGreeting()}, ${name}`;
+  if(qs('partnerWelcomeSubtitle'))qs('partnerWelcomeSubtitle').textContent='ThinkStore está sincronizado. Este es el pulso del negocio ahora.';
+  const stats=qs('partnerWelcomeStats');
+  if(stats)stats.innerHTML=`<article><span>Cobrado semana</span><b>${money(data?.collections?.gross)}</b></article><article><span>Utilidad distribuible</span><b>${money(data?.result?.distributable)}</b></article><article><span>Cajas Staff abiertas</span><b>${open}</b></article>`;
+  el.classList.remove('hidden','welcome-leave');
+  requestAnimationFrame(()=>el.classList.add('welcome-show'));
+  const close=()=>{el.classList.add('welcome-leave');setTimeout(()=>{el.classList.add('hidden');el.classList.remove('welcome-show','welcome-leave')},420)};
+  if(qs('partnerWelcomeClose'))qs('partnerWelcomeClose').onclick=close;
+  setTimeout(()=>{if(!el.classList.contains('hidden'))close()},5200);
+}
+function animateActiveView(){
+  const view=document.querySelector('.view.active'); if(!view)return;
+  view.classList.remove('view-enter'); void view.offsetWidth; view.classList.add('view-enter');
+}
+
+const activity = [];
+const products = [];
+const channels = [];
+const status = [];
+const modules = {};
+
+function qs(id){return document.getElementById(id)}
+function safe(value){return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
+function releaseEnterpriseBootOnRuntimeError(){
+  try{
+    const app=qs('app'),boot=qs('enterpriseBoot');
+    if(app&&!app.classList.contains('hidden')&&boot&&!boot.classList.contains('hidden'))setTimeout(()=>hideEnterpriseBoot(),60);
+  }catch{}
+}
+window.addEventListener('error',releaseEnterpriseBootOnRuntimeError);
+window.addEventListener('unhandledrejection',releaseEnterpriseBootOnRuntimeError);
+function setLoginMessage(message, type=''){
+  const el = qs('loginMessage');
+  if(!el) return;
+  el.textContent = message;
+  el.className = `login-message ${type}`.trim();
+}
+function getClient(){
+  if(!window.supabaseClient){
+    setLoginMessage('Supabase no está listo. Revisa supabase.js y recarga la página.', 'error');
+    throw new Error('Supabase client missing');
+  }
+  return window.supabaseClient;
+}
+async function getAdminProfile(user){
+  const client=getClient();
+  const email=String(user?.email||'').trim();
+  let legacy=null,profile=null;
+
+  // V10.4: leer esquemas modernos e históricos sin depender de que existan
+  // columnas concretas (role/active vs rol/activo, full_name vs nombre).
+  const rolesRes=await client.from('roles_usuarios').select('*').ilike('email',email).maybeSingle();
+  if(!rolesRes.error&&rolesRes.data){
+    legacy={...rolesRes.data,full_name:rolesRes.data.full_name||rolesRes.data.nombre,role:rolesRes.data.role||rolesRes.data.rol,active:rolesRes.data.active??rolesRes.data.activo,source:'roles_usuarios'};
+  }else if(rolesRes.error){
+    console.warn('No se pudo consultar roles_usuarios:',rolesRes.error.message||rolesRes.error);
+  }
+
+  const profilesRes=await client.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  if(!profilesRes.error&&profilesRes.data){
+    profile={...profilesRes.data,full_name:profilesRes.data.full_name||profilesRes.data.nombre,role:profilesRes.data.role||profilesRes.data.rol,active:profilesRes.data.active??profilesRes.data.activo,source:'profiles'};
+  }else if(profilesRes.error){
+    console.warn('No se pudo consultar profiles:',profilesRes.error.message||profilesRes.error);
+  }
+
+  const chosen=profile||legacy;
+  if(!chosen) throw new Error('Este usuario no tiene un perfil interno ThinkStore.');
+  const rawActive=chosen.active??chosen.activo??legacy?.active??true;
+  const isActive=rawActive!==false&&String(rawActive).toLowerCase()!=='false';
+  if(!isActive) throw new Error('Este usuario está desactivado.');
+
+  const role=String(chosen.role||chosen.rol||legacy?.role||legacy?.rol||'').toLowerCase().replace(/[ -]+/g,'_');
+  const adminRoles=['admin','administrator','super_admin','superadmin','gerente'];
+  let over=chosen.permission_overrides||{};
+  if(typeof over==='string'){try{over=JSON.parse(over)}catch{over={}}}
+  const allow=Array.isArray(over.allow)?over.allow:[],deny=Array.isArray(over.deny)?over.deny:[];
+  const admin=adminRoles.includes(role);
+  const allowed=admin||(!deny.includes('platform.enterprise')&&allow.includes('platform.enterprise'));
+  if(!allowed) throw new Error('Tu cuenta no tiene acceso a Enterprise. Solicita el permiso desde el Panel ThinkStore.');
+
+  const enterpriseRole=admin?'manager':(allow.includes('enterprise.role.manager')?'manager':'viewer');
+  const canonicalName=canonicalOwnerName(email,chosen.full_name,chosen.nombre,legacy?.full_name,user?.user_metadata?.full_name,user?.user_metadata?.name);
+  currentProfile={...chosen,email:chosen.email||email,full_name:canonicalName,nombre:canonicalName,role:chosen.role||chosen.rol||legacy?.role||legacy?.rol,active:isActive,enterprise_role:enterpriseRole,is_full_admin:admin};
+  try{localStorage.setItem('ts_enterprise_profile',JSON.stringify(currentProfile))}catch{}
+  return currentProfile;
+}
+function openEnterpriseUserProfile(){
+  const dialog=qs('enterpriseUserDialog');
+  if(!dialog)return;
+  const profile=currentProfile||{};
+  const text=(id,value)=>{const el=qs(id);if(el)el.textContent=String(value||'—')};
+  text('enterpriseUserName',profile.full_name||profile.nombre||qs('adminName')?.textContent);
+  text('enterpriseUserEmail',profile.email||qs('adminEmailLabel')?.textContent);
+  text('enterpriseUserRole',profile.is_full_admin?'Superadministrador':(profile.enterprise_role==='manager'?'Administrador Enterprise':'Consulta / solo lectura'));
+  text('enterpriseUserStatus',profile.active===false?'Desactivada':'Activa');
+  qs('logoutMini')?.setAttribute('aria-expanded','true');
+  if(typeof dialog.showModal==='function'&&!dialog.open)dialog.showModal();
+}
+function closeEnterpriseUserProfile(){qs('enterpriseUserDialog')?.close();}
+
+function applyAdminIdentity(user, profile={}){
+  const email = profile.email || user.email || 'admin@thinkstore.com.ve';
+  const name = canonicalOwnerName(email,profile.full_name,profile.nombre,user?.user_metadata?.full_name,user?.user_metadata?.name);
+  if(qs('welcomeGreeting')) qs('welcomeGreeting').textContent = enterpriseGreeting();
+  if(qs('welcomeName')) qs('welcomeName').textContent = firstName(name);
+  if(qs('adminName')) qs('adminName').textContent = name;
+  if(qs('adminEmailLabel')) qs('adminEmailLabel').textContent = email;
+  const avatar=document.querySelector('.admin-card .avatar');
+  if(avatar){const parts=String(name||'A').trim().split(/\s+/).filter(Boolean);avatar.textContent=(parts[0]?.[0]||'A')+(parts[1]?.[0]||'');}
+}
+async function unlock(event){
+  event?.preventDefault?.();
+  const email = qs('adminEmail')?.value.trim();
+  const password = qs('adminPassword')?.value;
+  if(!email || !password){ setLoginMessage('Ingresa correo y contraseña.', 'error'); return; }
+
+  try{
+    setLoginMessage('Validando acceso con Supabase...', '');
+    const client = getClient();
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if(error) throw error;
+    const profile = await getAdminProfile(data.user);
+    applyAdminIdentity(data.user, profile);
+    showApp();
+    setLoginMessage('Acceso autorizado.', 'success');
+  }catch(error){
+    console.error(error);
+    try{await window.supabaseClient?.auth?.signOut({scope:'local'})}catch(_error){}
+    forceEnterpriseOpen();
+    qs('app')?.classList.add('hidden');
+    qs('lockScreen')?.classList.remove('hidden');
+    setLoginMessage(error.message || 'No se pudo iniciar sesión.', 'error');
+  }
+}
+function showApp(){
+  showEnterpriseBoot(currentProfile?.full_name||currentProfile?.nombre);
+  const lock=qs('lockScreen');
+  const app=qs('app');
+  lock?.classList.add('hidden');
+  app?.classList.remove('hidden');
+  try{
+    app?.classList.add('enterprise-entering');
+    try{applyEnterpriseAccessUI()}catch(error){console.warn('Enterprise access UI:',error?.message||error)}
+    try{renderHome()}catch(error){console.warn('Enterprise home:',error?.message||error)}
+    try{renderModules()}catch(error){console.warn('Enterprise modules:',error?.message||error)}
+    if(currentProfile?.is_full_admin){try{renderStaffAccess()}catch(error){console.warn('Enterprise staff:',error?.message||error)}}
+    try{animateActiveView()}catch(error){console.warn('Enterprise animation:',error?.message||error)}
+  }finally{
+    setTimeout(()=>app?.classList.remove('enterprise-entering'),900);
+    setTimeout(()=>hideEnterpriseBoot(),2400);
+  }
+  Promise.resolve().then(()=>loadEnterpriseV1Real()).catch(error=>console.warn('Enterprise background sync:',error?.message||error));
+}
+function applyEnterpriseAccessUI(){const app=qs('app');if(!app)return;app.classList.remove('enterprise-viewer','enterprise-manager');if(!currentProfile?.is_full_admin)app.classList.add(currentProfile?.enterprise_role==='manager'?'enterprise-manager':'enterprise-viewer');const sub=qs('pageSubtitle');if(sub&&!currentProfile?.is_full_admin&&currentProfile?.enterprise_role==='viewer')sub.textContent='Acceso Enterprise · Solo lectura'}
+
+async function sendPasswordRecovery(){
+  const email = qs('adminEmail')?.value.trim();
+  if(!email){
+    setLoginMessage('Escribe tu correo para enviar el enlace de recuperación.', 'error');
+    qs('adminEmail')?.focus();
+    return;
+  }
+
+  try{
+    setLoginMessage('Enviando enlace de recuperación...', '');
+    const { error } = await getClient().auth.resetPasswordForEmail(email, {
+      redirectTo: new URL('reset-password.html',location.href).href
+    });
+    if(error) throw error;
+    setLoginMessage('Te enviamos un enlace para restablecer tu contraseña.', 'success');
+  }catch(error){
+    console.error(error);
+    setLoginMessage(error.message || 'No se pudo enviar el enlace.', 'error');
+  }
+}
+
+async function logout(){ await window.supabaseClient?.auth?.signOut(); location.reload(); }
+async function bootAuth(){
+  const client=getClient();
+  let opening=false,opened=false;
+  const params=new URLSearchParams(location.search);
+  const ssoTokenHash=params.get('sso_token_hash');
+  const ssoType=params.get('sso_type')||'magiclink';
+  const hasHashCallback=/(#.*access_token=|#.*refresh_token=|#.*type=)/i.test(location.href);
+  const hasCodeCallback=/[?&]code=/i.test(location.href);
+  const isSsoEntry=Boolean(ssoTokenHash||hasHashCallback||hasCodeCallback);
+
+  // V10.22: conservar una sesión válida al recargar o actualizar Enterprise.
+  // El cierre de sesión ocurre únicamente al pulsar Salir o cuando Supabase realmente invalida la sesión.
+
+  async function openSession(session){
+    if(opened||opening||!session?.user)return false;
+    opening=true;
+    try{
+      const profile=await getAdminProfile(session.user);
+      applyAdminIdentity(session.user,profile);
+      showApp();
+      opened=true;
+      if(location.hash&&/(access_token|refresh_token|type=)/i.test(location.hash)){
+        history.replaceState(null,'',location.pathname+location.search);
+      }
+      return true;
+    }catch(error){
+      console.warn('Enterprise session profile:',error?.message||error);
+      throw error;
+    }finally{opening=false}
+  }
+
+  if(ssoTokenHash){
+    try{
+      setLoginMessage('Completando acceso unificado…','');
+      const {error}=await client.auth.verifyOtp({token_hash:ssoTokenHash,type:ssoType==='magiclink'?'magiclink':ssoType});
+      if(error)throw error;
+      params.delete('sso_token_hash');params.delete('sso_type');params.delete('sso_v');
+      const clean=params.toString();
+      history.replaceState(null,'',location.pathname+(clean?'?'+clean:'')+location.hash);
+    }catch(error){
+      console.warn('Enterprise SSO token:',error?.message||error);
+      try{await client.auth.signOut({scope:'local'})}catch(_error){}
+      forceEnterpriseOpen();
+      qs('app')?.classList.add('hidden');
+      qs('lockScreen')?.classList.remove('hidden');
+      setLoginMessage('El acceso unificado venció. Inicia sesión con tus credenciales.','error');
+      return;
+    }
+  }
+
+  const unsubscribe=client.auth.onAuthStateChange((_event,session)=>{
+    if(session?.user&&!opened){
+      setTimeout(()=>openSession(session).catch(error=>{
+        console.warn('Enterprise SSO:',error?.message||error);
+        forceEnterpriseOpen();
+        qs('app')?.classList.add('hidden');
+        qs('lockScreen')?.classList.remove('hidden');
+        setLoginMessage(error.message||'No se pudo validar el acceso unificado.','error');
+      }),0);
+    }
+  });
+
+  try{
+    const {data,error}=await client.auth.getSession();
+    if(error)throw error;
+    if(await openSession(data?.session))return;
+    forceEnterpriseOpen();
+    qs('app')?.classList.add('hidden');
+    qs('lockScreen')?.classList.remove('hidden');
+    setLoginMessage('Inicia sesión para abrir Enterprise.','');
+  }catch(error){
+    console.warn('Enterprise:',error?.message||error);
+    forceEnterpriseOpen();
+    qs('app')?.classList.add('hidden');
+    qs('lockScreen')?.classList.remove('hidden');
+    setLoginMessage(error.message||'No se pudo conectar con Supabase. Reintenta.','error');
+  }
+}
+function renderHome(){
+  const activityList=qs('activityList'); if(activityList)activityList.innerHTML='<div class="activity-item"><div><b>Cargando actividad real…</b><span>Sin datos simulados</span></div></div>';
+  const topProducts=qs('topProducts'); if(topProducts)topProducts.innerHTML='<div class="product-row"><div><b>Cargando productos reales…</b><small>Supabase</small></div></div>';
+  const channelList=qs('channelList'); if(channelList)channelList.innerHTML='<li><span>Cargando canales reales…</span></li>';
+  const statusList=qs('statusList'); if(statusList)statusList.innerHTML='<div class="status-row"><b>Conectando fuentes reales…</b></div>';
+}
+function renderModules(){
+  Object.entries(modules).forEach(([id,items])=>{
+    const el = qs(id); if(!el) return;
+    el.innerHTML = `<div class="module-grid">${items.map(([h,v,p])=>`<article class="module-card"><h3>${h}</h3><strong>${v}</strong><p>${p}</p></article>`).join('')}</div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Detalle operativo</h3><button onclick="exportCSV('${id}')">Exportar CSV</button></div><div class="table">${items.map(([h,v,p])=>`<div class="table-row"><div><b>${h}</b><br><small>${p}</small></div><span>${v}</span><i class="tag">Enterprise</i></div>`).join('')}</div></article>`;
+  });
+}
+function switchView(id){
+  document.querySelectorAll('.nav,.view').forEach(x=>x.classList.remove('active'));
+  document.querySelector(`.nav[data-view="${id}"]`)?.classList.add('active');
+  qs(id)?.classList.add('active');
+  if(titles[id]){ qs('pageTitle').textContent = titles[id][0]; qs('pageSubtitle').textContent = titles[id][1]; }
+  if(id === 'staff') loadStaffAccess();
+  if(id === 'commercial') loadEnterpriseV1Real();
+  if(['support','client360','warranties','alerts'].includes(id)) loadEnterpriseV6Support();
+  animateActiveView();
+}
+function exportCSV(id='executive'){
+  const source = modules[id] || [];
+  const rows = [['Modulo','Metrica','Valor','Descripcion'], ...source.map(r=>[id,...r])];
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `thinkstore-growth-${id}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function roleOptions(selected='vendedor'){
+  const roles = [
+    ['vendedor','Vendedor'], ['gerente','Gerente'], ['marketing','Marketing'],
+    ['logistica','Logística'], ['recepcion','Recepción'], ['tecnico','Técnico'], ['admin','Administrador']
+  ];
+  return roles.map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
+}
+function permissionsForRole(role){
+  const map = {
+    vendedor: ['Ver pedidos asignados','Crear ventas','Ver clientes básicos','Sin acceso a finanzas'],
+    gerente: ['Ver ventas','Ver clientes','Ver inventario','Reportes comerciales'],
+    marketing: ['Campañas','Clientes segmentados','Reportes de ROI'],
+    logistica: ['Envíos','Tracking','Entregas'],
+    recepcion: ['Recepción de equipos','Órdenes de servicio'],
+    tecnico: ['Diagnóstico','Bitácora técnica','Estados de reparación'],
+    admin: ['Acceso completo','Usuarios','Finanzas','Configuración']
+  };
+  return map[role] || map.vendedor;
+}
+function renderStaffAccess(){
+  const el = qs('staff'); if(!el) return;
+  el.innerHTML = `
+    <div class="staff-grid">
+      <article class="panel staff-form-panel">
+        <div class="panel-head"><h3>Crear acceso para vendedor</h3><span class="tag">Shopify Staff style</span></div>
+        <p class="staff-help">Crea invitaciones y perfiles de equipo. Para crear el usuario Auth automáticamente necesitas la Edge Function incluida; si no está instalada, quedará como invitación pendiente.</p>
+        <form id="staffForm" class="staff-form">
+          <label>Nombre completo<input id="staffName" placeholder="Ej: María González" required></label>
+          <label>Correo<input id="staffEmail" type="email" placeholder="vendedor@thinkstore.com.ve" required></label>
+          <label>Rol<select id="staffRole">${roleOptions('vendedor')}</select></label>
+          <label>Contraseña temporal<input id="staffPassword" type="password" placeholder="Mínimo 8 caracteres" minlength="8"></label>
+          <label class="wide">Notas internas<input id="staffNotes" placeholder="Ej: asesor de ventas Chacao"></label>
+          <button type="submit">Crear acceso</button>
+        </form>
+        <small id="staffMessage" class="login-message"></small>
+      </article>
+      <article class="panel permissions-panel">
+        <div class="panel-head"><h3>Permisos por rol</h3></div>
+        <div id="permissionsPreview" class="permission-list"></div>
+      </article>
+    </div>
+    <article class="panel" style="margin-top:18px">
+      <div class="panel-head"><h3>Equipo y accesos</h3><button onclick="loadStaffAccess()">Actualizar</button></div>
+      <div id="staffTable" class="table"><div class="table-row"><div><b>Cargando accesos...</b><br><small>Consultando Supabase</small></div><span></span><i class="tag">Staff</i></div></div>
+    </article>
+  `;
+  qs('staffForm')?.addEventListener('submit', createStaffAccess);
+  qs('staffRole')?.addEventListener('change', renderPermissionPreview);
+  renderPermissionPreview();
+}
+function setStaffMessage(message, type=''){
+  const el = qs('staffMessage'); if(!el) return;
+  el.textContent = message;
+  el.className = `login-message ${type}`.trim();
+}
+function renderPermissionPreview(){
+  const role = qs('staffRole')?.value || 'vendedor';
+  const el = qs('permissionsPreview'); if(!el) return;
+  el.innerHTML = permissionsForRole(role).map(item=>`<div class="permission-row"><i>✓</i><span>${safe(item)}</span></div>`).join('');
+}
+async function createStaffAccess(event){
+  event?.preventDefault?.();
+  const client = getClient();
+  const full_name = qs('staffName')?.value.trim();
+  const email = qs('staffEmail')?.value.trim().toLowerCase();
+  const role = qs('staffRole')?.value || 'vendedor';
+  const temporary_password = qs('staffPassword')?.value || null;
+  const notes = qs('staffNotes')?.value.trim() || null;
+  if(!full_name || !email){ setStaffMessage('Completa nombre y correo.', 'error'); return; }
+  try{
+    setStaffMessage('Creando acceso...', '');
+
+    const payload = { email, full_name, role, temporary_password, notes };
+    const { data: fnData, error: fnError } = await client.functions.invoke('create-staff-user', { body: payload });
+
+    if(fnError){
+      console.warn('Edge Function no disponible, guardando invitación pendiente:', fnError.message);
+      const { error } = await client.from('staff_invitations').insert({
+        email, full_name, role, notes, status:'pending', invited_by: currentProfile?.id || null
+      });
+      if(error) throw error;
+      setStaffMessage('Invitación guardada. Instala la Edge Function para enviar/crear el usuario automáticamente.', 'success');
+    }else{
+      setStaffMessage(fnData?.message || 'Acceso creado y perfil asignado correctamente.', 'success');
+    }
+
+    qs('staffForm')?.reset();
+    renderPermissionPreview();
+    await loadStaffAccess();
+  }catch(error){
+    console.error(error);
+    setStaffMessage(error.message || 'No se pudo crear el acceso.', 'error');
+  }
+}
+async function loadStaffAccess(){
+  const table = qs('staffTable'); if(!table) return;
+  const client = getClient();
+  try{
+    // Usamos roles_usuarios como fuente principal para evitar errores 500/RLS de profiles.
+    const [rolesRes, invitesRes] = await Promise.all([
+      client.from('roles_usuarios').select('id,email,nombre,rol,activo,created_at').order('created_at',{ascending:false}).limit(50),
+      client.from('staff_invitations').select('id,email,full_name,role,status,created_at,notes').order('created_at',{ascending:false}).limit(50)
+    ]);
+
+    if(rolesRes.error) console.warn('No se pudieron cargar roles_usuarios:', rolesRes.error.message || rolesRes.error);
+    if(invitesRes.error) console.warn('No se pudieron cargar staff_invitations:', invitesRes.error.message || invitesRes.error);
+
+    const staff = rolesRes.error ? [] : (rolesRes.data || []).map(p=>({
+      id:p.id, email:p.email, full_name:p.nombre, role:p.rol, active:p.activo, table:'roles_usuarios'
+    }));
+
+    const invites = invitesRes.error ? [] : (invitesRes.data || []);
+
+    const staffRows = staff.map(p=>`
+      <div class="table-row staff-row">
+        <div><b>${safe(p.full_name || p.email)}</b><br><small>${safe(p.email)} · ${safe(p.table)}</small></div>
+        <select onchange="updateStaffRole('${p.table}','${p.id}', this.value)">${roleOptions(p.role)}</select>
+        <button class="mini-action ${p.active?'danger':''}" onclick="toggleStaffActive('${p.table}','${p.id}', ${p.active ? 'false':'true'})">${p.active ? 'Desactivar':'Activar'}</button>
+      </div>`).join('');
+
+    const inviteRows = invites.map(i=>`
+      <div class="table-row staff-row pending">
+        <div><b>${safe(i.full_name || i.email)}</b><br><small>${safe(i.email)} · ${safe(i.notes || 'Invitación pendiente')}</small></div>
+        <span>${safe(i.role)}</span>
+        <i class="tag">${safe(i.status)}</i>
+      </div>`).join('');
+
+    table.innerHTML = staffRows + inviteRows || `<div class="table-row"><div><b>Sin accesos todavía</b><br><small>Crea el primer vendedor desde el formulario.</small></div><span></span><i class="tag">Staff</i></div>`;
+  }catch(error){
+    console.error(error);
+    table.innerHTML = `<div class="table-row"><div><b>No se pudieron cargar los accesos</b><br><small>${safe(error.message)}</small></div><span></span><i class="tag">Error</i></div>`;
+  }
+}
+async function updateStaffRole(tableName, id, role){
+  try{
+    const table = tableName === 'roles_usuarios' ? 'roles_usuarios' : 'profiles';
+    const payload = table === 'roles_usuarios'
+      ? { rol: role }
+      : { role, updated_at:new Date().toISOString() };
+    const { error } = await getClient().from(table).update(payload).eq('id', id);
+    if(error) throw error;
+    await loadStaffAccess();
+  }catch(error){ alert(error.message || 'No se pudo cambiar el rol.'); }
+}
+async function toggleStaffActive(tableName, id, active){
+  try{
+    const table = tableName === 'roles_usuarios' ? 'roles_usuarios' : 'profiles';
+    const payload = table === 'roles_usuarios'
+      ? { activo: active }
+      : { active, updated_at:new Date().toISOString() };
+    const { error } = await getClient().from(table).update(payload).eq('id', id);
+    if(error) throw error;
+    await loadStaffAccess();
+  }catch(error){ alert(error.message || 'No se pudo actualizar el acceso.'); }
+}
+window.updateStaffRole = updateStaffRole;
+window.toggleStaffActive = toggleStaffActive;
+window.loadStaffAccess = loadStaffAccess;
+
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredPwaPrompt = event;
+  pwaReady = true;
+  const btn = qs('installPwaBtn');
+  if(btn) btn.textContent = 'Instalar app ahora';
+});
+window.addEventListener('appinstalled', () => {
+  deferredPwaPrompt = null;
+  pwaReady = true;
+  console.log('ThinkStore Enterprise instalada como PWA');
+});
+
+document.addEventListener('DOMContentLoaded',()=>{
+  qs('loginForm')?.addEventListener('submit', unlock);
+  qs('forgotPasswordBtn')?.addEventListener('click', sendPasswordRecovery);
+  qs('logoutBtn')?.addEventListener('click',logout);
+  qs('logoutMini')?.addEventListener('click',openEnterpriseUserProfile);
+  qs('enterpriseUserClose')?.addEventListener('click',closeEnterpriseUserProfile);
+  qs('enterpriseUserDismiss')?.addEventListener('click',closeEnterpriseUserProfile);
+  qs('enterpriseUserSignout')?.addEventListener('click',logout);
+  qs('enterpriseUserDialog')?.addEventListener('close',()=>qs('logoutMini')?.setAttribute('aria-expanded','false'));
+  document.querySelectorAll('.nav').forEach(btn=>btn.addEventListener('click',()=>switchView(btn.dataset.view)));
+  qs('searchInput')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase(); document.querySelectorAll('.module-card,.product-row,.activity-item,.status-row,.table-row').forEach(el=>{el.style.outline = q && el.textContent.toLowerCase().includes(q) ? '1px solid rgba(38,119,255,.7)' : ''})});
+  const initialView = new URLSearchParams(location.search).get('view');
+  if(initialView && qs(initialView)) setTimeout(()=>switchView(initialView), 350);
+  bootAuth();
+});
+
+
+/* Enterprise V1 Real: lectura segura desde Supabase
+   No modifica tablas de pedidos, clientes, comprobantes, Resend ni notas de entrega. */
+const ENTERPRISE_TABLES = {
+  customers: ['clientes','customers'],
+  orders: ['pedidos','orders'],
+  payments: ['comprobantes','payments','payment_receipts'],
+  products: ['productos','products','catalogo']
+};
+let enterpriseRealCache = null;
+
+function setText(id, value){ const el = qs(id); if(el) el.textContent = value; }
+function formatNumber(n){ return new Intl.NumberFormat('es-VE').format(Number(n || 0)); }
+function formatUSD(n){ return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(Number(n || 0)); }
+function pick(obj, names){ for(const k of names){ if(obj && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k]; } return null; }
+function normalizeStatus(value){ return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function isPendingPayment(row){
+  const st = normalizeStatus(pick(row, ['estado','status','payment_status','estatus']));
+  return st.includes('pago por verificar') || st.includes('pendiente') || st.includes('verificar') || st.includes('pending');
+}
+function orderTotal(row){
+  const raw = pick(row, ['total_usd','totalUSD','total','monto','amount','precio_total','subtotal']);
+  const n = Number(String(raw || '0').replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n) ? n : 0;
+}
+function rowDate(row){ return pick(row, ['created_at','fecha','date','updated_at']) || ''; }
+function rowCustomerName(row){
+  const c = row?.clientes || row?.customer || {};
+  return pick(c, ['nombre','name','full_name']) || pick(row, ['nombre','cliente','customer_name','name']) || 'Cliente';
+}
+function rowCustomerEmail(row){
+  const c = row?.clientes || row?.customer || {};
+  return pick(c, ['correo','email']) || pick(row, ['correo','email','customer_email']) || '';
+}
+async function countFirstAvailable(tableNames){
+  const client = getClient();
+  for(const table of tableNames){
+    try{
+      const { count, error } = await client.from(table).select('*', { count:'exact', head:true });
+      if(!error) return { table, count: count || 0 };
+      console.warn(`Conteo ${table}:`, error.message || error);
+    }catch(error){ console.warn(`Conteo ${table}:`, error.message || error); }
+  }
+  return { table:null, count:0 };
+}
+async function selectFirstAvailable(tableNames, select='*', options={}){
+  const client = getClient();
+  for(const table of tableNames){
+    try{
+      let query = client.from(table).select(select);
+      if(options.order !== false) query = query.order(options.orderBy || 'created_at', { ascending: options.ascending ?? false });
+      if(options.limit) query = query.limit(options.limit);
+      const { data, error } = await query;
+      if(!error) return { table, data: data || [] };
+      console.warn(`Lectura ${table}:`, error.message || error);
+    }catch(error){ console.warn(`Lectura ${table}:`, error.message || error); }
+  }
+  return { table:null, data:[] };
+}
+async function loadEnterpriseV1Real(){
+  if(!window.supabaseClient || !currentProfile) return null;
+  try{
+    const [customersCount, ordersCount, paymentsCount, productsCount, ordersRows, customersRows, paymentsRows] = await Promise.all([
+      countFirstAvailable(ENTERPRISE_TABLES.customers),
+      countFirstAvailable(ENTERPRISE_TABLES.orders),
+      countFirstAvailable(ENTERPRISE_TABLES.payments),
+      countFirstAvailable(ENTERPRISE_TABLES.products),
+      selectFirstAvailable(ENTERPRISE_TABLES.orders, '*,clientes(*)', { limit: 80 }),
+      selectFirstAvailable(ENTERPRISE_TABLES.customers, '*', { limit: 8 }),
+      selectFirstAvailable(ENTERPRISE_TABLES.payments, '*', { limit: 80 })
+    ]);
+
+    const orders = ordersRows.data || [];
+    const payments = paymentsRows.data || [];
+    const salesTotal = orders.reduce((sum,row)=>sum + orderTotal(row), 0);
+    const pendingPayments = orders.filter(isPendingPayment).length || payments.filter(isPendingPayment).length || paymentsCount.count;
+
+    enterpriseRealCache = {
+      tables: { customers:customersCount.table, orders:ordersCount.table, payments:paymentsCount.table, products:productsCount.table },
+      counts: { customers:customersCount.count, orders:ordersCount.count, payments:paymentsCount.count, products:productsCount.count },
+      salesTotal,
+      pendingPayments,
+      recentOrders: orders.slice(0,8),
+      recentCustomers: (customersRows.data || []).slice(0,8),
+      recentPayments: payments.slice(0,8)
+    };
+
+    updateExecutiveReal(enterpriseRealCache);
+    renderCommercialControl(enterpriseRealCache);
+    renderRealModules(enterpriseRealCache);
+    return enterpriseRealCache;
+  }catch(error){
+    console.error('Enterprise V1 Real:', error);
+    renderCommercialError(error);
+    return null;
+  }
+}
+function updateExecutiveReal(data){
+  setText('metricSalesMonth', formatUSD(data.salesTotal));
+  setText('metricOrdersTotal', formatNumber(data.counts.orders));
+  setText('metricCustomersTotal', formatNumber(data.counts.customers));
+  setText('metricPendingPayments', formatNumber(data.pendingPayments));
+  setText('metricSalesNote', `Tabla: ${data.tables.orders || 'pedidos/orders no disponible'}`);
+  setText('metricOrdersNote', 'Lectura en modo seguro');
+  setText('metricCustomersNote', `Tabla: ${data.tables.customers || 'clientes no disponible'}`);
+  setText('metricPendingNote', 'Sin modificar validaciones');
+  setText('chartTooltipValue', `${formatUSD(data.salesTotal)} registrados`);
+  setText('stripRevenue', formatUSD(data.salesTotal));
+  setText('stripCustomers', formatNumber(data.counts.customers));
+  setText('stripOrders', formatNumber(data.counts.orders));
+  setText('stripPayments', formatNumber(data.counts.payments));
+
+  const realActivity = [];
+  data.recentOrders.slice(0,4).forEach((o,idx)=>{
+    realActivity.push([idx%2?'blue':'green','▢',`Pedido ${safe(pick(o,['codigo','code','id']) || 'reciente')}`, `${rowCustomerName(o)} · ${pick(o,['estado','status']) || 'Sin estado'}`, rowDate(o) ? new Date(rowDate(o)).toLocaleDateString('es-VE') : 'Reciente']);
+  });
+  if(realActivity.length && qs('activityList')){
+    qs('activityList').innerHTML = realActivity.map(([color,icon,title,sub,time]) => `<div class="activity-item"><div class="round ${color}">${icon}</div><div><b>${title}</b><span>${sub}</span></div><time>${time}</time></div>`).join('');
+  }
+}
+function renderCommercialControl(data){
+  const el = qs('commercial'); if(!el) return;
+  const recentOrders = data.recentOrders.map(o=>`
+    <div class="table-row">
+      <div><b>${safe(pick(o,['codigo','code','id']) || 'Pedido')}</b><br><small>${safe(rowCustomerName(o))} · ${safe(rowCustomerEmail(o))}</small></div>
+      <span>${safe(pick(o,['estado','status']) || 'Sin estado')}</span>
+      <i class="tag">${formatUSD(orderTotal(o))}</i>
+    </div>`).join('');
+  const recentCustomers = data.recentCustomers.map(c=>`
+    <div class="table-row">
+      <div><b>${safe(pick(c,['nombre','name','full_name']) || 'Cliente')}</b><br><small>${safe(pick(c,['correo','email']) || '')}</small></div>
+      <span>${safe(pick(c,['telefono','phone']) || '')}</span>
+      <i class="tag">Cliente</i>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <article class="panel safe-panel">
+      <div class="panel-head"><h3>Control Comercial ThinkStore</h3><span class="tag safe-tag">Modo seguro · solo lectura</span></div>
+      <p class="staff-help">Esta pestaña centraliza ventas, clientes, inventario, comprobantes, notas de entrega y correos como control comercial. No modifica Resend, no cambia estados, no toca notas de entrega y no altera el panel actual de la tienda.</p>
+    </article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Ventas registradas</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Calculado desde ${safe(data.tables.orders || 'pedidos/orders')}.</p></article>
+      <article class="module-card"><h3>Pedidos</h3><strong>${formatNumber(data.counts.orders)}</strong><p>Conteo real desde Supabase.</p></article>
+      <article class="module-card"><h3>Clientes registrados</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Clientes reales de la página.</p></article>
+      <article class="module-card"><h3>Comprobantes</h3><strong>${formatNumber(data.counts.payments)}</strong><p>Control visual; validación intacta.</p></article>
+      <article class="module-card"><h3>Productos / inventario</h3><strong>${data.tables.products ? formatNumber(data.counts.products) : 'Tienda'}</strong><p>${data.tables.products ? 'Tabla conectada.' : 'Catálogo principal se mantiene intacto en la tienda.'}</p></article>
+      <article class="module-card"><h3>Correos automáticos</h3><strong>Resend intacto</strong><p>ventas@ y soporte@ no se modifican.</p></article>
+    </div>
+    <div class="main-grid" style="margin-top:18px">
+      <article class="panel"><div class="panel-head"><h3>Pedidos recientes</h3><button onclick="loadEnterpriseV1Real()">Actualizar</button></div><div class="table">${recentOrders || '<div class="table-row"><div><b>Sin pedidos visibles</b><br><small>Revisa permisos RLS o tabla pedidos.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>
+      <article class="panel"><div class="panel-head"><h3>Clientes recientes</h3></div><div class="table">${recentCustomers || '<div class="table-row"><div><b>Sin clientes visibles</b><br><small>Revisa permisos RLS o tabla clientes.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>
+    </div>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Protección aplicada</h3></div><div class="table">
+      <div class="table-row"><div><b>No se toca el panel actual</b><br><small>El acceso por código y la administración existente quedan fuera de esta actualización.</small></div><span>Protegido</span><i class="tag">OK</i></div>
+      <div class="table-row"><div><b>No se tocan correos ni Resend</b><br><small>Bienvenida, recuperación, pedidos y cambios de estado siguen con su configuración actual.</small></div><span>Intacto</span><i class="tag">OK</i></div>
+      <div class="table-row"><div><b>No se alteran tablas críticas</b><br><small>clientes, pedidos, pedido_items, comprobantes y order_status_history se leen, no se escriben.</small></div><span>Solo lectura</span><i class="tag">Seguro</i></div>
+    </div></article>`;
+}
+function renderRealModules(data){
+  const salesEl = qs('sales');
+  if(salesEl){
+    salesEl.innerHTML = `<div class="module-grid">
+      <article class="module-card"><h3>Ventas registradas</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Lectura desde ${safe(data.tables.orders || 'pedidos/orders')}.</p></article>
+      <article class="module-card"><h3>Pedidos totales</h3><strong>${formatNumber(data.counts.orders)}</strong><p>Pedidos visibles para Enterprise.</p></article>
+      <article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>No cambia estados ni dispara correos.</p></article>
+    </div>`;
+  }
+  const clientsEl = qs('clients');
+  if(clientsEl){
+    const rows = data.recentCustomers.map(c=>`<div class="table-row"><div><b>${safe(pick(c,['nombre','name','full_name']) || 'Cliente')}</b><br><small>${safe(pick(c,['correo','email']) || '')}</small></div><span>${safe(pick(c,['telefono','phone']) || '')}</span><i class="tag">Registrado</i></div>`).join('');
+    clientsEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Clientes registrados</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Base real de clientes de ThinkStore.com.ve.</p></article><article class="module-card"><h3>Fuente</h3><strong>${safe(data.tables.customers || 'No disponible')}</strong><p>Lectura segura desde Supabase.</p></article><article class="module-card"><h3>Correos</h3><strong>Intactos</strong><p>No modifica recuperación ni bienvenida.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Clientes recientes</h3></div><div class="table">${rows}</div></article>`;
+  }
+  const inventoryEl = qs('inventory');
+  if(inventoryEl){
+    inventoryEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Productos conectados</h3><strong>${data.tables.products ? formatNumber(data.counts.products) : 'Pendiente'}</strong><p>${data.tables.products ? 'Tabla detectada en Supabase.' : 'No se detectó tabla productos; el catálogo actual sigue intacto en la tienda pública.'}</p></article><article class="module-card"><h3>Modo inventario</h3><strong>Lectura</strong><p>No modifica stock ni fichas actuales.</p></article><article class="module-card"><h3>Control comercial</h3><strong>Activo</strong><p>Preparado para migración gradual sin tocar ventas.</p></article></div>`;
+  }
+}
+function renderCommercialError(error){
+  const el = qs('commercial'); if(!el) return;
+  el.innerHTML = `<article class="panel"><div class="panel-head"><h3>Control Comercial ThinkStore</h3><span class="tag">Error</span></div><p class="staff-help">No se pudieron leer los datos reales: ${safe(error.message || error)}. No se modificó ninguna tabla ni configuración.</p></article>`;
+}
+window.loadEnterpriseV1Real = loadEnterpriseV1Real;
+
+/* ==========================================================
+   Enterprise V2 Real · módulos vivos en modo seguro
+   - Solo lectura sobre Supabase
+   - No modifica Resend, pedidos, notas de entrega ni panel actual
+   ========================================================== */
+const V2_TABLES = {
+  customers: ['clientes','customers','profiles_clientes','usuarios_clientes'],
+  orders: ['pedidos','orders','ordenes','compras'],
+  payments: ['comprobantes','payments','payment_receipts','pagos'],
+  products: ['productos','products','catalogo','inventory','inventario'],
+  preorders: ['preordenes','preorders','orders_preorder','pre_orders']
+};
+
+function v2Date(value){
+  if(!value) return 'Sin fecha';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('es-VE');
+}
+function v2Short(value, fallback='—'){
+  const text = String(value ?? '').trim();
+  if(!text) return fallback;
+  return text.length > 42 ? `${text.slice(0,39)}...` : text;
+}
+function v2StatusClass(value){
+  const status = normalizeStatus(value);
+  if(status.includes('pag') || status.includes('entreg') || status.includes('aprob')) return 'ok';
+  if(status.includes('pend') || status.includes('verif') || status.includes('proces')) return 'warn';
+  if(status.includes('cancel') || status.includes('rechaz')) return 'bad';
+  return 'info';
+}
+function v2ProductName(row){ return pick(row,['nombre','name','titulo','title','modelo','model','product_name']) || 'Producto'; }
+function v2ProductCategory(row){ return pick(row,['categoria','category','tipo','type']) || 'Catálogo'; }
+function v2ProductPrice(row){ return Number(String(pick(row,['precio','price','precio_usd','price_usd','amount']) || '0').replace(/[^0-9.-]/g,'')) || 0; }
+function v2ProductStock(row){
+  const raw = pick(row,['stock','cantidad','quantity','qty','existencia','inventory']);
+  const n = Number(String(raw ?? '').replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n) ? n : null;
+}
+function v2CustomerName(row){ return pick(row,['nombre','name','full_name','cliente','display_name']) || 'Cliente'; }
+function v2CustomerEmail(row){ return pick(row,['correo','email','customer_email']) || 'Sin correo'; }
+function v2CustomerPhone(row){ return pick(row,['telefono','phone','whatsapp','celular']) || '—'; }
+function v2OrderCode(row){ return pick(row,['codigo','code','order_code','numero','number','id']) || 'Pedido'; }
+function v2OrderStatus(row){ return pick(row,['estado','status','estatus','payment_status']) || 'Sin estado'; }
+function v2OrderDate(row){ return rowDate(row) || pick(row,['fecha_creacion','createdAt','created']) || ''; }
+function v2PaymentStatus(row){ return pick(row,['estado','status','estatus','payment_status']) || 'Pendiente'; }
+
+async function v2Count(tableNames){
+  for(const table of tableNames){
+    try{
+      const { count, error } = await getClient().from(table).select('*', { count:'exact', head:true });
+      if(!error) return { table, count: count || 0 };
+      console.warn(`[Enterprise V2] Conteo ${table}:`, error.message || error);
+    }catch(error){ console.warn(`[Enterprise V2] Conteo ${table}:`, error.message || error); }
+  }
+  return { table:null, count:0 };
+}
+async function v2Read(tableNames, limit=80){
+  for(const table of tableNames){
+    try{
+      let res = await getClient().from(table).select('*').order('created_at', { ascending:false }).limit(limit);
+      if(res.error){
+        res = await getClient().from(table).select('*').limit(limit);
+      }
+      if(!res.error) return { table, data: res.data || [] };
+      console.warn(`[Enterprise V2] Lectura ${table}:`, res.error.message || res.error);
+    }catch(error){ console.warn(`[Enterprise V2] Lectura ${table}:`, error.message || error); }
+  }
+  return { table:null, data:[] };
+}
+
+function renderV2Table(rows, emptyText='Sin datos visibles'){
+  return rows.length ? rows.join('') : `<div class="table-row"><div><b>${safe(emptyText)}</b><br><small>Puede ser una tabla vacía, RLS o nombre diferente.</small></div><span>Solo lectura</span><i class="tag">Info</i></div>`;
+}
+
+async function loadEnterpriseV1Real(){
+  if(!window.supabaseClient || !currentProfile) return null;
+  try{
+    const [customersCount, ordersCount, paymentsCount, productsCount, preordersCount, customersRows, ordersRows, paymentsRows, productsRows] = await Promise.all([
+      v2Count(V2_TABLES.customers),
+      v2Count(V2_TABLES.orders),
+      v2Count(V2_TABLES.payments),
+      v2Count(V2_TABLES.products),
+      v2Count(V2_TABLES.preorders),
+      v2Read(V2_TABLES.customers, 60),
+      v2Read(V2_TABLES.orders, 100),
+      v2Read(V2_TABLES.payments, 80),
+      v2Read(V2_TABLES.products, 80)
+    ]);
+
+    const orders = ordersRows.data || [];
+    const payments = paymentsRows.data || [];
+    const productsData = productsRows.data || [];
+    const salesTotal = orders.reduce((sum,row)=>sum + orderTotal(row), 0);
+    const pendingPayments = orders.filter(isPendingPayment).length || payments.filter(isPendingPayment).length;
+    const lowStock = productsData.filter(p => {
+      const stock = v2ProductStock(p);
+      return stock !== null && stock <= 2;
+    }).length;
+
+    enterpriseRealCache = {
+      version:'V2',
+      tables: {
+        customers: customersCount.table,
+        orders: ordersCount.table,
+        payments: paymentsCount.table,
+        products: productsCount.table,
+        preorders: preordersCount.table
+      },
+      counts: {
+        customers: customersCount.count,
+        orders: ordersCount.count,
+        payments: paymentsCount.count,
+        products: productsCount.count,
+        preorders: preordersCount.count
+      },
+      salesTotal,
+      pendingPayments,
+      lowStock,
+      recentOrders: orders.slice(0,12),
+      recentCustomers: (customersRows.data || []).slice(0,12),
+      recentPayments: payments.slice(0,12),
+      products: productsData.slice(0,40)
+    };
+
+    updateExecutiveReal(enterpriseRealCache);
+    renderCommercialControl(enterpriseRealCache);
+    renderRealModules(enterpriseRealCache);
+    renderV2Reports(enterpriseRealCache);
+    return enterpriseRealCache;
+  }catch(error){
+    console.error('Enterprise V2 Real:', error);
+    renderCommercialError(error);
+    return null;
+  }
+}
+
+function updateExecutiveReal(data){
+  setText('metricSalesMonth', formatUSD(data.salesTotal));
+  setText('metricOrdersTotal', formatNumber(data.counts.orders));
+  setText('metricCustomersTotal', formatNumber(data.counts.customers));
+  setText('metricPendingPayments', formatNumber(data.pendingPayments));
+  setText('metricSalesNote', `Fuente: ${data.tables.orders || 'pedidos/orders no disponible'}`);
+  setText('metricOrdersNote', `${formatNumber(data.counts.preorders)} preórdenes detectadas`);
+  setText('metricCustomersNote', `Fuente: ${data.tables.customers || 'clientes no disponible'}`);
+  setText('metricPendingNote', 'No cambia validaciones ni correos');
+  setText('chartTooltipValue', `${formatUSD(data.salesTotal)} registrados`);
+  setText('stripRevenue', formatUSD(data.salesTotal));
+  setText('stripCustomers', formatNumber(data.counts.customers));
+  setText('stripOrders', formatNumber(data.counts.orders));
+  setText('stripPayments', formatNumber(data.counts.payments));
+
+  const realActivity = [];
+  data.recentOrders.slice(0,5).forEach((o,idx)=>{
+    realActivity.push([idx%2?'blue':'green','▢',`Pedido ${v2Short(v2OrderCode(o),'reciente')}`, `${rowCustomerName(o)} · ${v2OrderStatus(o)}`, v2Date(v2OrderDate(o))]);
+  });
+  data.recentCustomers.slice(0,2).forEach((c)=>{
+    realActivity.push(['purple','♙',`Cliente registrado`, `${v2CustomerName(c)} · ${v2CustomerEmail(c)}`, v2Date(rowDate(c))]);
+  });
+  if(qs('activityList')){
+    qs('activityList').innerHTML = renderV2Table(realActivity.map(([color,icon,title,sub,time]) => `<div class="activity-item"><div class="round ${color}">${icon}</div><div><b>${safe(title)}</b><span>${safe(sub)}</span></div><time>${safe(time)}</time></div>`), 'Sin actividad visible');
+  }
+
+  if(qs('topProducts')){
+    const productRows = data.products.slice(0,5).map((p,idx)=>{
+      const stock = v2ProductStock(p);
+      const percent = Math.max(8, Math.min(100, stock === null ? 32 + idx*10 : stock*12));
+      return `<div class="product-row"><div class="product-img">📱</div><div><b>${safe(v2ProductName(p))}</b><small>${safe(v2ProductCategory(p))}${stock !== null ? ` · Stock: ${stock}` : ''}</small><div class="barline"><i style="width:${percent}%"></i></div></div><strong>${formatUSD(v2ProductPrice(p))}</strong></div>`;
+    }).join('');
+    if(productRows) qs('topProducts').innerHTML = productRows;
+  }
+}
+
+function renderCommercialControl(data){
+  const el = qs('commercial'); if(!el) return;
+  const recentOrders = data.recentOrders.map(o=>`
+    <div class="table-row v2-row" data-search="${safe(`${v2OrderCode(o)} ${rowCustomerName(o)} ${v2OrderStatus(o)} ${rowCustomerEmail(o)}`)}">
+      <div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(rowCustomerEmail(o))}</small></div>
+      <span class="status-dot ${v2StatusClass(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span>
+      <i class="tag">${formatUSD(orderTotal(o))}</i>
+    </div>`).join('');
+  const recentCustomers = data.recentCustomers.map(c=>`
+    <div class="table-row v2-row" data-search="${safe(`${v2CustomerName(c)} ${v2CustomerEmail(c)} ${v2CustomerPhone(c)}`)}">
+      <div><b>${safe(v2CustomerName(c))}</b><br><small>${safe(v2CustomerEmail(c))}</small></div>
+      <span>${safe(v2CustomerPhone(c))}</span>
+      <i class="tag">${v2Date(rowDate(c))}</i>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <article class="panel safe-panel">
+      <div class="panel-head"><h3>Control Comercial ThinkStore</h3><span class="tag safe-tag">V2 · solo lectura</span></div>
+      <p class="staff-help">Centro de control para ventas, clientes, inventario, comprobantes, notas de entrega y correos. Esta versión lee datos reales de Supabase, pero no modifica Resend, estados, notas de entrega, pedidos ni el panel actual.</p>
+    </article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Ventas registradas</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Calculado desde ${safe(data.tables.orders || 'pedidos/orders')}.</p></article>
+      <article class="module-card"><h3>Pedidos</h3><strong>${formatNumber(data.counts.orders)}</strong><p>Conteo real desde Supabase.</p></article>
+      <article class="module-card"><h3>Clientes registrados</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Clientes reales de la página.</p></article>
+      <article class="module-card"><h3>Comprobantes</h3><strong>${formatNumber(data.counts.payments)}</strong><p>Control visual; validación intacta.</p></article>
+      <article class="module-card"><h3>Preórdenes</h3><strong>${formatNumber(data.counts.preorders)}</strong><p>Lectura segura si la tabla existe.</p></article>
+      <article class="module-card"><h3>Inventario bajo</h3><strong>${formatNumber(data.lowStock)}</strong><p>Alerta visual sin modificar stock.</p></article>
+    </div>
+    <div class="v2-toolbar"><input id="commercialSearch" type="search" placeholder="Buscar clientes, pedidos o estados..." /><button onclick="loadEnterpriseV1Real()">Actualizar datos</button></div>
+    <div class="main-grid" style="margin-top:18px">
+      <article class="panel"><div class="panel-head"><h3>Pedidos recientes</h3><span class="tag">${safe(data.tables.orders || 'sin tabla')}</span></div><div class="table searchable-commercial">${renderV2Table([recentOrders].filter(Boolean), 'Sin pedidos visibles')}</div></article>
+      <article class="panel"><div class="panel-head"><h3>Clientes recientes</h3><span class="tag">${safe(data.tables.customers || 'sin tabla')}</span></div><div class="table searchable-commercial">${renderV2Table([recentCustomers].filter(Boolean), 'Sin clientes visibles')}</div></article>
+    </div>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Blindaje de seguridad</h3></div><div class="table">
+      <div class="table-row"><div><b>Panel actual intacto</b><br><small>Se mantiene como respaldo operativo de ventas, notas, pagos y correos.</small></div><span>Protegido</span><i class="tag">OK</i></div>
+      <div class="table-row"><div><b>Resend intacto</b><br><small>ventas@thinkstore.com.ve y soporte@thinkstore.com.ve no se tocan.</small></div><span>Sin cambios</span><i class="tag">OK</i></div>
+      <div class="table-row"><div><b>Modo lectura</b><br><small>Enterprise V2 no escribe en clientes, pedidos, comprobantes ni estados.</small></div><span>Seguro</span><i class="tag">V2</i></div>
+    </div></article>`;
+
+  qs('commercialSearch')?.addEventListener('input', (event)=>{
+    const q = event.target.value.toLowerCase();
+    document.querySelectorAll('#commercial .v2-row').forEach(row=>{
+      row.style.display = row.textContent.toLowerCase().includes(q) || (row.dataset.search || '').toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+}
+
+function renderRealModules(data){
+  const salesEl = qs('sales');
+  if(salesEl){
+    const rows = data.recentOrders.map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${v2Date(v2OrderDate(o))}</small></div><span class="status-dot ${v2StatusClass(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    salesEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ventas registradas</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Lectura desde ${safe(data.tables.orders || 'pedidos/orders')}.</p></article><article class="module-card"><h3>Pedidos totales</h3><strong>${formatNumber(data.counts.orders)}</strong><p>Pedidos visibles para Enterprise.</p></article><article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>No cambia estados ni dispara correos.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Pedidos recientes</h3><span class="tag">Solo lectura</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin pedidos visibles')}</div></article>`;
+  }
+
+  const clientsEl = qs('clients');
+  if(clientsEl){
+    const rows = data.recentCustomers.map(c=>`<div class="table-row v2-client"><div><b>${safe(v2CustomerName(c))}</b><br><small>${safe(v2CustomerEmail(c))}</small></div><span>${safe(v2CustomerPhone(c))}</span><i class="tag">${v2Date(rowDate(c))}</i></div>`).join('');
+    clientsEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Clientes registrados</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Base real de clientes de ThinkStore.com.ve.</p></article><article class="module-card"><h3>Fuente</h3><strong>${safe(data.tables.customers || 'No disponible')}</strong><p>Lectura segura desde Supabase.</p></article><article class="module-card"><h3>Correos</h3><strong>Intactos</strong><p>No modifica recuperación ni bienvenida.</p></article></div><div class="v2-toolbar"><input id="clientSearchV2" type="search" placeholder="Buscar cliente, correo o teléfono..." /></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Clientes recientes</h3></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin clientes visibles')}</div></article>`;
+    qs('clientSearchV2')?.addEventListener('input', e=>{const q=e.target.value.toLowerCase(); document.querySelectorAll('.v2-client').forEach(r=>r.style.display = r.textContent.toLowerCase().includes(q)?'':'none')});
+  }
+
+  const inventoryEl = qs('inventory');
+  if(inventoryEl){
+    const rows = data.products.map(p=>{ const stock = v2ProductStock(p); const label = stock === null ? 'Sin stock' : stock <= 0 ? 'Agotado' : stock <= 2 ? 'Stock bajo' : 'Disponible'; return `<div class="table-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span class="status-dot ${stock === null ? 'info' : stock <= 2 ? 'warn':'ok'}">${safe(label)}</span><i class="tag">${stock === null ? formatUSD(v2ProductPrice(p)) : `Stock ${stock}`}</i></div>`; }).join('');
+    inventoryEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Productos conectados</h3><strong>${data.tables.products ? formatNumber(data.counts.products) : 'Pendiente'}</strong><p>${data.tables.products ? 'Tabla detectada en Supabase.' : 'No se detectó tabla productos; el catálogo actual sigue intacto en la tienda pública.'}</p></article><article class="module-card"><h3>Alertas de stock</h3><strong>${formatNumber(data.lowStock)}</strong><p>Visual, no cambia inventario.</p></article><article class="module-card"><h3>Modo inventario</h3><strong>Lectura</strong><p>No modifica stock ni fichas actuales.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Inventario visible</h3><span class="tag">Solo lectura</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin productos visibles')}</div></article>`;
+  }
+
+  const productsEl = qs('products');
+  if(productsEl){
+    const rows = data.products.slice(0,20).map(p=>`<div class="table-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span>${formatUSD(v2ProductPrice(p))}</span><i class="tag">${v2ProductStock(p) === null ? 'Catálogo' : `Stock ${v2ProductStock(p)}`}</i></div>`).join('');
+    productsEl.innerHTML = `<article class="panel"><div class="panel-head"><h3>Productos / catálogo</h3><span class="tag">No edita la tienda</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin productos visibles')}</div></article>`;
+  }
+
+  const financeEl = qs('finance');
+  if(financeEl){
+    financeEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ingresos registrados</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Estimado desde pedidos visibles.</p></article><article class="module-card"><h3>Comprobantes</h3><strong>${formatNumber(data.counts.payments)}</strong><p>Solo lectura; validación intacta.</p></article><article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>No dispara correos ni estados.</p></article></div>`;
+  }
+
+  const marketingEl = qs('marketing');
+  if(marketingEl){
+    marketingEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Base para campañas</h3><strong>${formatNumber(data.counts.customers)}</strong><p>Clientes registrados disponibles para futuras segmentaciones.</p></article><article class="module-card"><h3>Resend</h3><strong>Intacto</strong><p>No se modifican API keys ni plantillas.</p></article><article class="module-card"><h3>Próxima fase</h3><strong>V4</strong><p>Campañas, VIP e inactivos con aprobación previa.</p></article></div>`;
+  }
+}
+
+function renderV2Reports(data){
+  const reportsEl = qs('reports');
+  if(reportsEl){
+    reportsEl.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Reporte ejecutivo</h3><strong>Listo</strong><p>Exporta métricas visibles de Enterprise.</p></article><article class="module-card"><h3>Tablas detectadas</h3><strong>${Object.values(data.tables).filter(Boolean).length}</strong><p>${safe(Object.entries(data.tables).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`).join(' · ') || 'Sin tablas detectadas')}</p></article><article class="module-card"><h3>Modo seguro</h3><strong>Activo</strong><p>Lectura únicamente.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Exportaciones</h3><button onclick="exportCSV('executive')">Exportar CSV</button></div><p class="staff-help">La exportación usa los datos visibles del panel y no modifica Supabase.</p></article>`;
+  }
+}
+
+
+/* ==========================================================
+   Enterprise V4 Funcional · CRM Real + Staff Manager + Finanzas + Inventario
+   - Sigue en modo seguro: solo lectura sobre Supabase
+   - No toca Resend, correos, notas de entrega, pagos ni estados
+   ========================================================== */
+(function(){
+  const DAY = 24 * 60 * 60 * 1000;
+  const todayStart = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+  const monthStart = () => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; };
+  const weekStart = () => { const d = todayStart(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d; };
+  const toDate = (value) => { const d = new Date(value || ''); return Number.isNaN(d.getTime()) ? null : d; };
+  const within = (row, start) => { const d = toDate(v2OrderDate(row) || rowDate(row)); return d ? d >= start : false; };
+  const emailKey = (value) => String(value || '').trim().toLowerCase();
+
+  window.enterpriseV3State = { customerProfiles: [], selectedCustomerEmail: null };
+
+  function getOrderCustomerEmail(row){ return emailKey(rowCustomerEmail(row) || pick(row,['cliente_email','customerEmail','email_cliente'])); }
+  function getOrderCustomerName(row){ return rowCustomerName(row) || pick(row,['cliente_nombre','customerName']) || 'Cliente'; }
+
+  function buildCustomerProfiles(data){
+    const customerMap = new Map();
+    (data.recentCustomers || []).forEach(c => {
+      const email = emailKey(v2CustomerEmail(c));
+      const key = email || `cliente-${pick(c,['id','uid','uuid']) || customerMap.size}`;
+      customerMap.set(key, {
+        id: pick(c,['id','uid','uuid']) || key,
+        name: v2CustomerName(c),
+        email: email || v2CustomerEmail(c),
+        phone: v2CustomerPhone(c),
+        createdAt: rowDate(c) || pick(c,['createdAt','fecha_registro','fecha']),
+        orders: [],
+        totalSpent: 0,
+        lastOrderDate: null,
+        status: 'Nuevo'
+      });
+    });
+
+    (data.recentOrders || []).forEach(order => {
+      const email = getOrderCustomerEmail(order);
+      const key = email || `pedido-cliente-${getOrderCustomerName(order)}`;
+      if(!customerMap.has(key)){
+        customerMap.set(key, {
+          id: key,
+          name: getOrderCustomerName(order),
+          email: email || rowCustomerEmail(order) || 'Sin correo',
+          phone: pick(order,['telefono','phone','whatsapp']) || '—',
+          createdAt: rowDate(order),
+          orders: [],
+          totalSpent: 0,
+          lastOrderDate: null,
+          status: 'Cliente'
+        });
+      }
+      const profile = customerMap.get(key);
+      const amount = orderTotal(order);
+      const date = toDate(v2OrderDate(order));
+      profile.orders.push(order);
+      profile.totalSpent += amount;
+      if(date && (!profile.lastOrderDate || date > profile.lastOrderDate)) profile.lastOrderDate = date;
+    });
+
+    return Array.from(customerMap.values()).map(profile => {
+      const daysSince = profile.lastOrderDate ? Math.floor((Date.now() - profile.lastOrderDate.getTime()) / DAY) : null;
+      const orderCount = profile.orders.length;
+      if(profile.totalSpent >= 1000 || orderCount >= 3) profile.status = 'VIP';
+      else if(daysSince !== null && daysSince > 90) profile.status = 'Inactivo';
+      else if(orderCount >= 2) profile.status = 'Frecuente';
+      else if(orderCount === 1) profile.status = 'Nuevo comprador';
+      else profile.status = 'Registrado';
+      profile.daysSince = daysSince;
+      return profile;
+    }).sort((a,b)=> b.totalSpent - a.totalSpent || b.orders.length - a.orders.length);
+  }
+
+  function calcV3Finance(data){
+    const orders = data.recentOrders || [];
+    const total = orders.reduce((sum,o)=>sum + orderTotal(o),0);
+    const today = orders.filter(o=>within(o,todayStart())).reduce((sum,o)=>sum + orderTotal(o),0);
+    const week = orders.filter(o=>within(o,weekStart())).reduce((sum,o)=>sum + orderTotal(o),0);
+    const month = orders.filter(o=>within(o,monthStart())).reduce((sum,o)=>sum + orderTotal(o),0);
+    const average = orders.length ? total / orders.length : 0;
+    return { total, today, week, month, average };
+  }
+
+  function statusBadge(status){
+    const cls = status === 'VIP' ? 'ok' : status === 'Inactivo' ? 'bad' : status === 'Frecuente' ? 'warn' : 'info';
+    return `<span class="status-dot ${cls}">${safe(status)}</span>`;
+  }
+
+  function renderCRM(data){
+    const el = qs('clients'); if(!el) return;
+    const profiles = buildCustomerProfiles(data);
+    window.enterpriseV3State.customerProfiles = profiles;
+    const vip = profiles.filter(c=>c.status === 'VIP').length;
+    const inactive = profiles.filter(c=>c.status === 'Inactivo').length;
+    const frequent = profiles.filter(c=>c.status === 'Frecuente' || c.status === 'VIP').length;
+    const totalSpent = profiles.reduce((sum,c)=>sum + c.totalSpent,0);
+    const rows = profiles.slice(0,80).map((c,idx)=>`
+      <div class="table-row crm-row v3-row" data-filter="${safe(c.status)}" data-search="${safe(`${c.name} ${c.email} ${c.phone} ${c.status}`)}" onclick="openCRMProfile(${idx})">
+        <div><b>${safe(c.name)}</b><br><small>${safe(c.email)} · ${safe(c.phone)}</small></div>
+        <span>${formatUSD(c.totalSpent)} · ${c.orders.length} pedidos</span>
+        ${statusBadge(c.status)}
+      </div>`).join('');
+    el.innerHTML = `
+      <article class="panel safe-panel v3-hero">
+        <div class="panel-head"><h3>CRM Clientes ThinkStore</h3><span class="tag safe-tag">V4 · CRM real</span></div>
+        <p class="staff-help">Ficha comercial de clientes reales: compras, valor acumulado, segmento y última actividad. No modifica clientes, pedidos, correos ni Resend.</p>
+      </article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>Clientes CRM</h3><strong>${formatNumber(profiles.length || data.counts.customers)}</strong><p>Clientes detectados desde Supabase.</p></article>
+        <article class="module-card"><h3>Clientes VIP</h3><strong>${formatNumber(vip)}</strong><p>Alto valor o 3+ pedidos.</p></article>
+        <article class="module-card"><h3>Frecuentes</h3><strong>${formatNumber(frequent)}</strong><p>Clientes con recompra.</p></article>
+        <article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive)}</strong><p>Sin compra reciente.</p></article>
+        <article class="module-card"><h3>Valor visible</h3><strong>${formatUSD(totalSpent)}</strong><p>Sobre pedidos visibles por RLS.</p></article>
+        <article class="module-card"><h3>Marketing futuro</h3><strong>Preparado</strong><p>Segmentos listos sin enviar correos.</p></article>
+      </div>
+      <div class="v2-toolbar crm-toolbar">
+        <input id="crmSearch" type="search" placeholder="Buscar cliente, correo, teléfono o estado..." />
+        <button data-crm-filter="Todos">Todos</button>
+        <button data-crm-filter="VIP">VIP</button>
+        <button data-crm-filter="Frecuente">Frecuentes</button>
+        <button data-crm-filter="Inactivo">Inactivos</button>
+      </div>
+      <div class="main-grid" style="margin-top:18px">
+        <article class="panel"><div class="panel-head"><h3>Clientes y segmentos</h3><span class="tag">Lectura</span></div><div class="table" id="crmTable">${renderV2Table([rows].filter(Boolean),'Sin clientes visibles')}</div></article>
+        <article class="panel crm-profile-panel"><div class="panel-head"><h3>Ficha del cliente</h3><span class="tag">CRM</span></div><div id="crmProfileDetail" class="crm-detail-empty">Selecciona un cliente para ver compras, valor total y estado comercial.</div></article>
+      </div>`;
+
+    qs('crmSearch')?.addEventListener('input', filterCRMRows);
+    document.querySelectorAll('[data-crm-filter]').forEach(btn=>btn.addEventListener('click',()=>filterCRMRows(btn.dataset.crmFilter)));
+  }
+
+  window.openCRMProfile = function(index){
+    const c = window.enterpriseV3State.customerProfiles[index];
+    const detail = qs('crmProfileDetail'); if(!detail || !c) return;
+    const orders = c.orders.slice(0,8).map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${v2Date(v2OrderDate(o))} · ${safe(v2OrderStatus(o))}</small></div><span>${formatUSD(orderTotal(o))}</span><i class="tag">Pedido</i></div>`).join('');
+    detail.innerHTML = `
+      <div class="crm-detail-head">
+        <div class="crm-avatar">${safe((c.name || c.email || 'C').charAt(0).toUpperCase())}</div>
+        <div><h2>${safe(c.name)}</h2><p>${safe(c.email)} · ${safe(c.phone)}</p></div>
+      </div>
+      <div class="crm-mini-grid">
+        <article><span>Total gastado</span><b>${formatUSD(c.totalSpent)}</b></article>
+        <article><span>Pedidos</span><b>${formatNumber(c.orders.length)}</b></article>
+        <article><span>Última compra</span><b>${c.lastOrderDate ? v2Date(c.lastOrderDate) : 'Sin compra'}</b></article>
+        <article><span>Estado</span><b>${safe(c.status)}</b></article>
+      </div>
+      <div class="panel-head" style="margin-top:18px"><h3>Pedidos del cliente</h3><span class="tag">Solo lectura</span></div>
+      <div class="table">${orders || '<div class="table-row"><div><b>Sin pedidos visibles</b><br><small>Puede no tener compras o falta permiso de lectura.</small></div><span>—</span><i class="tag">Info</i></div>'}</div>
+      <p class="staff-help">Preparado para conectar garantías, soporte técnico e historial de reparaciones en una fase posterior.</p>`;
+  };
+
+  function filterCRMRows(forcedFilter){
+    const query = (qs('crmSearch')?.value || '').toLowerCase();
+    const active = forcedFilter || 'Todos';
+    document.querySelectorAll('#crmTable .crm-row').forEach(row=>{
+      const text = `${row.textContent} ${row.dataset.search || ''}`.toLowerCase();
+      const filter = row.dataset.filter || '';
+      const matchText = !query || text.includes(query);
+      const matchFilter = active === 'Todos' || filter === active || (active === 'Frecuente' && (filter === 'Frecuente' || filter === 'VIP'));
+      row.style.display = matchText && matchFilter ? '' : 'none';
+    });
+  }
+
+  function renderFinancePro(data){
+    const el = qs('finance'); if(!el) return;
+    const f = calcV3Finance(data);
+    const rows = (data.recentOrders || []).slice(0,15).map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${v2Date(v2OrderDate(o))}</small></div><span class="status-dot ${v2StatusClass(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v3-hero"><div class="panel-head"><h3>Finanzas Pro</h3><span class="tag safe-tag">Solo lectura</span></div><p class="staff-help">Indicadores financieros sobre pedidos visibles. No valida pagos, no cambia estados y no dispara correos.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(f.today)}</strong><p>Pedidos visibles del día.</p></article><article class="module-card"><h3>Ventas semana</h3><strong>${formatUSD(f.week)}</strong><p>Desde el lunes actual.</p></article><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(f.month || data.salesTotal)}</strong><p>Mes actual o total visible.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(f.average)}</strong><p>Promedio por pedido visible.</p></article><article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>Validación intacta.</p></article><article class="module-card"><h3>Comprobantes</h3><strong>${formatNumber(data.counts.payments)}</strong><p>Lectura desde Supabase.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Movimientos recientes</h3><span class="tag">No editable</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin movimientos visibles')}</div></article>`;
+  }
+
+  function renderInventoryPro(data){
+    const el = qs('inventory'); if(!el) return;
+    const products = data.products || [];
+    const low = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s > 0 && s <= 2; });
+    const zero = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s <= 0; });
+    const unknown = products.filter(p=>v2ProductStock(p) === null);
+    const rows = products.slice(0,80).map(p=>{
+      const stock = v2ProductStock(p);
+      const label = stock === null ? 'Sin campo stock' : stock <= 0 ? 'Agotado' : stock <= 2 ? 'Stock bajo' : 'Disponible';
+      return `<div class="table-row v3-inventory-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))} · ${formatUSD(v2ProductPrice(p))}</small></div><span class="status-dot ${stock === null ? 'info' : stock <= 0 ? 'bad' : stock <= 2 ? 'warn':'ok'}">${safe(label)}</span><i class="tag">${stock === null ? 'Catálogo' : `Stock ${stock}`}</i></div>`;
+    }).join('');
+    el.innerHTML = `<article class="panel safe-panel v3-hero"><div class="panel-head"><h3>Inventario Pro</h3><span class="tag safe-tag">Lectura segura</span></div><p class="staff-help">Alertas visuales de stock y catálogo. No modifica productos, precios ni existencias.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Productos visibles</h3><strong>${formatNumber(products.length || data.counts.products)}</strong><p>Fuente: ${safe(data.tables.products || 'no detectada')}.</p></article><article class="module-card"><h3>Stock bajo</h3><strong>${formatNumber(low.length)}</strong><p>Productos con 1-2 unidades.</p></article><article class="module-card"><h3>Agotados</h3><strong>${formatNumber(zero.length)}</strong><p>Stock en 0 o menor.</p></article><article class="module-card"><h3>Sin campo stock</h3><strong>${formatNumber(unknown.length)}</strong><p>Productos de catálogo sin cantidad.</p></article><article class="module-card"><h3>Modo edición</h3><strong>Desactivado</strong><p>Protegemos la tienda actual.</p></article><article class="module-card"><h3>Reposición</h3><strong>Preparada</strong><p>Próxima fase con aprobación.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Inventario y alertas</h3><span class="tag">Solo lectura</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin productos visibles')}</div></article>`;
+  }
+
+  function renderMarketingPrepared(data){
+    const el = qs('marketing'); if(!el) return;
+    const profiles = window.enterpriseV3State.customerProfiles?.length ? window.enterpriseV3State.customerProfiles : buildCustomerProfiles(data);
+    const vip = profiles.filter(c=>c.status === 'VIP').length;
+    const inactive = profiles.filter(c=>c.status === 'Inactivo').length;
+    const newBuyers = profiles.filter(c=>c.status === 'Nuevo comprador' || c.status === 'Registrado').length;
+    el.innerHTML = `<article class="panel safe-panel v3-hero"><div class="panel-head"><h3>Marketing Center</h3><span class="tag safe-tag">Preparado · sin envío</span></div><p class="staff-help">Segmentación lista para campañas futuras. No toca Resend, API keys ni plantillas actuales.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Audiencia total</h3><strong>${formatNumber(profiles.length || data.counts.customers)}</strong><p>Clientes visibles para segmentación.</p></article><article class="module-card"><h3>Clientes VIP</h3><strong>${formatNumber(vip)}</strong><p>Campaña premium futura.</p></article><article class="module-card"><h3>Clientes inactivos</h3><strong>${formatNumber(inactive)}</strong><p>Recuperación futura.</p></article><article class="module-card"><h3>Nuevos clientes</h3><strong>${formatNumber(newBuyers)}</strong><p>Bienvenida y fidelización futura.</p></article><article class="module-card"><h3>Resend</h3><strong>Intacto</strong><p>ventas@ y soporte@ sin cambios.</p></article><article class="module-card"><h3>Envíos</h3><strong>Bloqueados</strong><p>Solo diseño y preparación.</p></article></div>`;
+  }
+
+  function renderBIReports(data){
+    const el = qs('reports'); if(!el) return;
+    const profiles = window.enterpriseV3State.customerProfiles || buildCustomerProfiles(data);
+    const topCustomer = profiles[0];
+    const topProduct = (data.products || []).slice().sort((a,b)=> (v2ProductPrice(b)||0) - (v2ProductPrice(a)||0))[0];
+    el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Cliente de mayor valor</h3><strong>${safe(topCustomer?.name || 'Pendiente')}</strong><p>${topCustomer ? `${formatUSD(topCustomer.totalSpent)} visibles` : 'Sin datos visibles'}.</p></article><article class="module-card"><h3>Producto premium</h3><strong>${safe(topProduct ? v2ProductName(topProduct) : 'Pendiente')}</strong><p>${topProduct ? formatUSD(v2ProductPrice(topProduct)) : 'Sin catálogo visible'}.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(calcV3Finance(data).average)}</strong><p>Pedidos visibles.</p></article><article class="module-card"><h3>Clientes VIP</h3><strong>${formatNumber(profiles.filter(c=>c.status==='VIP').length)}</strong><p>Segmento de alto valor.</p></article><article class="module-card"><h3>Modo seguro</h3><strong>Activo</strong><p>Reportes sin escritura.</p></article><article class="module-card"><h3>Exportación</h3><strong>Lista</strong><p>CSV ejecutivo disponible.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Business Intelligence preparado</h3><button onclick="exportCSV('executive')">Exportar CSV</button></div><p class="staff-help">Los indicadores se calculan sobre datos que Enterprise puede leer por permisos actuales. No modifica base de datos.</p></article>`;
+  }
+
+  const previousLoadEnterprise = window.loadEnterpriseV1Real || loadEnterpriseV1Real;
+  window.loadEnterpriseV1Real = loadEnterpriseV1Real = async function(){
+    const data = await previousLoadEnterprise();
+    if(!data) return data;
+    data.version = 'V4';
+    renderCRM(data);
+    renderFinancePro(data);
+    renderInventoryPro(data);
+    renderMarketingPrepared(data);
+    renderBIReports(data);
+    return data;
+  };
+
+  const oldSwitchView = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    oldSwitchView(id);
+    if(enterpriseRealCache){
+      if(id === 'clients') renderCRM(enterpriseRealCache);
+      if(id === 'finance') renderFinancePro(enterpriseRealCache);
+      if(id === 'inventory') renderInventoryPro(enterpriseRealCache);
+      if(id === 'marketing') renderMarketingPrepared(enterpriseRealCache);
+      if(id === 'reports') renderBIReports(enterpriseRealCache);
+    }
+  };
+})();
+
+
+/* ==========================================================
+   Enterprise V4 Funcional · Estado de activación
+   Módulos activos en modo seguro: CRM real, Staff Manager, Finanzas e Inventario.
+   No toca Resend, correos, notas de entrega ni panel administrador actual.
+   ========================================================== */
+(function(){
+  function renderV4SecurityStatus(){
+    const el = qs('settings');
+    if(!el) return;
+    el.innerHTML = `
+      <article class="panel safe-panel v3-hero">
+        <div class="panel-head"><h3>Seguridad y activación Enterprise V4</h3><span class="tag safe-tag">Operativo seguro</span></div>
+        <p class="staff-help">Enterprise funciona con Supabase Auth y roles. Esta versión mantiene protegidos Resend, pedidos, notas de entrega, recuperación de contraseña y el panel administrador actual.</p>
+      </article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>CRM Clientes</h3><strong>Activo</strong><p>Lee clientes y pedidos visibles sin modificar datos.</p></article>
+        <article class="module-card"><h3>Staff Manager</h3><strong>Activo</strong><p>Gestiona roles_usuarios y staff_invitations.</p></article>
+        <article class="module-card"><h3>Finanzas Pro</h3><strong>Activo</strong><p>Calcula métricas sobre pedidos visibles.</p></article>
+        <article class="module-card"><h3>Inventario Pro</h3><strong>Activo</strong><p>Lee productos/inventario si la tabla existe.</p></article>
+        <article class="module-card"><h3>Correos / Resend</h3><strong>Intacto</strong><p>No se tocan API keys, plantillas ni funciones.</p></article>
+        <article class="module-card"><h3>Panel actual</h3><strong>Respaldo</strong><p>La administración principal de ThinkStore no se modifica.</p></article>
+      </div>
+      <article class="panel" style="margin-top:18px">
+        <div class="panel-head"><h3>Reglas de seguridad aplicadas</h3><span class="tag">V4</span></div>
+        <div class="table">
+          <div class="table-row"><div><b>Sin migración de datos</b><br><small>Enterprise lee las tablas existentes: clientes, pedidos, comprobantes, roles_usuarios y staff_invitations.</small></div><span>Seguro</span><i class="tag">OK</i></div>
+          <div class="table-row"><div><b>Sin cambios en correos</b><br><small>ventas@thinkstore.com.ve y soporte@thinkstore.com.ve quedan con su configuración actual.</small></div><span>Intacto</span><i class="tag">OK</i></div>
+          <div class="table-row"><div><b>Staff controlado</b><br><small>Los accesos se administran desde roles_usuarios y staff_invitations.</small></div><span>Activo</span><i class="tag">OK</i></div>
+        </div>
+      </article>`;
+  }
+  const previousSwitchViewV4 = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    previousSwitchViewV4(id);
+    if(id === 'settings') renderV4SecurityStatus();
+  };
+})();
+
+
+/* ==========================================================
+   Enterprise V5 Completa · BI + CRM + Marketing Center
+   - Modo seguro: lectura sobre Supabase
+   - No modifica Resend, correos, pedidos, notas, comprobantes ni estados
+   ========================================================== */
+(function(){
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = () => new Date();
+  const startOfDay = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+  const startOfWeek = () => { const d = startOfDay(); const day = (d.getDay()+6)%7; d.setDate(d.getDate()-day); return d; };
+  const startOfMonth = () => { const d = startOfDay(); d.setDate(1); return d; };
+  const startOfYear = () => { const d = startOfDay(); d.setMonth(0,1); return d; };
+  const toDateV5 = (value) => { const d = new Date(value || ''); return Number.isNaN(d.getTime()) ? null : d; };
+  const emailKeyV5 = (value) => String(value || '').trim().toLowerCase();
+  const isAfterV5 = (value, start) => { const d = toDateV5(value); return d ? d >= start : false; };
+
+  const orderDateV5 = (o) => v2OrderDate(o) || rowDate(o) || pick(o,['fecha_creacion','createdAt','created']);
+  const customerDateV5 = (c) => rowDate(c) || pick(c,['createdAt','created','fecha_registro']);
+  const customerNameV5 = (c) => v2CustomerName(c) || pick(c,['nombre','name','full_name','cliente','customer_name']) || 'Cliente';
+  const customerEmailV5 = (c) => emailKeyV5(v2CustomerEmail(c) || pick(c,['email','correo','customer_email','cliente_email']));
+  const customerPhoneV5 = (c) => v2CustomerPhone(c) || pick(c,['telefono','phone','whatsapp','mobile']) || '—';
+  const orderEmailV5 = (o) => emailKeyV5(rowCustomerEmail(o) || pick(o,['email','correo','customer_email','cliente_email','email_cliente']));
+  const orderNameV5 = (o) => rowCustomerName(o) || pick(o,['cliente_nombre','customer_name','name','nombre']) || 'Cliente';
+
+  async function v5ReadTables(tableNames, limit=300){
+    for(const table of tableNames){
+      try{
+        let res = await getClient().from(table).select('*').order('created_at', { ascending:false }).limit(limit);
+        if(res.error) res = await getClient().from(table).select('*').limit(limit);
+        if(!res.error) return { table, data: res.data || [] };
+        console.warn(`[Enterprise V5] Lectura ${table}:`, res.error.message || res.error);
+      }catch(error){ console.warn(`[Enterprise V5] Lectura ${table}:`, error.message || error); }
+    }
+    return { table:null, data:[] };
+  }
+
+  function buildProfilesV5(data){
+    const map = new Map();
+    (data.recentCustomers || []).forEach(c=>{
+      const email = customerEmailV5(c) || `cliente-${pick(c,['id','uid']) || Math.random()}`;
+      if(!map.has(email)){
+        map.set(email, {
+          key: email,
+          name: customerNameV5(c),
+          email: customerEmailV5(c) || 'Sin correo',
+          phone: customerPhoneV5(c),
+          createdAt: customerDateV5(c),
+          orders: [],
+          totalSpent: 0,
+          lastOrderDate: null,
+          segment: 'Registrado',
+          notes: []
+        });
+      }
+    });
+    (data.recentOrders || []).forEach(o=>{
+      const email = orderEmailV5(o) || `pedido-${pick(o,['id','codigo','code']) || Math.random()}`;
+      if(!map.has(email)){
+        map.set(email, {
+          key: email,
+          name: orderNameV5(o),
+          email: orderEmailV5(o) || 'Sin correo',
+          phone: pick(o,['telefono','phone','whatsapp']) || '—',
+          createdAt: orderDateV5(o),
+          orders: [],
+          totalSpent: 0,
+          lastOrderDate: null,
+          segment: 'Cliente',
+          notes: []
+        });
+      }
+      const profile = map.get(email);
+      const amount = orderTotal(o);
+      const date = toDateV5(orderDateV5(o));
+      profile.orders.push(o);
+      profile.totalSpent += amount;
+      if(date && (!profile.lastOrderDate || date > profile.lastOrderDate)) profile.lastOrderDate = date;
+    });
+    return Array.from(map.values()).map(p=>{
+      const days = p.lastOrderDate ? Math.floor((Date.now() - p.lastOrderDate.getTime()) / DAY) : null;
+      const count = p.orders.length;
+      if(p.totalSpent >= 1200 || count >= 4) p.segment = 'VIP';
+      else if(count >= 2) p.segment = 'Frecuente';
+      else if(count === 1 && days !== null && days <= 45) p.segment = 'Nuevo comprador';
+      else if(days !== null && days > 90) p.segment = 'Inactivo';
+      else p.segment = p.email === 'Sin correo' ? 'Por identificar' : 'Registrado';
+      p.daysSince = days;
+      p.averageTicket = count ? p.totalSpent / count : 0;
+      return p;
+    }).sort((a,b)=> b.totalSpent - a.totalSpent || b.orders.length - a.orders.length || String(a.name).localeCompare(String(b.name)));
+  }
+
+  function v5Finance(data){
+    const orders = data.recentOrders || [];
+    const sum = (rows) => rows.reduce((total,o)=>total + orderTotal(o), 0);
+    const today = orders.filter(o=>isAfterV5(orderDateV5(o), startOfDay()));
+    const week = orders.filter(o=>isAfterV5(orderDateV5(o), startOfWeek()));
+    const month = orders.filter(o=>isAfterV5(orderDateV5(o), startOfMonth()));
+    const year = orders.filter(o=>isAfterV5(orderDateV5(o), startOfYear()));
+    const total = sum(orders);
+    const average = orders.length ? total / orders.length : 0;
+    return { today:sum(today), week:sum(week), month:sum(month), year:sum(year), total, average, todayCount:today.length, weekCount:week.length, monthCount:month.length, yearCount:year.length };
+  }
+
+  function orderStatusGroupsV5(data){
+    const groups = {};
+    (data.recentOrders || []).forEach(o=>{
+      const status = String(v2OrderStatus(o) || 'Sin estado').trim() || 'Sin estado';
+      groups[status] = (groups[status] || 0) + 1;
+    });
+    return Object.entries(groups).sort((a,b)=>b[1]-a[1]);
+  }
+
+  function productInsightsV5(data){
+    const products = data.products || [];
+    const items = data.orderItems || [];
+    const sold = new Map();
+    items.forEach(item=>{
+      const name = pick(item,['producto','producto_nombre','product_name','nombre','name','title','titulo','modelo','model']) || 'Producto';
+      const qty = Number(pick(item,['cantidad','qty','quantity','unidades']) || 1) || 1;
+      sold.set(name, (sold.get(name) || 0) + qty);
+    });
+    const topSold = Array.from(sold.entries()).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const low = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s > 0 && s <= 2; });
+    const zero = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s <= 0; });
+    const premium = products.slice().sort((a,b)=>v2ProductPrice(b)-v2ProductPrice(a)).slice(0,6);
+    return { topSold, low, zero, premium };
+  }
+
+  function renderV5CRM(data){
+    const el = qs('clients'); if(!el) return;
+    const profiles = buildProfilesV5(data);
+    window.enterpriseV5State = window.enterpriseV5State || {};
+    window.enterpriseV5State.profiles = profiles;
+    const totalSpent = profiles.reduce((sum,p)=>sum+p.totalSpent,0);
+    const vip = profiles.filter(p=>p.segment==='VIP').length;
+    const frequent = profiles.filter(p=>p.segment==='Frecuente' || p.segment==='VIP').length;
+    const inactive = profiles.filter(p=>p.segment==='Inactivo').length;
+    const newClients = profiles.filter(p=>isAfterV5(p.createdAt, startOfMonth())).length;
+    const rows = profiles.slice(0,120).map((p,idx)=>`
+      <div class="table-row crm-row v5-row" data-filter="${safe(p.segment)}" data-search="${safe(`${p.name} ${p.email} ${p.phone} ${p.segment}`)}" onclick="openV5CRMProfile(${idx})">
+        <div><b>${safe(p.name)}</b><br><small>${safe(p.email)} · ${safe(p.phone)}</small></div>
+        <span>${formatUSD(p.totalSpent)} · ${formatNumber(p.orders.length)} pedidos</span>
+        <i class="status-dot ${p.segment==='VIP'?'ok':p.segment==='Inactivo'?'bad':p.segment==='Frecuente'?'warn':'info'}">${safe(p.segment)}</i>
+      </div>`).join('');
+    el.innerHTML = `
+      <article class="panel safe-panel v5-hero"><div class="panel-head"><h3>CRM Clientes Completo</h3><span class="tag safe-tag">V5 · Operativo</span></div><p class="staff-help">Ficha única del cliente, valor comercial, segmentación y compras visibles. Modo lectura: no modifica clientes, pedidos, correos ni Resend.</p></article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>Clientes CRM</h3><strong>${formatNumber(profiles.length || data.counts.customers)}</strong><p>Clientes detectados en Supabase.</p></article>
+        <article class="module-card"><h3>VIP</h3><strong>${formatNumber(vip)}</strong><p>Alto valor o 4+ pedidos.</p></article>
+        <article class="module-card"><h3>Frecuentes</h3><strong>${formatNumber(frequent)}</strong><p>Clientes con recompra.</p></article>
+        <article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive)}</strong><p>Sin compra reciente.</p></article>
+        <article class="module-card"><h3>Nuevos este mes</h3><strong>${formatNumber(newClients)}</strong><p>Fecha de registro visible.</p></article>
+        <article class="module-card"><h3>Valor visible</h3><strong>${formatUSD(totalSpent)}</strong><p>Pedidos visibles por permisos actuales.</p></article>
+      </div>
+      <div class="v2-toolbar crm-toolbar"><input id="crmSearch" type="search" placeholder="Buscar cliente, correo, teléfono o segmento..." /><button data-v5-crm="Todos">Todos</button><button data-v5-crm="VIP">VIP</button><button data-v5-crm="Frecuente">Frecuentes</button><button data-v5-crm="Inactivo">Inactivos</button></div>
+      <div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Clientes y segmentos</h3><span class="tag">Lectura</span></div><div class="table" id="crmTable">${renderV2Table([rows].filter(Boolean),'Sin clientes visibles')}</div></article><article class="panel crm-profile-panel"><div class="panel-head"><h3>Ficha 360 del cliente</h3><span class="tag">CRM</span></div><div id="crmProfileDetail" class="crm-detail-empty">Selecciona un cliente para ver valor, compras, frecuencia, segmento y preparación para soporte.</div></article></div>`;
+    qs('crmSearch')?.addEventListener('input', filterV5CRM);
+    document.querySelectorAll('[data-v5-crm]').forEach(btn=>btn.addEventListener('click',()=>filterV5CRM(btn.dataset.v5Crm)));
+  }
+
+  window.openV5CRMProfile = function(index){
+    const p = window.enterpriseV5State?.profiles?.[index];
+    const detail = qs('crmProfileDetail'); if(!p || !detail) return;
+    const orders = p.orders.slice(0,10).map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${v2Date(orderDateV5(o))} · ${safe(v2OrderStatus(o))}</small></div><span>${formatUSD(orderTotal(o))}</span><i class="tag">Pedido</i></div>`).join('');
+    detail.innerHTML = `<div class="crm-detail-head"><div class="crm-avatar">${safe((p.name || p.email || 'C').charAt(0).toUpperCase())}</div><div><h2>${safe(p.name)}</h2><p>${safe(p.email)} · ${safe(p.phone)}</p></div></div><div class="crm-mini-grid"><article><span>Total gastado</span><b>${formatUSD(p.totalSpent)}</b></article><article><span>Ticket promedio</span><b>${formatUSD(p.averageTicket)}</b></article><article><span>Pedidos</span><b>${formatNumber(p.orders.length)}</b></article><article><span>Última compra</span><b>${p.lastOrderDate ? v2Date(p.lastOrderDate) : 'Sin compra'}</b></article><article><span>Segmento</span><b>${safe(p.segment)}</b></article><article><span>Días sin compra</span><b>${p.daysSince === null ? '—' : formatNumber(p.daysSince)}</b></article></div><div class="panel-head" style="margin-top:18px"><h3>Historial comercial</h3><span class="tag">Solo lectura</span></div><div class="table">${orders || '<div class="table-row"><div><b>Sin pedidos visibles</b><br><small>Puede no tener compras o falta permiso de lectura.</small></div><span>—</span><i class="tag">Info</i></div>'}</div><p class="staff-help">V6 conectará compras + garantías + reparaciones + historial técnico sin mezclar bases todavía.</p>`;
+  };
+
+  function filterV5CRM(forced){
+    const query = (qs('crmSearch')?.value || '').toLowerCase();
+    const active = forced || 'Todos';
+    document.querySelectorAll('#crmTable .crm-row').forEach(row=>{
+      const text = `${row.textContent} ${row.dataset.search || ''}`.toLowerCase();
+      const filter = row.dataset.filter || '';
+      const matchText = !query || text.includes(query);
+      const matchFilter = active === 'Todos' || filter === active || (active === 'Frecuente' && (filter === 'Frecuente' || filter === 'VIP'));
+      row.style.display = matchText && matchFilter ? '' : 'none';
+    });
+  }
+
+  function renderV5Finance(data){
+    const el = qs('finance'); if(!el) return;
+    const f = v5Finance(data);
+    const statusRows = orderStatusGroupsV5(data).slice(0,8).map(([status,count])=>`<div class="table-row"><div><b>${safe(status)}</b><br><small>Pedidos por estado visible</small></div><span>${formatNumber(count)}</span><i class="tag">Estado</i></div>`).join('');
+    const recent = (data.recentOrders || []).slice(0,12).map(o=>`<div class="table-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(orderNameV5(o))} · ${v2Date(orderDateV5(o))}</small></div><span class="status-dot ${v2StatusClass(v2OrderStatus(o))}">${safe(v2OrderStatus(o))}</span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Finanzas Completas</h3><span class="tag safe-tag">V5 · Solo lectura</span></div><p class="staff-help">Ventas por período, ticket promedio, pagos pendientes y estados. No valida pagos, no cambia estados y no dispara correos.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(f.today)}</strong><p>${formatNumber(f.todayCount)} pedidos visibles.</p></article><article class="module-card"><h3>Ventas semana</h3><strong>${formatUSD(f.week)}</strong><p>${formatNumber(f.weekCount)} pedidos visibles.</p></article><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(f.month || data.salesTotal)}</strong><p>${formatNumber(f.monthCount)} pedidos visibles.</p></article><article class="module-card"><h3>Ventas año</h3><strong>${formatUSD(f.year || data.salesTotal)}</strong><p>${formatNumber(f.yearCount)} pedidos visibles.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(f.average)}</strong><p>Promedio visible.</p></article><article class="module-card"><h3>Pagos por revisar</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>Validación intacta.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Movimientos recientes</h3><span class="tag">No editable</span></div><div class="table">${renderV2Table([recent].filter(Boolean),'Sin movimientos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Pedidos por estado</h3><span class="tag">BI</span></div><div class="table">${renderV2Table([statusRows].filter(Boolean),'Sin estados visibles')}</div></article></div>`;
+  }
+
+  function renderV5Inventory(data){
+    const el = qs('inventory'); if(!el) return;
+    const products = data.products || [];
+    const insights = productInsightsV5(data);
+    const rows = products.slice(0,120).map(p=>{ const stock=v2ProductStock(p); const label=stock===null?'Sin campo stock':stock<=0?'Agotado':stock<=2?'Stock bajo':'Disponible'; return `<div class="table-row v3-inventory-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))} · ${formatUSD(v2ProductPrice(p))}</small></div><span class="status-dot ${stock===null?'info':stock<=0?'bad':stock<=2?'warn':'ok'}">${safe(label)}</span><i class="tag">${stock===null?'Catálogo':`Stock ${stock}`}</i></div>`; }).join('');
+    const topRows = insights.topSold.map(([name,qty])=>`<div class="table-row"><div><b>${safe(name)}</b><br><small>Detectado desde items de pedido si la tabla está disponible.</small></div><span>${formatNumber(qty)} unidades</span><i class="tag">Top</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Inventario Pro Completo</h3><span class="tag safe-tag">V5 · Lectura</span></div><p class="staff-help">Stock, agotados, alertas y rotación preparada. No modifica productos, precios, existencias ni catálogo público.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Productos visibles</h3><strong>${formatNumber(products.length || data.counts.products)}</strong><p>Fuente: ${safe(data.tables.products || 'no detectada')}.</p></article><article class="module-card"><h3>Stock bajo</h3><strong>${formatNumber(insights.low.length)}</strong><p>Productos con 1-2 unidades.</p></article><article class="module-card"><h3>Agotados</h3><strong>${formatNumber(insights.zero.length)}</strong><p>Stock en 0 o menor.</p></article><article class="module-card"><h3>Rotación detectada</h3><strong>${formatNumber(insights.topSold.length)}</strong><p>Si hay order_items/pedido_items.</p></article><article class="module-card"><h3>Producto premium</h3><strong>${safe(insights.premium[0] ? v2ProductName(insights.premium[0]) : 'Pendiente')}</strong><p>${insights.premium[0] ? formatUSD(v2ProductPrice(insights.premium[0])) : 'Sin catálogo visible'}.</p></article><article class="module-card"><h3>Edición</h3><strong>Bloqueada</strong><p>Protegemos operación actual.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Inventario y alertas</h3><span class="tag">Solo lectura</span></div><div class="table">${renderV2Table([rows].filter(Boolean),'Sin productos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Más vendidos / rotación</h3><span class="tag">BI</span></div><div class="table">${renderV2Table([topRows].filter(Boolean),'Sin datos de items todavía')}</div></article></div>`;
+  }
+
+  function renderV5Marketing(data){
+    const el = qs('marketing'); if(!el) return;
+    const profiles = buildProfilesV5(data);
+    const vip = profiles.filter(p=>p.segment==='VIP');
+    const frequent = profiles.filter(p=>p.segment==='Frecuente' || p.segment==='VIP');
+    const inactive = profiles.filter(p=>p.segment==='Inactivo');
+    const newer = profiles.filter(p=>isAfterV5(p.createdAt, startOfMonth()) || p.segment==='Nuevo comprador');
+    const preorders = data.counts?.preorders || 0;
+    const audienceRows = [
+      ['Clientes VIP', vip.length, 'Campañas premium y lanzamientos Apple'],
+      ['Clientes frecuentes', frequent.length, 'Recompra y accesorios'],
+      ['Clientes inactivos', inactive.length, 'Recuperación futura'],
+      ['Clientes nuevos', newer.length, 'Fidelización y bienvenida'],
+      ['Preórdenes', preorders, 'Seguimiento de expectativa']
+    ].map(([name,count,desc])=>`<div class="table-row"><div><b>${safe(name)}</b><br><small>${safe(desc)}</small></div><span>${formatNumber(count)}</span><i class="tag">Audiencia</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Marketing Center Completo</h3><span class="tag safe-tag">Preparado · sin envío</span></div><p class="staff-help">Audiencias, segmentos y campañas preparadas. No toca Resend, API keys, plantillas, ventas@ ni soporte@.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Audiencia total</h3><strong>${formatNumber(profiles.length || data.counts.customers)}</strong><p>Clientes visibles.</p></article><article class="module-card"><h3>VIP</h3><strong>${formatNumber(vip.length)}</strong><p>Alto valor.</p></article><article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive.length)}</strong><p>Recuperación futura.</p></article><article class="module-card"><h3>Nuevos</h3><strong>${formatNumber(newer.length)}</strong><p>Bienvenida y fidelización.</p></article><article class="module-card"><h3>Campañas</h3><strong>Preparadas</strong><p>Newsletter, promociones, lanzamientos.</p></article><article class="module-card"><h3>Resend</h3><strong>Intacto</strong><p>Sin envío automático.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Audiencias listas</h3><span class="tag">Segmentación</span></div><div class="table">${audienceRows}</div></article><article class="panel"><div class="panel-head"><h3>Campañas preparadas</h3><span class="tag">Bloqueadas</span></div><div class="table"><div class="table-row"><div><b>Lanzamientos Apple</b><br><small>iPhone, MacBook, AirPods y Watch.</small></div><span>Lista</span><i class="tag">Draft</i></div><div class="table-row"><div><b>Clientes VIP</b><br><small>Ofertas premium y acceso anticipado.</small></div><span>Lista</span><i class="tag">Draft</i></div><div class="table-row"><div><b>Recuperación de clientes</b><br><small>Clientes sin compra reciente.</small></div><span>Lista</span><i class="tag">Draft</i></div></div></article></div>`;
+  }
+
+  function renderV5BI(data){
+    const el = qs('reports'); if(!el) return;
+    const profiles = buildProfilesV5(data);
+    const f = v5Finance(data);
+    const products = productInsightsV5(data);
+    const topCustomer = profiles[0];
+    const statuses = orderStatusGroupsV5(data).slice(0,8).map(([s,c])=>`<div class="table-row"><div><b>${safe(s)}</b><br><small>Estado de pedido visible</small></div><span>${formatNumber(c)}</span><i class="tag">Estado</i></div>`).join('');
+    const topProducts = products.topSold.length ? products.topSold.map(([n,q])=>`<div class="table-row"><div><b>${safe(n)}</b><br><small>Rotación por items visibles</small></div><span>${formatNumber(q)}</span><i class="tag">Top</i></div>`).join('') : products.premium.map(p=>`<div class="table-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span>${formatUSD(v2ProductPrice(p))}</span><i class="tag">Catálogo</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Business Intelligence Completo</h3><span class="tag safe-tag">V5 · Lectura</span></div><p class="staff-help">KPIs, clientes top, productos, estados y reportes ejecutivos sobre datos visibles. No escribe en Supabase.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(f.month || data.salesTotal)}</strong><p>Periodo actual visible.</p></article><article class="module-card"><h3>Ventas año</h3><strong>${formatUSD(f.year || data.salesTotal)}</strong><p>Acumulado visible.</p></article><article class="module-card"><h3>Cliente top</h3><strong>${safe(topCustomer?.name || 'Pendiente')}</strong><p>${topCustomer ? formatUSD(topCustomer.totalSpent) : 'Sin datos visibles'}.</p></article><article class="module-card"><h3>Clientes VIP</h3><strong>${formatNumber(profiles.filter(p=>p.segment==='VIP').length)}</strong><p>Segmento premium.</p></article><article class="module-card"><h3>Stock crítico</h3><strong>${formatNumber(products.low.length + products.zero.length)}</strong><p>Bajo + agotado.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(f.average)}</strong><p>Pedidos visibles.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Productos / rotación</h3><span class="tag">BI</span></div><div class="table">${renderV2Table([topProducts].filter(Boolean),'Sin productos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Pedidos por estado</h3><span class="tag">BI</span></div><div class="table">${renderV2Table([statuses].filter(Boolean),'Sin estados visibles')}</div></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Exportación ejecutiva</h3><button onclick="exportCSV('executive')">Exportar CSV</button></div><p class="staff-help">Exporta datos visibles de Enterprise. No modifica ni sincroniza datos.</p></article>`;
+  }
+
+  function renderV5Settings(){
+    const el = qs('settings'); if(!el) return;
+    el.innerHTML = `<article class="panel safe-panel v5-hero"><div class="panel-head"><h3>Seguridad y activación Enterprise V5</h3><span class="tag safe-tag">Completa · modo seguro</span></div><p class="staff-help">V5 completa CRM, BI, Finanzas, Inventario, Marketing Center y Staff Manager sin tocar la operación actual de ThinkStore.</p></article><div class="module-grid v3-kpis"><article class="module-card"><h3>CRM Completo</h3><strong>Activo</strong><p>Ficha cliente, segmentos y valor.</p></article><article class="module-card"><h3>BI Completo</h3><strong>Activo</strong><p>KPIs, top clientes/productos y estados.</p></article><article class="module-card"><h3>Finanzas</h3><strong>Activo</strong><p>Ventas por periodo y ticket promedio.</p></article><article class="module-card"><h3>Inventario Pro</h3><strong>Activo</strong><p>Alertas, agotados y rotación preparada.</p></article><article class="module-card"><h3>Marketing Center</h3><strong>Preparado</strong><p>Audiencias sin envío ni Resend.</p></article><article class="module-card"><h3>Panel actual</h3><strong>Respaldo</strong><p>ThinkStore principal queda intacto.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Blindaje aplicado</h3><span class="tag">V5</span></div><div class="table"><div class="table-row"><div><b>Sin escrituras en pedidos</b><br><small>No cambia estados, pagos, preórdenes ni notas de entrega.</small></div><span>Seguro</span><i class="tag">OK</i></div><div class="table-row"><div><b>Resend intacto</b><br><small>No toca API keys, dominios ni plantillas.</small></div><span>Intacto</span><i class="tag">OK</i></div><div class="table-row"><div><b>Modo lectura</b><br><small>CRM, BI, inventario, finanzas y marketing solo consultan información visible.</small></div><span>Activo</span><i class="tag">OK</i></div></div></article>`;
+  }
+
+  const previousLoad = window.loadEnterpriseV1Real || loadEnterpriseV1Real;
+  window.loadEnterpriseV1Real = loadEnterpriseV1Real = async function(){
+    const data = await previousLoad();
+    if(!data) return data;
+    try{
+      const [ordersFull, customersFull, productsFull, paymentsFull, orderItems] = await Promise.all([
+        v5ReadTables(['orders','pedidos'], 500),
+        v5ReadTables(['customers','clientes'], 500),
+        v5ReadTables(['products','productos'], 500),
+        v5ReadTables(['comprobantes','payments','pagos'], 300),
+        v5ReadTables(['order_items','pedido_items'], 500)
+      ]);
+      if(ordersFull.data.length){ data.recentOrders = ordersFull.data; data.tables.orders = data.tables.orders || ordersFull.table; data.counts.orders = Math.max(data.counts.orders || 0, ordersFull.data.length); }
+      if(customersFull.data.length){ data.recentCustomers = customersFull.data; data.tables.customers = data.tables.customers || customersFull.table; data.counts.customers = Math.max(data.counts.customers || 0, customersFull.data.length); }
+      if(productsFull.data.length){ data.products = productsFull.data; data.tables.products = data.tables.products || productsFull.table; data.counts.products = Math.max(data.counts.products || 0, productsFull.data.length); }
+      if(paymentsFull.data.length){ data.recentPayments = paymentsFull.data; data.tables.payments = data.tables.payments || paymentsFull.table; data.counts.payments = Math.max(data.counts.payments || 0, paymentsFull.data.length); }
+      data.orderItems = orderItems.data || [];
+      data.tables.orderItems = orderItems.table;
+      data.version = 'V5';
+      const f = v5Finance(data);
+      data.salesTotal = f.month || f.total || data.salesTotal;
+      updateExecutiveReal(data);
+      renderCommercialControl(data);
+      renderV5CRM(data);
+      renderV5Finance(data);
+      renderV5Inventory(data);
+      renderV5Marketing(data);
+      renderV5BI(data);
+    }catch(error){ console.warn('[Enterprise V5] Refuerzo de datos:', error.message || error); }
+    return data;
+  };
+
+  const previousSwitch = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    previousSwitch(id);
+    if(!enterpriseRealCache) return;
+    if(id === 'clients') renderV5CRM(enterpriseRealCache);
+    if(id === 'finance') renderV5Finance(enterpriseRealCache);
+    if(id === 'inventory') renderV5Inventory(enterpriseRealCache);
+    if(id === 'marketing') renderV5Marketing(enterpriseRealCache);
+    if(id === 'reports') renderV5BI(enterpriseRealCache);
+    if(id === 'settings') renderV5Settings();
+  };
+})();
+
+/* ==========================================================
+   Enterprise V6 · Centro de Soporte + Cliente 360
+   - Conecta Enterprise con soporte.thinkstore.com.ve en modo seguro
+   - Solo lectura sobre service_orders / service_order_notes / service_users
+   - No modifica Resend, pedidos, comprobantes, notas de entrega ni estados
+   ========================================================== */
+const V6_TABLES = {
+  serviceOrders: ['service_orders','ordenes_servicio','support_orders','repair_orders'],
+  serviceNotes: ['service_order_notes','bitacora_servicio','service_notes','repair_notes'],
+  serviceUsers: ['service_users','support_users'],
+  customers: ['clientes','customers'],
+  orders: ['pedidos','orders'],
+  payments: ['comprobantes','payments','payment_receipts'],
+  products: ['productos','products','catalogo']
+};
+let enterpriseV6Cache = null;
+
+async function readFirstAvailable(tableNames, options={}){
+  const client = getClient();
+  const names = Array.isArray(tableNames) ? tableNames : [tableNames];
+  const limit = options.limit ?? 80;
+  const select = options.select || '*';
+  const orderBy = options.orderBy || 'created_at';
+  for(const tableName of names){
+    try{
+      let query = client.from(tableName).select(select).limit(limit);
+      if(options.order !== false){ query = query.order(orderBy, { ascending:false }); }
+      const { data, error } = await query;
+      if(error) throw error;
+      return { table:tableName, data:data || [], error:null };
+    }catch(error){
+      console.warn(`V6: no se pudo leer ${tableName}:`, error.message || error);
+    }
+  }
+  return { table:null, data:[], error:'No disponible o sin permisos RLS' };
+}
+async function countFirstAvailable(tableNames){
+  const names = Array.isArray(tableNames) ? tableNames : [tableNames];
+  for(const tableName of names){
+    try{
+      const { count, error } = await getClient().from(tableName).select('*', { count:'exact', head:true });
+      if(error) throw error;
+      return { table:tableName, count:count || 0 };
+    }catch(error){ console.warn(`V6 count ${tableName}:`, error.message || error); }
+  }
+  return { table:null, count:0 };
+}
+function supportCode(row){ return pick(row,['code','codigo','order_code','numero','id']) || 'Orden'; }
+function supportClient(row){ return pick(row,['client_name','cliente','customer_name','nombre']) || 'Cliente'; }
+function supportEmail(row){ return pick(row,['client_email','email','correo','customer_email']) || ''; }
+function supportPhone(row){ return pick(row,['client_phone','telefono','phone','whatsapp']) || ''; }
+function supportDevice(row){
+  const type = pick(row,['device_type','tipo_equipo','type']) || '';
+  const model = pick(row,['device_model','modelo','model','device']) || 'Equipo';
+  return `${type ? type + ' · ' : ''}${model}`;
+}
+function supportIssue(row){ return pick(row,['reported_issue','falla','issue','diagnostico','description']) || 'Sin detalle'; }
+function supportStatus(row){ return pick(row,['status','estado','estatus']) || 'Sin estado'; }
+function supportDate(row){ return pick(row,['created_at','fecha','date','updated_at']) || ''; }
+function supportWarrantyDays(row){
+  const raw = pick(row,['warranty_days','garantia_dias','warranty','garantia']);
+  const n = Number(String(raw ?? '').replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n) ? n : 0;
+}
+function daysSince(value){
+  const d = new Date(value);
+  if(Number.isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+function statusMatches(value, terms){
+  const st = normalizeStatus(value);
+  return terms.some(t => st.includes(normalizeStatus(t)));
+}
+function isSupportDelayed(row){
+  const status = supportStatus(row);
+  if(statusMatches(status, ['Entregado','Cancelado','No aprobado'])) return false;
+  const days = daysSince(supportDate(row));
+  return days !== null && days >= 5;
+}
+function isWarrantyActive(row){
+  const days = supportWarrantyDays(row);
+  const created = new Date(supportDate(row));
+  if(!days || Number.isNaN(created.getTime())) return false;
+  const expires = new Date(created.getTime() + days * 86400000);
+  return Date.now() <= expires.getTime();
+}
+function warrantyExpires(row){
+  const days = supportWarrantyDays(row);
+  const created = new Date(supportDate(row));
+  if(!days || Number.isNaN(created.getTime())) return 'Sin fecha';
+  return new Date(created.getTime() + days * 86400000).toLocaleDateString('es-VE');
+}
+function customerKey(row){
+  return String(supportEmail(row) || rowCustomerEmail(row) || v2CustomerEmail(row) || supportPhone(row) || v2CustomerPhone(row) || supportClient(row) || v2CustomerName(row)).toLowerCase().trim();
+}
+function buildCustomer360(customers=[], orders=[], serviceOrders=[]){
+  const map = new Map();
+  function ensure(key, base={}){
+    const id = key || String(base.email || base.phone || base.name || Math.random());
+    if(!map.has(id)) map.set(id, { key:id, name:base.name || 'Cliente', email:base.email || '', phone:base.phone || '', orders:[], services:[], total:0, lastDate:null });
+    const item = map.get(id);
+    if(base.name && item.name === 'Cliente') item.name = base.name;
+    if(base.email && !item.email) item.email = base.email;
+    if(base.phone && !item.phone) item.phone = base.phone;
+    return item;
+  }
+  customers.forEach(c=>{
+    const base = { name:v2CustomerName(c), email:v2CustomerEmail(c), phone:v2CustomerPhone(c) };
+    ensure(String(base.email || base.phone || base.name).toLowerCase(), base);
+  });
+  orders.forEach(o=>{
+    const base = { name:rowCustomerName(o), email:rowCustomerEmail(o), phone:pick(o,['telefono','phone','whatsapp']) || '' };
+    const item = ensure(String(base.email || base.phone || base.name).toLowerCase(), base);
+    item.orders.push(o);
+    item.total += orderTotal(o);
+    const dt = new Date(rowDate(o));
+    if(!Number.isNaN(dt.getTime()) && (!item.lastDate || dt > item.lastDate)) item.lastDate = dt;
+  });
+  serviceOrders.forEach(s=>{
+    const base = { name:supportClient(s), email:supportEmail(s), phone:supportPhone(s) };
+    const item = ensure(String(base.email || base.phone || base.name).toLowerCase(), base);
+    item.services.push(s);
+    const dt = new Date(supportDate(s));
+    if(!Number.isNaN(dt.getTime()) && (!item.lastDate || dt > item.lastDate)) item.lastDate = dt;
+  });
+  return Array.from(map.values()).sort((a,b)=>(b.total || 0) - (a.total || 0));
+}
+async function loadEnterpriseV6Support(){
+  if(!window.supabaseClient) return;
+  try{
+    const [serviceRes, notesRes, techRes, customersRes, ordersRes, paymentsRes, productsCount] = await Promise.all([
+      readFirstAvailable(V6_TABLES.serviceOrders, { limit:120 }),
+      readFirstAvailable(V6_TABLES.serviceNotes, { limit:80 }),
+      readFirstAvailable(V6_TABLES.serviceUsers, { limit:60 }),
+      readFirstAvailable(V6_TABLES.customers, { limit:120 }),
+      readFirstAvailable(V6_TABLES.orders, { limit:120 }),
+      readFirstAvailable(V6_TABLES.payments, { limit:80 }),
+      countFirstAvailable(V6_TABLES.products)
+    ]);
+    const data = {
+      serviceTable: serviceRes.table,
+      notesTable: notesRes.table,
+      serviceUsersTable: techRes.table,
+      serviceOrders: serviceRes.data,
+      notes: notesRes.data,
+      serviceUsers: techRes.data,
+      customers: customersRes.data,
+      orders: ordersRes.data,
+      payments: paymentsRes.data,
+      productsCount: productsCount.count,
+      productsTable: productsCount.table
+    };
+    enterpriseV6Cache = data;
+    renderV6Support(data);
+    renderV6Client360(data);
+    renderV6Warranties(data);
+    renderV6Alerts(data);
+    renderV6ExecutiveSummary(data);
+  }catch(error){
+    console.error('V6 soporte:', error);
+    ['support','client360','warranties','alerts'].forEach(id=>{
+      const el = qs(id);
+      if(el) el.innerHTML = `<article class="panel"><div class="panel-head"><h3>Enterprise V6</h3><span class="tag">Error</span></div><p class="staff-help">No se pudo cargar V6: ${safe(error.message || error)}. No se modificó ninguna tabla.</p></article>`;
+    });
+  }
+}
+function renderV6ExecutiveSummary(data){
+  const delayed = data.serviceOrders.filter(isSupportDelayed).length;
+  const activeSupport = data.serviceOrders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado'])).length;
+  const ready = data.serviceOrders.filter(o=>statusMatches(supportStatus(o), ['Listo para entregar','Listo'])).length;
+  const pendingPayments = data.payments.filter(isPendingPayment).length;
+  const statusEl = qs('statusList');
+  if(statusEl){
+    statusEl.innerHTML = [
+      ['✓','Enterprise V6','Centro de Soporte activo'],
+      ['↗','Soporte abierto',`${activeSupport} órdenes`],
+      ['⚠','Equipos retrasados',`${delayed} alertas`],
+      ['▣','Listos para entrega',`${ready} equipos`],
+      ['◇','Pagos pendientes',`${pendingPayments} comprobantes`]
+    ].map(([i,n,s])=>`<div class="status-row"><i>${i}</i><b>${n}</b><span>${s}</span></div>`).join('');
+  }
+}
+function renderV6Support(data){
+  const el = qs('support'); if(!el) return;
+  const orders = data.serviceOrders || [];
+  const parts = data.serviceParts || [];
+  const partMovements = data.servicePartMovements || [];
+  const lowParts = parts.filter(p=>Number(p.quantity||0)<=Number(p.minimum_stock||0));
+  const open = orders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado']));
+  const diagnosis = orders.filter(o=>statusMatches(supportStatus(o), ['Diagnóstico','diagnostico']));
+  const repair = orders.filter(o=>statusMatches(supportStatus(o), ['reparación','reparacion','aprobado']));
+  const ready = orders.filter(o=>statusMatches(supportStatus(o), ['Listo para entregar','Listo']));
+  const delayed = orders.filter(isSupportDelayed);
+  const supportStates=['Recibido','En diagnóstico','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No aprobado','Cancelado'];
+  const recent = orders.slice(0,20).map(o=>`
+    <div class="table-row v6-row">
+      <div><b>${safe(supportCode(o))}</b><br><small>${safe(supportClient(o))} · ${safe(supportDevice(o))}</small>${window.ThinkStoreFinancing.html(o)}</div>
+      <span><select class="v2-select" onchange="enterpriseUpdateSupport('${safe(o.id||'')}',this.value)">${supportStates.map(s=>`<option ${s===supportStatus(o)?'selected':''}>${safe(s)}</option>`).join('')}</select></span>
+      <i><button class="tag" onclick="enterpriseManageSupport('${safe(o.id||'')}')">Gestionar</button> <button class="tag" onclick="enterpriseAddSupportNote('${safe(o.id||'')}','${safe(supportCode(o))}')">Bitácora</button> <button class="tag" onclick="enterpriseNotifySupport('${safe(o.id||'')}','${safe(supportCode(o))}')">Correo</button></i>
+    </div>`).join('');
+  el.innerHTML = `
+    <article class="panel v6-hero">
+      <div class="panel-head"><h3>Centro de Soporte integrado</h3><span class="tag safe-tag">Datos reales · Supabase Soporte</span></div>
+      <p class="staff-help">Consulta órdenes reales, actualiza estados y registra entradas de bitácora sin mezclar la base de soporte con la tienda.</p>
+      <div class="v2-toolbar"><button onclick="window.open('https://soporte.thinkstore.com.ve','_blank','noopener')">Abrir Soporte Técnico</button><button onclick="loadEnterpriseV6Support()">Actualizar</button></div>
+    </article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Órdenes soporte</h3><strong>${formatNumber(orders.length)}</strong><p>Fuente: ${safe(data.serviceTable || 'service_orders no disponible')}</p></article>
+      <article class="module-card"><h3>Abiertas</h3><strong>${formatNumber(open.length)}</strong><p>En recepción, diagnóstico, reparación o logística.</p></article>
+      <article class="module-card"><h3>Diagnóstico</h3><strong>${formatNumber(diagnosis.length)}</strong><p>Equipos esperando revisión técnica.</p></article>
+      <article class="module-card"><h3>En reparación</h3><strong>${formatNumber(repair.length)}</strong><p>Aprobados o en proceso técnico.</p></article>
+      <article class="module-card"><h3>Listos</h3><strong>${formatNumber(ready.length)}</strong><p>Preparados para entregar al cliente.</p></article>
+      <article class="module-card"><h3>Retrasados</h3><strong>${formatNumber(delayed.length)}</strong><p>Más de 5 días sin entrega final.</p></article>
+      <article class="module-card"><h3>Repuestos</h3><strong>${formatNumber(parts.length)}</strong><p>${formatNumber(lowParts.length)} con stock bajo.</p></article>
+    </div>
+    <div class="main-grid" style="margin-top:18px">
+      <article class="panel"><div class="panel-head"><h3>Órdenes recientes</h3><span class="tag">V6</span></div><div class="table">${recent || '<div class="table-row"><div><b>Sin órdenes visibles</b><br><small>Configura el puente seguro y ejecuta la migración del Supabase de Soporte.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>
+      <article class="panel"><div class="panel-head"><h3>Bitácora / técnicos</h3></div><div class="table">
+        <div class="table-row"><div><b>Notas técnicas</b><br><small>${safe(data.notesTable || 'service_order_notes no disponible')}</small></div><span>${formatNumber(data.notes.length)}</span><i class="tag">Notas</i></div>
+        <div class="table-row"><div><b>Auditoría</b><br><small>Cambios de estado, gestión y correos</small></div><span>${formatNumber((window.enterpriseV9Cache?.serviceAudit||[]).length)}</span><i class="tag">Eventos</i></div>
+        <div class="table-row"><div><b>Usuarios soporte</b><br><small>${safe(data.serviceUsersTable || 'service_users no disponible')}</small></div><span>${formatNumber(data.serviceUsers.length)}</span><i class="tag">Equipo</i></div>
+        <div class="table-row"><div><b>Inventario de repuestos</b><br><small>Entradas y consumos trazables por orden</small></div><span>${formatNumber(parts.reduce((sum,p)=>sum+Number(p.quantity||0),0))} uds.</span><i class="tag ${lowParts.length?'':'safe-tag'}">${formatNumber(partMovements.length)} movimientos</i></div>
+        <div class="table-row"><div><b>Repuestos en mínimo</b><br><small>${safe(lowParts.slice(0,4).map(p=>p.name).join(', ')||'Sin alertas')}</small></div><span>${formatNumber(lowParts.length)}</span><i class="tag ${lowParts.length?'':'safe-tag'}">${lowParts.length?'Reponer':'Correcto'}</i></div>
+        <div class="table-row"><div><b>Modo de integración</b><br><small>Puente servidor a servidor con auditoría en la bitácora.</small></div><span>Operativo</span><i class="tag safe-tag">Seguro</i></div>
+      </div></article>
+    </div>`;
+}
+function renderV6Client360(data){
+  const el = qs('client360'); if(!el) return;
+  const list = buildCustomer360(data.customers, data.orders, data.serviceOrders).slice(0,12);
+  const rows = list.map(c=>`
+    <div class="table-row v6-row">
+      <div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')} · Último movimiento: ${c.lastDate ? c.lastDate.toLocaleDateString('es-VE') : '—'}</small></div>
+      <span>${formatNumber(c.orders.length)} pedidos · ${formatNumber(c.services.length)} soporte</span>
+      <i><span class="tag">${c.total >= 2000 ? 'VIP' : c.orders.length >= 2 ? 'Frecuente' : 'Cliente'}</span> ${c.email?`<button class="tag" onclick="enterpriseEditClient('${safe(c.email)}','${safe(c.name)}','${safe(c.phone)}')">Editar</button> <a class="tag" href="mailto:${safe(c.email)}">Correo</a>`:''} ${c.phone?`<a class="tag" target="_blank" rel="noopener" href="https://wa.me/${String(c.phone).replace(/\D/g,'')}">WhatsApp</a>`:''}</i>
+    </div>`).join('');
+  el.innerHTML = `
+    <article class="panel v6-hero"><div class="panel-head"><h3>Cliente 360</h3><span class="tag safe-tag">Compras + soporte + garantías</span></div><p class="staff-help">Vista consolidada entre bases separadas, con edición autorizada del cliente y contacto directo por correo o WhatsApp.</p></article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Clientes unificados</h3><strong>${formatNumber(list.length)}</strong><p>Base visible combinada.</p></article>
+      <article class="module-card"><h3>Con compras</h3><strong>${formatNumber(list.filter(c=>c.orders.length).length)}</strong><p>Clientes con historial comercial.</p></article>
+      <article class="module-card"><h3>Con soporte</h3><strong>${formatNumber(list.filter(c=>c.services.length).length)}</strong><p>Clientes con equipos en soporte.</p></article>
+    </div>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Ficha 360 resumida</h3><button onclick="loadEnterpriseV6Support()">Actualizar</button></div><div class="table">${rows || '<div class="table-row"><div><b>Sin clientes para cruzar</b><br><small>Cuando existan clientes/pedidos/soporte visibles, aparecerán aquí.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>`;
+}
+function renderV6Warranties(data){
+  const el = qs('warranties'); if(!el) return;
+  const warrantyRows = data.serviceOrders.filter(o=>supportWarrantyDays(o) > 0).slice(0,12);
+  const active = warrantyRows.filter(isWarrantyActive);
+  const expired = warrantyRows.filter(o=>!isWarrantyActive(o));
+  const rows = warrantyRows.map(o=>`
+    <div class="table-row v6-row">
+      <div><b>${safe(supportClient(o))}</b><br><small>${safe(supportDevice(o))} · ${safe(supportCode(o))}</small></div>
+      <span>${formatNumber(supportWarrantyDays(o))} días · vence ${safe(warrantyExpires(o))}</span>
+      <i class="tag ${isWarrantyActive(o) ? 'safe-tag' : ''}">${isWarrantyActive(o) ? 'Activa' : 'Vencida'}</i>
+    </div>`).join('');
+  el.innerHTML = `
+    <article class="panel v6-hero"><div class="panel-head"><h3>Garantías</h3><span class="tag safe-tag">Preparado para servicio + ventas</span></div><p class="staff-help">Control visual de garantías asociadas a órdenes de soporte. No modifica fechas, estados ni notas.</p></article>
+    <div class="module-grid control-cards">
+      <article class="module-card"><h3>Garantías detectadas</h3><strong>${formatNumber(warrantyRows.length)}</strong><p>Órdenes con días de garantía.</p></article>
+      <article class="module-card"><h3>Activas</h3><strong>${formatNumber(active.length)}</strong><p>Dentro del período estimado.</p></article>
+      <article class="module-card"><h3>Vencidas</h3><strong>${formatNumber(expired.length)}</strong><p>Fuera del período estimado.</p></article>
+    </div>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Garantías por equipo</h3></div><div class="table">${rows || '<div class="table-row"><div><b>Sin garantías visibles</b><br><small>Cuando soporte registre warranty_days, aparecerán aquí.</small></div><span></span><i class="tag">Info</i></div>'}</div></article>`;
+}
+function renderV6Alerts(data){
+  const el = qs('alerts'); if(!el) return;
+  const pendingPayments = data.payments.filter(isPendingPayment);
+  const delayed = data.serviceOrders.filter(isSupportDelayed);
+  const ready = data.serviceOrders.filter(o=>statusMatches(supportStatus(o), ['Listo para entregar','Listo']));
+  const activeWarranties = data.serviceOrders.filter(isWarrantyActive);
+  const rows = [
+    ['Pagos pendientes', `${pendingPayments.length} comprobantes`, 'Revisar desde panel actual para no romper validación.', 'warn'],
+    ['Equipos retrasados', `${delayed.length} órdenes`, 'Más de 5 días sin entrega final.', delayed.length ? 'bad' : 'ok'],
+    ['Equipos listos', `${ready.length} para entregar`, 'Oportunidad de cierre y entrega.', 'info'],
+    ['Garantías activas', `${activeWarranties.length} equipos`, 'Control postventa.', 'ok'],
+    ['Productos visibles', `${data.productsCount} registros`, data.productsTable ? `Fuente: ${data.productsTable}` : 'Inventario no conectado todavía.', 'info'],
+    ['Correos automáticos', 'Intactos', 'Resend no se toca en V6.', 'ok']
+  ].map(([title,value,desc,kind])=>`
+    <div class="table-row v6-row"><div><b>${safe(title)}</b><br><small>${safe(desc)}</small></div><span class="status-dot ${kind}">${safe(value)}</span><i class="tag">V6</i></div>`).join('');
+  el.innerHTML = `
+    <article class="panel v6-hero"><div class="panel-head"><h3>Centro de Alertas</h3><span class="tag safe-tag">Operación ejecutiva</span></div><p class="staff-help">Alertas consolidadas de ventas, soporte, garantías e inventario. Todo en modo lectura.</p></article>
+    <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Alertas activas</h3><button onclick="loadEnterpriseV6Support()">Actualizar</button></div><div class="table">${rows}</div></article>`;
+}
+window.loadEnterpriseV6Support = loadEnterpriseV6Support;
+
+/* ==========================================================
+   Enterprise V7 + V8 · Finanzas avanzadas + ThinkStore AI
+   - Modo seguro: solo lectura y recomendaciones visuales
+   - No modifica Resend, correos, pedidos, comprobantes ni notas
+   ========================================================== */
+(function(){
+  titles.financeAdvanced = ["Finanzas Avanzadas", "Flujo de caja, metas, margen estimado y ranking comercial en modo lectura."];
+  titles.ai = ["ThinkStore AI", "Recomendaciones inteligentes sobre clientes, inventario, ventas y soporte sin modificar datos."];
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = () => new Date();
+  const startOfDay = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+  const startOfWeek = () => { const d = startOfDay(); const day = (d.getDay()+6)%7; d.setDate(d.getDate()-day); return d; };
+  const startOfMonth = () => { const d = startOfDay(); d.setDate(1); return d; };
+  const startOfYear = () => { const d = startOfDay(); d.setMonth(0,1); return d; };
+  const toDate = (value) => { const d = new Date(value || ''); return Number.isNaN(d.getTime()) ? null : d; };
+  const after = (value, start) => { const d = toDate(value); return d ? d >= start : false; };
+  const pct = (value, total) => total ? Math.min(100, Math.max(0, Math.round((Number(value || 0) / Number(total || 1)) * 100))) : 0;
+
+  function v78OrderDate(o){ return rowDate(o) || pick(o, ['fecha_creacion','createdAt','created','order_date']); }
+  function v78OrderStatus(o){ return pick(o, ['estado','status','estatus','payment_status']) || 'Sin estado'; }
+  function v78Email(value){ return String(value || '').trim().toLowerCase(); }
+  function v78CustomerEmailFromOrder(o){ return v78Email(rowCustomerEmail(o) || pick(o, ['correo','email','customer_email','cliente_email'])); }
+  function v78CustomerEmail(c){ return v78Email(pick(c, ['correo','email','customer_email']) || ''); }
+  function v78CustomerName(c){ return pick(c, ['nombre','name','full_name','cliente','display_name']) || 'Cliente'; }
+
+  function v78BuildProfiles(data){
+    const map = new Map();
+    (data?.recentCustomers || []).forEach(c=>{
+      const key = v78CustomerEmail(c) || `cliente-${pick(c, ['id','uid']) || Math.random()}`;
+      if(!map.has(key)) map.set(key, { key, name:v78CustomerName(c), email:v78CustomerEmail(c) || 'Sin correo', orders:[], total:0, last:null, created:rowDate(c), segment:'Registrado' });
+    });
+    (data?.recentOrders || []).forEach(o=>{
+      const key = v78CustomerEmailFromOrder(o) || `pedido-${pick(o, ['id','codigo','code']) || Math.random()}`;
+      if(!map.has(key)) map.set(key, { key, name:rowCustomerName(o), email:v78CustomerEmailFromOrder(o) || 'Sin correo', orders:[], total:0, last:null, created:v78OrderDate(o), segment:'Cliente' });
+      const p = map.get(key);
+      const amount = orderTotal(o);
+      const d = toDate(v78OrderDate(o));
+      p.orders.push(o);
+      p.total += amount;
+      if(d && (!p.last || d > p.last)) p.last = d;
+    });
+    return Array.from(map.values()).map(p=>{
+      const days = p.last ? Math.floor((Date.now() - p.last.getTime()) / DAY) : null;
+      if(p.total >= 1200 || p.orders.length >= 4) p.segment = 'VIP';
+      else if(days !== null && days > 90) p.segment = 'Inactivo';
+      else if(p.orders.length >= 2) p.segment = 'Frecuente';
+      else if(p.orders.length === 1) p.segment = 'Nuevo comprador';
+      p.days = days;
+      p.avg = p.orders.length ? p.total / p.orders.length : 0;
+      return p;
+    }).sort((a,b)=> b.total - a.total || b.orders.length - a.orders.length);
+  }
+
+  function v78Finance(data){
+    const orders = data?.recentOrders || [];
+    const sum = rows => rows.reduce((total,o)=>total + orderTotal(o), 0);
+    const todayRows = orders.filter(o=>after(v78OrderDate(o), startOfDay()));
+    const weekRows = orders.filter(o=>after(v78OrderDate(o), startOfWeek()));
+    const monthRows = orders.filter(o=>after(v78OrderDate(o), startOfMonth()));
+    const yearRows = orders.filter(o=>after(v78OrderDate(o), startOfYear()));
+    const total = sum(orders);
+    const pendingRows = orders.filter(isPendingPayment);
+    const pending = sum(pendingRows);
+    const preorders = orders.filter(o=>normalizeStatus(v78OrderStatus(o)).includes('preorden') || normalizeStatus(v78OrderStatus(o)).includes('preorder'));
+    const preorderValue = sum(preorders);
+    const month = sum(monthRows) || Number(data?.salesTotal || 0);
+    const estimatedGrossMargin = month * 0.28;
+    const estimatedNetMargin = month * 0.18;
+    return { today:sum(todayRows), week:sum(weekRows), month, year:sum(yearRows) || total, total, pending, pendingCount:pendingRows.length, preorderValue, preorderCount:preorders.length, average:orders.length ? total / orders.length : 0, estimatedGrossMargin, estimatedNetMargin, ordersCount:orders.length };
+  }
+
+  function v78ProductInsights(data){
+    const products = data?.products || [];
+    const items = data?.orderItems || [];
+    const sold = new Map();
+    items.forEach(item=>{
+      const name = pick(item, ['producto','producto_nombre','product_name','nombre','name','title','titulo','modelo','model']) || 'Producto';
+      const qty = Number(pick(item, ['cantidad','qty','quantity','unidades']) || 1) || 1;
+      sold.set(name, (sold.get(name) || 0) + qty);
+    });
+    const topSold = Array.from(sold.entries()).sort((a,b)=>b[1]-a[1]);
+    const low = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s > 0 && s <= 2; });
+    const zero = products.filter(p=>{ const s=v2ProductStock(p); return s !== null && s <= 0; });
+    const premium = products.slice().sort((a,b)=>v2ProductPrice(b)-v2ProductPrice(a)).slice(0,8);
+    const categories = new Map();
+    products.forEach(p=>{
+      const cat = v2ProductCategory(p);
+      categories.set(cat, (categories.get(cat) || 0) + 1);
+    });
+    return { topSold, low, zero, premium, categories:Array.from(categories.entries()).sort((a,b)=>b[1]-a[1]) };
+  }
+
+  function renderProgress(label, value, goal){
+    const p = pct(value, goal);
+    return `<div class="table-row v7-row"><div><b>${safe(label)}</b><br><small>${formatUSD(value)} de ${formatUSD(goal)}</small></div><span>${p}%</span><i class="tag">Meta</i></div><div class="goalbar"><i style="width:${p}%"></i></div>`;
+  }
+
+  function renderFinanceAdvanced(data){
+    const el = qs('financeAdvanced'); if(!el) return;
+    const f = v78Finance(data || enterpriseRealCache || {});
+    const monthGoal = 15000;
+    const quarterGoal = 45000;
+    const annualGoal = 180000;
+    const categories = v78ProductInsights(data || enterpriseRealCache || {}).categories.slice(0,8).map(([name,count])=>`<div class="table-row v7-row"><div><b>${safe(name)}</b><br><small>Categoría visible en catálogo.</small></div><span>${formatNumber(count)} productos</span><i class="tag">Categoría</i></div>`).join('');
+    const cashRows = [
+      ['Entradas visibles', f.month, 'Pedidos visibles del mes actual', 'ok'],
+      ['Cobranza pendiente', f.pending, `${f.pendingCount} registros por revisar`, f.pendingCount ? 'warn' : 'ok'],
+      ['Preórdenes comprometidas', f.preorderValue, `${f.preorderCount} preórdenes visibles`, 'info'],
+      ['Margen bruto estimado', f.estimatedGrossMargin, 'Estimación visual 28%; no modifica costos.', 'ok'],
+      ['Margen neto estimado', f.estimatedNetMargin, 'Estimación visual 18%; preparar costos reales en V7.2.', 'info']
+    ].map(([title,value,desc,kind])=>`<div class="table-row v7-row"><div><b>${safe(title)}</b><br><small>${safe(desc)}</small></div><span class="status-dot ${kind}">${formatUSD(value)}</span><i class="tag">V7</i></div>`).join('');
+    el.innerHTML = `
+      <article class="panel safe-panel v7-hero"><div class="panel-head"><h3>Centro Financiero Avanzado</h3><span class="tag safe-tag">V7 · solo lectura</span></div><p class="staff-help">Flujo de caja, metas, margen estimado y ranking comercial. No valida pagos, no cambia estados, no toca comprobantes, notas ni Resend.</p></article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(f.today)}</strong><p>Pedidos visibles del día.</p></article>
+        <article class="module-card"><h3>Ventas semana</h3><strong>${formatUSD(f.week)}</strong><p>Desde el lunes actual.</p></article>
+        <article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(f.month)}</strong><p>Indicador principal V7.</p></article>
+        <article class="module-card"><h3>Ventas año</h3><strong>${formatUSD(f.year)}</strong><p>Acumulado visible.</p></article>
+        <article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(f.average)}</strong><p>Promedio por pedido visible.</p></article>
+        <article class="module-card"><h3>Pagos pendientes</h3><strong>${formatUSD(f.pending)}</strong><p>${formatNumber(f.pendingCount)} por revisar.</p></article>
+      </div>
+      <div class="main-grid" style="margin-top:18px">
+        <article class="panel"><div class="panel-head"><h3>Flujo de caja ejecutivo</h3><span class="tag">Estimado</span></div><div class="table">${cashRows}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Metas comerciales</h3><span class="tag">V7</span></div><div class="table">${renderProgress('Meta mensual', f.month, monthGoal)}${renderProgress('Meta trimestral', f.month * 3, quarterGoal)}${renderProgress('Meta anual', f.year, annualGoal)}</div></article>
+      </div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Rentabilidad por categoría preparada</h3><span class="tag">Sin costos todavía</span></div><div class="table">${categories || '<div class="table-row"><div><b>Categorías pendientes</b><br><small>Cuando el catálogo tenga categorías visibles, aparecerán aquí.</small></div><span>—</span><i class="tag">Info</i></div>'}</div></article>`;
+  }
+
+  function buildAIRecommendations(data){
+    const profiles = v78BuildProfiles(data || {});
+    const finance = v78Finance(data || {});
+    const products = v78ProductInsights(data || {});
+    const support = window.enterpriseV6Cache || enterpriseV6Cache || null;
+    const delayedSupport = support?.serviceOrders ? support.serviceOrders.filter(isSupportDelayed).length : 0;
+    const inactive = profiles.filter(p=>p.segment === 'Inactivo');
+    const vip = profiles.filter(p=>p.segment === 'VIP');
+    const topCustomer = profiles[0];
+    const topProduct = products.topSold[0]?.[0] || products.premium[0] && v2ProductName(products.premium[0]);
+    const recs = [];
+    recs.push({kind: products.zero.length || products.low.length ? 'bad':'ok', title:'Reposición inteligente', value:`${products.zero.length + products.low.length} productos críticos`, detail: products.zero.length || products.low.length ? 'Revisar agotados y stock bajo antes de campañas.' : 'No se detectó stock crítico visible.'});
+    recs.push({kind: inactive.length ? 'warn':'ok', title:'Recuperación de clientes', value:`${inactive.length} inactivos`, detail:'Preparar campaña futura sin enviar correos todavía.'});
+    recs.push({kind:'ok', title:'Clientes VIP', value:`${vip.length} detectados`, detail: vip.length ? 'Crear ofertas premium y preventas exclusivas.' : 'Aún no hay suficientes datos para VIP.'});
+    recs.push({kind: finance.pendingCount ? 'warn':'ok', title:'Cobranza pendiente', value:`${finance.pendingCount} pagos`, detail:'Revisar desde el panel actual para mantener el flujo estable.'});
+    recs.push({kind: delayedSupport ? 'bad':'ok', title:'Soporte retrasado', value:`${delayedSupport} alertas`, detail:'Priorizar equipos con más de 5 días sin entrega final.'});
+    recs.push({kind:'info', title:'Producto recomendado', value: topProduct || 'Pendiente', detail: topProduct ? 'Úsalo como foco de campaña y reposición.' : 'Faltan items o productos visibles para recomendar.'});
+    recs.push({kind:'info', title:'Cliente top', value: topCustomer?.name || 'Pendiente', detail: topCustomer ? `${formatUSD(topCustomer.total)} visibles en pedidos.` : 'Sin historial suficiente.'});
+    return recs;
+  }
+
+  function renderThinkStoreAI(data){
+    const el = qs('ai'); if(!el) return;
+    const recs = buildAIRecommendations(data || enterpriseRealCache || {});
+    const cards = recs.map(r=>`<div class="table-row v8-row"><div><b>${safe(r.title)}</b><br><small>${safe(r.detail)}</small></div><span class="status-dot ${r.kind}">${safe(r.value)}</span><i class="tag">AI</i></div>`).join('');
+    const prompts = [
+      '¿Qué producto debo reponer primero?',
+      '¿Qué clientes debo recuperar esta semana?',
+      '¿Cuál es mi mayor riesgo operativo?',
+      '¿Qué segmento tiene más potencial?',
+      '¿Qué debería revisar antes de lanzar una promoción?'
+    ].map(q=>`<div class="table-row v8-row"><div><b>${safe(q)}</b><br><small>Pregunta preparada para ThinkStore AI. Respuesta basada en datos visibles de Supabase.</small></div><span>Disponible</span><i class="tag">Prompt</i></div>`).join('');
+    el.innerHTML = `
+      <article class="panel safe-panel v8-hero"><div class="panel-head"><h3>ThinkStore AI</h3><span class="tag safe-tag">V8 · recomendaciones</span></div><p class="staff-help">Motor de recomendaciones sobre ventas, clientes, inventario y soporte. En esta fase no escribe datos, no envía correos y no modifica pedidos.</p></article>
+      <div class="module-grid v3-kpis">
+        <article class="module-card"><h3>Recomendaciones</h3><strong>${formatNumber(recs.length)}</strong><p>Generadas con datos visibles.</p></article>
+        <article class="module-card"><h3>Modo</h3><strong>Lectura</strong><p>Sin acciones automáticas.</p></article>
+        <article class="module-card"><h3>Áreas</h3><strong>Ventas + CRM + Soporte</strong><p>Visión cruzada Enterprise.</p></article>
+      </div>
+      <div class="main-grid" style="margin-top:18px">
+        <article class="panel"><div class="panel-head"><h3>Recomendaciones inteligentes</h3><button onclick="renderThinkStoreAI(enterpriseRealCache)">Actualizar</button></div><div class="table">${cards}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Preguntas rápidas</h3><span class="tag">Preparadas</span></div><div class="table">${prompts}</div></article>
+      </div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Protección V8</h3><span class="tag safe-tag">Seguro</span></div><div class="table"><div class="table-row"><div><b>Sin automatizaciones destructivas</b><br><small>ThinkStore AI solo recomienda; no envía correos, no valida pagos y no cambia estados.</small></div><span>Bloqueado</span><i class="tag">OK</i></div><div class="table-row"><div><b>Preparado para V8.2</b><br><small>Luego se puede conectar un asistente interno para preguntas con Supabase.</small></div><span>Listo</span><i class="tag">Next</i></div></div></article>`;
+  }
+
+  window.renderFinanceAdvanced = renderFinanceAdvanced;
+  window.renderThinkStoreAI = renderThinkStoreAI;
+
+  const previousLoad = window.loadEnterpriseV1Real || loadEnterpriseV1Real;
+  window.loadEnterpriseV1Real = loadEnterpriseV1Real = async function(){
+    const data = await previousLoad();
+    if(data){
+      try{
+        renderFinanceAdvanced(data);
+        renderThinkStoreAI(data);
+      }catch(error){ console.warn('[Enterprise V7/V8] Render:', error.message || error); }
+    }
+    return data;
+  };
+
+  const previousSwitch = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    previousSwitch(id);
+    if(!enterpriseRealCache) return;
+    if(id === 'financeAdvanced') renderFinanceAdvanced(enterpriseRealCache);
+    if(id === 'ai') renderThinkStoreAI(enterpriseRealCache);
+  };
+})();
+
+/* ==========================================================
+   Enterprise V9 · Ecosistema ThinkStore + datos reales por pantalla
+   - Centro de Operaciones unificado
+   - PWA para móviles/tabletas
+   - Refuerzo de pantallas con datos visibles de Supabase
+   - Soporte externo opcional vía support-config.js
+   - Sin tocar Resend, correos, notas, pedidos ni panel actual
+   ========================================================== */
+(function(){
+  const V9_TABLES = {
+    customers: ['clientes','customers','profiles_clientes','usuarios_clientes'],
+    orders: ['pedidos','orders','ordenes','compras'],
+    orderItems: ['pedido_items','order_items','items_pedido'],
+    payments: ['comprobantes','payments','payment_receipts','pagos'],
+    products: ['productos','products','catalogo','inventory','inventario'],
+    preorders: ['preordenes','preorders','orders_preorder','pre_orders'],
+    orderHistory: ['order_status_history','historial_estados','pedido_historial'],
+    serviceOrders: ['service_orders','ordenes_servicio','support_orders','repair_orders'],
+    serviceNotes: ['service_order_notes','bitacora_servicio','service_notes','repair_notes'],
+    serviceUsers: ['service_users','support_users'],
+    staff: ['roles_usuarios','profiles'],
+    invitations: ['staff_invitations']
+  };
+
+  let v9Cache = null;
+  let externalSupportClient = null;
+
+  function v9StatusKind(status){
+    const st = normalizeStatus(status);
+    if(st.includes('entreg') || st.includes('pagado') || st.includes('aprob') || st.includes('listo')) return 'ok';
+    if(st.includes('pend') || st.includes('verif') || st.includes('diag') || st.includes('proceso') || st.includes('repar')) return 'warn';
+    if(st.includes('cancel') || st.includes('rechaz') || st.includes('venc')) return 'bad';
+    return 'info';
+  }
+  function v9Date(row){ return pick(row, ['created_at','fecha','date','updated_at','createdAt']) || ''; }
+  function v9RecentDateLabel(value){
+    if(!value) return 'Sin fecha';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('es-VE', {dateStyle:'short', timeStyle:'short'});
+  }
+  function v9MonthKey(value){
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? 'Sin fecha' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+  function v9ThisMonth(value){
+    const d = new Date(value); const n = new Date();
+    return !Number.isNaN(d.getTime()) && d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth();
+  }
+  function v9LastDays(value, days){
+    const d = new Date(value);
+    return !Number.isNaN(d.getTime()) && (Date.now() - d.getTime()) <= days * 86400000;
+  }
+  function v9Unique(arr){ return Array.from(new Set(arr.filter(Boolean))); }
+  function v9AsRows(rows, empty='Sin datos visibles'){
+    return rows && rows.length ? rows.join('') : `<div class="table-row"><div><b>${safe(empty)}</b><br><small>Puede ser una tabla vacía, RLS o un nombre diferente.</small></div><span>Solo lectura</span><i class="tag">Info</i></div>`;
+  }
+  function v9ActionButton(label, view){
+    return `<button onclick="switchView('${view}')">${safe(label)}</button>`;
+  }
+  async function v9Read(tableNames, options={}){
+    const client = options.client || getClient();
+    const names = Array.isArray(tableNames) ? tableNames : [tableNames];
+    const select = options.select || '*';
+    const limit = options.limit ?? 150;
+    for(const table of names){
+      try{
+        let query = client.from(table).select(select).limit(limit);
+        if(options.order !== false){
+          query = query.order(options.orderBy || 'created_at', { ascending: options.ascending ?? false });
+        }
+        let { data, error } = await query;
+        if(error && options.order !== false){
+          const retry = await client.from(table).select(select).limit(limit);
+          data = retry.data; error = retry.error;
+        }
+        if(!error) return { table, data:data || [] };
+        console.warn(`[Enterprise V9] Lectura ${table}:`, error.message || error);
+      }catch(error){ console.warn(`[Enterprise V9] Lectura ${table}:`, error.message || error); }
+    }
+    return { table:null, data:[] };
+  }
+  async function v9Count(tableNames, client=getClient()){
+    for(const table of (Array.isArray(tableNames) ? tableNames : [tableNames])){
+      try{
+        const { count, error } = await client.from(table).select('*', { count:'exact', head:true });
+        if(!error) return { table, count:count || 0 };
+      }catch(error){ console.warn(`[Enterprise V9] Conteo ${table}:`, error.message || error); }
+    }
+    return { table:null, count:0 };
+  }
+  function v9GetSupportClient(){
+    const cfg = window.THINKSTORE_SUPPORT_SUPABASE;
+    if(!cfg?.enabled || !cfg.url || !cfg.anonKey || !window.supabase) return null;
+    if(!externalSupportClient){
+      externalSupportClient = window.supabase.createClient(cfg.url, cfg.anonKey);
+    }
+    return externalSupportClient;
+  }
+
+  async function v9LoadDataFromRPC(){
+    try{
+      const client = getClient();
+      if(!client?.rpc) return null;
+      const { data:snapshot, error } = await client.rpc('enterprise_dashboard_snapshot');
+      if(error || !snapshot){
+        console.warn('[Enterprise Data Bridge] RPC no disponible, usando lectura directa:', error?.message || error);
+        return null;
+      }
+      const tables = snapshot.tables || {};
+      const data = {
+        version:'V9.5-DataBridge',
+        bridge:'rpc',
+        tables:{
+          customers:tables.customers, orders:tables.orders, payments:tables.payments, products:tables.products,
+          preorders:tables.preorders, orderItems:tables.orderItems, orderHistory:tables.orderHistory,
+          staff:tables.staff, invitations:tables.invitations,
+          support:tables.support, supportExternal:false,
+          supportNotes:tables.supportNotes, supportUsers:tables.supportUsers
+        },
+        customers: Array.isArray(snapshot.customers) ? snapshot.customers : [],
+        orders: Array.isArray(snapshot.orders) ? snapshot.orders : [],
+        payments: Array.isArray(snapshot.payments) ? snapshot.payments : [],
+        products: Array.isArray(snapshot.products) ? snapshot.products : [],
+        preorders: Array.isArray(snapshot.preorders) ? snapshot.preorders : [],
+        orderItems: Array.isArray(snapshot.orderItems) ? snapshot.orderItems : [],
+        orderHistory: Array.isArray(snapshot.orderHistory) ? snapshot.orderHistory : [],
+        staff: Array.isArray(snapshot.staff) ? snapshot.staff : [],
+        invitations: Array.isArray(snapshot.invitations) ? snapshot.invitations : [],
+        serviceOrders: Array.isArray(snapshot.serviceOrders) ? snapshot.serviceOrders : [],
+        serviceNotes: Array.isArray(snapshot.serviceNotes) ? snapshot.serviceNotes : [],
+        serviceUsers: Array.isArray(snapshot.serviceUsers) ? snapshot.serviceUsers : [],
+        servicePhotos: [],
+        serviceAudit: []
+      };
+      data.salesTotal = data.orders.reduce((s,o)=>s+orderTotal(o),0);
+      data.salesMonth = data.orders.filter(o=>v9ThisMonth(v2OrderDate(o))).reduce((s,o)=>s+orderTotal(o),0);
+      data.salesToday = data.orders.filter(o=>v9LastDays(v2OrderDate(o),1)).reduce((s,o)=>s+orderTotal(o),0);
+      data.pendingOrders = data.orders.filter(o=>v9StatusKind(v2OrderStatus(o)) === 'warn').length;
+      data.pendingPayments = data.orders.filter(isPendingPayment).length || data.payments.filter(isPendingPayment).length;
+      data.lowStock = data.products.filter(p=>{ const stock = v2ProductStock(p); return stock !== null && stock <= 2; }).length;
+      data.outOfStock = data.products.filter(p=>v2ProductStock(p) === 0).length;
+      data.supportOpen = data.serviceOrders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado'])).length;
+      data.supportReady = data.serviceOrders.filter(o=>statusMatches(supportStatus(o), ['Listo','Listo para entregar'])).length;
+      data.supportDelayed = data.serviceOrders.filter(isSupportDelayed).length;
+      data.preordersOpen = data.preorders.filter(o=>!statusMatches(v2OrderStatus(o), ['Entregado','Cancelado','Cerrado'])).length;
+      v9Cache = data;
+      window.enterpriseV9Cache = data;
+      return data;
+    }catch(error){
+      console.warn('[Enterprise Data Bridge] Error RPC:', error.message || error);
+      return null;
+    }
+  }
+
+  async function enterpriseHeaders(){
+    const headers={'Content-Type':'application/json'};
+    const {data}=await window.supabaseClient.auth.getSession();
+    const token=data?.session?.access_token;
+    if(token)headers.Authorization=`Bearer ${token}`;
+    return headers;
+  }
+  function enterpriseNotice(message,type='ok'){if(typeof window.enterpriseToast==='function')window.enterpriseToast(message,type);else alert(message)}
+  async function v9LoadSupportApi(){
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-support',{headers:await enterpriseHeaders(),cache:'no-store'});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.error||'Puente de soporte no disponible');
+      return data;
+    }catch(error){console.warn('[Enterprise soporte independiente]',error.message||error);return null}
+  }
+  window.enterpriseUpdateSupport=async function(id,status){
+    if(!id)return alert('La orden no tiene ID real de Supabase.');
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-support',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'update_status',id,status})});
+      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo actualizar soporte');
+      await loadEnterpriseV9();
+      enterpriseNotice('Estado actualizado en Soporte y registrado en la bitácora.');
+    }catch(error){enterpriseNotice(error.message||error,'error')}
+  };
+  window.enterpriseAddSupportNote=async function(id,code){
+    if(!id)return alert('La orden no tiene ID real de Supabase.');
+    const note=prompt(`Nueva entrada de bitácora para ${code}:`);if(!note?.trim())return;
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-support',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'add_note',id,note:note.trim()})});
+      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo guardar la bitácora');
+      await loadEnterpriseV9();
+      enterpriseNotice('Entrada guardada en la bitácora real de Soporte.');
+    }catch(error){enterpriseNotice(error.message||error,'error')}
+  };
+  window.enterpriseManageSupport=async function(id){
+    const o=(v9Cache?.serviceOrders||[]).find(x=>String(x.id)===String(id));if(!o)return alert('Orden no encontrada.');
+    const technician=prompt('Correo del técnico responsable:',o.assigned_technician_email||'');if(technician===null)return;
+    const amount=prompt('Monto del presupuesto:',o.quote_amount||'');if(amount===null)return;
+    const quoteStatus=prompt('Estado del presupuesto:',o.quote_status||'Pendiente');if(quoteStatus===null)return;
+    const warranty=prompt('Garantía en días:',o.warranty_days||0);if(warranty===null)return;
+    try{const res=await fetch('/.netlify/functions/enterprise-support',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'update_details',id,assigned_technician_email:technician.trim()||null,quote_amount:amount===''?null:Number(amount),quote_status:quoteStatus.trim(),warranty_days:Number(warranty||0)})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo gestionar soporte');await loadEnterpriseV9();enterpriseNotice('Datos actualizados y auditados.')}catch(error){enterpriseNotice(error.message||error,'error')}
+  };
+  window.enterpriseNotifySupport=async function(id,code){
+    if(!confirm(`¿Enviar al cliente la actualización de ${code}?`))return;
+    try{const res=await fetch('/.netlify/functions/enterprise-support',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'notify_client',id})});const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo enviar');enterpriseNotice('Correo de soporte enviado.')}catch(error){enterpriseNotice(error.message||error,'error')}
+  };
+  window.enterpriseUpdateOrder=async function(id,code,status){
+    if(!id&&!code)return alert('El pedido no tiene identificador real.');
+    try{
+      const res=await fetch('/.netlify/functions/admin-update-order',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({id,code,status,note:'Actualizado desde Growth Enterprise'})});
+      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo actualizar el pedido');
+      await loadEnterpriseV9();
+      const email=data.email?.sent?' Correo enviado al cliente.':data.email?.error?` Estado guardado; correo pendiente: ${data.email.error}`:'';
+      alert('Pedido actualizado en Supabase.'+email);
+    }catch(error){alert(error.message||error)}
+  };
+  window.enterpriseEditClient=async function(email,currentName,currentPhone){
+    if(!email)return alert('Este cliente no tiene correo para identificar su registro.');
+    const nombre=prompt('Nombre del cliente:',currentName||'');if(nombre===null)return;
+    const telefono=prompt('Teléfono del cliente:',currentPhone||'');if(telefono===null)return;
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-main',{method:'POST',headers:await enterpriseHeaders(),body:JSON.stringify({action:'update_client',email,nombre:nombre.trim(),telefono:telefono.trim()})});
+      const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo actualizar el cliente');
+      await loadEnterpriseV9();alert('Cliente actualizado en Supabase.');
+    }catch(error){alert(error.message||error)}
+  };
+
+  async function v9LoadData(){
+    const supportApi = await v9LoadSupportApi();
+    const bridgeData = await v9LoadDataFromRPC();
+    if(bridgeData){
+      if(supportApi){
+        bridgeData.serviceOrders=supportApi.orders;
+        bridgeData.serviceNotes=supportApi.notes;
+        bridgeData.serviceUsers=supportApi.users;
+        bridgeData.servicePhotos=supportApi.photos||[];
+        bridgeData.serviceAudit=supportApi.audit||[];
+        bridgeData.serviceParts=supportApi.parts||[];
+        bridgeData.servicePartMovements=supportApi.part_movements||[];
+        bridgeData.tables.support='service_orders (Soporte independiente)';
+        bridgeData.tables.supportNotes='service_order_notes';
+        bridgeData.tables.supportUsers='service_users';
+        bridgeData.tables.supportExternal=true;
+        bridgeData.supportOpen=bridgeData.serviceOrders.filter(o=>!statusMatches(supportStatus(o),['Entregado','Cancelado','No aprobado'])).length;
+        bridgeData.supportReady=bridgeData.serviceOrders.filter(o=>statusMatches(supportStatus(o),['Listo','Listo para entregar'])).length;
+        bridgeData.supportDelayed=bridgeData.serviceOrders.filter(isSupportDelayed).length;
+      }
+      bridgeData.supportConnected=!!supportApi;
+      v9Cache=bridgeData;window.enterpriseV9Cache=bridgeData;return bridgeData;
+    }
+    const supportClient = v9GetSupportClient();
+    const [customers, orders, payments, products, preorders, orderItems, history, staff, invitations, internalSupport, internalNotes, internalTechs, externalSupport] = await Promise.all([
+      v9Read(V9_TABLES.customers, { limit:240 }),
+      v9Read(V9_TABLES.orders, { limit:260 }),
+      v9Read(V9_TABLES.payments, { limit:180 }),
+      v9Read(V9_TABLES.products, { limit:220 }),
+      v9Read(V9_TABLES.preorders, { limit:160 }),
+      v9Read(V9_TABLES.orderItems, { limit:260 }),
+      v9Read(V9_TABLES.orderHistory, { limit:180 }),
+      v9Read(V9_TABLES.staff, { limit:120 }),
+      v9Read(V9_TABLES.invitations, { limit:120 }),
+      v9Read(V9_TABLES.serviceOrders, { limit:220 }),
+      v9Read(V9_TABLES.serviceNotes, { limit:160 }),
+      v9Read(V9_TABLES.serviceUsers, { limit:120 }),
+      supportClient ? v9Read(V9_TABLES.serviceOrders, { client:supportClient, limit:220 }) : Promise.resolve({ table:null, data:[] })
+    ]);
+    const serviceSource = supportApi ? {table:'service_orders (Soporte independiente)',data:supportApi.orders} : (externalSupport.table ? externalSupport : internalSupport);
+    const data = {
+      version:'V9',
+      tables:{
+        customers:customers.table, orders:orders.table, payments:payments.table, products:products.table,
+        preorders:preorders.table, orderItems:orderItems.table, orderHistory:history.table,
+        staff:staff.table, invitations:invitations.table,
+        support:serviceSource.table, supportExternal:!!externalSupport.table,
+        supportNotes:supportApi?'service_order_notes':internalNotes.table, supportUsers:supportApi?'service_users':internalTechs.table
+      },
+      customers: customers.data || [],
+      orders: orders.data || [],
+      payments: payments.data || [],
+      products: products.data || [],
+      preorders: preorders.data || [],
+      orderItems: orderItems.data || [],
+      orderHistory: history.data || [],
+      staff: staff.data || [],
+      invitations: invitations.data || [],
+      serviceOrders: serviceSource.data || [],
+      serviceNotes: supportApi ? supportApi.notes : (internalNotes.data || []),
+      serviceUsers: supportApi ? supportApi.users : (internalTechs.data || []),
+      servicePhotos: supportApi?.photos || [],
+      serviceAudit: supportApi?.audit || [],
+      serviceParts: supportApi?.parts || [],
+      servicePartMovements: supportApi?.part_movements || []
+    };
+    data.supportConnected=!!supportApi;
+    data.salesTotal = data.orders.reduce((s,o)=>s+orderTotal(o),0);
+    data.salesMonth = data.orders.filter(o=>v9ThisMonth(v2OrderDate(o))).reduce((s,o)=>s+orderTotal(o),0);
+    data.salesToday = data.orders.filter(o=>v9LastDays(v2OrderDate(o),1)).reduce((s,o)=>s+orderTotal(o),0);
+    data.pendingOrders = data.orders.filter(o=>v9StatusKind(v2OrderStatus(o)) === 'warn').length;
+    data.pendingPayments = data.orders.filter(isPendingPayment).length || data.payments.filter(isPendingPayment).length;
+    data.lowStock = data.products.filter(p=>{ const stock = v2ProductStock(p); return stock !== null && stock <= 2; }).length;
+    data.outOfStock = data.products.filter(p=>v2ProductStock(p) === 0).length;
+    data.supportOpen = data.serviceOrders.filter(o=>!statusMatches(supportStatus(o), ['Entregado','Cancelado','No aprobado'])).length;
+    data.supportReady = data.serviceOrders.filter(o=>statusMatches(supportStatus(o), ['Listo','Listo para entregar'])).length;
+    data.supportDelayed = data.serviceOrders.filter(isSupportDelayed).length;
+    data.preordersOpen = data.preorders.filter(o=>!statusMatches(v2OrderStatus(o), ['Entregado','Cancelado','Cerrado'])).length;
+    v9Cache = data;
+    window.enterpriseV9Cache = data;
+    return data;
+  }
+
+  function v9BuildCustomerProfiles(data){
+    const map = new Map();
+    function ensure(key, base={}){
+      const id = (key || base.email || base.phone || base.name || Math.random()).toString().toLowerCase();
+      if(!map.has(id)) map.set(id, { key:id, name:base.name||'Cliente', email:base.email||'', phone:base.phone||'', orders:[], support:[], total:0, last:null });
+      const item = map.get(id);
+      if(base.name && item.name === 'Cliente') item.name = base.name;
+      if(base.email && !item.email) item.email = base.email;
+      if(base.phone && !item.phone) item.phone = base.phone;
+      return item;
+    }
+    data.customers.forEach(c=>ensure(v2CustomerEmail(c)||v2CustomerPhone(c)||v2CustomerName(c), { name:v2CustomerName(c), email:v2CustomerEmail(c), phone:v2CustomerPhone(c)}));
+    data.orders.forEach(o=>{
+      const base = { name:rowCustomerName(o), email:rowCustomerEmail(o), phone:pick(o,['telefono','phone','whatsapp'])||'' };
+      const item = ensure(base.email||base.phone||base.name, base);
+      item.orders.push(o); item.total += orderTotal(o);
+      const d = new Date(v2OrderDate(o)); if(!Number.isNaN(d.getTime()) && (!item.last || d > item.last)) item.last = d;
+    });
+    data.serviceOrders.forEach(s=>{
+      const base = { name:supportClient(s), email:supportEmail(s), phone:supportPhone(s) };
+      const item = ensure(base.email||base.phone||base.name, base);
+      item.support.push(s);
+      const d = new Date(supportDate(s)); if(!Number.isNaN(d.getTime()) && (!item.last || d > item.last)) item.last = d;
+    });
+    return Array.from(map.values()).sort((a,b)=>b.total-a.total);
+  }
+  function v9SegmentCustomer(profile){
+    if(profile.total >= 2000 || profile.orders.length >= 4) return 'VIP';
+    if(profile.orders.length >= 2) return 'Frecuente';
+    if(profile.last && (Date.now() - profile.last.getTime()) > 90*86400000) return 'Inactivo';
+    return 'Nuevo';
+  }
+  function v9ProductRanking(data){
+    const counts = new Map();
+    data.orderItems.forEach(item=>{
+      const name = pick(item, ['producto','product_name','nombre','name','title','modelo']) || 'Producto';
+      counts.set(name, (counts.get(name)||0) + (Number(pick(item,['cantidad','quantity','qty'])||1) || 1));
+    });
+    if(!counts.size){
+      data.products.slice(0,12).forEach((p,idx)=>counts.set(v2ProductName(p), Math.max(1, 12-idx)));
+    }
+    return Array.from(counts.entries()).sort((a,b)=>b[1]-a[1]);
+  }
+  function v9StatusBreakdown(rows, getStatus){
+    const map = new Map();
+    rows.forEach(r=>{ const st = getStatus(r) || 'Sin estado'; map.set(st, (map.get(st)||0)+1); });
+    return Array.from(map.entries()).sort((a,b)=>b[1]-a[1]);
+  }
+
+  function renderV9Operations(data){
+    const el=qs('operations'); if(!el) return;
+    const profiles=v9BuildCustomerProfiles(data);
+    const recentOrders=data.orders.slice(0,8).map(o=>`<div class="ops-row"><div><b>${safe(v2OrderCode(o))}</b><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span>${safe(v2OrderStatus(o))}</span><strong>${formatUSD(orderTotal(o))}</strong></div>`).join('')||'<div class="fin-empty">Sin pedidos visibles.</div>';
+    el.innerHTML=`<article class="ops-hero panel"><div><span>OPERACIÓN</span><h2>Lo que está pasando hoy</h2><p>Una vista única de ventas, inventario, clientes y Servicio Técnico. Sin duplicar módulos.</p></div><button onclick="loadEnterpriseV9()">Actualizar</button></article>
+      <div class="ops-kpis">
+        <article><span>Ventas del mes</span><b>${formatUSD(data.salesMonth)}</b><small>${formatNumber(data.orders.length)} pedidos visibles</small></article>
+        <article><span>Stock crítico</span><b>${formatNumber(data.lowStock+data.outOfStock)}</b><small>${formatNumber(data.outOfStock)} agotados</small></article>
+        <article><span>Soporte abierto</span><b>${formatNumber(data.supportOpen)}</b><small>${formatNumber(data.supportReady)} listos para entregar</small></article>
+        <article><span>Clientes</span><b>${formatNumber(profiles.length)}</b><small>Compras + soporte conectados</small></article>
+      </div>
+      <div class="book-two-col ops-grid">
+        <article class="panel"><div class="section-head"><div><span>VENTAS</span><h3>Pedidos recientes</h3></div></div><div class="ops-table">${recentOrders}</div></article>
+        <article class="panel"><div class="section-head"><div><span>PRIORIDADES</span><h3>Atención operativa</h3></div></div><div class="priority-list">
+          <div><span>Pagos por revisar</span><b>${formatNumber(data.pendingPayments)}</b></div>
+          <div><span>Pedidos pendientes</span><b>${formatNumber(data.pendingOrders)}</b></div>
+          <div><span>Stock crítico</span><b>${formatNumber(data.lowStock)}</b></div>
+          <div><span>Soporte retrasado</span><b>${formatNumber(data.supportDelayed)}</b></div>
+          <div><span>Preórdenes abiertas</span><b>${formatNumber(data.preordersOpen)}</b></div>
+        </div></article>
+      </div>`;
+  }
+
+  function renderV9Mobile(data){
+    const el = qs('mobile'); if(!el) return;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const installSteps = isIOS
+      ? 'Safari → Compartir → Añadir a pantalla de inicio.'
+      : 'Chrome/Edge → Instalar aplicación o Añadir a pantalla principal.';
+    const canInstall = !!deferredPwaPrompt && !standalone;
+    const appStatus = standalone ? 'Instalada' : (canInstall ? 'Lista para instalar' : 'Preparada');
+    el.innerHTML = `
+      <article class="panel v9-hero mobile-app-hero">
+        <div class="panel-head"><h3>ThinkStore Enterprise Mobile App</h3><span class="tag safe-tag">PWA V1 · iPhone · iPad · Android</span></div>
+        <p class="staff-help">La versión móvil usa el mismo Enterprise, Supabase Auth y roles. Es instalable como app sin tocar ThinkStore público, Resend, pedidos ni notas de entrega.</p>
+        <div class="v2-toolbar mobile-actions">
+          <button id="installPwaBtn" onclick="installEnterpriseApp()">${canInstall ? 'Instalar app ahora' : (standalone ? 'App instalada' : 'Ver instrucciones')}</button>
+          <button onclick="switchView('operations')">Abrir Centro Operaciones</button>
+          <button onclick="switchView('alerts')">Ver Alertas</button>
+        </div>
+      </article>
+      <div class="mobile-preview-grid enterprise-app-grid">
+        <article class="phone-preview"><div class="phone-notch"></div><div class="phone-card mobile-app-screen">
+          <img src="assets/thinkstore-logo-white.png" alt="ThinkStore">
+          <span class="mobile-status-pill">${safe(appStatus)}</span>
+          <h3>Enterprise Mobile</h3>
+          <p>Panel rápido</p>
+          <strong>${formatUSD(data.salesMonth)}</strong>
+          <small>${formatNumber(data.pendingPayments)} pagos pendientes · ${formatNumber(data.supportOpen)} soportes abiertos · ${formatNumber(data.lowStock)} stock crítico</small>
+          <div class="mobile-quick-grid">
+            <button onclick="switchView('clients')">CRM</button>
+            <button onclick="switchView('support')">Soporte</button>
+            <button onclick="switchView('inventory')">Stock</button>
+            <button onclick="switchView('financeAdvanced')">Finanzas</button>
+          </div>
+        </div></article>
+        <article class="panel"><div class="panel-head"><h3>Estado de la app</h3><span class="tag">Mobile V1</span></div><div class="table">
+          <div class="table-row"><div><b>Instalación</b><br><small>${safe(installSteps)}</small></div><span>${safe(appStatus)}</span><i class="tag safe-tag">PWA</i></div>
+          <div class="table-row"><div><b>Modo pantalla completa</b><br><small>Manifest, theme-color, iconos y service worker preparados.</small></div><span>Activo</span><i class="tag">Mobile</i></div>
+          <div class="table-row"><div><b>Acceso seguro</b><br><small>Mismo login Supabase, mismo rol super_admin/admin y misma sesión.</small></div><span>Seguro</span><i class="tag">Auth</i></div>
+          <div class="table-row"><div><b>Offline básico</b><br><small>Pantalla de respaldo cuando no hay conexión.</small></div><span>Activo</span><i class="tag">Cache</i></div>
+          <div class="table-row"><div><b>Notificaciones push</b><br><small>Preparado para V10 con permisos y función de envío.</small></div><span>Preparado</span><i class="tag">Next</i></div>
+        </div></article>
+      </div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Checklist para instalar</h3><span class="tag">iOS / Android</span></div>
+        <div class="mobile-checklist">
+          <div><b>1</b><span>Abre enterprise.thinkstore.ve en Safari o Chrome.</span></div>
+          <div><b>2</b><span>Inicia sesión con tu usuario autorizado.</span></div>
+          <div><b>3</b><span>Usa Compartir → Añadir a pantalla de inicio o Instalar app.</span></div>
+          <div><b>4</b><span>Entra desde el icono ThinkStore como app de trabajo.</span></div>
+        </div>
+      </article>`;
+  }
+
+  async function installEnterpriseApp(){
+    if(deferredPwaPrompt){
+      deferredPwaPrompt.prompt();
+      const choice = await deferredPwaPrompt.userChoice.catch(()=>null);
+      deferredPwaPrompt = null;
+      if(choice?.outcome === 'accepted') alert('ThinkStore Enterprise se está instalando.');
+      else alert('Instalación cancelada. Puedes instalarla luego desde Mobile/PWA.');
+      if(enterpriseRealCache) renderV9Mobile(window.__v9Cache || enterpriseRealCache);
+      return;
+    }
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    alert(isIOS ? 'En iPhone/iPad: toca Compartir y luego Añadir a pantalla de inicio.' : 'En Chrome/Edge: abre el menú del navegador y toca Instalar aplicación o Añadir a pantalla principal.');
+  }
+  window.installEnterpriseApp = installEnterpriseApp;
+
+
+  function renderV9RealClients(data){
+    const el = qs('clients'); if(!el) return;
+    const profiles = v9BuildCustomerProfiles(data);
+    const vip = profiles.filter(c=>v9SegmentCustomer(c)==='VIP');
+    const inactive = profiles.filter(c=>v9SegmentCustomer(c)==='Inactivo');
+    const rows = profiles.slice(0,50).map(c=>{const email=safe(c.email||''),phone=String(c.phone||'').replace(/\D/g,'');return `<div class="table-row v9-row"><div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')}</small></div><span>${formatNumber(c.orders.length)} pedidos · ${formatNumber(c.support.length)} soporte</span><i><button class="mini-action" onclick="enterpriseEditClient('${email}','${safe(c.name)}','${safe(c.phone)}')">Editar</button> <a class="tag" href="${email?'mailto:'+email:'#'}">Correo</a> ${phone?`<a class="tag" target="_blank" rel="noopener" href="https://wa.me/${phone}">WhatsApp</a>`:''}</i></div>`}).join('');
+    el.innerHTML = `<article class="panel v9-hero"><div class="panel-head"><h3>CRM Clientes Real</h3><span class="tag safe-tag">Cliente 360 operativo</span></div><p class="staff-help">CRM cruzado con clientes, pedidos y soporte, con contacto directo por correo y WhatsApp.</p></article><div class="module-grid control-cards"><article class="module-card"><h3>Clientes unificados</h3><strong>${formatNumber(profiles.length)}</strong><p>Base visible total.</p></article><article class="module-card"><h3>VIP</h3><strong>${formatNumber(vip.length)}</strong><p>Alto valor o compra frecuente.</p></article><article class="module-card"><h3>Inactivos</h3><strong>${formatNumber(inactive.length)}</strong><p>Más de 90 días sin movimiento.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Clientes 360</h3><button onclick="loadEnterpriseV9()">Actualizar</button></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin clientes visibles')}</div></article>`;
+  }
+
+  function renderV9RealSales(data){
+    const el = qs('sales'); if(!el) return;
+    const statuses = v9StatusBreakdown(data.orders, v2OrderStatus).slice(0,8).map(([st,n])=>`<div class="table-row v9-row"><div><b>${safe(st)}</b><br><small>Estado visible de pedidos.</small></div><span>${formatNumber(n)}</span><i class="tag">Pedidos</i></div>`).join('');
+    const orderStates=['Pedido recibido','Pago por verificar','Pago recibido','Pago verificado','Preparando pedido','Enviado','Disponible para retiro','Entregado','Cancelado'];
+    const rows = data.orders.slice(0,30).map(o=>`<div class="table-row v9-row"><div><b>${safe(v2OrderCode(o))}</b><br><small>${safe(rowCustomerName(o))} · ${safe(v9RecentDateLabel(v2OrderDate(o)))}</small></div><span><select class="v2-select" onchange="enterpriseUpdateOrder('${safe(o.id||o.db_id||'')}','${safe(v2OrderCode(o))}',this.value)">${orderStates.map(s=>`<option ${s===v2OrderStatus(o)?'selected':''}>${safe(s)}</option>`).join('')}</select></span><i class="tag">${formatUSD(orderTotal(o))}</i></div>`).join('');
+    el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ventas hoy</h3><strong>${formatUSD(data.salesToday)}</strong><p>Últimas 24 horas.</p></article><article class="module-card"><h3>Ventas mes</h3><strong>${formatUSD(data.salesMonth)}</strong><p>Mes actual visible.</p></article><article class="module-card"><h3>Pedidos pendientes</h3><strong>${formatNumber(data.pendingOrders)}</strong><p>Estados por cerrar.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Pedidos reales</h3><span class="tag">${safe(data.tables.orders || 'sin tabla')}</span></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin pedidos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Pedidos por estado</h3></div><div class="table">${v9AsRows([statuses].filter(Boolean),'Sin estados visibles')}</div></article></div>`;
+  }
+
+  function renderV9RealInventory(data){
+    const el = qs('inventory'); if(!el) return;
+    const ranking = v9ProductRanking(data).slice(0,8).map(([name,count])=>`<div class="table-row v9-row"><div><b>${safe(name)}</b><br><small>Estimado por items/pedidos visibles.</small></div><span>${formatNumber(count)}</span><i class="tag">Rotación</i></div>`).join('');
+    const rows = data.products.slice(0,50).map(p=>{ const stock=v2ProductStock(p); const kind = stock===0?'bad':stock!==null&&stock<=2?'warn':'ok'; return `<div class="table-row v9-row"><div><b>${safe(v2ProductName(p))}</b><br><small>${safe(v2ProductCategory(p))}</small></div><span class="status-dot ${kind}">${stock===null?'Sin stock':stock}</span><i class="tag">${formatUSD(v2ProductPrice(p))}</i></div>`; }).join('');
+    el.innerHTML = `<article class="panel v9-hero"><div class="panel-head"><h3>Inventario conectado</h3><span class="tag safe-tag">Stock real por SKU</span></div><p class="staff-help">Disponible, reservado y vendido se calculan automáticamente. Los ajustes de stock físico se realizan en el Panel Multi-Rol.</p><div class="v2-toolbar"><button onclick="window.open('https://thinkstore.com.ve/panel.html#inventario_real','_blank','noopener')">Administrar stock físico</button><button onclick="loadEnterpriseV9()">Actualizar</button></div></article><div class="module-grid"><article class="module-card"><h3>Productos visibles</h3><strong>${formatNumber(data.products.length)}</strong><p>Fuente: ${safe(data.tables.products || 'pendiente')}.</p></article><article class="module-card"><h3>Stock bajo</h3><strong>${formatNumber(data.lowStock)}</strong><p>2 unidades o menos.</p></article><article class="module-card"><h3>Agotados</h3><strong>${formatNumber(data.outOfStock)}</strong><p>Stock igual a 0.</p></article></div><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Inventario real</h3></div><div class="table">${v9AsRows([rows].filter(Boolean),'Sin productos visibles')}</div></article><article class="panel"><div class="panel-head"><h3>Rotación estimada</h3></div><div class="table">${v9AsRows([ranking].filter(Boolean),'Sin items de pedido visibles')}</div></article></div>`;
+    window.ThinkStoreFX?.mountCalculator('tsFxEnterpriseSales',el);
+  }
+
+function renderV9RealMarketing(data){
+    const el = qs('marketing'); if(!el) return;
+    const profiles = v9BuildCustomerProfiles(data);
+    const segments = ['VIP','Frecuente','Nuevo','Inactivo'].map(seg=>{
+      const list = profiles.filter(p=>v9SegmentCustomer(p)===seg);
+      return `<div class="table-row v9-row"><div><b>Clientes ${safe(seg)}</b><br><small>Audiencia preparada; no envía correos ni toca Resend.</small></div><span>${formatNumber(list.length)}</span><i class="tag">Audiencia</i></div>`;
+    }).join('');
+    const campaigns = [
+      ['Lanzamientos Apple', profiles.filter(p=>['VIP','Frecuente'].includes(v9SegmentCustomer(p))).length],
+      ['Recuperación de clientes', profiles.filter(p=>v9SegmentCustomer(p)==='Inactivo').length],
+      ['Preórdenes', data.preordersOpen],
+      ['Stock crítico', data.lowStock]
+    ].map(([name,n])=>`<div class="table-row v9-row"><div><b>${safe(name)}</b><br><small>Campaña preparada en modo borrador.</small></div><span>${formatNumber(n)} objetivos</span><i class="tag">Borrador</i></div>`).join('');
+    el.innerHTML = `<article class="panel safe-panel"><div class="panel-head"><h3>Marketing Center Real</h3><span class="tag safe-tag">Resend protegido</span></div><p class="staff-help">Segmenta clientes reales y abre el remitente oficial del Panel Multi-Rol para enviar campañas sin duplicar ni alterar la configuración de Resend.</p><div class="v2-toolbar"><button onclick="window.open('https://thinkstore.com.ve/panel.html#marketing','_blank','noopener')">Crear y enviar campaña</button><button onclick="loadEnterpriseV9()">Actualizar audiencias</button></div></article><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Audiencias reales</h3></div><div class="table">${segments}</div></article><article class="panel"><div class="panel-head"><h3>Campañas recomendadas</h3></div><div class="table">${campaigns}</div></article></div>`;
+  }
+
+  function renderV9RealFinance(data){
+    const el = qs('finance'); if(!el) return;
+    const byMonth = new Map();
+    data.orders.forEach(o=>{ const key=v9MonthKey(v2OrderDate(o)); byMonth.set(key,(byMonth.get(key)||0)+orderTotal(o)); });
+    const monthly = Array.from(byMonth.entries()).slice(0,12).map(([m,v])=>`<div class="table-row v9-row"><div><b>${safe(m)}</b><br><small>Ventas visibles del período.</small></div><span>${formatUSD(v)}</span><i class="tag">Mes</i></div>`).join('');
+    const avg = data.orders.length ? data.salesTotal / data.orders.length : 0;
+    el.innerHTML = `<div class="module-grid"><article class="module-card"><h3>Ventas totales</h3><strong>${formatUSD(data.salesTotal)}</strong><p>Pedidos visibles.</p></article><article class="module-card"><h3>Ticket promedio</h3><strong>${formatUSD(avg)}</strong><p>Promedio por pedido.</p></article><article class="module-card"><h3>Pagos pendientes</h3><strong>${formatNumber(data.pendingPayments)}</strong><p>Sin cambiar validación.</p></article></div><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Ventas por mes</h3><span class="tag">Real</span></div><div class="table">${v9AsRows([monthly].filter(Boolean),'Sin ventas visibles')}</div></article>`;
+  }
+
+  function renderV9BI(data){
+    const el = qs('reports'); if(!el) return;
+    const topProducts = v9ProductRanking(data).slice(0,8).map(([name,count])=>`<div class="table-row v9-row"><div><b>${safe(name)}</b><br><small>Ranking por items/pedidos visibles.</small></div><span>${formatNumber(count)}</span><i class="tag">Producto</i></div>`).join('');
+    const topCustomers = v9BuildCustomerProfiles(data).slice(0,8).map(c=>`<div class="table-row v9-row"><div><b>${safe(c.name)}</b><br><small>${safe(c.email || c.phone || 'Sin contacto')}</small></div><span>${formatUSD(c.total)}</span><i class="tag">${v9SegmentCustomer(c)}</i></div>`).join('');
+    el.innerHTML = `<article class="panel v9-hero"><div class="panel-head"><h3>Inteligencia Comercial V9</h3><span class="tag safe-tag">BI real</span></div><p class="staff-help">Lectura cruzada de ventas, productos, clientes, soporte e inventario.</p></article><div class="main-grid" style="margin-top:18px"><article class="panel"><div class="panel-head"><h3>Top productos</h3></div><div class="table">${v9AsRows([topProducts].filter(Boolean),'Sin ranking visible')}</div></article><article class="panel"><div class="panel-head"><h3>Top clientes</h3></div><div class="table">${v9AsRows([topCustomers].filter(Boolean),'Sin clientes visibles')}</div></article></div>`;
+  }
+
+  function renderV9AI2(data){
+    const el = qs('ai'); if(!el) return;
+    const profiles = v9BuildCustomerProfiles(data);
+    const inactive = profiles.filter(p=>v9SegmentCustomer(p)==='Inactivo').length;
+    const topProduct = v9ProductRanking(data)[0]?.[0] || 'Pendiente';
+    const recs = [
+      ['Qué debo reponer', `${data.lowStock + data.outOfStock} productos`, data.lowStock+data.outOfStock ? 'Revisar inventario crítico antes de promoción.' : 'No hay stock crítico visible.', data.lowStock+data.outOfStock?'bad':'ok'],
+      ['Qué clientes recuperar', `${inactive} clientes`, 'Audiencia lista para Marketing Center, sin enviar correos.', inactive?'warn':'ok'],
+      ['Producto con mejor señal', topProduct, 'Úsalo como foco comercial.', 'info'],
+      ['Riesgo operativo', `${data.pendingPayments + data.supportDelayed} alertas`, 'Pagos pendientes y soporte retrasado.', data.pendingPayments+data.supportDelayed?'warn':'ok'],
+      ['Prioridad de hoy', data.supportReady ? `${data.supportReady} equipos listos` : `${data.pendingOrders} pedidos pendientes`, 'Revisar Centro de Operaciones.', 'info']
+    ].map(([t,v,d,k])=>`<div class="table-row v9-row"><div><b>${safe(t)}</b><br><small>${safe(d)}</small></div><span class="status-dot ${k}">${safe(v)}</span><i class="tag">AI 2.0</i></div>`).join('');
+    el.innerHTML = `<article class="panel v8-hero"><div class="panel-head"><h3>ThinkStore AI 2.0</h3><span class="tag safe-tag">V9</span></div><p class="staff-help">Recomendaciones cruzadas del ecosistema. No ejecuta acciones automáticas.</p></article><article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Preguntas ejecutivas</h3><button onclick="loadEnterpriseV9()">Actualizar</button></div><div class="table">${recs}</div></article>`;
+  }
+
+  function renderV9Support(data){
+    // Si V6 ya tiene más detalles, reforzamos cuando haya datos externos/internos visibles.
+    if(typeof renderV6Support === 'function'){
+      try{
+        const v6data = { serviceTable:data.tables.support, notesTable:data.tables.supportNotes, serviceUsersTable:data.tables.supportUsers, serviceOrders:data.serviceOrders, notes:data.serviceNotes, serviceUsers:data.serviceUsers, serviceParts:data.serviceParts||[], servicePartMovements:data.servicePartMovements||[], customers:data.customers, orders:data.orders, payments:data.payments, productsCount:data.products.length, productsTable:data.tables.products };
+        renderV6Support(v6data); renderV6Client360(v6data); renderV6Warranties(v6data); renderV6Alerts(v6data);
+      }catch(error){ console.warn('[V9 soporte] Refuerzo V6:', error.message || error); }
+    }
+  }
+
+  function renderV9All(data){
+    renderV9Operations(data);
+    renderV9Mobile(data);
+    renderV9RealClients(data);
+    renderV9RealSales(data);
+    renderV9RealInventory(data);
+    renderV9RealMarketing(data);
+    renderV9RealFinance(data);
+    renderV9BI(data);
+    renderV9AI2(data);
+    renderV9Support(data);
+    if(qs('statusList')){
+      qs('statusList').innerHTML = [
+        ['✓','Ecosistema V9', data.bridge === 'rpc' ? 'Conectado RPC' : 'Operativo'],
+        ['▣','PWA móvil','Lista'],
+        ['⚠','Alertas críticas',`${formatNumber(data.pendingPayments + data.lowStock + data.supportDelayed)}`],
+        [data.supportConnected?'✓':'⚠','Puente Soporte',data.supportConnected?'Conectado':'Revisar configuración'],
+        ['↗','Soporte abierto',`${formatNumber(data.supportOpen)}`],
+        ['◇','Resend','Intacto']
+      ].map(([i,n,s])=>`<div class="status-row"><i>${i}</i><b>${safe(n)}</b><span>${safe(s)}</span></div>`).join('');
+    }
+  }
+  async function loadEnterpriseV9(){
+    if(!window.supabaseClient || !currentProfile) return null;
+    try{
+      const data = await v9LoadData();
+      renderV9All(data);
+      return data;
+    }catch(error){
+      console.error('[Enterprise V9]', error);
+      const el = qs('operations');
+      if(el) el.innerHTML = `<article class="panel"><div class="panel-head"><h3>Enterprise V9</h3><span class="tag">Error</span></div><p class="staff-help">No se pudo cargar el ecosistema: ${safe(error.message || error)}. No se modificó ninguna tabla.</p></article>`;
+      return null;
+    }
+  }
+  window.loadEnterpriseV9 = loadEnterpriseV9;
+
+  const prevLoad = window.loadEnterpriseV1Real || loadEnterpriseV1Real;
+  window.loadEnterpriseV1Real = loadEnterpriseV1Real = async function(){
+    const data = await prevLoad();
+    try{ await loadEnterpriseV9(); }catch(error){ console.warn('[V9] carga adicional:', error.message || error); }
+    return data;
+  };
+  const prevSwitch = window.switchView || switchView;
+  window.switchView = switchView = function(id){
+    prevSwitch(id);
+    if(v9Cache){
+      if(id === 'operations') renderV9Operations(v9Cache);
+      if(id === 'mobile') renderV9Mobile(v9Cache);
+      if(id === 'clients') renderV9RealClients(v9Cache);
+      if(id === 'sales') renderV9RealSales(v9Cache);
+      if(id === 'inventory') renderV9RealInventory(v9Cache);
+      if(id === 'marketing') renderV9RealMarketing(v9Cache);
+      if(id === 'finance') renderV9RealFinance(v9Cache);
+      if(id === 'reports') renderV9BI(v9Cache);
+      if(id === 'ai') renderV9AI2(v9Cache);
+    }
+  };
+})();
+
+/* ThinkStore Enterprise V9.5 · PWA descargable */
+(function(){
+  function isStandalone(){
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function isDismissed(){
+    return localStorage.getItem('thinkstore_pwa_banner_dismissed') === '1';
+  }
+  function showPwaBanner(){
+    const banner = document.getElementById('pwaInstallBanner');
+    if(!banner || isStandalone() || isDismissed()) return;
+    banner.classList.remove('hidden');
+  }
+  window.dismissPwaBanner = function(){
+    localStorage.setItem('thinkstore_pwa_banner_dismissed','1');
+    document.getElementById('pwaInstallBanner')?.classList.add('hidden');
+  };
+  function updateInstallStatus(text){
+    const el = document.getElementById('installStatus');
+    if(el) el.textContent = text;
+  }
+  const oldInstall = window.installEnterpriseApp;
+  window.installEnterpriseApp = async function(){
+    if(typeof oldInstall === 'function'){
+      await oldInstall();
+      updateInstallStatus('Proceso de instalación iniciado. En iPhone usa Compartir → Añadir a pantalla de inicio.');
+      return;
+    }
+    updateInstallStatus('En iPhone/iPad usa Compartir → Añadir a pantalla de inicio. En Android usa Instalar aplicación.');
+  };
+  window.addEventListener('appinstalled', ()=>{
+    localStorage.setItem('thinkstore_pwa_banner_dismissed','1');
+    document.getElementById('pwaInstallBanner')?.classList.add('hidden');
+    updateInstallStatus('ThinkStore Enterprise ya está instalada.');
+  });
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(showPwaBanner, 1200);
+    if(isStandalone()) document.body.classList.add('pwa-standalone');
+  });
+  // V10.6: PWA/offline deshabilitado hasta nuevo aviso. Enterprise es online-first.
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.getRegistrations().then(regs=>Promise.all(regs.map(r=>r.unregister().catch(()=>false)))).catch(()=>{});
+      if('caches' in window)caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('thinkstore-enterprise-')).map(k=>caches.delete(k)))).catch(()=>{});
+    });
+  }
+})();
+
+/* ==========================================================
+   Enterprise Production 1.0 · Activación de botones y navegación
+   - Activa botones de lectura/navegación en Dashboard y módulos
+   - Agrega visor rápido para filas reales sin escribir en Supabase
+   - Exportación CSV usando cache real de Enterprise V9
+   - Mantiene Resend, pedidos, notas y panel actual intactos
+   ========================================================== */
+(function(){
+  const VIEW_LABELS = {
+    executive:'Panel Ejecutivo', operations:'Centro de Operaciones', commercial:'Control Comercial',
+    sales:'Ventas / Pedidos', products:'Productos', inventory:'Inventario Pro', clients:'CRM Clientes',
+    staff:'Accesos', marketing:'Marketing Center', finance:'Finanzas Pro', financeAdvanced:'Finanzas Avanzadas',
+    reports:'Inteligencia Comercial', ai:'ThinkStore AI', support:'Centro de Soporte', client360:'Cliente 360',
+    warranties:'Garantías', alerts:'Centro de Alertas', mobile:'Mobile/PWA', settings:'Configuración'
+  };
+
+  function getCache(){ return window.enterpriseV9Cache || window.__v9Cache || null; }
+  function cleanText(value){ return String(value || '').replace(/\s+/g,' ').trim(); }
+  function goView(view){
+    if(typeof window.switchView === 'function') window.switchView(view);
+    const workspace = document.querySelector('.workspace');
+    if(workspace) workspace.scrollTo({ top:0, behavior:'smooth' });
+    else window.scrollTo({ top:0, behavior:'smooth' });
+  }
+  window.openEnterpriseView = goView;
+
+  function ensureModal(){
+    let modal = document.getElementById('enterpriseDetailModal');
+    if(modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'enterpriseDetailModal';
+    modal.className = 'enterprise-modal hidden';
+    modal.innerHTML = `
+      <div class="enterprise-modal-backdrop" data-close-enterprise-modal></div>
+      <article class="enterprise-modal-card">
+        <button class="enterprise-modal-close" data-close-enterprise-modal>×</button>
+        <div class="enterprise-modal-head">
+          <span class="tag safe-tag">Solo lectura</span>
+          <h3 id="enterpriseModalTitle">Detalle</h3>
+          <p id="enterpriseModalSubtitle">Vista rápida del dato seleccionado.</p>
+        </div>
+        <div id="enterpriseModalBody" class="enterprise-modal-body"></div>
+      </article>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (event)=>{
+      if(event.target.matches('[data-close-enterprise-modal]')) modal.classList.add('hidden');
+    });
+    document.addEventListener('keydown', (event)=>{ if(event.key === 'Escape') modal.classList.add('hidden'); });
+    return modal;
+  }
+
+  function openDetail(title, rows){
+    const modal = ensureModal();
+    const body = modal.querySelector('#enterpriseModalBody');
+    modal.querySelector('#enterpriseModalTitle').textContent = title || 'Detalle';
+    body.innerHTML = (rows || []).map(([label, value])=>`
+      <div class="enterprise-detail-row">
+        <b>${safe(label)}</b>
+        <span>${safe(value || '—')}</span>
+      </div>`).join('') || '<p class="staff-help">No hay detalles disponibles.</p>';
+    modal.classList.remove('hidden');
+  }
+  window.openEnterpriseDetail = openDetail;
+
+  function rowToDetail(row){
+    const view = document.querySelector('.view.active')?.id || 'executive';
+    const title = VIEW_LABELS[view] || 'Detalle Enterprise';
+    const text = cleanText(row.textContent);
+    openDetail(title, [
+      ['Módulo', title],
+      ['Registro seleccionado', text],
+      ['Estado', 'Consulta en modo seguro'],
+      ['Acción', 'No modifica Supabase, Resend, pedidos ni notas de entrega']
+    ]);
+  }
+
+  function exportRowsAsCSV(moduleId='executive'){
+    const cache = getCache();
+    const view = moduleId || document.querySelector('.view.active')?.id || 'executive';
+    const visibleRows = Array.from(document.querySelectorAll(`#${CSS.escape(view)} .table-row, #${CSS.escape(view)} .module-card`));
+    const rows = [['Modulo','Contenido']];
+    visibleRows.forEach(row => rows.push([VIEW_LABELS[view] || view, cleanText(row.textContent)]));
+
+    if(cache && view === 'clients') cache.customers?.forEach(c=>rows.push(['Cliente', JSON.stringify(c)]));
+    if(cache && view === 'sales') cache.orders?.forEach(o=>rows.push(['Pedido', JSON.stringify(o)]));
+    if(cache && view === 'inventory') cache.products?.forEach(p=>rows.push(['Producto', JSON.stringify(p)]));
+    if(cache && view === 'finance') cache.payments?.forEach(p=>rows.push(['Pago/Comprobante', JSON.stringify(p)]));
+    if(cache && view === 'support') cache.serviceOrders?.forEach(s=>rows.push(['Soporte', JSON.stringify(s)]));
+
+    const csv = rows.map(r=>r.map(v=>`"${String(v ?? '').replaceAll('"','""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `thinkstore-enterprise-${view}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  window.exportCSV = exportRowsAsCSV;
+
+  function addToolbarToActiveView(){
+    const active = document.querySelector('.view.active');
+    if(!active || active.id === 'executive' || active.querySelector('.production-toolbar')) return;
+    const toolbar = document.createElement('div');
+    toolbar.className = 'production-toolbar';
+    toolbar.innerHTML = `
+      <button type="button" data-prod-action="refresh">Actualizar datos</button>
+      <button type="button" data-prod-action="export">Exportar CSV</button>
+      <button type="button" data-prod-action="operations">Centro Operaciones</button>
+      <span>Production 1.0 · modo seguro</span>`;
+    active.prepend(toolbar);
+  }
+
+  function activateDashboardCards(){
+    const cardMap = [
+      ['metricSalesMonth','finance'], ['metricOrdersTotal','sales'], ['metricCustomersTotal','clients'], ['metricPendingPayments','finance'],
+      ['stripRevenue','finance'], ['stripCustomers','clients'], ['stripOrders','sales'], ['stripPayments','finance']
+    ];
+    cardMap.forEach(([id, view])=>{
+      const el = document.getElementById(id);
+      const card = el?.closest('article');
+      if(!card || card.dataset.productionActive === '1') return;
+      card.dataset.productionActive = '1';
+      card.classList.add('clickable-card');
+      card.addEventListener('click', (event)=>{
+        if(event.target.closest('button,a')) return;
+        goView(view);
+      });
+      const button = card.querySelector('button');
+      if(button){ button.textContent = 'Abrir'; button.onclick = (event)=>{ event.stopPropagation(); goView(view); }; }
+    });
+
+    const panelLinks = [
+      ['.activity .panel-head a','alerts'], ['.top-products .panel-head a','inventory'], ['.channels > a','reports'],
+      ['.chart-panel .panel-head button','finance']
+    ];
+    panelLinks.forEach(([selector,view])=>{
+      const el = document.querySelector(selector);
+      if(el && el.dataset.productionActive !== '1'){
+        el.dataset.productionActive = '1';
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', (event)=>{ event.preventDefault(); goView(view); });
+      }
+    });
+  }
+
+  function activateRows(){
+    document.querySelectorAll('.table-row.v9-row, .table-row:not(.production-row), .product-row, .activity-item, .status-row').forEach(row=>{
+      if(row.dataset.productionActive === '1') return;
+      row.dataset.productionActive = '1';
+      row.title = 'Consultar registro y fuente';
+      row.addEventListener('click', (event)=>{
+        if(event.target.closest('button,a,select,input')) return;
+        rowToDetail(row);
+      });
+    });
+  }
+
+  function activateProductionButtons(){
+    activateDashboardCards();
+    addToolbarToActiveView();
+    activateRows();
+  }
+  window.activateEnterpriseProduction = activateProductionButtons;
+
+  document.addEventListener('click', (event)=>{
+    const action = event.target.closest('[data-prod-action]')?.dataset.prodAction;
+    if(!action) return;
+    event.preventDefault();
+    const view = document.querySelector('.view.active')?.id || 'executive';
+    if(action === 'refresh'){
+      if(typeof window.loadEnterpriseV9 === 'function') window.loadEnterpriseV9();
+      else if(typeof window.loadEnterpriseV1Real === 'function') window.loadEnterpriseV1Real();
+    }
+    if(action === 'export') exportRowsAsCSV(view);
+    if(action === 'operations') goView('operations');
+  });
+
+  const previousSwitch = window.switchView;
+  if(typeof previousSwitch === 'function'){
+    window.switchView = function(id){
+      previousSwitch(id);
+      setTimeout(activateProductionButtons, 60);
+    };
+  }
+
+  const observer = new MutationObserver(()=>{
+    clearTimeout(window.__enterpriseProductionTimer);
+    window.__enterpriseProductionTimer = setTimeout(activateProductionButtons, 80);
+  });
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const app = document.getElementById('app') || document.body;
+    observer.observe(app, { childList:true, subtree:true });
+    activateProductionButtons();
+  });
+})();
+
+/* ==========================================================
+   Enterprise Production 1.1 · Acciones seguras por módulo
+   - Detalle enriquecido de filas y registros
+   - Buscador/filtrado real dentro de cada pantalla
+   - Copiar contacto o registro
+   - Abrir panel actual de ThinkStore como respaldo
+   - Abrir soporte en nueva pestaña
+   - No escribe en Supabase, no toca Resend, pedidos, notas ni correos
+   ========================================================== */
+(function(){
+  const BACKUP_PANEL_URL = 'https://thinkstore.com.ve/?admin=1';
+  const SUPPORT_URL = 'https://soporte.thinkstore.com.ve';
+
+  function activeView(){ return document.querySelector('.view.active')?.id || 'executive'; }
+  function clean(value){ return String(value || '').replace(/\s+/g,' ').trim(); }
+  function toast(message, type='info'){
+    let box = document.getElementById('prod11Toast');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'prod11Toast';
+      box.className = 'prod11-toast';
+      document.body.appendChild(box);
+    }
+    box.textContent = message;
+    box.dataset.type = type;
+    box.classList.add('show');
+    clearTimeout(window.__prod11ToastTimer);
+    window.__prod11ToastTimer = setTimeout(()=>box.classList.remove('show'), 2600);
+  }
+  window.enterpriseToast = toast;
+  async function copyText(text, label='Registro'){
+    const value = clean(text);
+    if(!value){ toast('No hay contenido para copiar.', 'warn'); return; }
+    try{
+      await navigator.clipboard.writeText(value);
+      toast(`${label} copiado.`, 'ok');
+    }catch(error){
+      const area = document.createElement('textarea');
+      area.value = value;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+      toast(`${label} copiado.`, 'ok');
+    }
+  }
+  function extractEmail(text){ return clean(text).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || ''; }
+  function extractPhone(text){ return clean(text).match(/(?:\+?\d[\d\s().-]{7,}\d)/)?.[0] || ''; }
+  function openBackupPanel(){ window.open(BACKUP_PANEL_URL, '_blank', 'noopener,noreferrer'); }
+  function openSupport(){ window.open(SUPPORT_URL, '_blank', 'noopener,noreferrer'); }
+  function getModalText(){ return clean(document.getElementById('enterpriseModalBody')?.textContent || ''); }
+  function moduleLabel(view){
+    const map = {
+      executive:'Panel Ejecutivo', operations:'Centro de Operaciones', commercial:'Control Comercial', sales:'Ventas / Pedidos',
+      clients:'CRM Clientes', inventory:'Inventario', products:'Productos', finance:'Finanzas', financeAdvanced:'Finanzas Avanzadas',
+      marketing:'Marketing', reports:'Inteligencia Comercial', support:'Soporte', client360:'Cliente 360', warranties:'Garantías',
+      alerts:'Alertas', ai:'ThinkStore AI', staff:'Accesos', settings:'Configuración'
+    };
+    return map[view] || view;
+  }
+
+  function enhanceModal(){
+    const modal = document.getElementById('enterpriseDetailModal');
+    if(!modal || modal.classList.contains('hidden')) return;
+    const body = modal.querySelector('#enterpriseModalBody');
+    if(!body || body.querySelector('.prod11-actions')) return;
+    const view = activeView();
+    const text = getModalText();
+    const email = extractEmail(text);
+    const phone = extractPhone(text);
+    const actions = document.createElement('div');
+    actions.className = 'prod11-actions';
+    actions.innerHTML = `
+      <button type="button" data-prod11="copy-record">Copiar registro</button>
+      ${email ? '<button type="button" data-prod11="copy-email">Copiar correo</button>' : ''}
+      ${phone ? '<button type="button" data-prod11="copy-phone">Copiar teléfono</button>' : ''}
+      <button type="button" data-prod11="export-view">Exportar módulo</button>
+      <button type="button" data-prod11="backup-panel">Panel actual</button>
+      ${['support','client360','warranties','alerts'].includes(view) ? '<button type="button" data-prod11="support">Abrir soporte</button>' : ''}
+    `;
+    body.prepend(actions);
+  }
+
+  function filterActiveView(query){
+    const view = activeView();
+    const root = document.getElementById(view);
+    if(!root) return;
+    const q = clean(query).toLowerCase();
+    root.querySelectorAll('.table-row,.module-card,.product-row,.activity-item,.status-row').forEach(row=>{
+      if(row.closest('.production-toolbar')) return;
+      const visible = !q || clean(row.textContent).toLowerCase().includes(q);
+      row.style.display = visible ? '' : 'none';
+    });
+  }
+
+  function enhanceToolbar(){
+    const view = activeView();
+    const root = document.getElementById(view);
+    const toolbar = root?.querySelector('.production-toolbar');
+    if(!toolbar || toolbar.dataset.prod11 === '1') return;
+    toolbar.dataset.prod11 = '1';
+    const search = document.createElement('input');
+    search.className = 'prod11-filter';
+    search.type = 'search';
+    search.placeholder = `Buscar en ${moduleLabel(view)}...`;
+    search.addEventListener('input', ()=>filterActiveView(search.value));
+    toolbar.insertBefore(search, toolbar.firstChild);
+
+    const copyVisible = document.createElement('button');
+    copyVisible.type = 'button';
+    copyVisible.textContent = 'Copiar vista';
+    copyVisible.addEventListener('click', ()=>copyText(clean(root.textContent), moduleLabel(view)));
+    toolbar.appendChild(copyVisible);
+
+    const backup = document.createElement('button');
+    backup.type = 'button';
+    backup.textContent = 'Abrir respaldo';
+    backup.addEventListener('click', openBackupPanel);
+    toolbar.appendChild(backup);
+
+    if(['support','client360','warranties','alerts'].includes(view)){
+      const support = document.createElement('button');
+      support.type = 'button';
+      support.textContent = 'Abrir soporte';
+      support.addEventListener('click', openSupport);
+      toolbar.appendChild(support);
+    }
+  }
+
+  function addQuickActionsToViews(){
+    const view = activeView();
+    const root = document.getElementById(view);
+    if(!root || root.dataset.prod11Quick === '1') return;
+    root.dataset.prod11Quick = '1';
+    const firstPanel = root.querySelector('.panel, .v9-hero, .safe-panel');
+    if(!firstPanel) return;
+    const head = firstPanel.querySelector('.panel-head');
+    if(!head || head.querySelector('.prod11-head-actions')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'prod11-head-actions';
+    wrap.innerHTML = `
+      <button type="button" data-prod11="refresh-safe">Actualizar</button>
+      <button type="button" data-prod11="export-view">Exportar</button>
+    `;
+    head.appendChild(wrap);
+  }
+
+  function markRowsWithSafeActions(){
+    document.querySelectorAll('.table-row,.product-row,.activity-item,.status-row').forEach(row=>{
+      if(row.dataset.prod11 === '1' || row.closest('.production-toolbar')) return;
+      row.dataset.prod11 = '1';
+      row.setAttribute('aria-label', 'Ver detalle seguro');
+      const explicit = row.querySelector('[data-petty-detail],[data-audit-expand],[data-ts-credit-detail],[data-sales-row],[data-trace-method],[data-trace-entry],[data-trace-summary]');
+      if(explicit){
+        row.querySelectorAll('.prod11-pill').forEach(pill=>pill.remove());
+        return;
+      }
+      if(!row.querySelector('.prod11-pill')){
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'prod11-pill mini-action';
+        pill.dataset.enterpriseRowDetail = '1';
+        pill.textContent = 'Ver';
+        const label = row.querySelector('b')?.textContent?.trim() || 'registro';
+        pill.setAttribute('aria-label', 'Ver detalle de ' + label);
+        row.appendChild(pill);
+      }
+    });
+  }
+
+  // Consulta explícita de registros: nunca invoca pagar, anular o guardar.
+  document.addEventListener('click', event=>{
+    const button=event.target.closest('[data-enterprise-row-detail]');
+    if(!button)return;
+    event.preventDefault();event.stopPropagation();
+    const row=button.closest('.table-row,.product-row,.activity-item,.status-row');
+    if(!row)return;
+    const data=window.enterpriseFinanceData||{};
+    const commissionId=row.querySelector('[data-fin-pay-tech]')?.dataset.finPayTech
+      ||row.querySelector('[data-fin-pay-seller]')?.dataset.finPaySeller;
+    const records=[...(data.technicians?.commissions||[]),...(data.sellers?.commissions||[])];
+    const record=commissionId?records.find(item=>String(item.id)===String(commissionId)):null;
+    let title='Detalle del registro';
+    let details=[];
+    if(record){
+      title='Comisión · '+(record.source_code||record.counterparty||'Detalle');
+      const money=value=>value==null?'No disponible':Number(value).toLocaleString('en-US',{style:'currency',currency:'USD'});
+      details=[['Identificador',record.id],['Orden',record.source_code||'No disponible'],
+        ['Beneficiario',record.counterparty||'No disponible'],['Descripción',record.description||'No disponible'],
+        ['Comisión registrada',money(record.amount_usd)],['Pagado',money(record.paid_usd)],
+        ['Pendiente',money(record.pending_usd)],['Estado',record.status||'No disponible'],
+        ['Fecha',record.occurred_at||'No disponible'],['Fuente',record.source_system||'No disponible']];
+    }else{
+      const copy=row.cloneNode(true);
+      copy.querySelectorAll('button,a,input,select,.prod11-pill').forEach(el=>el.remove());
+      details=[['Contenido disponible',copy.textContent.replace(/\s+/g,' ').trim()||'Sin detalle'],
+        ['Alcance','Resumen visible de la fila. No hay un registro individual vinculado disponible en este control.']];
+    }
+    details.push(['Consulta','Solo lectura']);
+    window.openEnterpriseDetail?.(title,details);
+  },true);
+
+  function runProd11(){
+    enhanceToolbar();
+    addQuickActionsToViews();
+    markRowsWithSafeActions();
+    enhanceModal();
+  }
+
+  document.addEventListener('click', (event)=>{
+    const action = event.target.closest('[data-prod11]')?.dataset.prod11;
+    if(!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const modalText = getModalText();
+    if(action === 'copy-record') copyText(modalText, 'Registro');
+    if(action === 'copy-email') copyText(extractEmail(modalText), 'Correo');
+    if(action === 'copy-phone') copyText(extractPhone(modalText), 'Teléfono');
+    if(action === 'export-view') window.exportCSV?.(activeView());
+    if(action === 'backup-panel') openBackupPanel();
+    if(action === 'support') openSupport();
+    if(action === 'refresh-safe'){
+      if(typeof window.loadEnterpriseV9 === 'function') window.loadEnterpriseV9();
+      else if(typeof window.loadEnterpriseV1Real === 'function') window.loadEnterpriseV1Real();
+      toast('Datos actualizados en modo seguro.', 'ok');
+    }
+  }, true);
+
+  const previousSwitch = window.switchView;
+  if(typeof previousSwitch === 'function'){
+    window.switchView = function(id){
+      previousSwitch(id);
+      setTimeout(runProd11, 120);
+    };
+  }
+
+  const observer = new MutationObserver(()=>{
+    clearTimeout(window.__prod11Timer);
+    window.__prod11Timer = setTimeout(runProd11, 140);
+  });
+  document.addEventListener('DOMContentLoaded', ()=>{
+    observer.observe(document.getElementById('app') || document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class'] });
+    setTimeout(runProd11, 600);
+  });
+})();
+
+
+/* ==========================================================
+   Enterprise V10 · Resumen global diario y semanal
+   ========================================================== */
+(function(){
+  let weeklyCache=null;
+  const wMoney=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const wNum=n=>Number(n||0).toLocaleString('es-VE');
+  const wDay=key=>{try{return new Date(key+'T12:00:00-04:00').toLocaleDateString('es-VE',{weekday:'short',day:'2-digit',month:'short'})}catch{return key}};
+  async function weeklyHeaders(){
+    const h={'Content-Type':'application/json'};
+    const {data}=await window.supabaseClient.auth.getSession();
+    if(data?.session?.access_token)h.Authorization=`Bearer ${data.session.access_token}`;
+    return h;
+  }
+  function weeklyQuality(data){
+    const q=data?.data_quality||{},parts=[];
+    parts.push(q.support_connected?'Soporte respondió en la consulta':'Soporte no disponible en esta consulta');
+    parts.push(q.support_payment_ready?'Cobranza activa':'Falta migración de cobranza');
+    return parts.join(' · ');
+  }
+  function weeklyDailyRows(data){
+    return (data.daily||[]).map(d=>`<div class="ent-week-day ${d.date===data.period.today?'today':''}">
+      <b>${safe(wDay(d.date))}</b>
+      <span><i>Online</i>${wNum(d.online_sales)} · ${wMoney(d.online_amount)}</span>
+      <span><i>Presencial</i>${wNum(d.presencial_sales)} · ${wMoney(d.presencial_amount)}</span>
+      <span><i>Soporte</i>${wNum(d.service_received)} recibidos</span>
+      <span><i>Citas</i>${wNum(d.appointments)}${d.home_appointments?` · ${wNum(d.home_appointments)} domicilio`:''}</span>
+      <strong>${wMoney(d.global_collected)}</strong>
+    </div>`).join('');
+  }
+  function weeklyMarkup(data,compact=false){
+    const s=data.sales||{},p=data.support||{},a=data.appointments||{},g=data.global||{};
+    return `<div class="ent-week-head"><div><span>SEMANA ACTUAL · ${safe(data.timezone||'America/Caracas')}</span><h2>${safe(wDay(data.period.start))} — ${safe(wDay(data.period.end))}</h2><p>${safe(weeklyQuality(data))}</p></div><button type="button" onclick="loadEnterpriseWeeklySummary(true)">Actualizar</button></div>
+      <div class="ent-global-kpis">
+        <article><span>Cobrado global</span><b>${wMoney(g.collected_amount)}</b><small>Ventas verificadas + Servicio Técnico cobrado</small></article>
+        <article><span>Ventas online</span><b>${wMoney(s.online_amount)}</b><small>${wNum(s.online_count)} operación(es) registradas</small></article>
+        <article><span>Ventas presenciales</span><b>${wMoney(s.presencial_amount)}</b><small>${wNum(s.presencial_count)} operación(es) registradas</small></article>
+        <article><span>Servicio Técnico</span><b>${wMoney(p.collected_amount)}</b><small>${wNum(p.received)} recibidos · ${wNum(p.collected_count)} cobros</small></article>
+      </div>
+      <div class="ent-week-grid">
+        <article><span>Citas</span><b>${wNum(a.total)}</b><small>${wNum(a.home)} a domicilio</small></article>
+        <article><span>Servicios recibidos</span><b>${wNum(p.received)}</b><small>${wNum(p.home_services)} a domicilio</small></article>
+        <article><span>Pendiente por cobrar</span><b>${wMoney(p.pending_collection_amount)}</b><small>${wNum(p.pending_collection_count)} servicio(s)</small></article>
+        <article><span>Listos</span><b>${wNum(p.ready)}</b><small>Listos para entregar</small></article>
+        <article><span>Entregados</span><b>${wNum(p.delivered)}</b><small>Durante la semana</small></article>
+        <article><span>Por entregar</span><b>${wNum(p.to_deliver)}</b><small>Órdenes abiertas</small></article>
+      </div>
+      <div class="ent-split">
+        <div><span>DISTRIBUCIÓN DE UTILIDAD</span><h3>${wMoney(g.distributable_profit)}</h3><p>Cobrado ${wMoney(g.collected_amount)} − COGS tienda ${wMoney(g.store_cogs)} − repuestos soporte ${wMoney(g.support_parts_cost)} − gastos operativos ${wMoney(g.operating_outflows)} − comisión técnica ${wMoney(g.technician_commissions)}. No incluye pendientes por cobrar.</p></div>
+        <div class="ent-split-values"><article><span>Empresa · ${Number(g.company_pct||50)}%</span><b>${wMoney(g.company_50)}</b></article><article><span>Freddy · ${Number(g.partner_a_pct||25)}%</span><b>${wMoney(g.partner_a_25)}</b></article><article><span>Nelson · ${Number(g.partner_b_pct||25)}%</span><b>${wMoney(g.partner_b_25)}</b></article></div>
+      </div>
+      ${compact?'':`<article class="panel ent-week-table"><div class="panel-head"><h3>Detalle diario</h3><span class="tag">Datos reales</span></div><div>${weeklyDailyRows(data)}</div></article>`}
+      ${data.data_quality?.errors?.length?`<div class="ent-data-warning">${data.data_quality.errors.map(safe).join(' · ')}</div>`:''}`;
+  }
+  function renderWeekly(data){
+    weeklyCache=data;window.enterpriseWeeklySummaryData=data;
+    const home=qs('enterpriseWeeklySummary');if(home)home.innerHTML=weeklyMarkup(data,true);
+    const full=qs('weekly');if(full)full.innerHTML=`<article class="panel v10-weekly-shell">${weeklyMarkup(data,false)}</article>`;
+    const dateBtn=document.querySelector('.date-btn');if(dateBtn)dateBtn.textContent=`▣ ${wDay(data.period.start)} - ${wDay(data.period.end)} ⌄`;
+  }
+  async function loadEnterpriseWeeklySummary(force=false){
+    const targets=[qs('enterpriseWeeklySummary'),qs('weekly')].filter(Boolean);
+    if(!force&&weeklyCache){renderWeekly(weeklyCache);return weeklyCache}
+    targets.forEach(el=>{if(el&&!el.innerHTML.trim())el.innerHTML='<article class="panel"><p>Cargando resumen global real…</p></article>'});
+    try{
+      const res=await fetch('/.netlify/functions/enterprise-summary',{headers:await weeklyHeaders(),cache:'no-store'});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo cargar el resumen Enterprise');
+      renderWeekly(data);return data;
+    }catch(error){
+      const html=`<article class="panel ent-data-warning"><b>Enterprise no pudo cargar el resumen global.</b><p>${safe(error.message||error)}</p></article>`;
+      targets.forEach(el=>{if(el)el.innerHTML=html});
+      return null;
+    }
+  }
+  window.loadEnterpriseWeeklySummary=loadEnterpriseWeeklySummary;
+
+  const oldShow=showApp;
+  showApp=function(){oldShow();setTimeout(()=>loadEnterpriseWeeklySummary(true),260)};
+  const oldSwitch=window.switchView||switchView;
+  window.switchView=switchView=function(id){oldSwitch(id);if(id==='weekly')setTimeout(()=>loadEnterpriseWeeklySummary(false),40)};
+
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&weeklyCache)loadEnterpriseWeeklySummary(true)});
+})();
+
+/* ==========================================================
+   Enterprise V10.9 · Finanzas + Inventory + conciliación
+   ========================================================== */
+(function(){
+  let financeCache=null;
+  const fm=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fn=n=>Number(n||0).toLocaleString('es-VE');
+  const fd=v=>{try{return new Date(v).toLocaleString('es-VE',{timeZone:'America/Caracas',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch{return v||'—'}};
+  const partnerLabel=k=>k==='freddy'?'Freddy Sedispa':k==='nelson'?'Nelson Garzon':'Empresa';
+  const typeLabel=t=>({expense:'Gasto',purchase:'Compra',refund:'Reembolso / devolución a cliente',fee:'Comisión bancaria',warranty_cost:'Costo de garantía',other_income:'Otro ingreso',receivable:'Cuenta por cobrar',receivable_collection:'Abono recibido',partner_advance:'Dinero prestado por socio',partner_repayment:'Devolución a socio',technician_commission:'Comisión técnico',technician_payment:'Pago a técnico',seller_commission:'Comisión vendedor',seller_payment:'Pago a vendedor',cash_adjustment:'Ajuste de caja'}[t]||t||'Movimiento');
+  async function finHeaders(){const h={'Content-Type':'application/json'};const {data}=await window.supabaseClient.auth.getSession();if(data?.session?.access_token)h.Authorization=`Bearer ${data.session.access_token}`;return h}
+  function quality(d){const q=d?.quality||{};const a=[];a.push(q.finance_tables_ready?'Finanzas centrales activas':'Pendiente migración de Finanzas');a.push(q.inventory_connected?`Inventory conectado · cobertura de costo ${Number(q.inventory_cost_coverage_pct||0).toFixed(1)}%`:'Inventory pendiente de conectar');a.push(q.support_parts_connected?'Repuestos de Soporte conectados':'Repuestos de Soporte sin movimientos');a.push(q.support_payment_events?'Abonos de Soporte con historial':'Historial de abonos de Soporte pendiente');a.push(q.mixed_payments_table?'Pagos mixtos conectados':'Pagos mixtos pendientes');a.push(q.staff_cash_table?'Caja Staff conectada':'Caja Staff pendiente');a.push(q.petty_cash_table?'Caja Chica activa':'Caja Chica pendiente');if(Number(q.staff_cash_unconverted_ves||0)>0)a.push(`${Number(q.staff_cash_unconverted_ves)} movimiento(s) VES históricos sin equivalencia USD`);return a.join(' · ')}
+  function financeActions(){return `<div class="fin-actionbar"><button data-fin-new="expense">+ Registrar gasto</button><button data-fin-new="partner_advance">+ Dinero de socio</button><button data-fin-new="partner_repayment">↩ Devolver a socio</button><button data-fin-new="receivable">+ Cuenta por cobrar</button><button data-fin-new="technician_commission">Ajuste comisión</button><button data-fin-commission-settings>Reglas de comisión</button></div><p class="fin-quality">Enterprise controla dinero y rentabilidad. Las compras de mercancía se registran en Inventory y las reparaciones se gestionan en Soporte; aquí llegan automáticamente para contabilidad, auditoría y reparto.</p>`}
+  function paymentRows(d){return (d.payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div class="fin-method-identity">${financeMethodLogo(x.method)}<div><b>${safe(x.method)}</b><br><small>${Object.entries(x.sources||{}).map(([k,v])=>`${safe(k)}: ${fn(v)}`).join(' · ')}</small></div></div><span>${fm(x.amount)}</span><button type="button" class="mini-action" data-trace-method="${safe(x.method)}">VER</button><i class="tag">${fn(x.count)} mov.</i></div>`).join('')||'<div class="fin-empty">Todavía no hay cobros clasificados por método en esta semana.</div>'}
+  function entryRows(d){return (d.entries||[]).slice(0,25).map(e=>`<div class="table-row fin-table-row" data-fin-entry="${safe(e.id)}"><div><b>${safe(typeLabel(e.entry_type))} · ${safe(e.description)}</b><br><small>${safe(e.category||'Sin categoría')} · ${fd(e.occurred_at)}${e.counterparty?` · ${safe(e.counterparty)}`:''}${e.funded_by&&e.funded_by!=='company'?` · pagó ${safe(partnerLabel(e.funded_by))}`:''}</small></div><span>${fm(e.amount_usd)}</span><button type="button" class="mini-action" data-trace-entry="${safe(e.id)}">VER</button><button class="mini-action danger" data-fin-void="${safe(e.id)}">Anular</button></div>`).join('')||'<div class="fin-empty">Sin movimientos manuales esta semana.</div>'}
+  function receivableRows(d){return (d.receivables?.manual_rows||[]).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||'Cliente')} · ${safe(e.description)}</b><br><small>Total ${fm(e.amount_usd)} · cobrado ${fm(e.collected_usd)}</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-collect="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Registrar abono</button></div>`).join('')||'<div class="fin-empty">Sin cuentas por cobrar manuales pendientes.</div>'}
+  function commissionRows(d){return (d.technicians?.commissions||[]).filter(x=>Number(x.pending_usd||0)>0).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||e.metadata?.technician_name||e.metadata?.technician_email||'Técnico')}</b><br><small>${safe(e.source_code||e.description)} · base neta ${fm(e.metadata?.commission_base)}${e.metadata?.parts_rate_pct!==undefined?` · repuesto ${e.metadata.parts_rate_pct??'—'}% · servicio ${e.metadata.service_rate_pct??'—'}%`:` · ${Number(e.metadata?.rate_pct||0)}%`}</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-pay-tech="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Pagar</button></div>`).join('')||'<div class="fin-empty">No hay comisiones técnicas pendientes.</div>'}
+  function purchaseRows(d){return (d.inventory?.payables||[]).slice(0,20).map(p=>`<div class="table-row fin-table-row"><div><b>${safe(p.supplier_name||'Proveedor')} · ${safe(p.product_name||'Compra')}</b><br><small>${safe(p.purchase_date||'Sin fecha')} · total ${fm(p.total_usd)} · pagado ${fm(p.paid_usd)}${p.reference?` · ${safe(p.reference)}`:''}</small></div><span>${fm(p.pending_usd)}</span><i class="tag">Por pagar</i></div>`).join('')||'<div class="fin-empty">No hay compras pendientes con proveedores.</div>'}
+  function purchaseMethodRows(d){return (d.purchase_payment_methods||[]).map(x=>`<div class="table-row fin-table-row"><div><b>${safe(x.method)}</b><br><small>Compras Inventory</small></div><span>${fm(x.amount)}</span><i class="tag">${fn(x.count)} pago(s)</i></div>`).join('')||'<div class="fin-empty">Sin pagos de compras esta semana.</div>'}
+  function partnerCard(p,label){return `<article class="fin-partner-card partner-debt-card"><div class="partner-debt-head"><div><span>DEUDA CON SOCIO</span><h3>${safe(label)}</h3></div><b>${fm(p?.balance)}</b></div><div class="partner-debt-breakdown"><div><span>Dinero colocado</span><strong>${fm(p?.advances)}</strong></div><div><span>Gastos pagados</span><strong>${fm(p?.company_expenses_paid)}</strong></div><div><span>Compras Inventory</span><strong>${fm(p?.inventory_purchases_paid)}</strong></div><div><span>Caja Chica</span><strong>${fm(p?.petty_cash_funded)}</strong></div><div class="repaid"><span>Devuelto</span><strong>− ${fm(p?.repaid)}</strong></div></div><small>Los aportes no son ingresos ni utilidad. La deuda baja únicamente cuando ThinkStore devuelve dinero al socio.</small></article>`}
+  function compactMoney(n){
+    const v=Number(n||0);
+    if(Math.abs(v)>=1000000)return '$'+(v/1000000).toFixed(v>=10000000?0:1)+'M';
+    if(Math.abs(v)>=1000)return '$'+(v/1000).toFixed(v>=10000?0:1)+'K';
+    return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0});
+  }
+  function shortDay(value){
+    try{return new Intl.DateTimeFormat('es-VE',{timeZone:'America/Caracas',weekday:'short'}).format(new Date(String(value)+'T12:00:00-04:00')).replace('.','')}catch{return String(value||'').slice(5)}
+  }
+  function renderExecutiveCharts(d){
+    const el=qs('enterpriseCharts');if(!el)return;
+    const daily=Array.isArray(d?.charts?.daily_cash_flow)?d.charts.daily_cash_flow:[];
+    const maxDaily=Math.max(1,...daily.flatMap(x=>[Number(x.inflow||0),Number(x.outflow||0)]));
+    const dayBars=daily.map(x=>{
+      const inVal=Number(x.inflow||0),outVal=Number(x.outflow||0);
+      const inPct=inVal>0?Math.max(3,inVal/maxDaily*100):0;
+      const outPct=outVal>0?Math.max(3,outVal/maxDaily*100):0;
+      const net=Number(x.net||0);
+      return `<div class="day-column" title="${safe(x.date)} · Entradas ${fm(x.inflow)} · Salidas ${fm(x.outflow)}"><div class="day-bars"><i class="bar-in" style="--bar:${inPct.toFixed(1)}%"></i><i class="bar-out" style="--bar:${outPct.toFixed(1)}%"></i></div><b class="${net<0?'negative':''}">${compactMoney(net)}</b><span>${safe(shortDay(x.date))}</span></div>`;
+    }).join('')||'<div class="chart-empty">Aún no hay movimientos diarios en esta semana.</div>';
+
+    const shop=Number(d.collections?.shop||0),support=Number(d.collections?.support||0),other=Number(d.collections?.other||0);
+    const mixTotal=Math.max(0,shop+support+other);
+    const p1=mixTotal?shop/mixTotal*100:0,p2=mixTotal?support/mixTotal*100:0;
+    const ringStyle=mixTotal?`--mix-a:${p1.toFixed(2)}%;--mix-b:${(p1+p2).toFixed(2)}%`:'';
+
+    const methods=(d.payment_methods||[]).slice(0,5);
+    const methodMax=Math.max(1,...methods.map(x=>Number(x.amount||0)));
+    const methodRows=methods.map(x=>`<div class="method-bar-row"><div><span>${safe(x.method)}</span><b>${fm(x.amount)}</b></div><i><em style="--w:${Math.max(4,Number(x.amount||0)/methodMax*100).toFixed(1)}%"></em></i></div>`).join('')||'<div class="chart-empty">Sin cobros clasificados todavía.</div>';
+
+    const q=d.quality||{};
+    const checks=[
+      ['Finanzas',!!q.finance_tables_ready],['Inventory',!!q.inventory_connected],['Soporte',!!q.support_payment_events],
+      ['Pagos mixtos',!!q.mixed_payments_table],['Caja Staff',!!q.staff_cash_table],['Caja Chica',!!q.petty_cash_table],['Conciliación',!!q.reconciliation_table]
+    ];
+    const healthy=checks.filter(x=>x[1]).length;const healthPct=Math.round(healthy/checks.length*100);
+    const healthRows=checks.map(([name,ok])=>`<span class="health-chip ${ok?'ok':'pending'}"><i></i>${safe(name)}</span>`).join('');
+
+    const pnl=[
+      ['Cobrado',Number(d.collections?.gross||0),'positive'],
+      ['Costos',Number(d.outflows?.total||0),'neutral'],
+      ['Distribuible',Number(d.result?.distributable||0),'accent']
+    ];
+    const pnlMax=Math.max(1,...pnl.map(x=>x[1]));
+    const pnlRows=pnl.map(([label,value,tone])=>`<div class="pnl-bar ${tone}"><span>${safe(label)}</span><i><em style="--w:${Math.max(4,value/pnlMax*100).toFixed(1)}%"></em></i><b>${fm(value)}</b></div>`).join('');
+
+    el.innerHTML=`<div class="chart-grid chart-grid-top">
+      <article class="panel executive-chart cashflow-chart"><div class="chart-head"><div><span>MOVIMIENTO SEMANAL</span><h3>Entradas y salidas por día</h3></div><div class="chart-legend"><i class="in"></i>Entradas <i class="out"></i>Salidas</div></div><div class="daily-bars">${dayBars}</div></article>
+      <article class="panel executive-chart mix-chart"><div class="chart-head"><div><span>ORIGEN DEL INGRESO</span><h3>Qué está generando caja</h3></div></div><div class="mix-wrap"><div class="mix-ring ${mixTotal?'':'empty'}" style="${ringStyle}"><div><b>${compactMoney(mixTotal)}</b><span>Total</span></div></div><div class="mix-legend"><p><i class="shop"></i><span>Tienda</span><b>${fm(shop)}</b></p><p><i class="support"></i><span>Servicio Técnico</span><b>${fm(support)}</b></p><p><i class="other"></i><span>Otros</span><b>${fm(other)}</b></p></div></div></article>
+    </div>
+    <div class="chart-grid chart-grid-bottom">
+      <article class="panel executive-chart"><div class="chart-head"><div><span>RENDIMIENTO</span><h3>Cobrado vs costos</h3></div></div><div class="pnl-bars">${pnlRows}</div><div class="chart-note">Margen tienda ${Number(d.inventory?.gross_margin_pct||0).toFixed(1)}% · inventario a costo ${fm(d.inventory?.value)}</div></article>
+      <article class="panel executive-chart"><div class="chart-head"><div><span>COBROS</span><h3>Métodos principales</h3></div><button onclick="switchView('reconciliation')">Conciliar</button></div><div class="method-bars">${methodRows}</div></article>
+      <article class="panel executive-chart health-chart"><div class="chart-head"><div><span>ECOSISTEMA</span><h3>Disponibilidad de fuentes</h3></div></div><div class="health-score"><div class="health-ring" style="--health:${healthPct}%"><b>${healthPct}%</b><span>${healthy}/${checks.length} detectadas</span></div></div><div class="health-chips">${healthRows}</div></article>
+    </div>`;
+    requestAnimationFrame(()=>el.classList.add('charts-ready'));
+  }
+  function expenseReceipt(e){const u=e?.metadata?.receipt_url||e?.metadata?.document_url||'';return u?`<a class="expense-proof" href="${safe(u)}" target="_blank" rel="noopener">Comprobante</a>`:''}
+  function expenseRows(d){
+    const rows=Array.isArray(d?.expenses?.rows)?d.expenses.rows:[];
+    if(!rows.length)return '<div class="fin-empty">No hay gastos registrados.</div>';
+    return rows.map(e=>`<div class="expense-row" data-expense-row data-category="${safe(e.category||'Sin categoría')}" data-funded="${safe(e.funded_by||'company')}" data-date="${safe(String(e.occurred_at||e.created_at||'').slice(0,10))}"><div class="expense-main"><b>${safe(e.description||typeLabel(e.entry_type))}</b><small>${safe(e.counterparty||'Sin proveedor')} · ${fd(e.occurred_at||e.created_at)}</small><div class="expense-meta"><span>${safe(e.category||'Sin categoría')}</span><span>${safe(e.payment_method||'Método no indicado')}</span><span>Pagó ${safe(partnerLabel(e.funded_by||'company'))}</span>${e.reference?`<span>Ref. ${safe(e.reference)}</span>`:''}${e.notes?`<span>${safe(e.notes)}</span>`:''}</div></div><div class="expense-amount"><b>${fm(e.amount_usd)}</b>${expenseReceipt(e)}</div><button class="mini-action danger" data-fin-void="${safe(e.id)}">Anular</button></div>`).join('');
+  }
+  function expenseFilters(d){
+    const rows=Array.isArray(d?.expenses?.rows)?d.expenses.rows:[];
+    const categories=[...new Set(rows.map(x=>x.category).filter(Boolean))].sort();
+    return `<div class="expense-toolbar"><label>Periodo<select id="expensePeriod"><option value="all">Todo</option><option value="week" selected>Esta semana</option><option value="month">Este mes</option></select></label><label>Categoría<select id="expenseCategory"><option value="all">Todas</option>${categories.map(x=>`<option value="${safe(x)}">${safe(x)}</option>`).join('')}</select></label><label>Pagado por<select id="expenseFunded"><option value="all">Todos</option><option value="company">Empresa</option><option value="freddy">Freddy</option><option value="nelson">Nelson</option></select></label><label class="expense-search">Buscar<input id="expenseSearch" type="search" placeholder="Proveedor, referencia o detalle"></label></div>`;
+  }
+  function applyExpenseFilters(){
+    const host=document.querySelector('#treasury .expense-ledger');if(!host)return;
+    const period=document.getElementById('expensePeriod')?.value||'week',cat=document.getElementById('expenseCategory')?.value||'all',funded=document.getElementById('expenseFunded')?.value||'all',query=(document.getElementById('expenseSearch')?.value||'').trim().toLowerCase();
+    const today=new Date();const caracasParts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(today);const [y,m,d]=caracasParts.split('-').map(Number);const current=new Date(`${caracasParts}T12:00:00-04:00`);const shift=(current.getUTCDay()+6)%7;const monday=new Date(current);monday.setUTCDate(monday.getUTCDate()-shift);const weekStart=monday.toISOString().slice(0,10);const monthPrefix=`${y}-${String(m).padStart(2,'0')}`;
+    let visible=0,total=0;
+    host.querySelectorAll('[data-expense-row]').forEach(row=>{const date=row.dataset.date||'';const okPeriod=period==='all'||(period==='month'&&date.startsWith(monthPrefix))||(period==='week'&&date>=weekStart&&date<=caracasParts);const okCat=cat==='all'||row.dataset.category===cat;const okFunded=funded==='all'||row.dataset.funded===funded;const okQuery=!query||row.textContent.toLowerCase().includes(query);const show=okPeriod&&okCat&&okFunded&&okQuery;row.hidden=!show;if(show){visible++;const raw=row.querySelector('.expense-amount>b')?.textContent?.replace(/[^0-9.-]/g,'')||0;total+=Number(raw)||0}});
+    const count=document.getElementById('expenseVisibleCount'),sumEl=document.getElementById('expenseVisibleTotal');if(count)count.textContent=fn(visible);if(sumEl)sumEl.textContent=fm(total);
+  }
+  // Vista de asignación de cobros: no registra movimientos ni modifica el libro mayor.
+  // La reserva se calcula sobre el importe efectivamente cobrado y nunca sobre deuda futura.
+  function receiptAllocation(row){
+    const money=v=>Math.max(0,Number(v)||0);
+    const paid=money(row.collected_usd);
+    const inventory=money(row.inventory_recovery_usd);
+    const commission=money(row.total_commission_usd);
+    const recovered=Math.min(paid,inventory);
+    const reserve=Math.min(Math.max(0,paid-recovered),commission);
+    const free=Math.max(0,paid-recovered-reserve);
+    return {paid,inventory,commission,recovered,reserve,free,inventoryRemaining:Math.max(0,inventory-recovered),commissionRemaining:Math.max(0,commission-reserve)};
+  }
+  function settlementRows(d){
+    const rows=Array.isArray(d?.treasury_allocations?.settlements)?d.treasury_allocations.settlements:[];
+    return rows.slice(0,80).map((x,i)=>{
+      const r=receiptAllocation(x);
+      return `<div class="service-profit-row"><div class="service-profit-id"><b>${safe(x.order_code||'Servicio')}</b><small>${fd(x.settled_at||x.updated_at)}${x.technician_name||x.technician_email?` · ${safe(x.technician_name||x.technician_email)}`:''}</small></div><div><span>Cobrado acumulado</span><b>${fm(r.paid)}</b></div><div><span>Costo por recuperar</span><b>${fm(r.inventoryRemaining)}</b></div><div><span>Comisión por reservar</span><b>${fm(r.commissionRemaining)}</b></div><div class="service-profit-company"><span>Excedente provisional</span><b>${fm(r.free)}</b><small>Sin distribuir</small></div><button type="button" class="mini-action ts-original-ver" data-ts-credit-detail="${i}" aria-expanded="false">VER</button><div class="ts-credit-inline" data-credit-inline="${i}" hidden></div></div>`;
+    }).join('')||'<div class="fin-empty">Todavía no hay liquidaciones automáticas de Servicio Técnico en este periodo.</div>';
+  }
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest('[data-ts-credit-detail]');if(!btn)return;
+    e.preventDefault();e.stopPropagation();
+    const idx=Number(btn.dataset.tsCreditDetail);
+    const row=financeCache?.treasury_allocations?.settlements?.[idx];
+    const panel=btn.closest('.service-profit-row')?.querySelector('[data-credit-inline]');
+    if(!row||!panel)return;
+    const isOpen=!panel.hidden;
+    document.querySelectorAll('.ts-credit-inline:not([hidden])').forEach(el=>{el.hidden=true;const b=el.closest('.service-profit-row')?.querySelector('[data-ts-credit-detail]');if(b){b.textContent='VER';b.setAttribute('aria-expanded','false')}});
+    if(isOpen)return;
+    const a=receiptAllocation(row);
+    const items=[
+      ['Orden / fuente',row.order_code||'Servicio Técnico'],
+      ['Cobrado acumulado',fm(a.paid)],
+      ['Costo registrado',fm(a.inventory)],
+      ['Costo cubierto',fm(a.recovered)],
+      ['Costo pendiente de recuperar',fm(a.inventoryRemaining)],
+      ['Comisión registrada',fm(a.commission)],
+      ['Comisión cubierta o reservada',fm(a.reserve)],
+      ['Comisión todavía por cubrir',fm(a.commissionRemaining)],
+      ['Excedente provisional · sin distribuir',fm(a.free)],
+      ['Utilidad contractual estimada · no cobrada',fm(row.company_profit_usd)]
+    ];
+    panel.replaceChildren();
+    const heading=document.createElement('strong');heading.textContent='Detalle de la aplicación del cobro';panel.append(heading);
+    items.forEach(([label,value])=>{const line=document.createElement('div');line.className='ts-credit-detail-line';const l=document.createElement('span');l.textContent=label;const v=document.createElement('b');v.textContent=value;line.append(l,v);panel.append(line)});
+    const note=document.createElement('p');note.textContent='Consulta únicamente: no registra pagos, modifica inventario ni distribuye utilidades. La deuda pendiente se verifica en la orden original.';panel.append(note);
+    panel.hidden=false;btn.textContent='OCULTAR';btn.setAttribute('aria-expanded','true');
+  });
+  function sellerCommissionRows(d){
+    return (d.sellers?.commissions||[]).filter(x=>Number(x.pending_usd||0)>0).map(e=>`<div class="table-row fin-table-row"><div><b>${safe(e.counterparty||e.metadata?.seller_name||e.metadata?.seller_email||'Vendedor')}</b><br><small>${safe(e.source_code||e.description)} · venta ${fm(e.metadata?.sale_amount||e.metadata?.gross_sale_amount||0)} · ${Number(e.metadata?.rate_pct||e.metadata?.seller_rate_pct||0)}%</small></div><span>${fm(e.pending_usd)}</span><button class="mini-action" data-fin-pay-seller="${safe(e.id)}" data-fin-due="${Number(e.pending_usd||0)}">Pagar</button></div>`).join('')||'<div class="fin-empty">No hay comisiones de vendedores pendientes.</div>';
+  }
+  function renderFinanceQuick(d){
+    const el=qs('enterpriseFinanceQuick');if(!el)return;
+    const recon=d.reconciliation?.current||{};
+    const reconDiff=d.reconciliation?.totals?.difference;
+    const reconLabel=recon.status==='closed'?(reconDiff!==null&&Math.abs(Number(reconDiff))>.01?'Con diferencia':'Conciliada'):(recon.status==='review'?'En revisión':'Pendiente');
+    const today=d.today||{},cash=d.cash_position||{};
+    const sync=qs('enterpriseLastSync');if(sync)sync.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});
+    el.innerHTML=`<section class="book-summary executive-v1020">
+      <div class="executive-today-head"><div><span>HOY · ${safe(today.date||'')}</span><h3>Lo que está pasando ahora</h3></div><small>Los valores registrados se conservan; esta vista solo los organiza.</small></div>
+      <div class="exec-kpi-grid">
+        <article><span>Ventas hoy</span><b>${fm(today.shop)}</b><small>Tienda</small></article>
+        <article><span>Servicio Técnico hoy</span><b>${fm(today.support)}</b><small>Cobros registrados</small></article>
+        <article><span>Gastos hoy</span><b>${fm(today.operating_expenses)}</b><small>Operación + Caja Staff + Caja Chica</small></article>
+        <article class="primary"><span>Utilidad estimada hoy</span><b>${fm(today.estimated_profit)}</b><small>Lectura contable del día</small></article>
+        <article><span>Caja neta hoy</span><b>${fm(today.cash_net)}</b><small>Entradas ${fm(today.cash_in)} · salidas ${fm(today.cash_out)}</small></article>
+        <article><span>Posición de caja</span><b>${fm(cash.amount)}</b><small>${cash.mode==='actual'?'Saldo conciliado':'Saldo esperado según movimientos'}</small></article>
+        <article><span>Pendiente por cobrar</span><b>${fm(d.receivables?.total)}</b><small>Tienda + Soporte + manual</small></article>
+        <article class="primary"><span>Utilidad semanal real</span><b>${fm(d.result?.distributable)}</b><small>${d.result?.loss_carry>0?`Pérdida por compensar ${fm(d.result.loss_carry)}`:'Disponible para cierre/reparto'}</small></article>
+      </div>
+      <article class="book-formula panel">
+        <div class="formula-head"><div><span>RESULTADO SEMANAL</span><h3>De dónde sale la utilidad</h3></div><button onclick="switchView('weeklyAudit')">Ver cierre</button></div>
+        <div class="formula-grid">
+          <div><span>Ventas cobradas</span><b>${fm(d.collections?.shop)}</b></div><i>+</i>
+          <div><span>Servicio Técnico</span><b>${fm(d.collections?.support)}</b></div><i>+</i>
+          <div><span>Otros ingresos</span><b>${fm(d.collections?.other)}</b></div><i>−</i>
+          <div><span>COGS tienda</span><b>${fm(d.outflows?.store_cogs)}</b></div><i>−</i>
+          <div><span>Repuestos + directos</span><b>${fm(Number(d.outflows?.support_parts||0)+Number(d.outflows?.support_store_products||0)+Number(d.outflows?.support_direct||0))}</b></div><i>−</i>
+          <div><span>Gastos + comisiones</span><b>${fm(Number(d.outflows?.operating_expenses||0)+Number(d.outflows?.technician_commissions||0)+Number(d.outflows?.seller_commissions||0))}</b></div><i>=</i>
+          <div class="formula-total"><span>Distribuible</span><b>${fm(d.result?.distributable)}</b></div>
+        </div>
+      </article>
+      <div class="book-two-col">
+        <article class="panel book-partners"><div class="section-head"><div><span>SOCIOS</span><h3>Dinero que ThinkStore debe devolver</h3></div><button onclick="switchView('treasury')">Ver detalle</button></div>
+          <div class="partner-lines"><div><span>Freddy</span><b>${fm(d.partners?.freddy?.balance)}</b></div><div><span>Nelson</span><b>${fm(d.partners?.nelson?.balance)}</b></div></div>
+        </article>
+        <article class="panel book-split"><div class="section-head"><div><span>REPARTO SEMANAL</span><h3>Sobre utilidad distribuible</h3></div></div>
+          <div class="split-lines"><div><span>ThinkStore · ${Number(d.settings?.company_pct||50)}%</span><b>${fm(d.result?.company)}</b></div><div><span>Freddy · ${Number(d.settings?.freddy_pct||25)}%</span><b>${fm(d.result?.freddy)}</b></div><div><span>Nelson · ${Number(d.settings?.nelson_pct||25)}%</span><b>${fm(d.result?.nelson)}</b></div></div>
+        </article>
+      </div>
+      <div class="book-status-row">
+        <button onclick="switchView('treasury')"><span>Técnicos por pagar</span><b>${fm(d.technicians?.pending_total)}</b></button>
+        <button onclick="switchView('treasury')"><span>Vendedores por pagar</span><b>${fm(d.sellers?.pending_total)}</b></button>
+        <button onclick="switchView('operations')"><span>Inventario a costo</span><b>${fm(d.inventory?.value)}</b></button>
+        <button onclick="switchView('pettyCash')"><span>Caja Chica</span><b>${fm(d.petty_cash?.balance_usd)}</b><small>${fn(d.petty_cash?.balance_ves)} Bs</small></button>
+        <button onclick="switchView('reconciliation')"><span>Conciliación</span><b>${safe(reconLabel)}</b></button>
+      </div>
+      <p class="book-quality">${safe(quality(d))}</p>
+    </section>`;
+  }
+  // Auditoría informativa: usa exclusivamente los datos ya cargados por Enterprise.
+  // Nunca modifica abonos, saldos, inventario ni comisiones.
+  function financeAuditPanel(d){
+    const rec=d.receivables||{},total=Number(rec.total||0);
+    const shop=Number(rec.store||0),support=Number(rec.support||0);
+    const manual=Number(rec.manual_total??rec.manual??0);
+    const subtotal=shop+support+manual;
+    const discrepancy=Math.abs(total-subtotal)>0.011;
+    const flagged=(d.reconciliation?.lines||[]).filter(x=>
+      /sin definir|pago m[oó]vil/i.test(String(x.method||'')) ||
+      (x.difference!==null&&Math.abs(Number(x.difference||0))>0.01));
+    const button=(key)=>`<button type="button" class="ts-audit-toggle" data-audit-expand="${safe(key)}" aria-expanded="false">VER</button>`;
+    const row=(key,heading,description,value)=>`<div class="ts-audit-item"><div class="table-row ts-audit-line"><div><b>${heading}</b><br><small>${description}</small></div><span>${value}</span>${button(key)}</div><div class="ts-audit-detail" data-audit-detail="${safe(key)}" hidden></div></div>`;
+    const rows=flagged.slice(0,15).map((x,i)=>row('method-'+i,safe(x.method||'Sin definir'),`Entradas ${fm(x.inflow)} · salidas ${fm(x.outflow)} · ${Number(x.in_count||0)+Number(x.out_count||0)} movimientos`,x.difference===null?'Pendiente de conciliación':fm(x.difference))).join('');
+    return `<article class="panel ts-audit-panel" aria-label="Verificación de cobros y conciliación"><div class="panel-head"><div><span class="finance-kicker">DETALLE CONSULTABLE</span><h3>Verificación de cobros y conciliación</h3></div><span class="tag">Consulta sin ajustes automáticos</span></div>
+      <p class="fin-quality">Pulsa VER para desplegar el origen bajo cada registro. Revisar no cambia abonos, caja ni inventario. Los ajustes de conciliación se realizan en la sección correspondiente.</p>
+      <div class="table">${row('receivables','Cuentas por cobrar · total Enterprise',`Tienda ${fm(shop)} · Soporte ${fm(support)} · Manual ${fm(manual)}`,fm(total))}
+      ${discrepancy?row('difference','Advertencia: desglose distinto del total','Comprobar periodos y fuentes originales',fm(total-subtotal)):''}
+      ${rows||'<div class="table-row"><div><b>Conciliación por método</b><br><small>No hay métodos señalados en la respuesta actual.</small></div></div>'}</div>
+      <p class="fin-quality">Los pagos en crédito no deben contarse nuevamente como ventas al recibirse el saldo restante.</p></article>`;
+  }
+  // Expansión en línea de la auditoría. No hay llamadas POST ni alteraciones contables.
+  document.addEventListener('click',event=>{
+    const btn=event.target.closest('[data-audit-expand]');if(!btn)return;
+    event.preventDefault();event.stopPropagation();
+    const item=btn.closest('.ts-audit-item');const detail=item?.querySelector('.ts-audit-detail');if(!detail)return;
+    if(!detail.hidden){detail.hidden=true;btn.textContent='VER';btn.setAttribute('aria-expanded','false');return}
+    const d=financeCache||{},key=btn.dataset.auditExpand;
+    const content=document.createElement('div');content.className='ts-audit-detail-inner';
+    const add=(label,value)=>{const r=document.createElement('div');r.className='ts-audit-detail-line';const l=document.createElement('span');l.textContent=String(label);const v=document.createElement('strong');v.textContent=String(value??'No disponible');r.append(l,v);content.append(r)};
+    const link=(label,target)=>{if(!document.getElementById(target))return;const b=document.createElement('button');b.type='button';b.className='ts-audit-jump';b.textContent=label+' →';b.onclick=()=>switchView(target);content.append(b)};
+    if(key==='receivables'){
+      add('Tienda',fm(d.receivables?.store));add('Servicio Técnico',fm(d.receivables?.support));add('Cuentas manuales',fm(d.receivables?.manual_total??d.receivables?.manual));
+      for(const r of (d.receivables?.support_rows||[]).slice(0,60))add('Reparación '+(r.order_code||'Sin código'),`Pendiente ${fm(r.pending_usd)} · Abonado ${fm(r.paid_usd)} · Total ${fm(r.quote_usd)}`);
+      for(const r of (d.receivables?.manual_rows||[]).slice(0,30))add(r.counterparty||r.description||'Cuenta manual',`Pendiente ${fm(r.pending_usd)} · ${r.reference||'Sin referencia'}`);
+      if(!(d.receivables?.support_rows||[]).length)add('Detalle por orden','El servidor no facilitó filas individuales verificables para todas las cuentas.');
+      link('Ir a Tesorería','treasury');
+    }else if(key==='difference'){
+      const r=d.receivables||{};add('Total Enterprise',fm(r.total));add('Suma de categorías',fm(Number(r.store||0)+Number(r.support||0)+Number(r.manual_total??r.manual??0)));add('Revisión','Comprobar fuente y periodo; no generar ajustes compensatorios.');link('Ir a Tesorería','treasury');
+    }else if(key.startsWith('method-')){
+      const lines=(d.reconciliation?.lines||[]).filter(x=>/sin definir|pago m[oó]vil/i.test(String(x.method||''))||(x.difference!==null&&Math.abs(Number(x.difference||0))>0.01));
+      const r=lines[Number(key.slice(7))];if(r){add('Método',r.method||'Sin definir');add('Entradas',fm(r.inflow));add('Salidas',fm(r.outflow));add('Saldo inicial',fm(r.opening_balance));add('Saldo esperado',fm(r.expected_closing));add('Saldo real',r.actual_closing===null?'No conciliado':fm(r.actual_closing));add('Diferencia',r.difference===null?'Pendiente':fm(r.difference));
+        const transactions=(d.audit_readonly?.payment_method_trace?.records||[]).filter(x=>String(x.method||'').toLowerCase()===String(r.method||'').toLowerCase());
+        if(transactions.length)for(const tx of transactions.slice(0,50))add(`${tx.direction==='out'?'Salida':'Entrada'} · ${tx.source||'Sin fuente'}`,`${fm(tx.amount_usd)} · ${tx.occurred_at||'Sin fecha'} · Ref: ${tx.order_id||tx.source_id||tx.reference||'Sin identificador'}`);
+        else add('Registros individuales','No disponibles en la respuesta actual; consultar origen en Conciliación.');
+        link('Ir a Conciliación','reconciliation');
+      }
+    }
+    detail.replaceChildren(content);detail.hidden=false;btn.textContent='OCULTAR';btn.setAttribute('aria-expanded','true');
+  },true);
+  function renderTreasury(d){
+    const el=qs('treasury');if(!el)return;
+    el.innerHTML=`${financeActions()}
+      <article class="treasury-focus panel"><div><span>TESORERÍA & SOCIOS</span><h2>Dinero real, obligaciones y rentabilidad</h2><p>Los aportes de socios se muestran como deuda de ThinkStore, nunca como ingreso o ganancia.</p></div><div class="treasury-focus-total"><span>Utilidad distribuible</span><b>${fm(d.result?.distributable)}</b><small>Semana ${safe(d.period?.start)} → ${safe(d.period?.end)}</small></div></article>
+      <div class="fin-kpis treasury-kpis">
+        <article><span>Cobrado semana</span><b>${fm(d.collections?.gross)}</b><small>Tienda + Servicio Técnico + otros</small></article>
+        <article><span>Gastos operativos</span><b>${fm(d.outflows?.operating_expenses)}</b><small>No incluye compras de inventario como gasto</small></article>
+        <article><span>Flujo de caja semana</span><b>${fm(d.cash?.net)}</b><small>Entradas ${fm(d.cash?.in)} · salidas ${fm(d.cash?.out)}</small></article>
+        <article><span>Posición de caja</span><b>${fm(d.cash_position?.amount)}</b><small>${d.cash_position?.mode==='actual'?'Conciliada':'Esperada según movimientos'}</small></article>
+        <article><span>Por cobrar</span><b>${fm(d.receivables?.total)}</b><small>Tienda ${fm(d.receivables?.store)} · Soporte ${fm(d.receivables?.support)}</small></article>
+        <article><span>Proveedores por pagar</span><b>${fm(d.inventory?.supplier_payable)}</b><small>${fn(d.inventory?.supplier_count)} proveedor(es)</small></article>
+      </div>
+
+      <div class="fin-partner-grid partner-ledger-grid">${partnerCard(d.partners?.freddy,'Freddy Sedispa')}${partnerCard(d.partners?.nelson,'Nelson Garzon')}</div>
+
+      <article class="panel service-profit-panel"><div class="panel-head"><div><span class="finance-kicker">SERVICIO TÉCNICO</span><h3>Liquidación automática por reparación</h3></div><span class="tag">${fn(d.treasury_allocations?.settlements_week)} esta semana</span></div><div class="service-profit-summary"><div><span>Recuperado a inventario</span><b>${fm(d.treasury_allocations?.inventory_recovery_week)}</b></div><div><span>Comisión técnica</span><b>${fm(d.treasury_allocations?.technician_commissions_week)}</b></div><div><span>Comisión vendedor</span><b>${fm(d.treasury_allocations?.seller_commissions_week)}</b></div><div class="accent"><span>Utilidad contractual estimada (no repartible)</span><b>${fm(d.treasury_allocations?.service_company_profit_week)}</b></div></div><div class="service-profit-table">${settlementRows(d)}</div></article>
+
+      <article class="panel expense-center"><div class="panel-head"><div><span class="finance-kicker">GASTOS</span><h3>Historial y comprobantes</h3></div><div class="expense-live-total"><span><b id="expenseVisibleCount">0</b> registros</span><strong id="expenseVisibleTotal">$0.00</strong></div></div>${expenseFilters(d)}<div class="expense-ledger">${expenseRows(d)}</div></article>
+
+      <div class="main-grid fin-main-grid commission-grid">
+        <article class="panel"><div class="panel-head"><h3>Comisiones técnicas pendientes</h3><span class="tag">${fm(d.technicians?.pending_total)}</span></div><div class="table">${commissionRows(d)}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Comisiones vendedores pendientes</h3><span class="tag">${fm(d.sellers?.pending_total)}</span></div><div class="table">${sellerCommissionRows(d)}</div></article>
+      </div>
+
+      <div class="fin-split-card"><div><span>UTILIDAD DISTRIBUIBLE</span><h2>${fm(d.result?.distributable)}</h2><p>Los costos de inventario se reconocen cuando se vende/consume la mercancía. Los préstamos de socios y sus devoluciones quedan fuera de la utilidad.</p></div><div class="fin-split-grid"><article><span>Empresa · ${Number(d.settings?.company_pct||50)}%</span><b>${fm(d.result?.company)}</b></article><article><span>Freddy · ${Number(d.settings?.freddy_pct||25)}%</span><b>${fm(d.result?.freddy)}</b></article><article><span>Nelson · ${Number(d.settings?.nelson_pct||25)}%</span><b>${fm(d.result?.nelson)}</b></article></div></div>
+
+      ${financeAuditPanel(d)}
+      <div class="main-grid fin-main-grid">
+        <article class="panel"><div class="panel-head"><h3>Proveedores por pagar</h3><span class="tag">${fm(d.inventory?.supplier_payable)}</span></div><div class="table">${purchaseRows(d)}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Cuentas por cobrar</h3><button type="button" class="tag" data-trace-summary="receivables">${fm(d.receivables?.total)} · VER</button></div><div class="table">${receivableRows(d)}</div></article>
+      </div>
+      <div class="main-grid fin-main-grid">
+        <article class="panel"><div class="panel-head"><h3>Métodos de cobro · semana</h3><span class="tag">Entradas</span></div><div class="table">${paymentRows(d)}</div></article>
+        <article class="panel"><div class="panel-head"><h3>Movimientos financieros</h3><span class="tag">Trazabilidad</span></div><div class="table">${entryRows(d)}</div></article>
+      </div>
+      <p class="fin-quality">${safe(quality(d))}</p>`;
+    requestAnimationFrame(()=>{applyExpenseFilters();['expensePeriod','expenseCategory','expenseFunded','expenseSearch'].forEach(id=>document.getElementById(id)?.addEventListener(id==='expenseSearch'?'input':'change',applyExpenseFilters))});
+  }
+  function pettyTypeLabel(t){return ({fund:'Reposición / fondo',expense:'Gasto menor',refund:'Reintegro',adjustment:'Ajuste'}[t]||t||'Movimiento')}
+  const pettyBrandAsset={
+    boa:'/assets/banks/boa.svg',chase:'/assets/banks/chase.svg',pichincha:'/assets/banks/official/pichincha.png',binance:'/assets/banks/binance.svg',zelle:'/assets/banks/zelle.svg',
+    banesco:'/assets/banks/official/banesco.png',bnc:'/assets/banks/bnc.svg',bdv:'/assets/banks/official/bdv.png',bancamiga:'/assets/banks/bancamiga.svg',bvc:'/assets/banks/official/bvc.png'
+  };
+  // Identidad visual de los métodos existentes; nunca crea cuentas ni altera saldos.
+  function financeBrandCode(value){
+    const name=String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ');
+    if(/bank of america|\bboa\b/.test(name))return 'boa';
+    if(/\bchase\b|jpmorgan/.test(name))return 'chase';
+    if(/pichincha/.test(name))return 'pichincha';
+    if(/binance|\busdt\b/.test(name))return 'binance';
+    if(/zelle/.test(name))return 'zelle';
+    if(/banesco/.test(name))return 'banesco';
+    if(/\bbnc\b|nacional de credito/.test(name))return 'bnc';
+    if(/banco de venezuela|\bbdv\b/.test(name))return 'bdv';
+    if(/bancamiga/.test(name))return 'bancamiga';
+    if(/venezolano de credito|\bbvc\b/.test(name))return 'bvc';
+    return '';
+  }
+  function financeMethodLogo(method){
+    const code=financeBrandCode(method),src=pettyBrandAsset[code];
+    const short=String(method||'').trim().slice(0,2).toUpperCase()||'$';
+    if(!src)return `<span class="fin-method-fallback" aria-hidden="true">${safe(short)}</span>`;
+    return `<span class="fin-method-logo"><img src="${safe(src)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fin-method-fallback" style="display:none">${safe(short)}</i></span>`;
+  }
+  function pettyBankData(){return financeCache?.petty_cash?.banking||{accounts:[],movements:[],connected:false}}
+  function pettyBankAccounts(currency){const c=String(currency||'').toUpperCase();return (pettyBankData().accounts||[]).filter(a=>String(a.currency||'').toUpperCase()===c&&a.active!==false)}
+  function pettyBankName(a){return a?.alias?`${a.alias} · ${a.display_name||a.institution_name||''}`:(a?.display_name||a?.institution_name||'Cuenta')}
+  function pettyBankLogo(a){
+    const code=String(a?.code||'').toLowerCase(),src=pettyBrandAsset[code]||'';
+    const initials=String(a?.institution_name||a?.display_name||'TS').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+    if(!src)return `<span class="petty-bank-logo-fallback">${safe(initials)}</span>`;
+    return `<span class="petty-bank-logo"><img src="${safe(src)}" alt="${safe(a?.institution_name||'Logo')}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="petty-bank-logo-fallback" style="display:none">${safe(initials)}</i></span>`;
+  }
+  function pettyActionIcon(kind){
+    const paths={
+      movement:'<path d="M12 5v14M5 12h14"/>',
+      transfer:'<path d="M7 7h11l-3-3m3 3-3 3M17 17H6l3 3m-3-3 3-3"/>',
+      adjust:'<path d="M4 7h7m4 0h5M4 17h3m4 0h9M11 4v6M7 14v6"/>',
+      history:'<path d="M4 12a8 8 0 1 0 2.3-5.7L4 8M4 4v4h4M12 8v5l3 2"/>',
+      settings:'<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8 3.5-2.1-.8a6.4 6.4 0 0 0-.6-1.4l.9-2-2-2-.9.4-1.1.5a6.5 6.5 0 0 0-1.4-.6L12 4H9.2l-.8 2.1a6.5 6.5 0 0 0-1.4.6l-2-.9-2 2 .9 2a6.4 6.4 0 0 0-.6 1.4L1.2 12v2.8l2.1.8c.1.5.3 1 .6 1.4l-.9 2 2 2 2-.9c.4.3.9.5 1.4.6l.8 2.1H12l.8-2.1c.5-.1 1-.3 1.4-.6l2 .9 2-2-.9-2c.3-.4.5-.9.6-1.4l2.1-.8V12Z"/>',
+    };
+    return `<svg class="petty-action-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[kind]||paths.movement}</svg>`;
+  }
+  function pettyBankOptions(currency='',selected=''){
+    const c=String(currency||'').toUpperCase(),rows=(pettyBankData().accounts||[]).filter(a=>!c||String(a.currency||'').toUpperCase()===c);
+    return `<option value="">Saldo sin asignar</option>`+rows.map(a=>`<option value="${safe(a.id)}" data-currency="${safe(a.currency)}" ${String(a.id)===String(selected)?'selected':''}>${safe(a.currency)} · ${safe(pettyBankName(a))}</option>`).join('');
+  }
+  function pettyRelatedBank(m){
+    const rel=(pettyBankData().movements||[]).find(x=>String(x.related_petty_movement_id||'')===String(m?.id||'')&&String(x.status||'posted')!=='void');
+    if(!rel)return null;return (pettyBankData().accounts||[]).find(a=>String(a.id)===String(rel.account_id))||null;
+  }
+  function pettyRows(d){
+    return (d.petty_cash?.movements||[]).slice(0,80).map(m=>{
+      const amount=String(m.currency)==='VES'?`${fn(m.amount)} Bs · ${fm(m.usd_equivalent)}`:fm(m.amount);
+      const sign=m.direction==='out'?'−':'+';const bank=pettyRelatedBank(m);
+      const meta=[bank?pettyBankName(bank):'',m.category,m.vendor,m.reference?`Ref. ${m.reference}`:'',m.funded_by&&m.funded_by!=='company'?`aportó ${partnerLabel(m.funded_by)}`:''].filter(Boolean).map(safe).join(' · ');
+      return `<div class="table-row fin-table-row petty-row" data-petty-record="${safe(m.id)}"><div><b>${safe(pettyTypeLabel(m.movement_type))} · ${safe(m.description)}</b><br><small>${fd(m.occurred_at)}${meta?` · ${meta}`:''}</small></div><span class="${m.direction==='out'?'cash-negative':''}">${sign}${safe(amount)}</span><button type="button" class="mini-action" data-petty-detail="${safe(m.id)}" aria-expanded="false">Ver</button><button class="mini-action danger" data-petty-void="${safe(m.id)}">Anular</button></div>`;
+    }).join('')||'<div class="fin-empty">Caja Chica todavía no tiene movimientos.</div>';
+  }
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('[data-petty-detail]');if(!button)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const row=button.closest('[data-petty-record]');if(!row)return;
+    const existing=row.querySelector('[data-petty-detail-panel]');
+    if(existing){existing.remove();button.textContent='Ver';button.setAttribute('aria-expanded','false');return;}
+    const movement=(financeCache?.petty_cash?.movements||[]).find(m=>String(m.id)===button.dataset.pettyDetail);
+    const panel=document.createElement('div');panel.dataset.pettyDetailPanel='1';
+    panel.style.cssText='grid-column:1/-1;width:100%;padding:16px;border-top:1px solid #dbe3ed;background:#f8fafc;border-radius:10px;';
+    const fields=movement?[
+      ['Movimiento',movement.id],['Tipo',pettyTypeLabel(movement.movement_type)],
+      ['Descripción',movement.description],['Fecha',movement.occurred_at?fd(movement.occurred_at):null],
+      ['Dirección',movement.direction==='out'?'Salida':'Entrada'],['Moneda',movement.currency],
+      ['Monto',movement.amount],['Equivalente USD',movement.usd_equivalent],
+      ['Categoría',movement.category],['Proveedor',movement.vendor],['Referencia',movement.reference],
+      ['Financiado por',partnerLabel(movement.funded_by)],['Estado',movement.status],
+      ['Cuenta',pettyRelatedBank(movement)?pettyBankName(pettyRelatedBank(movement)):'Sin cuenta vinculada']
+    ]:[['Detalle','El movimiento no está disponible. Actualiza los datos y vuelve a consultar.']];
+    fields.forEach(([label,value])=>{const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:16px;padding:6px 0;flex-wrap:wrap';const name=document.createElement('span');name.textContent=label;const content=document.createElement('strong');content.textContent=value==null||value===''?'No disponible':String(value);line.append(name,content);panel.append(line)});
+    row.append(panel);button.textContent='Ocultar';button.setAttribute('aria-expanded','true');
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)panel.animate([{opacity:0,transform:'translateY(-8px)'},{opacity:1,transform:'translateY(0)'}],{duration:200});
+  },true);
+
+  function renderPettyCash(d){
+    const el=qs('pettyCash');if(!el)return;
+    const p=d.petty_cash||{},a=p.account||{},bank=p.banking||{};
+    const usdCount=pettyBankAccounts('USD').length,vesCount=pettyBankAccounts('VES').length;
+    el.innerHTML=`<article class="finance-hero panel petty-hero">
+      <div><span class="finance-kicker">CAJA CHICA</span><h2>Fondos menores bajo control</h2><p>Reposiciones, gastos, comprobantes y ajustes organizados por cuenta bancaria o billetera.</p></div>
+      <div class="petty-bcv" data-ts-bcv><span>BCV</span><b data-ts-fx-rate>Consultando…</b><small data-ts-fx-date></small></div>
+    </article>
+    ${!bank.connected?`<article class="panel ent-data-warning petty-bank-warning"><b>Administración por cuentas pendiente de activar.</b><p>Ejecuta la migración V10.21 una sola vez en el Supabase principal. Los saldos existentes no se borran: quedan como “Saldo sin asignar” hasta que los distribuyas.</p></article>`:''}
+    <div class="book-kpis">
+      <button type="button" class="book-kpi primary petty-currency-kpi" data-petty-currency="USD"><span>Disponible USD</span><b>${fm(p.balance_usd)}</b><small>${bank.connected?`${usdCount} cuentas · ${fm(bank.unassigned_usd)} sin asignar`:'Pulsa para administrar cuentas'}</small><i>›</i></button>
+      <button type="button" class="book-kpi petty-currency-kpi" data-petty-currency="VES"><span>Disponible Bs.</span><b>${fn(p.balance_ves)} Bs</b><small>${bank.connected?`${vesCount} cuentas · ${fn(bank.unassigned_ves)} Bs sin asignar`:'Pulsa para administrar cuentas'}</small><i>›</i></button>
+      <article class="book-kpi"><span>Gastado esta semana</span><b>${fm(p.spent_week)}</b><small>Reintegros ${fm(p.refunds_week)}</small></article>
+      <article class="book-kpi"><span>Responsable</span><b class="petty-custodian">${safe(a.custodian_name||'Sin asignar')}</b><small>${safe(a.custodian_email||'Configura el custodio')}</small></article>
+    </div>
+    <div class="fin-actionbar petty-actions">
+      <button data-petty-new="expense">+ Gasto</button>
+      <button data-petty-new="fund">+ Reponer fondo</button>
+      <button data-petty-new="refund">↩ Reintegro</button>
+      <button data-petty-new="adjustment">± Ajuste</button>
+      <button data-petty-account>Configurar</button>
+    </div>
+    <div class="main-grid fin-main-grid">
+      <article class="panel"><div class="panel-head"><h3>Movimientos recientes</h3><span class="tag">${fn((p.movements||[]).length)} registros</span></div><div class="table">${pettyRows(d)}</div></article>
+      <article class="panel petty-rules"><div class="panel-head"><h3>Reglas de Caja Chica</h3><span class="tag">Control</span></div>
+        <div class="priority-list">
+          <div><span>Gastos menores</span><b>Reducen utilidad una sola vez</b></div>
+          <div><span>Reposición de la empresa</span><b>Transferencia, no gasto</b></div>
+          <div><span>Dinero de un socio</span><b>Genera deuda con ese socio</b></div>
+          <div><span>Transferencias entre cuentas</span><b>No alteran el total de Caja Chica</b></div>
+          <div><span>Bolívares</span><b>BCV histórico obligatorio</b></div>
+        </div>
+      </article>
+    </div>
+    ${Number(d.quality?.staff_cash_unconverted_ves||0)>0?`<article class="panel ent-data-warning"><b>Movimientos históricos de Caja Staff pendientes.</b><p>Hay ${Number(d.quality.staff_cash_unconverted_ves)} movimiento(s) en bolívares anteriores sin equivalencia USD histórica. Enterprise no los usa para utilidad hasta que se regularicen.</p></article>`:''}`;
+    window.ThinkStoreFX?.refresh?.().catch(()=>{});
+  }
+  function reconciliationHistory(d){return (d.reconciliation?.history||[]).map(r=>`<div class="table-row fin-table-row"><div><b>${safe(r.period_start)} → ${safe(r.period_end)}</b><br><small>${safe(r.status)} · diferencia ${fm(r.total_difference)}</small></div><span>${fm(r.total_actual)}</span><i class="tag ${Math.abs(Number(r.total_difference||0))>.01?'warn':''}">${safe(r.status)}</i></div>`).join('')||'<div class="fin-empty">Aún no hay conciliaciones guardadas.</div>'}
+  function reconRows(d){return (d.reconciliation?.lines||[]).map(x=>{const key=encodeURIComponent(x.method||'Sin definir');const diff=x.difference===null?'—':fm(x.difference);return `<div class="recon-row" data-recon-key="${safe(key)}"><div class="recon-method fin-method-identity">${financeMethodLogo(x.method)}<div><b>${safe(x.method)}</b><small>Entradas ${fm(x.inflow)} · Salidas ${fm(x.outflow)} · ${Number(x.in_count||0)+Number(x.out_count||0)} mov.</small></div></div><label>Saldo inicial<input data-recon-opening type="number" step="0.01" value="${Number(x.opening_balance||0).toFixed(2)}"></label><div class="recon-expected"><span>Esperado</span><b>${fm(x.expected_closing)}</b></div><label>Saldo real<input data-recon-actual type="number" step="0.01" value="${x.actual_closing===null?'':Number(x.actual_closing).toFixed(2)}" placeholder="0.00"></label><div class="recon-diff ${x.difference!==null&&Math.abs(Number(x.difference))>.01?'bad':'ok'}"><span>Diferencia</span><b data-recon-difference>${diff}</b></div><label class="recon-note">Nota<input data-recon-notes value="${safe(x.notes||'')}" placeholder="Referencia / observación"></label></div>`}).join('')||'<div class="fin-empty">No hay movimientos por método para conciliar en esta semana.</div>'}
+  function renderReconciliation(d){
+    const el=qs('reconciliation');if(!el)return;const r=d.reconciliation||{},t=r.totals||{},current=r.current||{};const closed=current.status==='closed';
+    el.innerHTML=`<article class="panel fin-audit-hero"><div><span>CONCILIACIÓN · ${safe(d.period?.start)} → ${safe(d.period?.end)}</span><h2>${t.difference===null?'Pendiente':fm(t.difference)}</h2><p>Saldo esperado = saldo inicial + entradas − salidas. Registra el saldo real de Zelle, Pago Móvil, efectivo, bancos y demás métodos. Los pagos hechos directamente por Freddy o Nelson no reducen la caja de la empresa hasta que se les reembolsa.</p></div><div class="recon-actions"><button data-fin-save-recon ${closed?'disabled':''}>Guardar revisión</button><button data-fin-close-recon ${closed?'disabled':''}>✓ Cerrar conciliación</button></div></article>
+      <div class="fin-kpis"><article><span>Saldos esperados</span><b>${fm(t.expected)}</b><small>Incluye saldo inicial y movimiento semanal</small></article><article><span>Saldos reales cargados</span><b>${t.completed?fm(t.actual):'Pendiente'}</b><small>${t.completed?'Todos los métodos completados':'Faltan saldos reales'}</small></article><article><span>Diferencia global</span><b class="${t.difference!==null&&Math.abs(Number(t.difference))>.01?'recon-bad':'recon-ok'}">${t.difference===null?'—':fm(t.difference)}</b><small>${closed?'Conciliación cerrada':current.status==='review'?'Borrador/revisión guardado':'Sin guardar'}</small></article></div>
+      <article class="panel"><div class="panel-head"><h3>Conciliar por método</h3><span class="tag">USD equivalente</span></div><div class="recon-table">${reconRows(d)}</div><label class="recon-general-note">Observación general<input id="reconGeneralNotes" value="${safe(current.notes||'')}" placeholder="Ej. diferencia en efectivo pendiente de justificar"></label></article>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Historial de conciliaciones</h3><button data-fin-refresh>Actualizar</button></div><div class="table">${reconciliationHistory(d)}</div></article>`;
+    el.querySelectorAll('[data-recon-actual],[data-recon-opening]').forEach(inp=>inp.addEventListener('input',()=>{const row=inp.closest('.recon-row'),opening=Number(row.querySelector('[data-recon-opening]')?.value||0),actualRaw=row.querySelector('[data-recon-actual]')?.value,actual=actualRaw===''?null:Number(actualRaw),method=decodeURIComponent(row.dataset.reconKey||''),base=(d.reconciliation?.lines||[]).find(x=>String(x.method)===method)||{},expected=opening+Number(base.inflow||0)-Number(base.outflow||0),diff=actual===null?null:actual-expected;const out=row.querySelector('[data-recon-difference]');if(out)out.textContent=diff===null?'—':fm(diff);const box=row.querySelector('.recon-diff');if(box){box.classList.toggle('bad',diff!==null&&Math.abs(diff)>.01);box.classList.toggle('ok',diff===null||Math.abs(diff)<=.01)}}));
+  }
+  function collectReconciliationLines(){return [...document.querySelectorAll('#reconciliation .recon-row')].map(row=>({method:decodeURIComponent(row.dataset.reconKey||''),opening_balance:Number(row.querySelector('[data-recon-opening]')?.value||0),actual_closing:row.querySelector('[data-recon-actual]')?.value===''?null:Number(row.querySelector('[data-recon-actual]')?.value||0),notes:row.querySelector('[data-recon-notes]')?.value||''}))}
+  async function saveReconciliation(close=false){if(!financeCache)return;const lines=collectReconciliationLines();if(close&&lines.some(x=>x.actual_closing===null)){alert('Completa el saldo real de todos los métodos antes de cerrar la conciliación.');return}const notes=document.getElementById('reconGeneralNotes')?.value||'';if(close&&!confirm('¿Cerrar la conciliación de esta semana? Quedará guardada como control de caja previo al cierre semanal.'))return;try{await finPost({action:'save_reconciliation',lines,notes,close});alert(close?'Conciliación cerrada.':'Conciliación guardada para revisión.')}catch(e){alert(e.message||e)}}
+  function auditHistory(d){return (d.audits||[]).map(a=>`<div class="table-row fin-table-row"><div><b>${safe(a.week_start)} → ${safe(a.week_end)}</b><br><small>${safe(a.status)} · cerrado ${a.closed_at?fd(a.closed_at):'—'}</small></div><span>${fm(a.distributable_profit)}</span><i class="tag">${safe(a.status)}</i></div>`).join('')||'<div class="fin-empty">Aún no hay semanas cerradas.</div>'}
+  function renderWeeklyAudit(d){
+    const el=qs('weeklyAudit');if(!el)return;
+    const current=(d.audits||[]).find(a=>String(a.week_start)===String(d.period?.start)&&String(a.week_end)===String(d.period?.end));
+    const isClosed=current?.status==='closed';
+    el.innerHTML=`<article class="panel fin-audit-hero"><div><span>AUDITORÍA FINANCIERA · ${safe(d.period?.start)} → ${safe(d.period?.end)}</span><h2>${fm(d.result?.distributable)}</h2><p>Cierre con ingresos, COGS, Servicio Técnico, gastos y comisiones. Una semana cerrada queda guardada como fotografía histórica y no se sobreescribe.</p></div><div class="audit-close-box">${isClosed?'<span class="audit-closed">✓ Semana cerrada</span>':'<button data-fin-close-week>✓ Cerrar semana</button>'}<small>${isClosed&&current?.closed_at?`Cerrada ${fd(current.closed_at)}`:'Conciliación recomendada antes del cierre'}</small></div></article>
+      <div class="fin-audit-grid">
+        <article><span>Ventas cobradas</span><b>${fm(d.collections?.shop)}</b></article>
+        <article><span>COGS tienda</span><b>${fm(d.outflows?.store_cogs)}</b></article>
+        <article><span>Servicio Técnico cobrado</span><b>${fm(d.collections?.support)}</b></article>
+        <article><span>Recuperación inventario servicio</span><b>${fm(d.treasury_allocations?.inventory_recovery_week)}</b></article>
+        <article><span>Utilidad empresa de servicio</span><b>${fm(d.treasury_allocations?.service_company_profit_week)}</b></article>
+        <article><span>Gastos operativos</span><b>${fm(d.outflows?.operating_expenses)}</b></article>
+        <article><span>Comisión técnica</span><b>${fm(d.outflows?.technician_commissions)}</b></article>
+        <article><span>Comisión vendedor</span><b>${fm(d.outflows?.seller_commissions)}</b></article>
+        <article><span>Compras pagadas (caja)</span><b>${fm(d.outflows?.inventory_purchase_cash)}</b><small>No reduce utilidad otra vez</small></article>
+        <article><span>Resultado neto</span><b>${fm(d.result?.net)}</b></article>
+      </div>
+      <div class="fin-split-card"><div><span>REPARTO SEMANAL</span><h2>${fm(d.result?.distributable)}</h2><p>${d.result?.loss_carry>0?'No se genera reparto mientras exista pérdida semanal.':'El reparto se calcula únicamente sobre utilidad distribuible, no sobre ventas ni sobre aportes de socios.'}</p></div><div class="fin-split-grid"><article><span>Empresa</span><b>${fm(d.result?.company)}</b></article><article><span>Freddy</span><b>${fm(d.result?.freddy)}</b></article><article><span>Nelson</span><b>${fm(d.result?.nelson)}</b></article></div></div>
+      <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Historial de cierres</h3><button data-fin-refresh>Actualizar</button></div><div class="table">${auditHistory(d)}</div></article>`;
+  }
+  async function loadFinanceCenter(force=false){
+    if(!force&&financeCache){renderTreasury(financeCache);renderPettyCash(financeCache);renderReconciliation(financeCache);renderWeeklyAudit(financeCache);renderFinanceQuick(financeCache);renderExecutiveCharts(financeCache);hideEnterpriseBoot();setTimeout(()=>showPartnerWelcome(financeCache),220);return financeCache}
+    for(const id of ['treasury','pettyCash','reconciliation','weeklyAudit']){const el=qs(id);if(el&&!el.innerHTML.trim())el.innerHTML='<article class="panel"><p>Cargando control financiero real…</p></article>'}
+    try{
+      const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);let r;try{r=await fetch('/.netlify/functions/enterprise-finance',{headers:await finHeaders(),cache:'no-store',signal:controller.signal})}finally{clearTimeout(timer)}const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo cargar Finanzas Centrales');
+      financeCache=d;window.enterpriseFinanceData=d;window.thinkStoreSalesLedger?.render?.();renderTreasury(d);renderPettyCash(d);renderReconciliation(d);renderWeeklyAudit(d);renderFinanceQuick(d);renderExecutiveCharts(d);hideEnterpriseBoot();setTimeout(()=>showPartnerWelcome(d),220);return d;
+    }catch(e){hideEnterpriseBoot();const msg=e?.name==='AbortError'?'La sincronización financiera tardó demasiado. El panel sigue disponible y puedes pulsar Actualizar para reintentar.':(e.message||e);const html=`<article class="panel ent-data-warning"><b>Finanzas Centrales no está disponible.</b><p>${safe(msg)}</p><small>Ejecuta SQL-01-SUPABASE-PRINCIPAL-FINAL.sql y luego MIGRACION-V14.81-ENTERPRISE-V10.13-INTEGRACION.sql en el Supabase principal.</small></article>`;['treasury','pettyCash','reconciliation','weeklyAudit'].forEach(id=>{const el=qs(id);if(el)el.innerHTML=html});const home=qs('enterpriseFinanceQuick');if(home)home.innerHTML=html;return null}
+  }
+  window.loadFinanceCenter=loadFinanceCenter;
+  async function finPost(body){const r=await fetch('/.netlify/functions/enterprise-finance',{method:'POST',headers:await finHeaders(),body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw Error(d.error||'No se pudo guardar');financeCache=d.summary||null;await loadFinanceCenter(true);return d}
+  function closeFinModal(){document.querySelector('.fin-modal')?.remove()}
+  function modalShell(title,subtitle,fields,submitLabel,handler){
+    closeFinModal();const wrap=document.createElement('div');wrap.className='fin-modal';wrap.innerHTML=`<div class="fin-modal-backdrop"></div><div class="fin-modal-card"><button class="fin-modal-x">×</button><div class="fin-modal-head"><span>ENTERPRISE FINANZAS</span><h3>${safe(title)}</h3><p>${safe(subtitle)}</p></div><form class="fin-form">${fields}<div class="fin-form-status"></div><div class="fin-form-actions"><button type="button" class="fin-cancel">Cancelar</button><button class="fin-submit">${safe(submitLabel)}</button></div></form></div>`;document.body.appendChild(wrap);wrap.querySelector('.fin-modal-backdrop').onclick=closeFinModal;wrap.querySelector('.fin-modal-x').onclick=closeFinModal;wrap.querySelector('.fin-cancel').onclick=closeFinModal;const form=wrap.querySelector('form');
+    // Entrada rápida tipo Rial: conserva el formulario, sus validaciones y finPost existente.
+    const amountInput=form.querySelector('input[name="amount_usd"]');
+    if(amountInput){
+      const amountLabel=amountInput.closest('label');
+      if(amountLabel){
+        amountLabel.classList.add('fin-amount-entry');
+        amountInput.setAttribute('inputmode','decimal');
+        amountInput.setAttribute('autocomplete','off');
+        amountInput.setAttribute('aria-label','Monto en dólares estadounidenses');
+        const quick=document.createElement('div');
+        quick.className='fin-amount-shortcuts';
+        quick.setAttribute('aria-label','Atajos para ingresar montos');
+        quick.innerHTML='<span>Agregar importe</span><button type="button" data-fin-plus="5">+$5</button><button type="button" data-fin-plus="10">+$10</button><button type="button" data-fin-plus="50">+$50</button><button type="button" data-fin-plus="100">+$100</button><button type="button" data-fin-clear="1">Limpiar</button>';
+        amountLabel.after(quick);
+        form.prepend(amountLabel);
+        amountLabel.after(quick);
+        quick.addEventListener('click',e=>{
+          const add=e.target.closest('[data-fin-plus]');
+          const clear=e.target.closest('[data-fin-clear]');
+          if(!add&&!clear)return;
+          if(clear){amountInput.value='';amountInput.focus();return;}
+          const current=Number(amountInput.value)||0;
+          const delta=Number(add.dataset.finPlus)||0;
+          amountInput.value=(Math.round((current+delta)*100)/100).toFixed(2);
+          amountInput.dispatchEvent(new Event('input',{bubbles:true}));
+          amountInput.focus();
+        });
+      }
+    }
+    form.onsubmit=async e=>{e.preventDefault();const status=wrap.querySelector('.fin-form-status'),btn=wrap.querySelector('.fin-submit');btn.disabled=true;status.textContent='Guardando…';try{await handler(Object.fromEntries(new FormData(form)));closeFinModal()}catch(err){status.textContent=err.message||String(err);btn.disabled=false}};
+  }
+  const field=(name,label,type='text',extra='')=>`<label>${safe(label)}<input name="${safe(name)}" type="${safe(type)}" ${extra}></label>`;
+  const select=(name,label,opts)=>`<label>${safe(label)}<select name="${safe(name)}">${opts.map(([v,l])=>`<option value="${safe(v)}">${safe(l)}</option>`).join('')}</select></label>`;
+  const methodOptions=[['Efectivo USD','Efectivo USD'],['Pago Móvil','Pago Móvil'],['Zelle','Zelle'],['Transferencia','Transferencia'],['Punto de Venta','Punto de Venta'],['Efectivo Bs','Efectivo Bs'],['EUR','EUR'],['USDT','USDT'],['Otro','Otro']];
+  function openEntryForm(type){
+    if(type==='partner_advance'||type==='partner_repayment'){
+      const repay=type==='partner_repayment';modalShell(repay?'Devolución a socio':'Dinero colocado por socio',repay?'Registra dinero que la empresa devuelve. No se contabiliza como gasto dos veces.':'Registra capital/préstamo temporal colocado por Freddy o Nelson; queda pendiente hasta ser devuelto.',`${select('partner_key','Socio',[['freddy','Freddy Sedispa'],['nelson','Nelson Garzon']])}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${field('description',repay?'Detalle de devolución':'Motivo / uso del dinero','text','required')}${select('payment_method','Método de pago',methodOptions)}${field('reference','Referencia')}${field('occurred_at','Fecha y hora','datetime-local')}`,repay?'Registrar devolución':'Registrar aporte',async f=>finPost({action:'create_entry',entry_type:type,...f,amount_usd:Number(f.amount_usd),funded_by:repay?'company':f.partner_key,status:'posted',occurred_at:f.occurred_at?new Date(f.occurred_at).toISOString():undefined}));return;
+    }
+    if(type==='receivable'){
+      modalShell('Nueva cuenta por cobrar','Para clientes, empresas, garantías, adelantos o cualquier saldo que ThinkStore deba recuperar.',`${field('counterparty','Cliente / empresa','text','required')}${field('phone','WhatsApp del cliente','tel','placeholder="0424 170 6142"')}${field('description','Concepto','text','required')}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${field('due_date','Fecha de vencimiento','date')}${field('reference','Referencia / orden')}`, 'Guardar por cobrar',async f=>finPost({action:'create_entry',entry_type:'receivable',...f,amount_usd:Number(f.amount_usd),status:'pending',metadata:{due_date:f.due_date,phone:f.phone||''}}));return;
+    }
+    if(type==='technician_commission'){openTechCommission();return}
+    const labels={expense:['Nuevo gasto','Registra para qué fue el gasto, quién lo pagó y por qué método.'],purchase:['Nueva compra','Compra de mercancía, repuestos, activos o insumos.']};const [title,sub]=labels[type]||['Nuevo movimiento','Registra el movimiento financiero.'];
+    modalShell(title,sub,`${select('entry_type','Tipo',[[type,typeLabel(type)],['fee','Comisión bancaria'],['warranty_cost','Costo de garantía'],['refund','Devolución a cliente']])}${select('category','Categoría',[['Operación','Operación'],['Inventario','Inventario / mercancía'],['Servicio Técnico','Servicio Técnico'],['Marketing','Marketing'],['Delivery','Delivery / logística'],['Alquiler','Alquiler'],['Servicios','Servicios / suscripciones'],['Mobiliario','Mobiliario / activos'],['Garantía','Garantía'],['Bancario','Bancario'],['Otro','Otro']])}${field('description','Detalle del gasto','text','required')}${field('counterparty','Proveedor / beneficiario')}${field('amount_usd','Monto USD','number','min="0.01" step="0.01" required')}${select('funded_by','Quién lo pagó',[['company','Empresa'],['freddy','Freddy'],['nelson','Nelson']])}${select('payment_method','Método de pago',methodOptions)}${field('reference','Factura / referencia')}${field('receipt_url','Enlace del comprobante')}${field('occurred_at','Fecha y hora','datetime-local')}${field('notes','Observaciones')}`, 'Guardar movimiento',async f=>finPost({action:'create_entry',...f,amount_usd:Number(f.amount_usd),occurred_at:f.occurred_at?new Date(f.occurred_at).toISOString():undefined,status:'posted',metadata:{receipt_url:f.receipt_url||''}}));
+  }
+
+  function openCommissionSettings(){
+    const s=financeCache?.settings||{};
+    const v=x=>x===null||x===undefined?'':Number(x);
+    modalShell('Reglas de comisión','Porcentajes globales por defecto. Un porcentaje individual guardado en Administración → Usuarios tiene prioridad.',
+      `${field('technician_parts_default_pct','Técnico · % sobre margen de repuesto','number',`min="0" max="100" step="0.01" value="${v(s.technician_parts_pct)}" placeholder="Por definir"`)}`+
+      `${field('technician_service_default_pct','Técnico · % servicio general','number',`min="0" max="100" step="0.01" value="${v(s.technician_service_pct)}" placeholder="Por definir"`)}`+
+      `${field('technician_hardware_default_pct','Técnico · % hardware (opcional)','number',`min="0" max="100" step="0.01" value="${v(s.technician_hardware_pct)}" placeholder="Usa servicio general"`)}`+
+      `${field('technician_software_default_pct','Técnico · % software (opcional)','number',`min="0" max="100" step="0.01" value="${v(s.technician_software_pct)}" placeholder="Usa servicio general"`)}`+
+      `${field('seller_default_pct','Vendedor · % venta','number',`min="0" max="100" step="0.01" value="${v(s.seller_pct)}" placeholder="Por definir"`)}`,
+      'Guardar reglas',f=>finPost({action:'save_commission_settings',...f}));
+  }
+  function openTechCommission(){
+    const orders=financeCache?.support_orders||[];const opts=orders.slice(0,120).map(o=>[String(o.id),`${o.code||'Orden'} · ${o.device_model||o.client_name||''} · ${fm(o.amount_paid||o.quote_amount)}`]);
+    if(!opts.length){alert('No hay órdenes de Servicio Técnico visibles todavía.');return}
+    const options=opts.map(([v,l])=>`<option value="${safe(v)}">${safe(l)}</option>`).join('');
+    modalShell('Ajuste manual de comisión','Las reparaciones cobradas generan comisión automáticamente. Usa este formulario solo para ajustes o registros históricos.',`<label>Orden de Servicio Técnico<select name="service_order_id" class="fin-service-order">${options}</select></label>${field('technician_name','Técnico')}${field('gross_service_amount','Valor cobrado del servicio USD','number','min="0.01" step="0.01" required')}${field('parts_cost','Costo de repuestos USD','number','min="0" step="0.01" value="0"')}${field('direct_cost','Otros costos directos USD','number','min="0" step="0.01" value="0"')}${field('rate_pct','Porcentaje técnico','number','min="0" max="100" step="0.01" value="50"')}${field('description','Detalle / microsoldadura')}`, 'Calcular y registrar',async f=>{const o=(financeCache.support_orders||[]).find(x=>String(x.id)===String(f.service_order_id))||{};return finPost({action:'create_technician_commission',...f,gross_service_amount:Number(f.gross_service_amount),parts_cost:Number(f.parts_cost||0),direct_cost:Number(f.direct_cost||0),rate_pct:Number(f.rate_pct||50),source_code:o.code,technician_email:o.assigned_technician_email,service_type:o.service_type,description:f.description||`Servicio ${o.code||''}`})});
+    setTimeout(()=>{const modal=document.querySelector('.fin-modal'),sel=modal?.querySelector('.fin-service-order'),gross=modal?.querySelector('[name="gross_service_amount"]'),parts=modal?.querySelector('[name="parts_cost"]'),tech=modal?.querySelector('[name="technician_name"]'),rate=modal?.querySelector('[name="rate_pct"]');const sync=()=>{const o=(financeCache.support_orders||[]).find(x=>String(x.id)===String(sel?.value));if(o){if(gross)gross.value=Number(o.amount_paid||o.quote_amount||0).toFixed(2);if(parts)parts.value=Number(o.parts_cost||0).toFixed(2);if(tech)tech.value=o.assigned_technician_email||'';if(rate)rate.value=Number(financeCache?.settings?.technician_pct||50).toFixed(2)}};sel?.addEventListener('change',sync);sync()},10);
+  }
+  function openPettyForm(type,bankAccountId=''){
+    const labels={
+      expense:['Nuevo gasto de Caja Chica','Registra gastos menores. No uses este módulo para comprar mercancía de inventario.','Guardar gasto'],
+      fund:['Reponer Caja Chica','La reposición de la empresa es una transferencia interna. Si la pone un socio, Enterprise la suma a la deuda con ese socio.','Registrar reposición'],
+      refund:['Registrar reintegro','Dinero que vuelve a Caja Chica por devolución, sobrante o reintegro de un gasto anterior.','Registrar reintegro'],
+      adjustment:['Ajustar Caja Chica','Usa ajustes solo para correcciones justificadas de saldo. Quedan auditadas.','Guardar ajuste']
+    };
+    const [title,sub,submit]=labels[type]||labels.expense;
+    const account=(pettyBankData().accounts||[]).find(a=>String(a.id)===String(bankAccountId));
+    const currency=String(account?.currency||'USD').toUpperCase();
+    const fundFields=type==='fund'?`${select('funded_by','Origen del dinero',[['company','Empresa'],['freddy','Freddy'],['nelson','Nelson']])}${select('source_payment_method','Método de origen',methodOptions)}`:'';
+    const adjustment=type==='adjustment'?select('direction','Dirección',[['in','Entrada'],['out','Salida']]):'';
+    const accountField=account?`<input type="hidden" name="currency" value="${safe(currency)}"><input type="hidden" name="bank_account_id" value="${safe(account.id)}"><label>Cuenta<input value="${safe(`${currency} · ${pettyBankName(account)}`)}" disabled></label>`:
+      `${select('currency','Moneda',[['USD','USD'],['VES','Bolívares']])}<label>Cuenta / billetera<div class="fin-account-picker"><span data-account-brand-preview class="fin-account-preview"></span><select name="bank_account_id">${pettyBankOptions()}</select></div><small class="fin-field-help">Si no eliges una cuenta, el movimiento quedará en saldo sin asignar.</small></label>`;
+    modalShell(title,sub,
+      `${accountField}`+
+      `${field('amount','Monto','number','min="0.01" step="0.01" required')}`+
+      `${adjustment}`+
+      `${select('category','Categoría',[['Operación','Operación'],['Delivery','Delivery / logística'],['Servicio Técnico','Servicio Técnico'],['Marketing','Marketing'],['Servicios','Servicios / suscripciones'],['Limpieza','Limpieza'],['Transporte','Transporte'],['Otro','Otro']])}`+
+      `${field('vendor','Proveedor / beneficiario')}`+
+      `${field('description','Concepto','text','required')}`+
+      `${fundFields}`+
+      `${field('reference','Factura / referencia')}`+
+      `${field('receipt_url','Enlace del comprobante')}`+
+      `${field('occurred_at','Fecha y hora','datetime-local')}`,
+      submit,
+      async f=>{
+        const amount=Number(f.amount||0);if(!(amount>0))throw Error('Indica un monto mayor que cero.');
+        const selected=(pettyBankData().accounts||[]).find(a=>String(a.id)===String(f.bank_account_id||''));
+        if(selected&&String(selected.currency).toUpperCase()!==String(f.currency).toUpperCase())throw Error('La moneda debe coincidir con la cuenta seleccionada.');
+        let usdEquivalent=amount,fx={rate:null,effective_date:null,source:null,checked_at:null};
+        if(f.currency==='VES'){
+          if(!window.ThinkStoreFX)throw Error('La tasa BCV no está disponible.');
+          const q=await window.ThinkStoreFX.requireFresh();
+          usdEquivalent=Math.round((amount/Number(q.rate||0)+Number.EPSILON)*100)/100;
+          if(!(usdEquivalent>0))throw Error('No se pudo convertir el monto con la tasa BCV vigente.');
+          fx={rate:Number(q.rate),effective_date:q.effective_date,source:q.source,checked_at:q.checked_at};
+        }
+        const result=await finPost({
+          action:'petty_cash_movement',movement_type:type,direction:type==='adjustment'?f.direction:(type==='expense'?'out':'in'),
+          currency:f.currency,amount,usd_equivalent:usdEquivalent,bcv_rate:fx.rate,bcv_effective_date:fx.effective_date,
+          bcv_source:fx.source,bcv_checked_at:fx.checked_at,category:f.category,vendor:f.vendor,description:f.description,
+          source_payment_method:type==='fund'?f.source_payment_method:null,reference:f.reference,receipt_url:f.receipt_url,
+          funded_by:type==='fund'?f.funded_by:'company',bank_account_id:f.bank_account_id||null,
+          occurred_at:f.occurred_at?new Date(f.occurred_at).toISOString():undefined
+        });
+        if(result?.warning)setTimeout(()=>alert(result.warning),80);return result;
+      });
+    if(!account)setTimeout(()=>{const modal=document.querySelector('.fin-modal'),cur=modal?.querySelector('[name="currency"]'),acct=modal?.querySelector('[name="bank_account_id"]');if(!cur||!acct)return;const sync=()=>{const c=String(cur.value||'USD').toUpperCase();[...acct.options].forEach(o=>{if(!o.value){o.hidden=false;o.disabled=false;return}const ok=String(o.dataset.currency||'').toUpperCase()===c;o.hidden=!ok;o.disabled=!ok});if(acct.selectedOptions[0]?.disabled)acct.value=''};const preview=()=>{const a=(pettyBankData().accounts||[]).find(x=>String(x.id)===String(acct.value));const spot=modal.querySelector('[data-account-brand-preview]');if(spot)spot.innerHTML=a?pettyBankLogo(a):'<span class="fin-method-fallback">$</span>'};cur.addEventListener('change',()=>{sync();preview()});acct.addEventListener('change',preview);sync();preview()},0);
+  }
+  function openPettyBanks(currency){
+    const c=String(currency||'USD').toUpperCase(),p=financeCache?.petty_cash||{},bank=pettyBankData(),accounts=pettyBankAccounts(c);
+    if(!bank.connected){alert('Primero ejecuta la migración MIGRACION-ENTERPRISE-V10.21-CAJA-CHICA-CUENTAS.sql en el Supabase principal. No borra ningún valor existente.');return}
+    const unassigned=c==='VES'?Number(bank.unassigned_ves||0):Number(bank.unassigned_usd||0);
+    closeFinModal();const wrap=document.createElement('div');wrap.className='fin-modal petty-bank-modal';
+    const accountCards=accounts.map(a=>`<article class="petty-bank-card" data-bank-card="${safe(a.id)}"><div class="petty-bank-card-head">${pettyBankLogo(a)}<div class="petty-bank-copy"><span>${safe(a.account_type==='cash'?'EFECTIVO':a.account_type==='wallet'?'BILLETERA / RED':'CUENTA')}</span><h4>${safe(pettyBankName(a))}</h4><small>${a.account_last4?`•••• ${safe(a.account_last4)}`:a.account_type==='cash'?'Caja física':'Sin terminación registrada'}</small></div><div class="petty-bank-money"><b class="petty-bank-balance">${c==='VES'?`${fn(a.balance)} Bs`:fm(a.balance)}</b><small class="petty-bank-updated">${a.last_movement_at?`Mov. ${fd(a.last_movement_at)}`:'Sin movimientos'}</small></div></div><div class="petty-bank-actions"><button class="petty-bank-action is-primary" type="button" data-petty-bank-menu="${safe(a.id)}">${pettyActionIcon('movement')}<span>Movimiento</span></button><button class="petty-bank-action" type="button" data-petty-bank-transfer="${safe(a.id)}">${pettyActionIcon('transfer')}<span>Transferir</span></button><button class="petty-bank-action" type="button" data-petty-bank-adjust="${safe(a.id)}">${pettyActionIcon('adjust')}<span>Ajustar</span></button><button class="petty-bank-action" type="button" data-petty-bank-history="${safe(a.id)}">${pettyActionIcon('history')}<span>Historial</span></button><button class="petty-bank-action is-icon" type="button" data-bank-settings aria-label="Configurar ${safe(pettyBankName(a))}">${pettyActionIcon('settings')}</button></div></article>`).join('');
+    wrap.innerHTML=`<div class="fin-modal-backdrop"></div><div class="fin-modal-card petty-bank-shell"><button class="fin-modal-x">×</button><div class="fin-modal-head"><span>CAJA CHICA · ${safe(c)}</span><h3>Cuentas y saldos</h3><p>El total de Caja Chica no cambia al distribuir o transferir dinero entre cuentas.</p></div><div class="petty-bank-summary"><div><span>Total ${safe(c)}</span><b>${c==='VES'?`${fn(p.balance_ves)} Bs`:fm(p.balance_usd)}</b></div><div><span>Sin asignar</span><b>${c==='VES'?`${fn(unassigned)} Bs`:fm(unassigned)}</b><button type="button" data-petty-bank-allocate="${safe(c)}" ${unassigned<=0?'disabled':''}>Asignar a cuenta</button></div></div><div class="petty-bank-grid">${accountCards||'<div class="fin-empty">No hay cuentas configuradas para esta moneda.</div>'}</div><div class="petty-bank-footer"><button type="button" data-petty-bank-reconcile>Conciliar</button><small>Iconos bancarios locales · fondo transparente · carga rápida.</small></div></div>`;
+    document.body.appendChild(wrap);wrap.querySelector('.fin-modal-backdrop').onclick=closeFinModal;wrap.querySelector('.fin-modal-x').onclick=closeFinModal;
+  }
+  function openPettyBankMenu(id){const a=(pettyBankData().accounts||[]).find(x=>String(x.id)===String(id));if(!a)return;modalShell(pettyBankName(a),'Selecciona el tipo de movimiento que quieres registrar en esta cuenta.',`<div class="petty-bank-menu"><button type="button" data-bank-move-type="expense" data-bank-id="${safe(a.id)}">− Gasto</button><button type="button" data-bank-move-type="fund" data-bank-id="${safe(a.id)}">+ Reponer fondo</button><button type="button" data-bank-move-type="refund" data-bank-id="${safe(a.id)}">↩ Reintegro</button><button type="button" data-bank-move-type="adjustment" data-bank-id="${safe(a.id)}">± Ajuste</button></div>`, 'Cerrar',async()=>true);const submit=document.querySelector('.fin-modal .fin-submit');if(submit)submit.type='button';if(submit)submit.onclick=closeFinModal;}
+  function openPettyBankTransfer(fromId='',currency=''){
+    const from=(pettyBankData().accounts||[]).find(a=>String(a.id)===String(fromId));const c=String(from?.currency||currency||'USD').toUpperCase();
+    const opts=pettyBankAccounts(c).filter(a=>String(a.id)!==String(fromId)).map(a=>[String(a.id),pettyBankName(a)]);opts.push(['','Saldo sin asignar']);
+    if(!fromId){const dest=opts.filter(x=>x[0]);if(!dest.length){alert('No hay cuentas disponibles.');return}modalShell(`Asignar saldo ${c}`,'Distribuye el saldo existente entre tus cuentas. Esto no crea un ingreso ni cambia el total de Caja Chica.',`${select('to_account_id','Cuenta destino',dest)}${field('amount','Monto','number','min="0.01" step="0.01" required')}${field('description','Nota','text','value="Distribución de saldo existente"')}`,'Asignar',f=>finPost({action:'petty_bank_transfer',from_account_id:null,to_account_id:f.to_account_id,currency:c,amount:Number(f.amount),description:f.description}));return}
+    modalShell('Transferir entre cuentas',`Origen: ${pettyBankName(from)} · ${c}. La transferencia no modifica el total de Caja Chica.`,`${select('to_account_id','Cuenta destino',opts)}${field('amount','Monto','number','min="0.01" step="0.01" required')}${field('description','Nota','text','value="Transferencia interna"')}`,'Transferir',f=>finPost({action:'petty_bank_transfer',from_account_id:from.id,to_account_id:f.to_account_id||null,currency:c,amount:Number(f.amount),description:f.description}));
+  }
+  function openPettyBankHistory(id){const a=(pettyBankData().accounts||[]).find(x=>String(x.id)===String(id));if(!a)return;const rows=(pettyBankData().movements||[]).filter(m=>String(m.account_id)===String(id)).slice(0,80).map(m=>`<div class="table-row fin-table-row"><div><b>${safe(m.description||m.movement_type||'Movimiento')}</b><br><small>${fd(m.occurred_at||m.created_at)}${m.reference?` · Ref. ${safe(m.reference)}`:''}</small></div><span class="${m.direction==='out'?'cash-negative':''}">${m.direction==='out'?'−':'+'}${String(a.currency)==='VES'?`${fn(m.amount)} Bs`:fm(m.amount)}</span></div>`).join('')||'<div class="fin-empty">Esta cuenta todavía no tiene movimientos.</div>';modalShell(`Historial · ${pettyBankName(a)}`,`${a.currency} · saldo actual ${String(a.currency)==='VES'?`${fn(a.balance)} Bs`:fm(a.balance)}`,`<div class="petty-bank-history table">${rows}</div>`,'Cerrar',async()=>true);const submit=document.querySelector('.fin-modal .fin-submit');if(submit){submit.type='button';submit.onclick=closeFinModal}}
+  function openPettyBankSettings(id){const a=(pettyBankData().accounts||[]).find(x=>String(x.id)===String(id));if(!a)return;modalShell('Configurar cuenta',pettyBankName(a),`${field('alias','Alias interno','text',`value="${safe(a.alias||'')}" placeholder="Ej. Operaciones Miami"`)}${field('account_last4','Últimos 4 dígitos','text',`value="${safe(a.account_last4||'')}" maxlength="4" inputmode="numeric"`)}`,'Guardar',f=>finPost({action:'petty_bank_account_update',account_id:a.id,alias:f.alias,account_last4:f.account_last4}));}
+  function openPettyAccount(){
+    const a=financeCache?.petty_cash?.account||{};
+    modalShell('Configurar Caja Chica','Define quién custodia el fondo y los montos objetivo. Esto no cambia el saldo real.',
+      `${field('custodian_name','Responsable','text',`value="${safe(a.custodian_name||'')}"`)}`+
+      `${field('custodian_email','Correo del responsable','email',`value="${safe(a.custodian_email||'')}"`)}`+
+      `${field('target_usd','Fondo objetivo USD','number',`min="0" step="0.01" value="${Number(a.target_usd||0)}"`)}`+
+      `${field('target_ves','Fondo objetivo Bs','number',`min="0" step="0.01" value="${Number(a.target_ves||0)}"`)}`,
+      'Guardar configuración',
+      f=>finPost({action:'petty_cash_account',account_id:a.id||null,custodian_name:f.custodian_name,custodian_email:f.custodian_email,target_usd:Number(f.target_usd||0),target_ves:Number(f.target_ves||0)}));
+  }
+  async function voidPetty(id){
+    if(!id)return;
+    const reason=prompt('Motivo de anulación del movimiento de Caja Chica (mínimo 5 caracteres):','');
+    if(reason===null)return;
+    try{await finPost({action:'petty_cash_void',id,reason});}catch(e){alert(e.message||e)}
+  }
+
+  async function collectReceivable(id,due){const amount=prompt(`Monto del abono (pendiente ${fm(due)}):`,Number(due||0).toFixed(2));if(amount===null)return;const method=prompt('Método de pago (Zelle, Pago Móvil, efectivo, transferencia…):','Zelle');if(method===null)return;try{await finPost({action:'collect_receivable',receivable_id:id,amount_usd:Number(amount),payment_method:method});}catch(e){alert(e.message||e)}}
+  async function payTech(id,due){const amount=prompt(`Monto a pagar al técnico (pendiente ${fm(due)}):`,Number(due||0).toFixed(2));if(amount===null)return;const method=prompt('Método de pago:','Pago Móvil');if(method===null)return;try{await finPost({action:'settle_technician_commission',commission_id:id,amount_usd:Number(amount),payment_method:method});}catch(e){alert(e.message||e)}}
+  async function paySeller(id,due){const amount=prompt(`Monto a pagar al vendedor (pendiente ${fm(due)}):`,Number(due||0).toFixed(2));if(amount===null)return;const method=prompt('Método de pago:','Pago Móvil');if(method===null)return;try{await finPost({action:'settle_seller_commission',commission_id:id,amount_usd:Number(amount),payment_method:method});}catch(e){alert(e.message||e)}}
+async function voidFinanceEntry(id){if(!id)return;if(!confirm('¿Anular este movimiento? No se eliminará: quedará marcado como anulado para conservar la trazabilidad.'))return;const notes=prompt('Motivo de la anulación (opcional):','');try{await finPost({action:'void_entry',id,notes:notes||'Anulado desde Enterprise'});}catch(e){alert(e.message||e)}}
+  async function closeWeek(){if(!financeCache)return;const rc=financeCache.reconciliation?.current,rd=financeCache.reconciliation?.totals?.difference;if(!rc||rc.status!=='closed'||(rd!==null&&Math.abs(Number(rd))>.01)){if(!confirm('La conciliación de caja no está cerrada o tiene una diferencia pendiente. ¿Deseas continuar de todos modos con el cierre semanal?'))return}if(!confirm(`Cerrar auditoría ${financeCache.period.start} → ${financeCache.period.end}?\n\nUtilidad distribuible: ${fm(financeCache.result.distributable)}\nEmpresa: ${fm(financeCache.result.company)}\nFreddy: ${fm(financeCache.result.freddy)}\nNelson: ${fm(financeCache.result.nelson)}\n\nUna semana cerrada queda guardada como fotografía de auditoría.`))return;const notes=prompt('Observación del cierre (opcional):','');try{await finPost({action:'close_week',notes:notes||''});alert('Semana cerrada y guardada en auditoría.')}catch(e){alert(e.message||e)}}
+
+  // Detalles de indicadores: lectura de la respuesta ya autorizada por Enterprise.
+  // No ejecuta escrituras ni interpreta agregados como transacciones individuales.
+  function openMetricDetail(title,value,description,items=[],destination=''){
+    document.getElementById('ts-metric-details')?.remove();
+    const overlay=document.createElement('div');overlay.id='ts-metric-details';
+    overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(9,15,25,.6);display:grid;place-items:center;padding:18px';
+    const panel=document.createElement('section');panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','Detalle de '+title);
+    panel.style.cssText='background:#fff;color:#17202c;border-radius:18px;padding:24px;width:min(620px,100%);max-height:85vh;overflow:auto;box-shadow:0 18px 60px #0004';
+    const h=document.createElement('h2');h.textContent=title;h.style.margin='0 0 12px';panel.append(h);
+    const amount=document.createElement('strong');amount.textContent=value;amount.style.cssText='font-size:28px;display:block;margin-bottom:12px';panel.append(amount);
+    const note=document.createElement('p');note.textContent=description;note.style.cssText='font-size:14px;line-height:1.6';panel.append(note);
+    if(items.length){const list=document.createElement('div');list.style.cssText='border-top:1px solid #ddd;margin-top:12px;padding-top:12px';for(const [label,detail] of items){const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;gap:15px;padding:8px 0;border-bottom:1px solid #eee;font-size:14px';const l=document.createElement('span');l.textContent=label;const r=document.createElement('b');r.textContent=String(detail);row.append(l,r);list.append(row)}panel.append(list)}
+    const foot=document.createElement('div');foot.style.cssText='display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;margin-top:20px';
+    const close=document.createElement('button');close.type='button';close.textContent='Cerrar';close.onclick=()=>overlay.remove();foot.append(close);
+    if(destination&&document.getElementById(destination)){const go=document.createElement('button');go.type='button';go.textContent='Ver registros disponibles →';go.onclick=()=>{overlay.remove();switchView(destination)};foot.append(go)}
+    panel.append(foot);overlay.append(panel);overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+    document.body.append(overlay);close.focus();
+    overlay.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.remove()});
+  }
+  const metricDefinitions={
+    'Cobrado semana':['collections','gross','treasury','Tienda, Soporte y otros ingresos registrados en el periodo.',[['Tienda','collections.shop'],['Soporte','collections.support'],['Otros','collections.other']]],
+    'Por cobrar':['receivables','total','treasury','Saldos registrados como pendientes. Revisar órdenes de Staff y Soporte para conciliación.',[['Tienda','receivables.store'],['Soporte','receivables.support'],['Manual','receivables.manual']]],
+    'Pendiente por cobrar':['receivables','total','treasury','Saldos por cobrar; la respuesta agregada no incluye todas las órdenes.',[['Tienda','receivables.store'],['Soporte','receivables.support']]],
+    'Gastos operativos':['outflows','operating_expenses','treasury','Gastos operativos reportados para el periodo; el detalle disponible aparece en Movimientos financieros.',[]],
+    'Utilidad semanal real':['result','distributable','weeklyAudit','Resultado informado por Finanzas; revisar costos y conciliación antes del reparto.',[['Empresa','result.company'],['Freddy','result.freddy'],['Nelson','result.nelson']]],
+    'Posición de caja':['cash_position','amount','reconciliation','Estimación por movimientos, salvo conciliación completa; puede incluir importes compensados y debe contrastarse con cuentas reales.',[['Modo','cash_position.mode']]],
+    'Proveedores por pagar':['inventory','supplier_payable','treasury','Obligaciones de compras pendientes en Inventory.',[]],
+    'Caja neta hoy':['today','cash_net','reconciliation','Flujo neto de hoy, según los movimientos que devuelve el servidor.',[['Entradas','today.cash_in'],['Salidas','today.cash_out']]],
+    'Disponible USD':['petty_cash','balance_usd','pettyCash','Saldo total USD de Caja Chica. Abrir las cuentas desde Disponible USD.',[['Sin asignar','petty_cash.banking.unassigned_usd']]],
+    'Disponible Bs.':['petty_cash','balance_ves','pettyCash','Saldo total VES de Caja Chica. Abrir las cuentas desde Disponible Bs.',[['Sin asignar','petty_cash.banking.unassigned_ves']]],
+    'Ventas hoy':['today','shop','sales','Cobros de tienda registrados para hoy; la fuente puede venir agregada.',[]],
+    'Servicio Técnico hoy':['today','support','support','Cobros de reparaciones registrados hoy; el detalle por orden requiere eventos individuales de Soporte.',[]],
+    'Gastos hoy':['today','operating_expenses','treasury','Gastos del día de las fuentes operativas y de caja, sin asumir que cada salida es un costo adicional.',[]],
+    'Utilidad estimada hoy':['today','estimated_profit','weeklyAudit','Estimación del servidor, no utilidad liquidada.',[]],
+    'Flujo de caja semana':['cash','net','reconciliation','Entradas y salidas de la semana sin considerarlas automáticamente ingresos o gastos.',[['Entradas','cash.in'],['Salidas','cash.out']]],
+    'Utilidad distribuible':['result','distributable','weeklyAudit','Utilidad del periodo después de los costos reconocidos, según Finanzas.',[['Empresa','result.company'],['Freddy','result.freddy'],['Nelson','result.nelson']]],
+    'Recuperado a inventario':['treasury_allocations','inventory_recovery_week','treasury','Importe clasificado como recuperación del costo de inventario.',[]],
+    'Comisión técnica':['treasury_allocations','technician_commissions_week','treasury','Comisiones técnicas asignadas al periodo; consulte los registros para verificar estado de pago.',[]],
+    'Comisión vendedor':['treasury_allocations','seller_commissions_week','treasury','Comisiones de venta registradas durante el periodo.',[]],
+    'Utilidad empresa':['treasury_allocations','service_company_profit_week','treasury','Utilidad de reparaciones atribuida a la empresa según liquidaciones.',[]],
+    'Empresa · 50%':['result','company','weeklyAudit','Porcentaje correspondiente a ThinkStore.',[]],
+    'Freddy · 25%':['result','freddy','weeklyAudit','Porcentaje correspondiente al socio.',[]],
+    'Nelson · 25%':['result','nelson','weeklyAudit','Porcentaje correspondiente al socio.',[]],
+  };
+  function metricPath(source,path){return String(path).split('.').reduce((v,k)=>v?.[k],source)}
+  const metricCardSelector=[
+    '#enterpriseFinanceQuick .exec-kpi-grid article', '#enterpriseFinanceQuick .formula-grid div',
+    '#enterpriseFinanceQuick .partner-lines div', '#enterpriseFinanceQuick .split-lines div',
+    '#operations .exec-kpi-grid article', '#executive .exec-kpi-grid article',
+    '#treasury .fin-kpis article', '#treasury .treasury-focus-total',
+    '#treasury .service-profit-summary > div', '#treasury .fin-split-grid article',
+    '#treasury .fin-split-card > div:first-child', '#pettyCash .book-kpis article',
+    '#weeklyAudit .book-kpis article', '#weeklyAudit .fin-audit-grid article',
+    '#enterpriseCharts .exec-kpi-grid article'
+  ].join(',');
+  function showFinanceMetricCard(card){
+    if(!financeCache)return;
+    const label=card.querySelector('span')?.textContent?.trim()||card.querySelector('h3')?.textContent?.trim()||'Indicador financiero';
+    const value=card.querySelector('b,strong,h2')?.textContent?.trim()||'—';
+    const exact=metricDefinitions[label]||metricDefinitions[label.replace(/ · (?:50|25)%$/,' · 25%')];
+    const descriptor=exact?.[3]||'Valor informado por la fuente financiera actual. No se recibió un desglose individual verificable para este indicador.';
+    const items=(exact?.[4]||[]).map(([name,path])=>{
+      const v=metricPath(financeCache,path);
+      return [name,typeof v==='number'?fm(v):v===undefined||v===null?'No disponible':String(v)];
+    });
+    if(label==='Pendiente por cobrar'||label==='Por cobrar'){
+      for(const r of (financeCache.receivables?.support_rows||[]).slice(0,100))items.push([`Soporte · ${r.order_code||'Orden sin código'}`,`Pendiente ${fm(r.pending_usd)} · cotizado ${fm(r.quote_usd)} · abonado ${fm(r.paid_usd)} · ${r.payment_status||'Sin estado de pago'}`]);
+      for(const r of (financeCache.receivables?.manual_rows||[]).slice(0,30))items.push([r.counterparty||r.description||'Cuenta manual',`${fm(r.pending_usd)} · ${r.reference||'Sin referencia'}`]);
+    }
+    if(label==='Posición de caja'){
+      for(const r of (financeCache.cash_position?.lines||[]).slice(0,60))items.push([r.method||'Sin definir',`Apertura ${fm(r.opening_balance)} · entradas ${fm(r.inflow)} · salidas ${fm(r.outflow)} · esperado ${fm(r.expected_closing)} · ${r.actual_closing===null?'Sin conciliación real':'real '+fm(r.actual_closing)}`]);
+    }
+    if(label==='Utilidad semanal real'||label==='Utilidad distribuible'||label==='Utilidad estimada hoy'){
+      items.push(['Verificación','Utilidad sujeta a exactitud de costos, comisiones y saldos de las fuentes. No equivale a efectivo disponible.']);
+    }
+    if(label==='Cobrado semana'||label==='Servicio Técnico hoy'){
+      const settlements=financeCache.treasury_allocations?.settlements||[];
+      if(settlements.length)items.push(...settlements.slice(0,25).map(r=>[r.order_code||'Servicio',`Cobrado ${fm(r.collected_usd)} · ${r.updated_at||r.settled_at||'Sin fecha'}`]));
+    }
+    openMetricDetail(label,value,descriptor,items,exact?.[2]||'treasury');
+  }
+  document.addEventListener('click',e=>{
+    if(e.target.closest('button,a,input,select,textarea,[data-petty-currency],[data-fin-new],[data-fin-collect]'))return;
+    const card=e.target.closest(metricCardSelector);
+    if(!card||!financeCache)return;
+    showFinanceMetricCard(card);
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Enter'&&e.key!==' ')return;
+    if(e.target.matches(metricCardSelector)){
+      e.preventDefault();showFinanceMetricCard(e.target);
+    }
+  });
+  function prepareClickableFinanceCards(){
+    for(const el of document.querySelectorAll(metricCardSelector)){
+      if(el.querySelector('button,a,input,select,textarea'))continue;
+      el.setAttribute('role','button');el.setAttribute('tabindex','0');
+      el.setAttribute('aria-label','Ver origen de '+(el.querySelector('span')?.textContent?.trim()||'indicador'));
+      el.classList.add('ts-clickable-metric');
+    }
+  }
+  const financeCardObserver=new MutationObserver(()=>prepareClickableFinanceCards());
+  document.addEventListener('DOMContentLoaded',()=>{
+    prepareClickableFinanceCards();
+    const main=document.querySelector('#app')||document.body;
+    financeCardObserver.observe(main,{childList:true,subtree:true});
+  });
+  // One VER per record: retain the original control, transfer tracing attributes,
+  // and remove extra controls inserted by previous releases. Avoid changing business data.
+  function unifyExistingVerButtons(){
+    // Unificar botones de la tarjeta completa, no solo los hijos directos del .table-row.
+    // El VER azul pequeño es el control visible; se le transfiere la acción ya existente.
+    const scopes=[
+      ...document.querySelectorAll('#salesLedger .table-row,.service-profit-row,.ts-audit-item,.ts-audit-item .ts-audit-line'),
+      ...document.querySelectorAll('.ts-audit-item,.ts-audit-line,.fin-table-row')
+    ];
+    const known=['data-audit-expand','data-ts-credit-detail','data-sales-row','data-trace-method','data-trace-entry','data-trace-summary'];
+    for(const scope of new Set(scopes)){
+      if(!scope.isConnected)continue;
+      // Nunca cruzar el límite de una operación o mezclar órdenes diferentes.
+      const candidates=[...scope.querySelectorAll('button')].filter(b=>/^(VER|VER DESGLOSE|OCULTAR)$/i.test(b.textContent.trim()));
+      if(candidates.length<2)continue;
+      const score=b=>{
+        const rect=b.getBoundingClientRect();
+        const style=getComputedStyle(b);
+        const background=style.backgroundColor||'';
+        return (b.classList.contains('mini-action')?100:0)+
+          (b.classList.contains('ts-audit-toggle')?60:0)+
+          (b.classList.contains('ts-original-ver')?30:0)+
+          (rect.width>0&&rect.width<115?40:0)+
+          (/rgb\(?(?:2[0-9]|[0-9]),?/.test(background)?0:0);
+      };
+      const keep=[...candidates].sort((a,b)=>score(b)-score(a))[0];
+      const source=candidates.find(b=>known.some(a=>b.hasAttribute(a)))||keep;
+      for(const name of known){if(source.hasAttribute(name)&&!keep.hasAttribute(name))keep.setAttribute(name,source.getAttribute(name));}
+      if(source.hasAttribute('aria-expanded'))keep.setAttribute('aria-expanded',source.getAttribute('aria-expanded'));
+      for(const btn of candidates)if(btn!==keep)btn.remove();
+      keep.classList.add('ts-ver-single');
+      keep.title='Ver detalle de esta operación';
+    }
+  }
+  const verObserver=new MutationObserver(()=>unifyExistingVerButtons());
+  document.addEventListener('DOMContentLoaded',()=>{
+    unifyExistingVerButtons();
+    verObserver.observe(document.querySelector('#app')||document.body,{subtree:true,childList:true});
+  });
+  // Detalles de origen en modo lectura. Nunca modificar ni recalcular importes financieros.
+  function traceRows(title,amount,description,rows){
+    const list=rows.map((r,i)=>[String(i+1)+' · '+String(r.title||'Registro'),String(r.details||'')]);
+    openMetricDetail(title,amount,description,list,title.startsWith('Método de cobro')?'reconciliation':'treasury');
+  }
+  document.addEventListener('click',event=>{
+    const methodButton=event.target.closest('[data-trace-method]');
+    const entryButton=event.target.closest('[data-trace-entry]');
+    const summaryButton=event.target.closest('[data-trace-summary]');
+    if(!methodButton&&!entryButton&&!summaryButton)return;
+    event.preventDefault();event.stopPropagation();
+    const d=financeCache||{};
+    if(methodButton){
+      const method=methodButton.dataset.traceMethod;
+      const group=(d.payment_methods||[]).find(x=>x.method===method);
+      const audit=(d.audit_readonly?.payment_method_trace?.records||[]).filter(x=>x.method===method);
+      const sums=(d.reconciliation?.lines||[]).find(x=>x.method===method);
+      const rows=audit.map(x=>({title:(x.direction==='out'?'Salida':'Entrada')+' · '+(x.source||'Fuente no indicada'),details:`${fm(x.amount_usd)} · ${x.occurred_at?fd(x.occurred_at):'Fecha no disponible'} · ${x.order_id||x.source_id||'Sin identificador'} · Método original: ${x.raw_method||'Sin definir'}${x.reference?' · Ref. '+x.reference:''}`}));
+      const sources=Object.entries(group?.sources||{}).map(([name,n])=>({title:name,details:`${n} operaciones agrupadas (sin detalle individual en la respuesta)`}));
+      traceRows('Método de cobro · '+method,fm(group?.amount),`El monto corresponde al agregado de métodos de cobro para el periodo. ${sums?'Conciliación: entradas '+fm(sums.inflow)+' · salidas '+fm(sums.outflow)+'. ':''}${audit.length?'Los registros siguientes proceden de la auditoría de conciliación y pueden incluir reversos; no son necesariamente el mismo desglose que el agregado de cobros.':'No hay detalle transaccional individual proporcionado para este método.'}${d.audit_readonly?.payment_method_trace?.truncated?' La auditoría fue truncada.':''}`,rows.length?rows:sources);
+      return;
+    }
+    if(entryButton){
+      const e=(d.entries||[]).find(x=>String(x.id)===entryButton.dataset.traceEntry);
+      if(!e){openMetricDetail('Movimiento financiero','—','El registro no se encuentra en el conjunto actual. Actualiza los datos y vuelve a consultar.');return}
+      const rows=[['Identificador',e.id],['Orden de origen',e.source_code||'No indicado'],['Tipo',e.entry_type||'No indicado'],['Estado',e.status||'No indicado'],['Categoría',e.category||'No indicada'],['Contraparte',e.counterparty||'No indicada'],['Método',e.payment_method||'No indicado'],['Referencia',e.reference||'No indicada'],['Fecha',e.occurred_at||'No indicada'],['Descripción',e.description||'No indicada']];
+      openMetricDetail('Movimiento · '+(e.source_code||e.entry_type||'Detalle'),fm(e.amount_usd),'Registro financiero devuelto por Enterprise, solo lectura. Identificador y referencia de origen incluidos cuando están disponibles.',rows,'treasury');
+      return;
+    }
+    if(summaryButton){
+      const suppliers=summaryButton.dataset.traceSummary==='suppliers';
+      const rows=suppliers?(d.inventory?.payables||[]):(d.receivables?.manual_rows||[]);
+      const total=suppliers?d.inventory?.supplier_payable:d.receivables?.total;
+      const items=rows.map(x=>({title:suppliers?(x.supplier_name||x.product_name||'Proveedor'):(x.counterparty||x.description||'Cliente'),details:`Pendiente ${fm(x.pending_usd)} · total ${fm(x.total_usd??x.amount_usd)} · pagado ${fm(x.paid_usd??x.collected_usd)}`}));
+      if(!suppliers){items.unshift({title:'Soporte · agregado',details:fm(d.receivables?.support)});items.unshift({title:'Tienda · agregado',details:fm(d.receivables?.store)})}
+      traceRows(suppliers?'Proveedores por pagar':'Cuentas por cobrar',fm(total),suppliers?'Compras pendientes disponibles en la respuesta de Inventory.':'Desglose por fuente: solo las cuentas manuales disponen de filas individuales en esta respuesta; Tienda y Soporte son agregados. No se inventan órdenes.',items);
+    }
+  },true);
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-fin-new]');if(b)openEntryForm(b.dataset.finNew);const pn=e.target.closest('[data-petty-new]');if(pn)openPettyForm(pn.dataset.pettyNew);const pc=e.target.closest('[data-petty-currency]');if(pc)openPettyBanks(pc.dataset.pettyCurrency);const bm=e.target.closest('[data-petty-bank-menu]');if(bm)openPettyBankMenu(bm.dataset.pettyBankMenu);const bt=e.target.closest('[data-petty-bank-transfer]');if(bt)openPettyBankTransfer(bt.dataset.pettyBankTransfer);const ba=e.target.closest('[data-petty-bank-adjust]');if(ba)openPettyForm('adjustment',ba.dataset.pettyBankAdjust);const bh=e.target.closest('[data-petty-bank-history]');if(bh)openPettyBankHistory(bh.dataset.pettyBankHistory);const alloc=e.target.closest('[data-petty-bank-allocate]');if(alloc)openPettyBankTransfer('',alloc.dataset.pettyBankAllocate);const mtype=e.target.closest('[data-bank-move-type]');if(mtype){closeFinModal();openPettyForm(mtype.dataset.bankMoveType,mtype.dataset.bankId)}const card=e.target.closest('.petty-bank-card');if(card&&e.target.closest('[data-bank-settings]'))openPettyBankSettings(card.dataset.bankCard);if(e.target.closest('[data-petty-bank-reconcile]')){closeFinModal();switchView('reconciliation')}if(e.target.closest('[data-petty-account]'))openPettyAccount();const pv=e.target.closest('[data-petty-void]');if(pv)voidPetty(pv.dataset.pettyVoid);const c=e.target.closest('[data-fin-collect]');if(c)collectReceivable(c.dataset.finCollect,c.dataset.finDue);const t=e.target.closest('[data-fin-pay-tech]');if(t)payTech(t.dataset.finPayTech,t.dataset.finDue);const ss=e.target.closest('[data-fin-pay-seller]');if(ss)paySeller(ss.dataset.finPaySeller,ss.dataset.finDue);const v=e.target.closest('[data-fin-void]');if(v)voidFinanceEntry(v.dataset.finVoid);if(e.target.closest('[data-fin-save-recon]'))saveReconciliation(false);if(e.target.closest('[data-fin-close-recon]'))saveReconciliation(true);if(e.target.closest('[data-fin-close-week]'))closeWeek();if(e.target.closest('[data-fin-commission-settings]'))openCommissionSettings();if(e.target.closest('[data-fin-refresh]'))loadFinanceCenter(true)},true);
+  const prevSwitch=window.switchView||switchView;window.switchView=switchView=function(id){prevSwitch(id);if(id==='treasury'||id==='pettyCash'||id==='reconciliation'||id==='weeklyAudit')setTimeout(()=>loadFinanceCenter(false),30)};
+  const oldShow=showApp;showApp=function(){oldShow();setTimeout(()=>loadFinanceCenter(true),480)};
+  window.loadFinanceCenter=loadFinanceCenter;
+})();
+
+/* V10.13 · integración financiera + Caja Chica */
+(function(){
+  const btn=document.getElementById('refreshEnterpriseBtn');
+  if(btn){btn.addEventListener('click',async e=>{e.preventDefault();e.stopPropagation();const previous=btn.textContent;btn.disabled=true;btn.textContent='Actualizando…';try{await Promise.allSettled([window.loadFinanceCenter?.(true),window.loadEnterpriseV9?.(),window.loadEnterpriseWeeklySummary?.(true)]);const s=document.getElementById('enterpriseLastSync');if(s)s.textContent=new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'});}finally{btn.disabled=false;btn.textContent=previous||'Actualizar';}})}
+})();
+
+
+/* ThinkStore Enterprise: trazabilidad visual de repuestos, solo lectura.
+   Ningún botón de esta sección genera movimientos ni modifica utilidades. */
+(function(){
+  function moneyPart(v){return Number(v||0).toLocaleString('en-US',{style:'currency',currency:'USD'});}
+  function escPart(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  window.enterpriseShowRepairParts=function(orderCode){
+    const d=window.enterpriseFinanceData||{};
+    const record=(d.support_part_details||[]).find(x=>String(x.order_code)===String(orderCode));
+    const items=record?.items||[];
+    const rows=items.map(x=>`<div class="table-row"><div><b>${escPart(x.name)}</b><br><small>Cantidad ${Number(x.quantity||0)} · ${x.cost_source==='movement_snapshot'?'Costo histórico del movimiento':'Costo estimado del catálogo actual (verificar)'} · ${escPart(x.purchase_id?'Compra '+x.purchase_id:'Sin compra directa vinculada')}</small></div><span>Costo ${moneyPart(x.cost_total_usd)}</span><span>${x.sale_total_usd===null?'Precio de venta no vinculado':'Venta '+moneyPart(x.sale_total_usd)+' · margen bruto '+moneyPart(x.gross_margin_usd)}</span></div>`).join('');
+    const body=`<div class="table">${rows||'<div class="table-row">No hay consumo de repuestos identificado para esta orden.</div>'}</div><p class="staff-help">Los importes solo se muestran: una compra de proveedor no se registra nuevamente como gasto, ni se crea una salida de Caja Chica. El margen se muestra solo si existe precio de venta asociado al movimiento.</p>`;
+    let dialog=document.getElementById('tsRepairPartsDialog');
+    if(!dialog){dialog=document.createElement('dialog');dialog.id='tsRepairPartsDialog';dialog.style.cssText='width:min(780px,94vw);max-height:85vh;overflow:auto;border:1px solid #ddd;border-radius:16px;padding:22px';document.body.appendChild(dialog);}
+    dialog.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><h3>Repuestos · '+escPart(orderCode)+'</h3><button type="button" data-ts-close-parts>Cerrar</button></div>'+body;
+    dialog.querySelector('[data-ts-close-parts]').onclick=()=>dialog.close();
+    dialog.showModal();
+  };
+  const oldRenderTreasury=window.renderTreasury;
+  // Entrada desde detalles de órdenes existentes, sin alterar el HTML de los demás módulos.
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-ts-part-order]');if(!b)return;
+    e.preventDefault();window.enterpriseShowRepairParts(b.dataset.tsPartOrder);
+  });
+  window.enterprisePartsAuditButtons=function(){
+    const d=window.enterpriseFinanceData||{};
+    return (d.support_part_details||[]).map(o=>`<button type="button" class="mini-action" data-ts-part-order="${escPart(o.order_code)}">Ver repuestos · ${escPart(o.order_code)}</button>`).join('');
+  };
+  // Adjuntar accesos a la sección de Tesorería después de que carguen los datos.
+  const observer=new MutationObserver(()=>{
+    const root=document.getElementById('treasury');if(!root)return;
+    let slot=document.getElementById('tsRepairPartsAudit');
+    if(!slot){slot=document.createElement('article');slot.id='tsRepairPartsAudit';slot.className='panel';slot.style.marginTop='18px';root.appendChild(slot);}
+    const buttons=window.enterprisePartsAuditButtons();const html='<div class="panel-head"><h3>Repuestos por reparación · auditoría</h3><span class="tag">Solo lectura</span></div>'+(buttons||'<p>Sin movimientos de repuestos vinculados disponibles.</p>');
+    if(slot.innerHTML!==html)slot.innerHTML=html;
+  });
+  document.addEventListener('DOMContentLoaded',()=>{const root=document.getElementById('treasury');if(root)observer.observe(root,{childList:true});});
+})();
+
+
+/* Enterprise · Ventas reales desde función protegida; una fila por operación. */
+(function(){
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const usd=x=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(x)||0);
+ const dt=x=>{if(!x)return 'Sin fecha';const d=new Date(x);return Number.isNaN(d.getTime())?'Sin fecha':d.toLocaleString('es-VE')};
+ const st={source:'todos',openKey:null,error:'',loading:false};
+ const list=()=>window.enterpriseFinanceData?.sales_ledger||null;
+ function records(){const raw=list()?.records||[];return raw.filter(r=>st.source==='todos'||(st.source==='soporte'?r.kind==='Servicio Técnico':r.kind!=='Servicio Técnico'));}
+ function render(){
+  const root=document.getElementById('salesLedger');if(!root)return;
+  const ledger=list(),rows=records();
+  const detail=r=>`<div class="ts-sale-inline" style="margin:8px 0 14px;padding:14px;border:1px solid var(--line,#334155);border-radius:12px"><div><b>Fuente:</b> ${esc(r.source)} · <b>ID:</b> ${esc(r.id||r.code)}</div><div><b>Fecha:</b> ${esc(dt(r.date))} · <b>Estado:</b> ${esc(r.status)}</div><div><b>Facturado:</b> ${r.total_usd==null?'No disponible':usd(r.total_usd)} · <b>Cobrado:</b> ${r.collected_usd==null?'No verificado':usd(r.collected_usd)}</div>${r.pending_usd!=null?`<div><b>Saldo a cobrar:</b> ${usd(r.pending_usd)}</div>`:''}${r.parts_cost_usd!=null?`<div><b>Costo registrado de repuestos:</b> ${usd(r.parts_cost_usd)}</div>`:''}${r.technician_commission_usd!=null?`<div><b>Comisión técnica registrada:</b> ${usd(r.technician_commission_usd)}</div>`:''}${r.payment_method?`<div><b>Método:</b> ${esc(r.payment_method)}</div>`:''}${Array.isArray(r.items)&&r.items.length?`<div><b>Conceptos vinculados:</b><ul>${r.items.map(x=>`<li>${esc(x.name||x.product_name||x.description||x.descripcion||'Repuesto / producto')} ${x.quantity!=null?'· '+esc(x.quantity):''}</li>`).join('')}</ul></div>`:''}<p class="staff-help">${esc(r.note||'Consulta sin movimientos nuevos.')} Los cobros requieren verificación con los eventos individuales de su fuente.</p></div>`;
+  root.innerHTML=`<style>
+#salesLedger .table{display:block}
+#salesLedger .table-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:18px;padding:18px;margin:10px 0;border:1px solid var(--line,#dbe3ed);border-radius:14px;background:var(--panel,#fff)}
+#salesLedger .table-row b{font-size:15px}
+#salesLedger .table-row small{display:inline-block;margin-top:5px;line-height:1.5}
+#salesLedger [data-sales-row]{min-height:42px;padding:10px 18px;border-radius:10px;color:#fff;background:#175cd3;border:0;cursor:pointer}
+#salesLedger [data-sales-row]:focus-visible{outline:3px solid #84adff;outline-offset:3px}
+#salesLedger .ts-sale-inline{line-height:1.8;background:var(--panel,#fff)}
+#salesLedger .ts-sale-inline>div{padding:8px 0;border-bottom:1px solid var(--line,#dbe3ed);overflow-wrap:anywhere}
+@media(max-width:640px){#salesLedger .table-row{grid-template-columns:minmax(0,1fr) auto;gap:12px}#salesLedger .table-row>span{grid-column:1/-1;grid-row:2}#salesLedger .table-row>button{grid-column:2;grid-row:1}}
+</style><article class="panel"><div class="panel-head"><div><h3>Ventas realizadas</h3><small>Una operación por orden · detalle desplegable y origen</small></div><button type="button" data-sales-refresh ${st.loading?'disabled':''}>${st.loading?'Consultando…':'Actualizar'}</button></div><p class="staff-help">Consulta protegida de Enterprise, sin duplicar pagos, abonos o repuestos instalados. Facturado no significa cobrado.</p><div class="v2-toolbar"><label>Origen <select id="tsSalesSource"><option value="todos" ${st.source==='todos'?'selected':''}>Todas las fuentes</option><option value="tienda" ${st.source==='tienda'?'selected':''}>Tienda / pedidos</option><option value="soporte" ${st.source==='soporte'?'selected':''}>Servicio Técnico</option></select></label></div><p class="staff-help">${ledger?`Órdenes identificadas: ${ledger.total_found} · Última consulta: ${esc(dt(window.enterpriseFinanceData?.generated_at))}`:'Aún no hay respuesta de Finanzas Centrales.'}${ledger?.truncated?' · Advertencia: consulta parcial por límite de registros.':''}</p><p class="staff-help">${esc(ledger?.warning||'Falta validar cobertura de Staff.')} ${ledger&&!ledger.sources?.store_orders?' · Tienda online no accesible.':''} ${ledger&&!ledger.sources?.support_orders?' · Soporte no accesible.':''}${st.error?' · '+esc(st.error):''}</p><div class="table">${rows.map((r,i)=>{const key=r.kind+'|'+r.id;const open=st.openKey===key;return `<div class="table-row"><div><b>${esc(r.code)}</b><br><small>${esc(r.kind)} · ${esc(r.status)} · ${esc(dt(r.date))}</small></div><span>${r.total_usd==null?'Facturado no disponible':'Facturado '+usd(r.total_usd)}<br><small>${r.collected_usd==null?'Cobro no verificado':'Cobrado '+usd(r.collected_usd)}</small></span><button type="button" class="mini-action" data-sales-row="${i}" aria-label="${open?'Ocultar':'Ver'} detalle de ${esc(r.code)}" aria-controls="ts-sale-detail-${i}" aria-expanded="${open}">${open?'OCULTAR':'VER'}</button></div>${open?detail(r).replace('class="ts-sale-inline"','id="ts-sale-detail-'+i+'" class="ts-sale-inline"'):''}`}).join('')||'<div class="fin-empty">Sin registros disponibles en las fuentes accesibles. Esto no confirma que no existan ventas en Staff.</div>'}</div></article>`;
+ }
+ async function load(){if(st.loading)return;st.loading=true;st.error='';render();try{if(typeof window.loadFinanceCenter==='function')await window.loadFinanceCenter(true);else document.querySelector('[data-fin-refresh]')?.click();}catch(e){st.error=e.message||String(e)}finally{st.loading=false;render()}}
+ window.addEventListener('click',e=>{
+  const b=e.target.closest('[data-sales-row]');
+  const refresh=e.target.closest('[data-sales-refresh]');
+  if(!b&&!refresh)return;
+  if(!(b||refresh).closest('#salesLedger'))return;
+  e.preventDefault();e.stopImmediatePropagation();
+  if(refresh){load();return;}
+  const r=records()[Number(b.dataset.salesRow)];if(!r)return;
+  const key=r.kind+'|'+r.id;st.openKey=st.openKey===key?null:key;
+  render();
+  const next=document.querySelector('#salesLedger [data-sales-row="'+b.dataset.salesRow+'"]');
+  next?.focus({preventScroll:true});
+  const panel=next?.closest('.table-row')?.nextElementSibling;
+  if(st.openKey&&panel?.classList.contains('ts-sale-inline')&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)panel.animate([{opacity:0,transform:'translateY(-8px)'},{opacity:1,transform:'translateY(0)'}],{duration:200});
+ },true);
+ document.addEventListener('change',e=>{if(e.target?.id==='tsSalesSource'){st.source=e.target.value;st.openKey=null;render()}});
+ document.addEventListener('DOMContentLoaded',()=>{document.querySelector('.nav[data-view="salesLedger"]')?.addEventListener('click',()=>{render();if(!list())load()});render()});
+ window.thinkStoreSalesLedger={load,render};
+})();

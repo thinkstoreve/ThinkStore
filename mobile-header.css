@@ -1,0 +1,142 @@
+/* ThinkStore V15.41.6 · Navegación compacta exclusiva de teléfonos. */
+/* En escritorio y tablet permanecen el header, su orden y sus enlaces originales. */
+.top.ts-clean-header .ts-mobile-toggle,
+.top.ts-clean-header .ts-mobile-panel{display:none!important}
+@media screen and (max-width:700px){
+  .top.ts-clean-header,
+  .top.ts-clean-header.ts-header-scrolled{
+    display:flex!important;
+    position:sticky!important;
+    top:0!important;
+    height:66px!important;
+    min-height:66px!important;
+    width:100%!important;
+    padding:0 12px!important;
+    gap:8px!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    overflow:visible!important;
+  }
+  .top.ts-clean-header .ts-header-left{
+    display:flex!important;
+    flex:0 0 auto!important;
+    gap:6px!important;
+    align-items:center!important;
+    min-width:0!important;
+  }
+  .top.ts-clean-header .ts-clean-brand{
+    flex:0 0 auto!important;
+    padding:0!important;
+    margin:0!important;
+  }
+  .top.ts-clean-header .ts-clean-brand img{
+    width:40px!important;height:40px!important;border-radius:11px!important;
+  }
+  .top.ts-clean-header .ts-clean-brand span{display:none!important}
+  /* Ninguna ruta queda suprimida: todas están en el desplegable. */
+  .top.ts-clean-header .ts-header-left :is(.ts-home-link,.ts-tradein-link,.ts-service-link){display:none!important}
+  .top.ts-clean-header .ts-clean-nav{
+    display:flex!important;
+    flex:0 0 auto!important;
+    width:auto!important;
+    margin:0 0 0 auto!important;
+    padding:0!important;
+    gap:2px!important;
+    justify-content:flex-end!important;
+    align-items:center!important;
+    overflow:visible!important;
+  }
+  .top.ts-clean-header .ts-clean-nav > a:not(.ts-account-btn){display:none!important}
+  .top.ts-clean-header .ts-nav-icon,
+  .top.ts-clean-header #clientNavBtn.ts-account-btn,
+  .top.ts-clean-header .ts-cart-btn,
+  .top.ts-clean-header .ts-search-btn{
+    width:42px!important;height:44px!important;
+    min-width:42px!important;max-width:42px!important;
+    min-height:44px!important;
+    flex:0 0 42px!important;
+    margin:0!important;padding:0!important;
+    border:0!important;border-radius:12px!important;
+    box-shadow:none!important;
+    display:grid!important;place-items:center!important;
+  }
+  .top.ts-clean-header .ts-nav-icon svg,
+  .top.ts-clean-header #clientNavBtn.ts-account-btn svg{
+    width:23px!important;height:23px!important;
+  }
+  /* Cuenta en la esquina derecha, búsqueda y carrito al lado. */
+  .top.ts-clean-header .ts-search-btn{order:1}
+  .top.ts-clean-header .ts-cart-btn{order:2}
+  .top.ts-clean-header #clientNavBtn.ts-account-btn{order:3}
+  .top.ts-clean-header .ts-cart-btn #cartCount{top:0!important;right:0!important}
+  .top.ts-clean-header .ts-mobile-toggle{
+    appearance:none!important;display:grid!important;place-items:center!important;
+    flex:0 0 44px!important;width:44px!important;height:44px!important;
+    padding:0!important;margin:0!important;
+    background:transparent!important;color:#1d1d1f!important;
+    border:0!important;border-radius:12px!important;
+    box-shadow:none!important;cursor:pointer;touch-action:manipulation;
+  }
+  .top.ts-clean-header .ts-mobile-toggle svg{
+    width:24px;height:24px;stroke:currentColor;stroke-width:1.8;
+    stroke-linecap:round;fill:none;
+  }
+  .top.ts-clean-header .ts-mobile-toggle .ts-menu-bars,
+  .top.ts-clean-header .ts-mobile-toggle .ts-menu-close{transition:opacity .15s ease}
+  .top.ts-clean-header .ts-mobile-toggle .ts-menu-close{opacity:0}
+  .top.ts-clean-header.ts-mobile-menu-open .ts-menu-bars{opacity:0}
+  .top.ts-clean-header.ts-mobile-menu-open .ts-menu-close{opacity:1}
+  .top.ts-clean-header .ts-mobile-panel:not([hidden]){
+    display:flex!important;
+    flex-direction:column!important;
+    position:absolute!important;
+    top:100%!important;left:0!important;right:0!important;
+    width:100%!important;
+    padding:10px 16px max(18px,env(safe-area-inset-bottom))!important;
+    max-height:calc(100dvh - 66px)!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain;
+    background:#fff!important;
+    border:1px solid #e7e7eb!important;
+    border-top:0!important;
+    border-radius:0 0 20px 20px!important;
+    box-shadow:0 20px 35px rgba(0,0,0,.13)!important;
+    z-index:5!important;
+    gap:0!important;
+    -webkit-overflow-scrolling:touch;
+  }
+  .top.ts-clean-header .ts-mobile-panel > a{
+    display:flex!important;align-items:center!important;justify-content:space-between!important;
+    width:100%!important;min-height:52px!important;
+    margin:0!important;padding:13px 12px!important;
+    font-size:16px!important;font-weight:600!important;line-height:1.3!important;
+    letter-spacing:0!important;text-decoration:none!important;
+    color:#1d1d1f!important;background:transparent!important;
+    border:0!important;border-bottom:1px solid #f0f0f2!important;border-radius:0!important;
+    box-shadow:none!important;
+  }
+  .top.ts-clean-header .ts-mobile-panel > a:last-child{border-bottom:0!important}
+  .top.ts-clean-header .ts-mobile-panel > a::after{
+    content:'›';font-size:23px;font-weight:400;line-height:1;color:#8e8e93;
+  }
+  .top.ts-clean-header .ts-mobile-panel > a:active{background:#f6f7f9!important}
+  .top.ts-clean-header .ts-mobile-toggle:focus-visible,
+  .top.ts-clean-header .ts-mobile-panel > a:focus-visible{outline:2px solid #0071e3!important;outline-offset:-2px!important}
+  .dark .top.ts-clean-header .ts-mobile-toggle{color:#f5f5f7!important}
+  .dark .top.ts-clean-header .ts-mobile-panel{background:#161618!important;border-color:#2a2a2e!important}
+  .dark .top.ts-clean-header .ts-mobile-panel > a{color:#f5f5f7!important;border-color:#2a2a2e!important}
+  .dark .top.ts-clean-header .ts-mobile-panel > a:active{background:#252529!important}
+}
+@media screen and (max-width:350px){
+  .top.ts-clean-header,.top.ts-clean-header.ts-header-scrolled{padding-inline:8px!important;gap:2px!important}
+  .top.ts-clean-header .ts-clean-nav{gap:0!important}
+  .top.ts-clean-header .ts-clean-brand img{width:36px!important;height:36px!important}
+  .top.ts-clean-header .ts-nav-icon,
+  .top.ts-clean-header #clientNavBtn.ts-account-btn,
+  .top.ts-clean-header .ts-cart-btn,
+  .top.ts-clean-header .ts-search-btn{width:40px!important;min-width:40px!important;max-width:40px!important;flex-basis:40px!important}
+}
+@media (prefers-reduced-motion:reduce){
+  .top.ts-clean-header .ts-mobile-toggle .ts-menu-bars,
+  .top.ts-clean-header .ts-mobile-toggle .ts-menu-close{transition:none!important}
+}

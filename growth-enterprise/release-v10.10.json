@@ -1,0 +1,7 @@
+{
+  "version": "10.10",
+  "name": "Enterprise integrado en growth-enterprise",
+  "embedded_in_main": "14.76",
+  "pwa_offline_disabled": true,
+  "source": "Enterprise V10.9 FINAL"
+}
