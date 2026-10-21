@@ -35,7 +35,8 @@ function buildDaily(data,date){
  const bySupport=new Map(support.map(o=>[key(o.id),o]));
  const sourceRows=[];
  for(const o of store){
-  if(cancelled(o))continue;
+  // Cancelling a document does not erase a confirmed cash receipt.
+
   const all=payments.filter(p=>key(p.pedido_id)===key(o.id)&&p.status==='confirmed');
   const daily=all.filter(p=>day(p.confirmed_at||p.created_at)===date);
   const total=n(o.total_usd),items=(data.items||[]).filter(i=>key(i.pedido_id)===key(o.id));
@@ -43,7 +44,7 @@ function buildDaily(data,date){
   daily.forEach(p=>{const value=n(p.usd_equivalent??p.amount_usd);if(value!==null)add({id:'sale:'+p.id,source:'Ventas',order_id:o.id,code:orderCode(o),...customer(o),method:p.method||o.metodo_pago||'Sin definir',currency:p.currency||null,original_amount:n(p.amount),amount_usd:value,occurred_at:p.confirmed_at||p.created_at,reference:p.reference||'',direction:'in'});else warnings.push('Pago de venta '+p.id+' sin equivalente USD registrado.');});
   const hasLegacy=!all.length&&day(o.payment_decision_at||o.paid_at)===date&&(o.payment_decision==='approved'||/pagad|pago verificado|entregado/i.test(key(o.estado||o.status)));
   if(hasLegacy){const explicit=n(o.paid_usd??o.amount_paid??o.monto_pagado);if(explicit!==null){add({id:'sale-legacy:'+o.id,source:'Ventas',order_id:o.id,code:orderCode(o),...customer(o),method:o.metodo_pago||'Sin definir',currency:null,original_amount:null,amount_usd:explicit,occurred_at:o.payment_decision_at||o.paid_at,direction:'in',legacy:true});warnings.push('Venta '+orderCode(o)+': el cobro histórico no tiene transacciones individuales para consultar.');}else warnings.push('Venta '+orderCode(o)+': figura aprobada, pero falta el importe del pago confirmado. Revisa sus pagos antes de incluirla en caja.');}
-  if(daily.length||hasLegacy||day(o.created_at)===date){const paid=n(o.paid_usd??o.amount_paid??o.monto_pagado)??(all.length?sum(all,p=>n(p.usd_equivalent??p.amount_usd)):null);sourceRows.push({source:'Ventas',order_id:o.id,code:orderCode(o),...customer(o),total,paid,pending:total!==null&&paid!==null?Math.max(0,money(total-paid)):null,parts:0,products:total,services:0,cost,commission:null,details:items.map(i=>({name:i.product_name||i.nombre||i.name||i.sku||'Producto',quantity:i.cantidad,unit_cost:n(i.unit_cost_usd),unit_price:n(i.precio_unitario??i.precio_usd),source:'pedido_items'})),source_detail:'pedido_items',status:o.estado||o.status||'',method:o.metodo_pago||'',reference:o.referencia_pago||'',created_at:o.created_at,actor:o.salesperson_name||o.salesperson_email||''});}
+  if(daily.length||hasLegacy||day(o.created_at)===date){const paid=n(o.paid_usd??o.amount_paid??o.monto_pagado)??(all.length?sum(all,p=>n(p.usd_equivalent??p.amount_usd)):null);sourceRows.push({source:'Ventas',order_id:o.id,code:orderCode(o),...customer(o),total,paid,pending:cancelled(o)?0:total!==null&&paid!==null?Math.max(0,money(total-paid)):null,parts:0,products:total,services:0,cost,commission:null,details:items.map(i=>({name:i.product_name||i.nombre||i.name||i.sku||'Producto',quantity:i.cantidad,unit_cost:n(i.unit_cost_usd),unit_price:n(i.precio_unitario??i.precio_usd),source:'pedido_items'})),source_detail:'pedido_items',status:o.estado||o.status||'',method:o.metodo_pago||'',reference:o.referencia_pago||'',created_at:o.created_at,actor:o.salesperson_name||o.salesperson_email||''});}
  }
  for(const event of events){
   if(!active(event)||day(event.occurred_at||event.created_at)!==date)continue;
