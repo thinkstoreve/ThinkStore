@@ -183,22 +183,7 @@ exports.handler = async function(event) {
     return `<div class="ts-note-doc" style="margin:0;background:#f5f5f7;font-family:Arial,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d1d1f"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:14px 8px"><tr><td align="center"><table role="presentation" width="680" class="ts-note-card" style="max-width:680px;width:100%;background:#fff;border:1px solid #e5e5ea;border-radius:16px;overflow:hidden"><tr><td class="ts-note-head" style="padding:16px 22px 13px;border-bottom:1px solid #e5e5ea"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td valign="middle"><img class="ts-note-logo" src="https://thinkstore.com.ve/logo-thinkstore.png" alt="" width="32" height="32" style="display:block;width:32px;height:32px;object-fit:contain;border:0"></td><td valign="middle" style="padding-left:8px"><span class="ts-note-wordmark" style="display:block;color:#111;font-size:20px;line-height:1;font-weight:800;letter-spacing:-.4px">ThinkStore</span></td></tr></table><h1 class="ts-note-title" style="color:#1d1d1f;margin:13px 0 3px;font-size:23px;line-height:1.15;font-weight:760;letter-spacing:-.35px">${esc(title)}</h1><div class="ts-note-subtitle" style="color:#6e6e73;font-size:12px">${esc(subtitle)}</div></td></tr><tr><td class="ts-note-content" style="padding:16px 22px">${content}${buttonUrl?`<div class="ts-note-action" style="text-align:center;margin:18px 0 2px"><a href="${esc(buttonUrl)}" style="background:#1d1d1f;color:#fff;text-decoration:none;border-radius:999px;padding:10px 18px;font-size:13px;font-weight:700">Ver pedido</a></div>`:''}</td></tr><tr><td class="ts-note-footer" style="background:#f5f5f7;padding:12px;text-align:center;color:#6e6e73;font-size:10px;line-height:1.45"><b style="color:#1d1d1f">ThinkStore</b> · Chacao, Caracas · Venezuela<br>ventas@thinkstore.com.ve</td></tr></table></td></tr></table></div>`;
   }
 
-  async function hydrateNoteImages(p){
-    const items=Array.isArray(p.items)?p.items:[];
-    if(!items.some(i=>!i.image_url&&!i.image&&!i.img))return p;
-    try{
-      const [products,images]=await Promise.all([
-        sb('catalog_products?select=product_key,product_name,image_url&limit=2000'),
-        sb('catalog_product_images?select=product_key,image_url,is_primary,sort_order&order=sort_order.asc&limit=3000')
-      ]);
-      const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
-      const primary=new Map();
-      for(const im of (images||[])){const k=String(im.product_key||'');if(k&&im.image_url&&(!primary.has(k)||im.is_primary))primary.set(k,im.image_url)}
-      const byName=new Map();for(const cp of(products||[])){const k=norm(cp.product_name);if(k)byName.set(k,primary.get(String(cp.product_key))||cp.image_url||'')}
-      p.items=items.map(i=>({...i,image_url:i.image_url||i.image||i.img||byName.get(norm(i.producto||i.product_name||i.nombre))||''}));
-    }catch(err){console.warn('Nota entrega: imagen de catálogo no disponible',err.message)}
-    return p;
-  }
+  async function hydrateNoteImages(p){p.items=await require('./delivery-note-images').hydrate(p.items,sb);return p;}
 
   function deliveryNoteEmail(p){
     const html=require('./delivery-note-template').render(p);
