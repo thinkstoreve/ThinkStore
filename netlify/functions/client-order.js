@@ -3,7 +3,8 @@ exports.handler = async function(event) {
     'Access-Control-Allow-Origin':'*',
     'Access-Control-Allow-Headers':'Content-Type, Authorization',
     'Access-Control-Allow-Methods':'POST, OPTIONS',
-    'Content-Type':'application/json'
+    'Content-Type':'application/json',
+    'Cache-Control':'no-store'
   };
   const reply=(statusCode,body)=>({statusCode,headers,body:JSON.stringify(body)});
   if(event.httpMethod==='OPTIONS') return reply(200,{ok:true});
@@ -12,8 +13,9 @@ exports.handler = async function(event) {
   const clean=v=>String(v??'').trim();
   const norm=v=>clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const SUPABASE_URL=clean(process.env.SUPABASE_URL).replace(/\/$/,'');
-  const SERVICE=clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const cfg=require('./staff-auth-core').mainConfig();
+  const SUPABASE_URL=cfg.url;
+  const SERVICE=cfg.service;
   if(!SUPABASE_URL||!SERVICE)return reply(501,{ok:false,error:'La integración de pedidos no está configurada.'});
 
   let body={};try{body=JSON.parse(event.body||'{}')}catch{return reply(400,{ok:false,error:'JSON inválido'})}
@@ -50,6 +52,12 @@ exports.handler = async function(event) {
     return true;
   };
 
+  if(body.action==='cancel_order'){
+    try{
+      const result=await sb('rpc/ts_client_cancel_order',{method:'POST',body:JSON.stringify({p_order_id:order.id,p_customer_id:authUser.id,p_reason:clean(body.reason).slice(0,500)})});
+      return reply(200,{ok:true,...result});
+    }catch(e){return reply(409,{ok:false,error:/ts_client_cancel_order|schema cache/i.test(e.message)?'La cancelación está temporalmente pendiente de activación. Contacta con ThinkStore.':e.message});}
+  }
   if(body.action==='get_status'){
     const fields=['id','codigo','estado','metodo_pago','referencia_pago','metodo_envio','empresa_envio','numero_guia','total_usd','total_bs','subtotal_usd','discount_usd','discount_value','discount_reason','created_at','updated_at'];
     const safe=Object.fromEntries(fields.map(k=>[k,order[k]??null]));
