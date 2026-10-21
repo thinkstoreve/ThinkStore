@@ -1,4 +1,5 @@
 [build]
+  command = "node build-brand-icons.cjs"
   ignore = "node ./netlify-ignore.cjs main"
   publish = "."
   functions = "netlify/functions"
