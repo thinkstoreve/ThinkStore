@@ -678,24 +678,21 @@ function tsProfileExplicitInternal(profile,authUser=null){
 }
 async function canonicalPanelProfile(authUser){
   if(!window.tsPanelSupabase||!authUser?.id)return null;
-  let {data:profile,error}=await window.tsPanelSupabase.from('profiles').select('*').eq('id',authUser.id).maybeSingle();
+  const {data,error}=await window.tsPanelSupabase.from('profiles').select('*').eq('id',authUser.id).maybeSingle();
   if(error)throw error;
-  if(!profile && authUser.email){
-    const byMail=await window.tsPanelSupabase.from('profiles').select('*').or(`email.eq.${normalizeEmail(authUser.email)},correo.eq.${normalizeEmail(authUser.email)}`).maybeSingle();
-    if(byMail.error)throw byMail.error; profile=byMail.data||null;
-  }
-  return profile;
+  return data||null;
 }
 async function setPanelUserFromAuth(authUser,{silent=false}={}){
+  if(!authUser?.id)return false;
   const profile=await canonicalPanelProfile(authUser);
-  if(!profile)return false;
-  const rawRole=normalizePanelRole(profile.role||profile.rol||'cliente');
-  const internal=tsProfileExplicitInternal(profile,authUser);
-  const panelRole=internal?rawRole:'cliente';
-  const active=(profile.active??profile.activo??true)!==false;
-  if(!active)return false;
-  setUser({id:authUser.id,email:profile.email||profile.correo||authUser.email||'',name:profile.full_name||profile.nombre||authUser.user_metadata?.name||String(authUser.email||'Usuario').split('@')[0],role:panelRole,rol:panelRole,is_internal:internal,source:'supabase'});
-  if(!silent)audit(internal?'login_interno':'login_cliente','Acceso Supabase: '+(authUser.email||'')+' · '+panelRole);
+  const internal=profile&&tsProfileExplicitInternal(profile,authUser);
+  const panelRole=internal?normalizePanelRole(profile.role||profile.rol||'cliente'):'cliente';
+  if(profile&&(profile.active??profile.activo??true)===false)return false;
+  let customer=null;
+  if(!internal){const r=await window.tsPanelSupabase.from('clientes').select('*').eq('id',authUser.id).maybeSingle();if(r.error)throw r.error;customer=r.data||null;}
+  setUser({id:authUser.id,supabase_id:authUser.id,email:authUser.email||'',name:customer?.nombre||profile?.full_name||profile?.nombre||authUser.user_metadata?.name||String(authUser.email||'Cliente').split('@')[0],document:customer?.cedula_rif||'',role:panelRole,rol:panelRole,is_internal:!!internal,source:'supabase'});
+  TS_EFFECTIVE_ACCESS=null;
+  if(!silent)audit(internal?'login_interno':'login_cliente','Acceso Supabase: '+authUser.email+' · '+panelRole);
   return true;
 }
 async function secureLogin(){
@@ -733,7 +730,7 @@ async function registerClient(){
   showAuth('El registro de clientes se mantiene en la tienda principal para conservar los correos automáticos y el flujo de compra.');
   setTimeout(()=>location.href='index.html#cuenta',1000);
 }
-async function logout(){audit('logout','Cierre de sesión');try{if(window.tsPanelSupabase)await window.tsPanelSupabase.auth.signOut()}catch(e){}localStorage.removeItem(LS_USER);sessionStorage.removeItem(ADMIN_SECRET_KEY);location.href='panel-login.html'}
+async function logout(){const wasClient=role()==='cliente';audit('logout','Cierre de sesión');try{if(window.tsPanelSupabase)await window.tsPanelSupabase.auth.signOut()}catch(e){}localStorage.removeItem(LS_USER);sessionStorage.removeItem(ADMIN_SECRET_KEY);location.href=wasClient?'login.html?reauth=1&next=/panel.html':'panel-login.html'}
 
 function getAdminSecret(){return sessionStorage.getItem(ADMIN_SECRET_KEY)||localStorage.getItem(ADMIN_SECRET_KEY)||''}
 function requestAdminSecret(force=false){
@@ -823,7 +820,9 @@ async function refreshRealData(opts={}){
 
 async function refreshClientRealData(opts={}){
   if(role()!=='cliente' || !window.tsPanelSupabase || realState.loading) return;
-  const u=user(); if(!u?.id) return;
+  const session=(await window.tsPanelSupabase.auth.getSession())?.data?.session;
+  const uid=session?.user?.id;if(!uid){realState.error='Tu sesión expiró. Vuelve a ingresar a tu cuenta.';return;}
+  const u={...user(),id:uid};
   realState.loading=true; realState.error='';
   try{
     let res=await window.tsPanelSupabase.from('pedidos').select('*, pedido_items(*), order_status_history(*)').eq('cliente_id',u.id).order('created_at',{ascending:false});
@@ -989,7 +988,7 @@ function refreshKpis(){
  if($('kpi1'))$('kpi1').textContent=orders().length;if($('kpi2'))$('kpi2').textContent=customers().length;if($('kpi3'))$('kpi3').textContent=tickets().length;if($('kpi4'))$('kpi4').textContent=shipments().length;
  if($('kpiLabel1'))$('kpiLabel1').textContent='Pedidos';if($('kpiLabel2'))$('kpiLabel2').textContent='Clientes';if($('kpiLabel3'))$('kpiLabel3').textContent='Tickets';if($('kpiLabel4'))$('kpiLabel4').textContent='Envíos';
 }
-function realBar(){const client=role()==='cliente',failed=!!realState.error;return `<div class="realbar ${client?'client-sync':''}"><span class="dot"></span><b>${failed?'No se pudo sincronizar':realState.loading?'Actualizando…':realState.lastRefresh?(client?'Cuenta sincronizada':'Datos reales'):'Conectando con ThinkStore…'}</b><small>${realState.lastRefresh?'Última consulta '+esc(fmtDate(realState.lastRefresh,{hour:'2-digit',minute:'2-digit'})):'Todavía no hay una consulta verificada'}</small><button class="btn ghost" onclick="refreshAndRender()">Actualizar</button></div>${failed?`<div class="notice warn" role="alert"><b>Los pedidos no se han podido consultar.</b><p>${esc(realState.error)}</p><p>Una lista vacía no significa que no tengas pedidos.</p><a class="btn ghost" href="panel-login.html?reauth=1&next=panel.html">Volver a iniciar sesión</a></div>`:''}<pre id="globalStatus" class="result" style="display:none"></pre>`}
+function realBar(){const client=role()==='cliente',failed=!!realState.error;return `<div class="realbar ${client?'client-sync':''}"><span class="dot"></span><b>${failed?'No se pudo sincronizar':realState.loading?'Actualizando…':realState.lastRefresh?(client?'Cuenta sincronizada':'Datos reales'):'Conectando con ThinkStore…'}</b><small>${realState.lastRefresh?'Última consulta '+esc(fmtDate(realState.lastRefresh,{hour:'2-digit',minute:'2-digit'})):'Todavía no hay una consulta verificada'}</small><button class="btn ghost" onclick="refreshAndRender()">Actualizar</button></div>${failed?`<div class="notice warn" role="alert"><b>Los pedidos no se han podido consultar.</b><p>${esc(realState.error)}</p><p>Una lista vacía no significa que no tengas pedidos.</p><a class="btn ghost" href="${client?'login.html?reauth=1&next=/panel.html':'panel-login.html?reauth=1&next=panel.html'}">Volver a iniciar sesión</a></div>`:''}<pre id="globalStatus" class="result" style="display:none"></pre>`}
 
 async function refreshAndRender(){if(role()==='cliente')await refreshClientRealData();else await refreshRealData();openModule(window.currentModule||'dashboard')}
 
@@ -1529,7 +1528,7 @@ const views={
    const approved=(o)=>/pago verificado|preparando|comprando proveedor|tránsito|transito|disponible|enviado|entregado/i.test(orderStatus(o));
    const canDelivery=(o)=>{const st=String(orderStatus(o)||'').toLowerCase();if(/entregado|cancelado|enviado|disponible/.test(st))return false;if(/tránsito|transito/.test(st)&&String(o.guideNumber||o.numero_guia||'').trim())return false;return !/pago rechazado/.test(st)};
    const cards=mine.map(o=>{const items=orderItems(o);const names=items.map(i=>esc(i.product||i.producto||i.name||'Producto')).join(' · ')||'Producto';const idx=statusIndex(orderStatus(o));const steps=['Pedido','Pago','Preparación','Envío','Entrega'];const delivery=esc(o.metodo_envio||o.deliveryType||o.customer?.shipping||'Por coordinar');return `<article class="client-order-card"><div class="client-order-head"><div><small>Pedido</small><h3>${esc(orderCode(o))}</h3><span>${esc(fmtShortDate(o.created_at||o.date))}</span></div><span class="client-status">${esc(orderStatus(o))}</span></div><div class="client-order-product"><small>Productos</small><b>${names}</b></div><div class="client-order-meta"><div><small>Total</small><b>${orderTotal(o)>0?money(orderTotal(o)):'Por confirmar'}</b></div><div><small>Entrega</small><b>${delivery}</b></div></div><div class="client-progress">${steps.map((x,i)=>`<div class="${i<=idx?'done':''}"><i></i><span>${x}</span></div>`).join('')}</div><div class="client-order-actions"><button class="btn ghost" onclick="openClientOrderDetail('${esc(orderCode(o))}')">Ver detalle</button>${approved(o)?`<button class="btn ghost" onclick="openClientDeliveryNote('${esc(orderCode(o))}')">Nota de entrega</button>`:''}${canDelivery(o)?`<button class="btn ghost" onclick="openClientDeliveryEditor('${esc(orderCode(o))}')">Cambiar entrega</button>`:''}${clientCancellationButton(o)}${o.guideNumber?`<span class="badge">Guía ${esc(o.guideNumber)}</span>`:''}</div></article>`});
-   $('content').innerHTML=`${realBar()}<div class="client-section-head"><div><span class="client-eyebrow">COMPRAS</span><h2>Mis pedidos</h2><p>Consulta cada compra, su nota de entrega y la modalidad de entrega disponible.</p></div><button class="btn blue" onclick="location.href='index.html'">Ir a la tienda</button></div><div class="client-orders-grid">${cards.join('')||'<div class="client-empty"><b>Aún no tienes pedidos.</b><small>Cuando compres en ThinkStore aparecerán aquí.</small></div>'}</div>`;
+   $('content').innerHTML=`${realBar()}<div class="client-section-head"><div><span class="client-eyebrow">COMPRAS</span><h2>Mis pedidos</h2><p>Consulta cada compra, su nota de entrega y la modalidad de entrega disponible.</p></div><button class="btn blue" onclick="location.href='index.html'">Ir a la tienda</button></div><div class="client-orders-grid">${cards.join('')||(realState.error?'<div class="client-empty"><b>Tus pedidos están pendientes de consulta.</b><small>Actualiza o vuelve a ingresar con tu cuenta.</small></div>':'<div class="client-empty"><b>Aún no tienes pedidos.</b><small>Cuando compres en ThinkStore aparecerán aquí.</small></div>')}</div>`;
  },
  async mis_reparaciones(){
    if(!realState.appointments?.length)await refreshClientRealData({silent:true});
@@ -3062,40 +3061,15 @@ async function boot(){
   tsPanelBindNavigation();
   const bootText=$('panelBootText');
 
-  // Corrige automáticamente sesiones antiguas guardadas como
-  // "Super Admin", "super_admin", "administrator", etc.
-  const cachedUser=user();
-  if(cachedUser){
-    const normalizedRole=normalizePanelRole(cachedUser.role||cachedUser.rol||'cliente');
-    if(cachedUser.role!==normalizedRole||cachedUser.rol!==normalizedRole){
-      setUser({...cachedUser,role:normalizedRole,rol:normalizedRole});
-    }
+  if(bootText)bootText.textContent='Verificando tu cuenta…';
+  const verified=await tsPanelWithTimeout(resumePanelSession(),10000,false);
+  if(!verified){
+    localStorage.removeItem(LS_USER);TS_EFFECTIVE_ACCESS=null;
+    const invite=new URLSearchParams(location.search).get('invite');
+    const login=invite?'panel-login.html?invite='+encodeURIComponent(invite):'login.html?reauth=1&next='+encodeURIComponent('/panel.html'+location.hash);
+    location.replace(login);return;
   }
-  let localUser=user();
-
-  // Si ya hay sesión local, el panel aparece primero. Nada remoto bloquea el splash.
-  if(localUser){
-    if(bootText)bootText.textContent='Preparando tu panel…';
-    tsShowPanelShell();
-  }else{
-    // Solo cuando no hay usuario local intentamos recuperar Supabase por un tiempo corto.
-    if(bootText)bootText.textContent='Verificando tu sesión…';
-    await tsPanelWithTimeout(resumePanelSession(),2800,false);
-    localUser=user();
-
-    if(!localUser){
-      if(bootText)bootText.textContent='Abriendo inicio de sesión…';
-      const qp=new URLSearchParams();
-      const invite=new URLSearchParams(location.search).get('invite');
-      if(invite)qp.set('invite',invite);
-      const requested=decodeURIComponent(location.hash.replace(/^#/,'')).trim();
-      if(requested)qp.set('next','panel.html#'+requested);
-      const target='panel-login.html'+(qp.toString()?'?'+qp.toString():'');
-      setTimeout(()=>location.replace(target),150);
-      return;
-    }
-    tsShowPanelShell();
-  }
+  tsShowPanelShell();
 
   const r=normalizePanelRole(role());
   const requested=decodeURIComponent(location.hash.replace(/^#/,'')).trim();
@@ -3112,17 +3086,9 @@ async function boot(){
       if(content)content.innerHTML='<div class="module"><div class="notice warn"><b>El panel abrió, pero este módulo no terminó de cargar.</b><br>Usa el menú para abrir otra sección o pulsa actualizar.</div></div>';
     });
 
-  // Todo lo remoto ocurre después de abrir el panel.
-  Promise.resolve(resumePanelSession()).then(ok=>{
-    if(ok){
-      tsSafeCall(()=>updatePanelIdentity(),'identity refresh');
-      tsSafeCall(()=>renderSide(),'sidebar refresh');
-    }
-  }).catch(()=>{});
-
-  Promise.resolve(refreshEffectiveAccess()).then(()=>{
-    tsSafeCall(()=>updatePanelIdentity(),'access identity');
-    tsSafeCall(()=>renderSide(),'access sidebar');
+  // Solo el personal consulta permisos internos. El cliente no usa la API administrativa.
+  if(role()!=='cliente')Promise.resolve(refreshEffectiveAccess()).then(()=>{
+    tsSafeCall(()=>updatePanelIdentity(),'access identity');tsSafeCall(()=>renderSide(),'access sidebar');
   }).catch(()=>{});
 
   if(isAdminRole()){
@@ -3184,30 +3150,7 @@ boot();
 
 
 <script id="thinkstorePanelBootWatchdog">
-(function(){
-  const forceOpen=()=>{
-    const boot=document.getElementById('panelBoot');
-    if(!boot||boot.classList.contains('hide'))return;
-
-    let local=null;
-    try{local=JSON.parse(localStorage.getItem('ts_current_user')||'null')}catch{}
-
-    if(local){
-      console.warn('ThinkStore Panel: apertura de emergencia.');
-      const app=document.getElementById('app');
-      if(app)app.style.display='block';
-      boot.classList.add('hide');
-      setTimeout(()=>boot.remove(),360);
-    }else{
-      const text=document.getElementById('panelBootText');
-      if(text)text.textContent='Abriendo inicio de sesión…';
-      setTimeout(()=>location.replace('panel-login.html'),180);
-    }
-  };
-  window.addEventListener('DOMContentLoaded',()=>setTimeout(forceOpen,5000));
-  window.addEventListener('error',()=>setTimeout(forceOpen,50));
-  window.addEventListener('unhandledrejection',()=>setTimeout(forceOpen,50));
-})();
+window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{const boot=document.getElementById('panelBoot');if(boot&&!boot.classList.contains('hide')){const text=document.getElementById('panelBootText');if(text)text.textContent='Estamos comprobando tu sesión. Si no continúa, vuelve a iniciar sesión desde la tienda.';}},8000));
 </script>
 <script id="thinkstorePanelRecoveryCleanup">
 (function(){
