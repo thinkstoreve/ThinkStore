@@ -1,3 +1,4 @@
+const Funds = require('./enterprise-funds-core');
 const H={
   'Content-Type':'application/json',
   'Access-Control-Allow-Origin':'*',
@@ -100,7 +101,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   try{entries=await optionalReq(mainUrl,mainKey,'enterprise_finance_entries?select=*&order=occurred_at.desc&limit=5000')}catch(e){errors.push('finanzas: '+e.message)}
   try{settings=await optionalReq(mainUrl,mainKey,'enterprise_finance_settings?select=*&id=eq.default&limit=1')}catch(e){errors.push('configuración financiera: '+e.message)}
   try{settlements=await optionalReq(mainUrl,mainKey,'enterprise_service_settlements?select=*&order=settled_at.desc&limit=3000')}catch(e){errors.push('liquidaciones de servicio: '+e.message)}
-  try{audits=await optionalReq(mainUrl,mainKey,'enterprise_weekly_audits?select=*&order=week_start.desc&limit=20')}catch(e){errors.push('auditorías: '+e.message)}
+  try{audits=await optionalReq(mainUrl,mainKey,'enterprise_weekly_audits?select=*&order=week_start.desc&limit=5000')}catch(e){errors.push('auditorías: '+e.message)}
   try{reconciliations=await optionalReq(mainUrl,mainKey,'enterprise_reconciliations?select=*&order=period_start.desc&limit=30')}catch(e){errors.push('conciliaciones: '+e.message)}
   try{orderPayments=await optionalReq(mainUrl,mainKey,'ts_order_payments?select=*&status=eq.confirmed&order=confirmed_at.desc&limit=10000');sourceHealth.store_payments=true}catch(e){errors.push('pagos mixtos: '+e.message)}
   try{staffCashSessions=await optionalReq(mainUrl,mainKey,'ts_staff_cash_sessions?select=*&order=opened_at.desc&limit=1500');sourceHealth.staff_cash_sessions=true}catch(e){errors.push('caja Staff: '+e.message)}
@@ -140,11 +141,12 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const storePending=sum(storeReceivableRows,o=>o.pending_usd);
   const paidOrderIds=new Set(paidSales.map(o=>String(o.id)));
   const paidItems=orderItems.filter(i=>paidOrderIds.has(String(i.pedido_id)));
-  const shopCollected=sum(paidSales,o=>o.total_usd);
+  const storeCashRows=Funds.storeCash(orders,orderPayments,range);
+  const shopCollected=sum(storeCashRows,p=>p.amount_usd);
 
   // Pagos mixtos: Enterprise usa cada abono real para métodos/conciliación,
   // pero conserva el total del pedido para ingresos y evita duplicar ventas.
-  const weekOrderPayments=orderPayments.filter(p=>norm(p.status)==='confirmed'&&paidOrderIds.has(String(p.pedido_id))&&inRange(p.confirmed_at||p.created_at,range));
+  const weekOrderPayments=orderPayments.filter(p=>norm(p.status)==='confirmed'&&inRange(p.confirmed_at||p.created_at,range));
   const paymentsByOrder=new Map();
   weekOrderPayments.forEach(p=>{const k=String(p.pedido_id);if(!paymentsByOrder.has(k))paymentsByOrder.set(k,[]);paymentsByOrder.get(k).push(p)});
 
@@ -201,9 +203,9 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const payablePurchases=activePurchases.map(p=>{const paid=sum(arr(p.payments),x=>x.amount_usd),pending=Math.max(0,money(num(p.total_usd)-paid));return{...p,paid_usd:paid,pending_usd:pending,supplier_name:p.supplier_name||supplierMap.get(String(p.supplier_id))?.name||''}}).filter(p=>p.pending_usd>0).sort((a,b)=>b.pending_usd-a.pending_usd);
 
   let supportCollected=0;
-  const weekSupportEvents=supportEvents.filter(e=>inRange(e.occurred_at||e.created_at,range));
+  const weekSupportEvents=Funds.supportCashEvents(supportOrders,supportEvents,range);
   if(weekSupportEvents.length){supportCollected=sum(weekSupportEvents,e=>e.amount_delta)}
-  else supportCollected=sum(supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)),o=>o.amount_paid);
+  else supportCollected=sum([],o=>o.amount_paid);
   const supportPendingRows=supportOrders.filter(o=>servicePendingAmount(o)>0);
   const supportPending=sum(supportPendingRows,servicePendingAmount);
   // Evidencia por orden: preserva los importes de origen y permite explicar el agregado.
@@ -291,13 +293,9 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const techPending=sum(commissionRows,e=>e.pending_usd);
 
   const methodMap={};
-  paidSales.forEach(o=>{
-    const lines=paymentsByOrder.get(String(o.id))||[];
-    if(lines.length)lines.forEach(p=>addMethod(methodMap,p.method,num(p.usd_equivalent),'Tienda · pago mixto'));
-    else addMethod(methodMap,o.metodo_pago||o.payment_method,o.total_usd,'Tienda');
-  });
+  storeCashRows.forEach(p=>addMethod(methodMap,p.method,p.amount_usd,p.legacy?'Tienda · cobro histórico':'Tienda · pago confirmado'));
   if(weekSupportEvents.length){weekSupportEvents.filter(e=>num(e.amount_delta)!==0).forEach(e=>addMethod(methodMap,e.payment_method,e.amount_delta,'Servicio Técnico'))}
-  else{supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>addMethod(methodMap,o.payment_method,o.amount_paid,'Servicio Técnico'))}
+  else{[].forEach(o=>addMethod(methodMap,o.payment_method,o.amount_paid,'Servicio Técnico'))}
   weekEntries.filter(e=>['other_income','receivable_collection'].includes(e.entry_type)).forEach(e=>addMethod(methodMap,e.payment_method,e.amount_usd,'Enterprise'));
   weekStaffMovements.filter(m=>m.type==='ingreso'&&m.direction==='in'&&staffMovementUsd(m)>0).forEach(m=>addMethod(methodMap,m.method,staffMovementUsd(m),'Caja Staff'));
   const paymentMethods=Object.values(methodMap).sort((a,b)=>b.amount-a.amount);
@@ -324,13 +322,9 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const reconLine=method=>{const k=normalizeMethod(method);if(!reconMap[k])reconMap[k]={method:k,inflow:0,outflow:0,in_count:0,out_count:0,sources:{}};return reconMap[k]};
   const reconIn=(method,amount,source,record)=>{traceReconciliation(method,amount,'in',source,record);const x=reconLine(method);x.inflow=money(x.inflow+num(amount));x.in_count++;x.sources[source]=(x.sources[source]||0)+1};
   const reconOut=(method,amount,source,record)=>{traceReconciliation(method,amount,'out',source,record);const x=reconLine(method);x.outflow=money(x.outflow+num(amount));x.out_count++;x.sources[source]=(x.sources[source]||0)+1};
-  paidSales.forEach(o=>{
-    const lines=paymentsByOrder.get(String(o.id))||[];
-    if(lines.length)lines.forEach(p=>reconIn(p.method,num(p.usd_equivalent),'Tienda · pago mixto',p));
-    else reconIn(o.metodo_pago||o.payment_method,o.total_usd,'Tienda',o);
-  });
+  storeCashRows.forEach(p=>reconIn(p.method,p.amount_usd,p.legacy?'Tienda · cobro histórico':'Tienda · pago confirmado',p));
   if(weekSupportEvents.length){weekSupportEvents.forEach(e=>{const a=num(e.amount_delta);if(a>0)reconIn(e.payment_method,a,'Servicio Técnico',e);else if(a<0)reconOut(e.payment_method,Math.abs(a),'Reverso Servicio Técnico',e)})}
-  else{supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>reconIn(o.payment_method,o.amount_paid,'Servicio Técnico',o))}
+  else{[].forEach(o=>reconIn(o.payment_method,o.amount_paid,'Servicio Técnico',o))}
   weekEntries.filter(e=>e.entry_type==='other_income'||e.entry_type==='receivable_collection').forEach(e=>reconIn(e.payment_method,e.amount_usd,'Enterprise',e));
   weekEntries.filter(e=>e.entry_type==='partner_advance').forEach(e=>reconIn(e.payment_method,e.amount_usd,'Aporte socio',e));
   weekEntries.filter(e=>isCashExpenseType(e.entry_type)&&clean(e.funded_by||'company')==='company').forEach(e=>reconOut(e.payment_method,e.amount_usd,'Gasto Enterprise',e));
@@ -401,11 +395,11 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const dayMap=new Map(dayRows.map(x=>[x.date,x]));
   const dayAt=value=>dayMap.get(caracasKey(value));
   const addDaily=(value,field,amount)=>{const row=dayAt(value);if(row)row[field]=money(row[field]+num(amount))};
-  paidSales.forEach(o=>{const v=num(o.total_usd),dt=orderPaidDate(o);addDaily(dt,'shop',v);addDaily(dt,'inflow',v)});
+  storeCashRows.forEach(p=>{const dt=p.confirmed_at||p.created_at;addDaily(dt,'shop',p.amount_usd);addDaily(dt,'inflow',p.amount_usd)});
   if(weekSupportEvents.length){
     weekSupportEvents.forEach(e=>{const v=num(e.amount_delta),dt=e.occurred_at||e.created_at;if(v>0){addDaily(dt,'support',v);addDaily(dt,'inflow',v)}else if(v<0)addDaily(dt,'outflow',Math.abs(v))});
   }else{
-    supportOrders.filter(o=>num(o.amount_paid)>0&&inRange(o.paid_at||o.updated_at||o.created_at,range)).forEach(o=>{const v=num(o.amount_paid),dt=o.paid_at||o.updated_at||o.created_at;addDaily(dt,'support',v);addDaily(dt,'inflow',v)});
+    [].forEach(o=>{const v=num(o.amount_paid),dt=o.paid_at||o.updated_at||o.created_at;addDaily(dt,'support',v);addDaily(dt,'inflow',v)});
   }
   weekEntries.forEach(e=>{const dt=entryDate(e),v=num(e.amount_usd);if(['other_income','receivable_collection'].includes(e.entry_type)){addDaily(dt,'other',v);addDaily(dt,'inflow',v)}else if(e.entry_type==='partner_advance'){addDaily(dt,'inflow',v)}else if(isCashExpenseType(e.entry_type)&&clean(e.funded_by||'company')==='company'){addDaily(dt,'outflow',v)}else if(['partner_repayment','technician_payment','seller_payment'].includes(e.entry_type)){addDaily(dt,'outflow',v)}});
   weekPurchasePayments.filter(p=>clean(p.funded_by||'company')==='company').forEach(p=>addDaily(p.occurred_at||p.created_at,'outflow',p.amount_usd));
@@ -466,11 +460,11 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const onToday=value=>caracasKey(value)===todayKey;
   const todaySales=paidSales.filter(o=>onToday(orderPaidDate(o)));
   const todaySalesIds=new Set(todaySales.map(o=>String(o.id)));
-  const todayShopCollected=sum(todaySales,o=>o.total_usd);
+  const todayShopCollected=sum(storeCashRows.filter(p=>onToday(p.confirmed_at||p.created_at)),p=>p.amount_usd);
   const todayStoreCogs=money(orderItems.filter(i=>todaySalesIds.has(String(i.pedido_id))).reduce((n,i)=>n+itemCost(i),0));
   const todaySupportCollected=weekSupportEvents.length
     ?sum(weekSupportEvents.filter(e=>onToday(e.occurred_at||e.created_at)),e=>e.amount_delta)
-    :sum(supportOrders.filter(o=>num(o.amount_paid)>0&&onToday(o.paid_at||o.updated_at||o.created_at)),o=>o.amount_paid);
+    :sum([],o=>o.amount_paid);
   const todayOtherIncome=money(
     sum(activeEntries.filter(e=>onToday(entryDate(e))&&(e.entry_type==='other_income'||e.entry_type==='receivable_collection')),e=>e.amount_usd)+
     sum(activeStaffMovements.filter(m=>onToday(m.created_at)&&m.type==='ingreso'&&m.direction==='in'),staffMovementUsd)
@@ -554,6 +548,8 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     ok:true,generated_at:new Date().toISOString(),timezone:'America/Caracas',period:{start:range.start,end:range.end},
     settings:{company_pct:num(cfg.company_share_pct)||50,freddy_pct:num(cfg.freddy_share_pct)||25,nelson_pct:num(cfg.nelson_share_pct)||25,technician_pct:num(cfg.technician_default_pct)||50,technician_parts_pct:cfg.technician_parts_default_pct??null,technician_service_pct:cfg.technician_service_default_pct??null,technician_hardware_pct:cfg.technician_hardware_default_pct??null,technician_software_pct:cfg.technician_software_default_pct??null,seller_pct:cfg.seller_default_pct??null},
     sales_ledger:salesLedger,
+    capital_accumulated:Funds.companyCapital(audits),
+    voided_entries:entries.filter(e=>!entryActive(e)).slice(0,250),
     movement_ledger:{records:movementLedger.slice(0,2000),total_found:movementLedger.length,truncated:movementLedger.length>2000,scope:"cash_reconciliation"},
     collections:{shop:shopCollected,support:supportCollected,other:otherIncome,gross:grossCollected},
     outflows:{
@@ -811,10 +807,12 @@ exports.handler=async event=>{
       const entry=await insertEntry(mainUrl,mainKey,auth,{entry_type:'receivable_collection',amount_usd:amount,description:`Cobro · ${r.description}`,counterparty:r.counterparty,related_entry_id:id,payment_method:body.payment_method,reference:body.reference,source_system:r.source_system||'manual',source_id:r.source_id,status:'paid'});
       return out(200,{ok:true,entry,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
-    if(action==='void_entry'){
-      const id=clean(body.id);if(!id)return out(400,{ok:false,error:'Movimiento requerido'});
-      const data=await req(mainUrl,mainKey,`enterprise_finance_entries?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'void',notes:clean(body.notes)||'Anulado desde Enterprise'})});
-      return out(200,{ok:true,entry:data?.[0]||null,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
+    if(action==='void_entry'||action==='void_unpaid_sale'){
+      const id=clean(body.id),reason=clean(body.reason||body.notes);if(!id||reason.length<5)return out(400,{ok:false,error:'Selecciona el registro e indica el motivo (mínimo 5 caracteres).'});
+      const path=action==='void_entry'?'rpc/ts_enterprise_void_entry':'rpc/ts_enterprise_void_order';
+      const args={p_actor:auth.user.id,p_email:auth.user.email||'',p_reason:reason,[action==='void_entry'?'p_entry_id':'p_order_id']:id};
+      let data;try{data=await req(mainUrl,mainKey,path,{method:'POST',body:JSON.stringify(args)})}catch(e){if(e.status===404||e.code==='PGRST202')return out(409,{ok:false,migration_required:true,error:'Falta activar la migración V15.42 de anulaciones en la base principal.'});throw e}
+      return out(200,{ok:true,operation:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
     if(action==='save_reconciliation'){
       const summary=await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range});
