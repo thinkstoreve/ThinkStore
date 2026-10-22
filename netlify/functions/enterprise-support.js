@@ -57,6 +57,16 @@ exports.handler=async function(event){
     const existing=await request(`service_orders?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);const order=existing?.[0];
     if(!order)return json(404,{ok:false,error:'Orden de soporte no encontrada'});
     const writeAudit=async(action,beforeData,afterData)=>request('service_audit_log',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({actor_email:auth.user?.email||'Enterprise',actor_role:auth.role||'admin',action,entity_type:'service_order',entity_id:String(id),before_data:beforeData||null,after_data:afterData||null})}).catch(()=>null);
+    if(action==='void_document'){
+      const reason=clean(body.reason);if(reason.length<5)return json(400,{ok:false,error:'Indica un motivo de al menos 5 caracteres'});
+      if(body.preserve_cash!==true&&body.preserve_cash!=='true')return json(400,{ok:false,error:'Confirma que los cobros se conservan'});
+      if(norm(order.status).includes('cancel'))return json(200,{ok:true,already_void:true,cash_changed:false});
+      // Only the document status changes. No payment, part or treasury record is touched.
+      await request('service_order_notes',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({order_id:id,note:'Solicitud de anulación documental Enterprise: '+reason+'. Los cobros y repuestos se conservan.',visibility:'internal',author_name:auth.user?.email||'Enterprise',note_type:'Anulación documental',status_after:order.status})});
+      const updated=await request(`service_orders?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status:'Cancelado'})});
+      await writeAudit('void_document_preserve_cash',order,{status:'Cancelado',reason,cash_changed:false});
+      return json(200,{ok:true,order:updated?.[0],cash_changed:false});
+    }
     if(action==='update_status'){
       if(!status)return json(400,{ok:false,error:'Estado requerido'});
       const updated=await request(`service_orders?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({status})});
