@@ -526,10 +526,10 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     const t=saleSettlementByCode.get(code)||{},o=supportByCode.get(code)||{};
     const paid=o.amount_paid??t.collected_usd;
     const total=o.quote_amount??t.total_usd??t.quote_usd;
-    const remaining=(hasNum(total)&&hasNum(paid))?Math.max(0,money(num(total)-num(paid))):null;
+    const remaining=serviceCancelled(o)?0:(hasNum(total)&&hasNum(paid))?Math.max(0,money(num(total)-num(paid))):null;
     saleRows.push({kind:'Servicio Técnico',source:clean(t.id)?'enterprise_service_settlements + service_orders':'service_orders',
-      id:clean(t.id||o.id||code),code,date:t.settled_at||o.created_at||t.created_at||null,
-      status:clean(t.status||o.status||o.payment_status)||'Sin estado',total_usd:maybeNumber(total),
+      id:clean(t.id||o.id||code),source_id:clean(o.id),code,date:t.settled_at||o.created_at||t.created_at||null,
+      status:clean(serviceCancelled(o)?o.status:t.status||o.status||o.payment_status)||'Sin estado',total_usd:maybeNumber(total),
       collected_usd:maybeNumber(paid),pending_usd:remaining,
       parts_cost_usd:maybeNumber(t.parts_cost_usd??t.recovered_inventory_usd),
       technician_commission_usd:maybeNumber(t.technician_commission_usd),
@@ -807,11 +807,12 @@ exports.handler=async event=>{
       const entry=await insertEntry(mainUrl,mainKey,auth,{entry_type:'receivable_collection',amount_usd:amount,description:`Cobro · ${r.description}`,counterparty:r.counterparty,related_entry_id:id,payment_method:body.payment_method,reference:body.reference,source_system:r.source_system||'manual',source_id:r.source_id,status:'paid'});
       return out(200,{ok:true,entry,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
-    if(action==='void_entry'||action==='void_unpaid_sale'){
+    if(action==='void_entry'||action==='void_unpaid_sale'||action==='void_sale_document'){
+      if(action==='void_sale_document'&&body.preserve_cash!==true&&body.preserve_cash!=='true')return out(400,{ok:false,error:'Confirma que se conservarán los pagos y la caja.'});
       const id=clean(body.id),reason=clean(body.reason||body.notes);if(!id||reason.length<5)return out(400,{ok:false,error:'Selecciona el registro e indica el motivo (mínimo 5 caracteres).'});
-      const path=action==='void_entry'?'rpc/ts_enterprise_void_entry':'rpc/ts_enterprise_void_order';
+      const path=action==='void_entry'?'rpc/ts_enterprise_void_entry':action==='void_sale_document'?'rpc/ts_enterprise_void_sale_document':'rpc/ts_enterprise_void_order';
       const args={p_actor:auth.user.id,p_email:auth.user.email||'',p_reason:reason,[action==='void_entry'?'p_entry_id':'p_order_id']:id};
-      let data;try{data=await req(mainUrl,mainKey,path,{method:'POST',body:JSON.stringify(args)})}catch(e){if(e.status===404||e.code==='PGRST202')return out(409,{ok:false,migration_required:true,error:'Falta activar la migración V15.42 de anulaciones en la base principal.'});throw e}
+      let data;try{data=await req(mainUrl,mainKey,path,{method:'POST',body:JSON.stringify(args)})}catch(e){if(e.status===404||e.code==='PGRST202')return out(409,{ok:false,migration_required:true,error:'Falta activar la migración de anulaciones Enterprise en la base principal (V15.42 / V15.43).'});throw e}
       return out(200,{ok:true,operation:data,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
     if(action==='save_reconciliation'){
