@@ -28,7 +28,7 @@ async function request(method='GET',params={},payload=null){
 function status(){
  const s=data?.session;
  if(!s){$('cashStatus').textContent='Sin apertura';return}
- $('cashStatus').textContent=s.status==='closed'?'● Cerrada':'● Abierta';
+ $('cashStatus').textContent=s.status==='closed'?'● Cerrada':s.business_date!==today()?'● Pendiente · '+s.business_date:'● Abierta';
  $('cashStatus').classList.toggle('cash-closed',s.status==='closed');
 }
 function managerSelector(){
@@ -86,7 +86,7 @@ async function load(){
  try{
    const d=await request('GET',selected?{session_id:selected}:{});
    data=d;render();
-   if(!d.session&&d.stale_open_session){error(`Hay una caja anterior (${d.stale_open_session.business_date}) que quedó abierta. No se reutiliza como apertura de hoy; revísala desde el selector de administración antes de cerrar el período.`)}else error('');
+   if(d.session?.status==='open'&&d.session.business_date!==today()){error(`Caja pendiente del ${d.session.business_date}. Revisa sus movimientos y realiza el conteo real antes de cerrarla. Esta caja no es una apertura de hoy; no abras otra hasta resolverla.`)}else error('');
  }catch(e){error(e.message);}
  finally{loading=false}
 }
