@@ -15,14 +15,18 @@ async function rest(url,key,table,params={},opts={}){
  for(const [k,v]of Object.entries(params))if(v!==undefined&&v!==null)address.searchParams.set(k,String(v));
  const r=await fetch(address,{...opts,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',...(opts.headers||{})}});
  const body=await r.json().catch(()=>null);
- if(!r.ok){let e=new Error(body?.message||body?.details||body?.error||'Error al consultar Supabase');e.status=r.status;throw e}
+ if(!r.ok){let e=new Error(body?.message||body?.details||body?.error||'Error al consultar Supabase');e.status=r.status;e.code=body?.code;throw e}
  return body;
 }
 async function loadSessions(url,key,actor){
  const params={select:'id,user_id,business_date,status,opened_at,opening_usd,opening_ves,closed_at,counted_usd,counted_ves,closing_note,verified_methods',order:'opened_at.desc',limit:60};
  if(!actor.is_manager)params.user_id=`eq.${actor.user_id}`;
  else params.opened_at=`gte.${new Date(Date.now()-30*86400000).toISOString()}`;
- const sessions=await rest(url,key,'ts_staff_cash_sessions',params);
+ const recent=await rest(url,key,'ts_staff_cash_sessions',params);
+ const openParams={select:params.select,status:'eq.open',order:'opened_at.desc',limit:1001};
+ if(!actor.is_manager)openParams.user_id=`eq.${actor.user_id}`;
+ const active=await rest(url,key,'ts_staff_cash_sessions',openParams);
+ const sessions=[...new Map([...active,...recent].map(s=>[s.id,s])).values()].sort((a,b)=>String(b.opened_at).localeCompare(String(a.opened_at)));
  if(actor.is_manager&&sessions.length){
    const ids=[...new Set(sessions.map(s=>s.user_id))];
    try{
@@ -98,7 +102,7 @@ exports.handler=async event=>{
      const chosen=clean(event.queryStringParameters?.session_id,40),businessDate=businessDateCaracas();
      const ownToday=sessions.filter(x=>x.user_id===actor.user_id&&String(x.business_date)===businessDate);
      const staleOpen=sessions.find(x=>x.user_id===actor.user_id&&x.status==='open'&&String(x.business_date)!==businessDate)||null;
-     const session=chosen?sessions.find(x=>x.id===chosen):(ownToday.find(x=>x.status==='open')||ownToday[0]||null);
+     const session=chosen?sessions.find(x=>x.id===chosen):(sessions.find(x=>x.user_id===actor.user_id&&x.status==='open')||ownToday[0]||null);
      if(chosen&&!session)return respond(403,{ok:false,error:'No puedes ver esta caja o está fuera del historial reciente.'});
      return respond(200,{ok:true,actor,sessions,session,stale_open_session:staleOpen?{id:staleOpen.id,business_date:staleOpen.business_date,opening_usd:staleOpen.opening_usd,opening_ves:staleOpen.opening_ves}:null,cash:session?await loadCash(url,key,session):null,generated_at:new Date().toISOString()});
    }
@@ -147,8 +151,9 @@ exports.handler=async event=>{
    const data=await rest(url,key,'rpc/ts_staff_cash_action',{}, {method:'POST',body:JSON.stringify({p_actor:actor.user_id,p_action:action,p_data:payload,p_manager:actor.is_manager})});
    return respond(200,{ok:true,session:data});
  }catch(e){console.error('[staff-cash]',e?.message);const msg=e?.message||'No se pudo completar la operación';
+   if(e.code==='23505'&&/ts_staff_cash/.test(msg))return respond(409,{ok:false,open_conflict:true,error:'Ya existe una caja abierta o un turno registrado para esta fecha. Pulsa Actualizar para revisar la caja existente antes de abrir otra.'});
    // Solo atribuimos V14.80 a objetos propios de Caja Staff; columnas antiguas de pedidos no deben bloquear el módulo.
-   if(/ts_staff_cash|function public\.ts_staff_cash_action|PGRST202|PGRST205/i.test(msg))return respond(409,{ok:false,migration_required:true,error:'Caja Staff no encuentra sus tablas o función principal. Verifica MIGRACION-V14.80-CAJA-STAFF.sql. Detalle: '+msg});
+   if(['42P01','42883','PGRST202','PGRST205'].includes(e.code)||/relation .*ts_staff_cash.*does not exist|could not find.*ts_staff_cash|function public\.ts_staff_cash_action.*does not exist/i.test(msg))return respond(409,{ok:false,migration_required:true,error:'Caja Staff no encuentra sus tablas o función principal. Verifica MIGRACION-V14.80-CAJA-STAFF.sql. Detalle: '+msg});
    return respond(e?.status>=400&&e.status<500?e.status:400,{ok:false,error:msg});
  }
 };
