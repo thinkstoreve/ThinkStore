@@ -3,3 +3,10 @@
 /* Support is reachable from Finance even though it is absent from the compact navigation. */
 #support.view.active{display:block!important}
 .fund-dialog .en-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;border:1px solid #d5d9e0;border-radius:12px;padding:10px 16px;background:#175cd3;color:white;font-family:inherit;font-size:14px;font-weight:600;line-height:1.4;text-decoration:none;cursor:pointer}.fund-dialog .en-btn.secondary{background:#f4f6f9;color:#243247}.fund-dialog footer{margin-top:20px;flex-wrap:wrap}
+/* White cards remain legible inside the legacy dark workspace. */
+#enHome .fund-shortcuts>button{background:#fff!important;background-image:none!important;color:#182230!important;border:1px solid #dfe5ed!important;box-shadow:0 3px 12px #18223008!important;opacity:1!important}
+#enHome .fund-shortcuts>button small{color:#536477!important;opacity:1!important}
+.fund-dialog .en-btn.danger{background:#b42318;color:#fff;border-color:#b42318}
+.fund-dialog .fund-danger-note{padding:12px;background:#fff2f0;border:1px solid #fecaca;border-radius:12px;color:#7a271a}
+
+.fund-row-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.fund-row-actions .en-btn{white-space:normal}@media(max-width:640px){.fund-row-actions{grid-column:1/-1}.fund-row-actions button{flex:1;min-width:130px}}
