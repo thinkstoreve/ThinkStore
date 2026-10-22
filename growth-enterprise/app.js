@@ -371,7 +371,7 @@ function switchView(id){
   if(titles[id]){ qs('pageTitle').textContent = titles[id][0]; qs('pageSubtitle').textContent = titles[id][1]; }
   if(id === 'staff') loadStaffAccess();
   if(id === 'commercial') loadEnterpriseV1Real();
-  if(['support','client360','warranties','alerts'].includes(id)) loadEnterpriseV6Support();
+  if(['support','client360','warranties','alerts'].includes(id)){if(typeof window.loadEnterpriseV9==='function')window.loadEnterpriseV9();else loadEnterpriseV6Support();}
   animateActiveView();
 }
 function exportCSV(id='executive'){
@@ -2623,6 +2623,7 @@ function renderV9RealMarketing(data){
       if(id === 'operations') renderV9Operations(v9Cache);
       if(id === 'mobile') renderV9Mobile(v9Cache);
       if(id === 'clients') renderV9RealClients(v9Cache);
+      if(id === 'support') renderV9Support(v9Cache);
       if(id === 'sales') renderV9RealSales(v9Cache);
       if(id === 'inventory') renderV9RealInventory(v9Cache);
       if(id === 'marketing') renderV9RealMarketing(v9Cache);
