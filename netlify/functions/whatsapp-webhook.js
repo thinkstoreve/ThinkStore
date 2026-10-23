@@ -17,7 +17,7 @@ exports.handler=async(event)=>{
         await C.logMessage({wa_message_id:m.id,phone_e164:phone,direction:'inbound',message_type:m.type||'unknown',status:'received',source:'webhook',body_preview:text,payload:m});
         const current=await C.getContact(phone),n=C.norm(text),now=new Date().toISOString();
         if(/^(stop|salir|baja|cancelar notificaciones)$/.test(n)){
-          await C.upsertContact(phone,{opt_in:false,opt_out_at:now,last_inbound_at:now,last_message_preview:text,needs_human:false});
+          await C.upsertContact(phone,{opt_in:false,opt_out_at:now,last_inbound_at:now,last_message_preview:text,needs_human:true,metadata:{...(current?.metadata||{}),care_assistant:{...(current?.metadata?.care_assistant||{}),active:false}}});
           const sent=await C.sendText(phone,'Listo. Pausamos las notificaciones automáticas de ThinkStore. Puedes escribir ACTIVAR cuando quieras volver a recibirlas.');
           await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'auto_reply',body_preview:'Opt-out confirmado',payload:sent});continue;
         }
@@ -28,12 +28,39 @@ exports.handler=async(event)=>{
         }
         const optedOut=current&&current.opt_in===false&&current.opt_out_at;
         await C.upsertContact(phone,{name:C.clean(value.contacts?.find(x=>x.wa_id===m.from)?.profile?.name||current?.name||'',160),opt_in:optedOut?false:(current?.opt_in===true),opt_in_source:current?.opt_in_source||'customer_inbound',opt_in_at:current?.opt_in_at||null,last_inbound_at:now,last_message_preview:text});
-        if(/\b(asesor|humano|persona|agente)\b/.test(n)){
-          await C.upsertContact(phone,{needs_human:true,last_intent:'human_handoff'});const sent=await C.sendText(phone,'Claro. Marqué tu conversación para atención humana. Un asesor de ThinkStore continuará por este mismo WhatsApp.');
-          await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'human_handoff',body_preview:'Solicitud de asesor',payload:sent});continue;
+        const metadata={...(current?.metadata||{})}, intake=metadata.care_assistant;
+        const human=/\b(asesor|humano|persona|agente)\b/.test(n)||/^(cancelar|salir|baja|stop)$/.test(n);
+        if(human||current?.needs_human||!intake?.active||Date.parse(intake.expires_at||'')<Date.now()){
+          if(intake?.active)metadata.care_assistant={...intake,active:false};
+          await C.upsertContact(phone,{needs_human:true,metadata,last_intent:'human_first'});
+          continue;
         }
-        if(!text){const sent=await C.sendText(phone,'Recibí tu mensaje. Por ahora puedo responder texto automáticamente. Si necesitas un asesor, escribe “asesor”.');await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'auto_reply',body_preview:'Tipo no soportado',payload:sent});continue;}
-        const reply=await C.smartReply(text);const sent=await C.sendText(phone,reply);await C.upsertContact(phone,{last_outbound_at:new Date().toISOString(),last_intent:C.norm(text).slice(0,120)});await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'thinky_whatsapp',body_preview:reply,payload:sent});
+        const questions={name:'¿Cuál es tu nombre y apellido?',device:'¿Qué equipo necesita asistencia? Indica modelo si lo conoces.',location:'¿En qué ciudad, zona y dirección sería la visita? Incluye una referencia. No envíes claves de acceso.',problem:'Cuéntanos qué problema presenta el equipo.'};
+        const fields=['name','device','location','problem'];
+        let reply='';
+        if(!text){reply='Para completar la solicitud necesito una respuesta escrita. Puedes escribir ASESOR para volver a atención personal.';}
+        else if(intake.step==='confirm'){
+          if(n==='si'||n==='confirmar'){
+            const data=intake.data||{};
+            await C.sb(C.mainCfg(),'think_care_requests?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify({id:intake.request_id,name:data.name,phone,device:data.device,service:intake.service||'Essential',location:data.location,problem:data.problem,source:'think-care-whatsapp',status:'new'})});
+            metadata.care_assistant={...intake,active:false,completed_at:now};
+            await C.upsertContact(phone,{metadata,needs_human:true,last_intent:'care_request_created'});
+            reply='Solicitud registrada. Referencia: '+intake.request_id.slice(0,8).toUpperCase()+'. Un asesor coordinará cobertura, presupuesto y disponibilidad. La visita aún no está confirmada.';
+          }else if(n==='no'||n==='corregir'){
+            metadata.care_assistant={...intake,step:'name',data:{}};
+            await C.upsertContact(phone,{metadata});reply='Vamos a corregir los datos. '+questions.name;
+          }else{reply='Responde SÍ para autorizar el uso de estos datos y registrar la solicitud, NO para corregirlos o ASESOR para atención personal.';}
+        }else{
+          const limits={name:100,device:100,location:150,problem:1500};
+          if(!fields.includes(intake.step)){await C.upsertContact(phone,{needs_human:true,metadata:{...metadata,care_assistant:{...intake,active:false}}});continue;}
+          if(text.length>limits[intake.step]){reply='Tu respuesta es demasiado larga. Usa un máximo de '+limits[intake.step]+' caracteres. '+questions[intake.step];}
+          else{
+            const data={...(intake.data||{}),[intake.step]:text},next=fields[fields.indexOf(intake.step)+1]||'confirm';
+            metadata.care_assistant={...intake,data,step:next};await C.upsertContact(phone,{metadata});
+            reply=next==='confirm'?'Revisa tu solicitud de Think Care:\nNombre: '+data.name+'\nTeléfono: '+phone+'\nEquipo: '+data.device+'\nModalidad: '+(intake.service||'Essential')+'\nDirección: '+data.location+'\nProblema: '+data.problem+'\n\n¿Autorizas a ThinkStore a usar estos datos para gestionar esta solicitud? Responde SÍ para registrarla, NO para corregir o ASESOR para atención personal. La visita queda pendiente de coordinación.':questions[next];
+          }
+        }
+        const sent=await C.sendText(phone,reply);await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'care_assistant',body_preview:reply,payload:sent});
       }
     }
     return out(200,{ok:true});
