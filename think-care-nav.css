@@ -1,0 +1,41 @@
+/* Think Care · navegación limitada a portada; preserva diseño actual. */
+.top.ts-clean-header .ts-thinkcare-link{font-size:clamp(12px,1vw,14px);font-weight:700;color:#141417;text-decoration:none;white-space:nowrap;padding:8px 10px;border:1px solid #d4d4d8;border-radius:999px;transition:background .15s}
+.top.ts-clean-header .ts-thinkcare-link:hover{background:#efeff1}
+@media(max-width:900px){.top.ts-clean-header .ts-thinkcare-link{font-size:12px;padding:7px}}
+@media(max-width:700px){.top.ts-clean-header .ts-thinkcare-link{display:none!important}}
+
+/* Acceso principal Think Care y tarjeta empresarial */
+.ts-home-ad-actions{display:flex;gap:10px;flex-wrap:wrap}
+.ts-home-ad-actions .ts-care-cta{border:1px solid currentColor;background:#fff;color:#17171b;text-decoration:none}
+.ts-care-business-section{padding:24px clamp(18px,4vw,64px) 48px;max-width:1500px;margin:auto}
+.ts-care-business-card{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);align-items:stretch;overflow:hidden;border:1px solid #e3e3e7;border-radius:22px;background:#fff}
+.ts-care-business-card>img{width:100%;height:100%;min-height:270px;object-fit:cover;display:block}
+.ts-care-business-copy{padding:clamp(24px,4vw,52px);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:16px}
+.ts-care-business-kicker{color:#71717a;font-size:12px;letter-spacing:.14em;font-weight:700}
+.ts-care-business-copy h2{font-size:clamp(26px,3vw,42px);line-height:1.12;margin:0;color:#17171b}
+.ts-care-business-copy p{font-size:clamp(15px,1.45vw,19px);line-height:1.65;color:#666670;margin:0}
+.ts-care-business-copy .btn{display:inline-flex;align-items:center;margin-top:6px;text-decoration:none}
+@media(max-width:700px){.ts-care-business-card{grid-template-columns:1fr}.ts-care-business-card>img{height:auto;min-height:0;aspect-ratio:16/9}.ts-care-business-copy{padding:24px}.ts-home-ad-actions .ts-care-cta{display:inline-flex}}
+
+/* Cuatro tarjetas uniformes inspiradas en el diseño aprobado; no modifica el catálogo ni el carrusel. */
+.ts-care-services{max-width:1500px;margin:0 auto;padding:55px clamp(18px,4vw,64px) 62px;color:#19191e}
+.ts-care-services-heading{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:24px}
+.ts-care-services-eyebrow{font-size:11px!important;letter-spacing:.2em;font-weight:750;color:#858590;margin:0 0 12px!important}
+.ts-care-services-heading h2{font-size:clamp(27px,3vw,40px);letter-spacing:-.045em;line-height:1.12;margin:0;font-weight:750}
+.ts-care-services-all{color:#202027!important;font-size:14px;text-underline-offset:4px;white-space:nowrap}
+.ts-care-services-all span{margin-left:8px}
+.ts-care-services-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.ts-care-service-tile{display:flex;flex-direction:column;padding:14px;background:#fff;border:1px solid #e1e2e7;border-radius:17px;min-width:0;overflow:hidden;transition:box-shadow .2s,transform .2s}
+.ts-care-service-tile:hover{box-shadow:0 12px 30px rgba(25,25,35,.07);transform:translateY(-2px)}
+.ts-care-service-image{display:block;overflow:hidden;border-radius:11px;aspect-ratio:16/9;background:#f4f4f6}
+.ts-care-service-image img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s}
+.ts-care-service-tile:hover img{transform:scale(1.025)}
+.ts-care-service-body{display:flex;flex:1;flex-direction:column;padding:17px 3px 4px;align-items:flex-start}
+.ts-care-service-label{font-size:10px;letter-spacing:.16em;font-weight:750;color:#898995}
+.ts-care-service-body h3{font-size:clamp(18px,1.5vw,22px);letter-spacing:-.035em;margin:12px 0 10px;line-height:1.22;color:#19191e}
+.ts-care-service-body p{font-size:clamp(13px,1.15vw,15px);line-height:1.55;color:#6a6a75;margin:0 0 24px}
+.ts-care-service-body>a{color:#202027;text-decoration:none;font-size:14px;font-weight:700;margin-top:auto}
+.ts-care-service-body>a:hover{text-decoration:underline;text-underline-offset:3px}
+.ts-care-service-body>a span{margin-left:7px}
+@media(max-width:950px){.ts-care-services-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.ts-care-services{padding:36px 17px 45px}.ts-care-services-heading{align-items:start;flex-direction:column;gap:10px}.ts-care-services-grid{grid-template-columns:1fr;gap:12px}.ts-care-service-image{aspect-ratio:16/8}.ts-care-service-body{padding:16px 4px 5px}.ts-care-service-body p{margin-bottom:18px}}
