@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const cfg=window.THINKSTORE_SUPABASE||{},client=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY),M=window.ThinkStoreWhatsAppModel,$=id=>document.getElementById(id);
+const cfg=window.THINKSTORE_SUPABASE||{},client=window.ThinkStoreWhatsAppClient||(window.ThinkStoreWhatsAppClient=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY)),M=window.ThinkStoreWhatsAppModel,$=id=>document.getElementById(id);
 const state={rows:[],phone:null,filter:'all',loading:false,busy:false,messages:[],signature:'',hasMore:false,olderLoaded:false,drafts:new Map(),marking:false,read:new Set(),contact:null,headerInit:false};
 const time=v=>v?new Date(v).toLocaleTimeString('es-VE',{timeZone:'America/Caracas',hour:'2-digit',minute:'2-digit'}):'';
 const day=v=>new Date(v).toLocaleDateString('es-VE',{timeZone:'America/Caracas',day:'numeric',month:'long',year:'numeric'});
