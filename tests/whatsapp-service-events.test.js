@@ -5,6 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const C=require('../netlify/functions/_whatsapp-core');
 const W=require('../netlify/functions/_whatsapp-service-events');
+const N=require('../netlify/functions/_request-notifications');
 const relay=require('../netlify/functions/whatsapp-service-relay');
 const defs=JSON.parse(fs.readFileSync(path.join(__dirname,'../WHATSAPP-META-PLANTILLAS-V15.38.json'),'utf8'));
 const order={id:25,code:'TS-SVC-2026-0012',client_name:'Andrea Prueba',client_phone:'04121234567',device_model:'iPhone 14',status:'Recibido'};
@@ -31,6 +32,7 @@ test('no hay envío sin consentimiento registrado',async()=>{
 });
 test('se acepta una sola notificación por evento, con datos canonizados',async()=>{
   const oldGet=C.getContact,oldSend=C.sendTemplate,oldSb=C.sb,oldLog=C.logMessage;
+  const oldApproved=N.approved;N.approved=async()=>true;
   let count=0,sent=0;
   C.getContact=async()=>({opt_in:true,opt_out_at:null});
   C.sb=async(_cfg,endpoint,opts)=>{
@@ -46,7 +48,7 @@ test('se acepta una sola notificación por evento, con datos canonizados',async(
   try{
     const a=await W.serviceUpdate(order),b=await W.serviceUpdate(order);
     assert.equal(a.status,'sent');assert.equal(b.status,'duplicate');assert.equal(sent,1);
-  }finally{C.getContact=oldGet;C.sendTemplate=oldSend;C.sb=oldSb;C.logMessage=oldLog;delete process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED}
+  }finally{N.approved=oldApproved;C.getContact=oldGet;C.sendTemplate=oldSend;C.sb=oldSb;C.logMessage=oldLog;delete process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED}
 });
 test('abono requiere ID de un evento real antes de notificar',async()=>{
   process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED='true';
