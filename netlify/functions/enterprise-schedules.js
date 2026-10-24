@@ -27,13 +27,14 @@ exports.handler=async e=>{
    if(current.status!=='planned')return out(409,{ok:false,error:'Este recordatorio ya no está pendiente.'});
    if(b.updated_at!==current.updated_at)return out(409,{ok:false,error:'El vencimiento cambió. Actualiza antes de registrar el pago.'});
    if(b.settled!==true)return out(400,{ok:false,error:'Confirma que este importe salda completamente el pago.'});
+   if((b.funded_by||'company')==='company'&&!uuid(b.bank_account_id))return out(400,{ok:false,error:'Selecciona la cuenta real de salida.'});
    const original=M.amount(b.amount),currency=b.currency,payer=b.funded_by||'company',method=clean(b.payment_method),day=b.paid_on||M.today();
    if(original===null||!['USD','VES'].includes(currency)||!['company','freddy','nelson'].includes(payer)||!M.date(day)||day>M.today())return out(400,{ok:false,error:'Revisa importe, moneda, responsable y fecha del pago.'});
    const methods=['Efectivo USD','Efectivo Bs','Pago Móvil','Transferencia','Zelle','USDT','Punto de Venta','Otro'];if(!methods.includes(method))return out(400,{ok:false,error:'Método de pago inválido.'});
    const vesMethods=['Efectivo Bs','Pago Móvil','Punto de Venta'],usdMethods=['Efectivo USD','Zelle','USDT'];if((vesMethods.includes(method)&&currency!=='VES')||(usdMethods.includes(method)&&currency!=='USD'))return out(400,{ok:false,error:'El método y la moneda no coinciden.'});
    if(!/^Efectivo/.test(method)&&clean(b.reference).length<3)return out(400,{ok:false,error:'Indica la referencia del pago.'});
    let rate=null,amount_usd=original;if(currency==='VES'){if(day!==M.today())return out(400,{ok:false,error:'Para usar la tasa BCV actual, el pago en Bs debe corresponder a hoy.'});rate=await getRate(true);if(rate.stale||!(rate.rate>0))return out(409,{ok:false,error:'No se pudo verificar la tasa BCV.'});amount_usd=Math.round(original/rate.rate*100)/100;if(amount_usd<=0)return out(400,{ok:false,error:'El equivalente USD es menor a un centavo.'});}
-   const result=await db('rpc/enterprise_pay_scheduled','POST',{p_id:b.id,p_payment:{...actor,expected_updated_at:current.updated_at,amount_usd,original_amount:original,currency,exchange_rate:rate?.rate||null,rate_date:rate?.effective_date||null,payment_method:method,reference:clean(b.reference).slice(0,180),funded_by:payer,occurred_at:day+'T12:00:00-04:00'}});return out(200,{ok:true,...result});
+   const result=await db('rpc/enterprise_pay_scheduled','POST',{p_id:b.id,p_payment:{...actor,bank_account_id:b.bank_account_id||null,expected_updated_at:current.updated_at,amount_usd,original_amount:original,currency,exchange_rate:rate?.rate||null,rate_date:rate?.effective_date||null,payment_method:method,reference:clean(b.reference).slice(0,180),funded_by:payer,occurred_at:day+'T12:00:00-04:00'}});return out(200,{ok:true,...result});
   }
   if(current.status!=='planned')return out(409,{ok:false,error:'Solo puedes cambiar un vencimiento pendiente.'});
   if(!b.updated_at||b.updated_at!==current.updated_at)return out(409,{ok:false,error:'El recordatorio cambió. Actualiza y reintenta.'});
