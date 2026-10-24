@@ -1,4 +1,5 @@
 const C=require('./_whatsapp-core');
+const Intake=require('./_whatsapp-intake');
 const H={'Content-Type':'application/json'};
 const out=(s,b)=>({statusCode:s,headers:H,body:JSON.stringify(b)});
 exports.handler=async(event)=>{
@@ -12,6 +13,7 @@ exports.handler=async(event)=>{
   let body={};try{body=JSON.parse(raw||'{}')}catch{return out(400,{ok:false,error:'invalid_json'})}
   try{
     for(const entry of body.entry||[])for(const change of entry.changes||[]){const value=change.value||{};
+      for(const echo of value.message_echoes||[]){if(!echo.id||await C.seenMessage(echo.id))continue;const phone=C.normalizePhone(echo.to);if(!phone)continue;await C.logMessage({wa_message_id:echo.id,phone_e164:phone,direction:'outbound',message_type:echo.type||'unknown',status:'sent',source:'whatsapp_business_app',body_preview:C.clean(echo.text?.body||'['+(echo.type||'Archivo')+']',1500),payload:echo});const c=await C.getContact(phone);await C.upsertContact(phone,{last_outbound_at:new Date().toISOString(),needs_human:true,metadata:{...(c?.metadata||{}),care_assistant:{...(c?.metadata?.care_assistant||{}),active:false}}});}
       for(const st of value.statuses||[])await C.updateStatus(st.id,st.status,st);
       for(const m of value.messages||[]){if(!m?.id||await C.seenMessage(m.id))continue;const phone=C.normalizePhone(m.from),text=C.clean(m.text?.body||m.button?.text||m.interactive?.button_reply?.title||m.interactive?.list_reply?.title||'',1500);if(!phone)continue;
         await C.logMessage({wa_message_id:m.id,phone_e164:phone,direction:'inbound',message_type:m.type||'unknown',status:'received',source:'webhook',body_preview:text,payload:m});
@@ -35,17 +37,18 @@ exports.handler=async(event)=>{
           await C.upsertContact(phone,{needs_human:true,metadata,last_intent:'human_first'});
           continue;
         }
-        const questions={name:'¿Cuál es tu nombre y apellido?',device:'¿Qué equipo necesita asistencia? Indica modelo si lo conoces.',location:'¿En qué ciudad, zona y dirección sería la visita? Incluye una referencia. No envíes claves de acceso.',problem:'Cuéntanos qué problema presenta el equipo.'};
+        const requestType=Intake.TYPES.includes(intake.request_type)?intake.request_type:'think_care';const questions=Intake.questions(requestType);
         const fields=['name','device','location','problem'];
         let reply='';
-        if(!text){reply='Para completar la solicitud necesito una respuesta escrita. Puedes escribir ASESOR para volver a atención personal.';}
+        if(intake.step==='type'){const type=Intake.choose(text);if(type){metadata.care_assistant={...intake,request_type:type,step:'name'};await C.upsertContact(phone,{metadata});reply=Intake.labels[type]+'. '+Intake.questions(type).name;}else reply=Intake.menu;}
+        else if(!text){reply='Para completar la solicitud necesito una respuesta escrita. Puedes escribir ASESOR para volver a atención personal.';}
         else if(intake.step==='confirm'){
           if(n==='si'||n==='confirmar'){
             const data=intake.data||{};
-            await C.sb(C.mainCfg(),'think_care_requests?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify({id:intake.request_id,name:data.name,phone,device:data.device,service:intake.service||'Essential',location:data.location,problem:data.problem,source:'think-care-whatsapp',status:'new'})});
-            metadata.care_assistant={...intake,active:false,completed_at:now};
+            await C.sb(C.mainCfg(),'think_care_requests?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify({id:intake.request_id,name:data.name,phone,device:data.device,service:intake.service||'Essential',location:data.location,problem:data.problem,request_type:requestType,source:'thinkstore-whatsapp',status:'new'})});
+            metadata.service_notifications_opt_in=true;metadata.service_notifications_opt_in_at=now;metadata.care_assistant={...intake,active:false,completed_at:now};
             await C.upsertContact(phone,{metadata,needs_human:true,last_intent:'care_request_created'});
-            reply='Solicitud registrada. Referencia: '+intake.request_id.slice(0,8).toUpperCase()+'. Un asesor coordinará cobertura, presupuesto y disponibilidad. La visita aún no está confirmada.';
+            reply='Solicitud de '+Intake.labels[requestType]+' registrada. Referencia: '+intake.request_id.slice(0,8).toUpperCase()+'. Un asesor validará disponibilidad, condiciones y presupuesto. Esto no confirma una cita ni crea una orden o un cobro.';
           }else if(n==='no'||n==='corregir'){
             metadata.care_assistant={...intake,step:'name',data:{}};
             await C.upsertContact(phone,{metadata});reply='Vamos a corregir los datos. '+questions.name;
@@ -57,7 +60,7 @@ exports.handler=async(event)=>{
           else{
             const data={...(intake.data||{}),[intake.step]:text},next=fields[fields.indexOf(intake.step)+1]||'confirm';
             metadata.care_assistant={...intake,data,step:next};await C.upsertContact(phone,{metadata});
-            reply=next==='confirm'?'Revisa tu solicitud de Think Care:\nNombre: '+data.name+'\nTeléfono: '+phone+'\nEquipo: '+data.device+'\nModalidad: '+(intake.service||'Essential')+'\nDirección: '+data.location+'\nProblema: '+data.problem+'\n\n¿Autorizas a ThinkStore a usar estos datos para gestionar esta solicitud? Responde SÍ para registrarla, NO para corregir o ASESOR para atención personal. La visita queda pendiente de coordinación.':questions[next];
+            reply=next==='confirm'?'Revisa tu solicitud de '+Intake.labels[requestType]+':\nNombre: '+data.name+'\nTeléfono: '+phone+'\nEquipo: '+data.device+'\nModalidad: '+(intake.service||'Essential')+'\nDirección: '+data.location+'\nProblema: '+data.problem+'\n\n¿Autorizas a ThinkStore a usar estos datos para gestionar esta solicitud y enviarte por WhatsApp sus actualizaciones? Responde SÍ para registrarla, NO para corregir o ASESOR para atención personal. La visita queda pendiente de coordinación.':questions[next];
           }
         }
         const sent=await C.sendText(phone,reply);await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'care_assistant',body_preview:reply,payload:sent});
