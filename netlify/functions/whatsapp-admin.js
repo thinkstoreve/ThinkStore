@@ -2,11 +2,18 @@ const C=require('./_whatsapp-core');
 const {authenticate:authenticateInternal}=require('./requests-inbox');
 const Intake=require('./_whatsapp-intake');
 const out=(s,b)=>({statusCode:s,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization, x-admin-secret','Access-Control-Allow-Methods':'GET,POST,OPTIONS'},body:JSON.stringify(b)});
-exports.handler=async(event)=>{if(event.httpMethod==='OPTIONS')return out(200,{ok:true});
- const m=C.mainCfg();let allowed=false;const legacy=C.clean(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']);if(legacy&&[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].filter(Boolean).map(String).includes(legacy))allowed=true;
- if(!allowed){const a=await authenticateInternal(event);const r=C.norm(a?.role);allowed=!!a?.ok&&['admin','superadmin','gerente','vendedor','soporte','recepcion'].includes(r)}if(!allowed)return out(401,{ok:false,error:'No autorizado'});
+exports.handler=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{ok:true});
+ const m=C.mainCfg();let allowed=false,staff=null;const legacy=C.clean(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']);if(legacy&&[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].filter(Boolean).map(String).includes(legacy))allowed=true;
+ if(!allowed){const a=await authenticateInternal(event);staff=a;const r=C.norm(a?.role);allowed=!!a?.ok&&['admin','superadmin','gerente','vendedor','soporte','recepcion'].includes(r)}if(!allowed)return out(401,{ok:false,error:'No autorizado'});
  const cfg=C.waCfg();if(event.httpMethod==='GET')return out(200,{ok:true,configured:{access_token:!!cfg.token,phone_number_id:!!cfg.phoneId,verify_token:!!cfg.verifyToken,app_secret:!!cfg.appSecret,graph_version:!!cfg.version,debt_automation:String(process.env.WHATSAPP_DEBT_AUTOMATION_ENABLED||'').toLowerCase()==='true',debt_template:!!process.env.WHATSAPP_DEBT_TEMPLATE_NAME,service_notifications:String(process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',appointment_notifications:String(process.env.WHATSAPP_APPOINTMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',payment_notifications:String(process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',shared_relay_secret:!!process.env.WHATSAPP_EVENTS_SECRET,order_notifications:String(process.env.WHATSAPP_ORDER_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true'},webhook_url:`${cfg.site}/.netlify/functions/whatsapp-webhook`,official_phone:'+58 424 170 6142'});
- let b={};try{b=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}if(b.action==='inbox_health'){
+ let b={};try{b=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}if(['alerts','mark_read'].includes(b.action)){
+ if(!staff?.user_id)return out(401,{ok:false,error:'Inicia sesión para consultar tus notificaciones'});
+ if(b.action==='alerts')return out(200,{ok:true,...await C.sb(m,'rpc/ts_whatsapp_alerts',{method:'POST',body:JSON.stringify({p_user:staff.user_id})})});
+ const phone=C.normalizePhone(b.phone),ids=b.ids;
+ if(!/^\d{8,15}$/.test(phone)||!Array.isArray(ids)||ids.length>100||ids.some(x=>!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(String(x))))return out(400,{ok:false,error:'Lectura inválida'});
+ const changed=await C.sb(m,'rpc/ts_whatsapp_mark_read',{method:'POST',body:JSON.stringify({p_user:staff.user_id,p_phone:phone,p_ids:ids})});return out(200,{ok:true,changed});
+ }
+ if(b.action==='inbox_health'){
  const configured={token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
  let connection={ok:false,reason:'Configuración incompleta'};
  if(configured.token&&configured.phone_id&&configured.version){
@@ -19,8 +26,9 @@ exports.handler=async(event)=>{if(event.httpMethod==='OPTIONS')return out(200,{o
  }
  if(b.action==='conversation'){
  const phone=C.normalizePhone(b.phone);if(!/^\d{8,15}$/.test(phone))return out(400,{ok:false,error:'Teléfono inválido'});
- const rows=await C.sb(m,`whatsapp_message_log?select=id,wa_message_id,direction,message_type,status,source,body_preview,created_at&phone_e164=eq.${encodeURIComponent(phone)}&order=created_at.desc,id.desc&limit=100`);
- return out(200,{ok:true,rows:rows.reverse(),contact:await C.getContact(phone)});
+ let before='';if(b.before_at||b.before_id){if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(b.before_at||'')||!Number.isFinite(Date.parse(b.before_at))||!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(b.before_id||''))return out(400,{ok:false,error:'Cursor inválido'});const at=b.before_at;before='&or='+encodeURIComponent('(created_at.lt.'+at+',and(created_at.eq.'+at+',id.lt.'+b.before_id+'))');}
+ const rows=await C.sb(m,`whatsapp_message_log?select=id,wa_message_id,direction,message_type,status,source,body_preview,created_at&phone_e164=eq.${encodeURIComponent(phone)}${before}&order=created_at.desc,id.desc&limit=100`);
+ return out(200,{ok:true,has_more:rows.length===100,rows:rows.reverse(),contact:await C.getContact(phone)});
  }
  if(b.action==='send_reply'){
  const phone=C.normalizePhone(b.phone),text=String(b.message||'').trim(),clientId=String(b.client_id||'');
@@ -39,6 +47,7 @@ exports.handler=async(event)=>{if(event.httpMethod==='OPTIONS')return out(200,{o
  }catch{await C.sb(m,endpoint,{method:'PATCH',body:JSON.stringify({status:'unconfirmed',updated_at:new Date().toISOString()})}).catch(()=>{});return out(502,{ok:false,error:'No se pudo confirmar el envío. Revisa WhatsApp y la conexión antes de volver a enviarlo.'});}
  }
  if(b.action==='care_contacts'){
+ if(staff?.user_id){const rows=await C.sb(m,'rpc/ts_whatsapp_inbox',{method:'POST',body:JSON.stringify({p_user:staff.user_id})});return out(200,{ok:true,rows});}
  const rows=await C.sb(m,'whatsapp_contacts?select=phone_e164,name,needs_human,last_inbound_at,last_message_preview,metadata&order=last_inbound_at.desc.nullslast&limit=100');
  return out(200,{ok:true,rows});
  }
@@ -58,4 +67,5 @@ exports.handler=async(event)=>{if(event.httpMethod==='OPTIONS')return out(200,{o
  return out(200,{ok:true});
  }
  if(b.action==='preview_debts'){const a=await authenticateInternal(event);if(!a.ok||!['admin','superadmin'].includes(a.role))return out(403,{ok:false,error:'Solo administración puede consultar financiación'});const rows=await C.debtCandidates();return out(200,{ok:true,count:rows.length,rows:rows.slice(0,100)})}if(b.action==='preview_reply'){return out(200,{ok:true,reply:await C.smartReply(C.clean(b.message,1000))})}return out(400,{ok:false,error:'Acción no soportada'});
+}catch(e){console.error('whatsapp-admin',e.message);return out(503,{ok:false,error:'No se pudo actualizar WhatsApp. Reintenta en unos segundos.'});}
 };
