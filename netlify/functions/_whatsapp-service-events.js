@@ -4,12 +4,12 @@ const crypto = require('node:crypto');
 const C = require('./_whatsapp-core');
 const text = (v,n=450)=>C.clean(v,n);
 const active = key => String(process.env[key]||'').toLowerCase()==='true';
-const yes = x => !!(x&&x.opt_in===true&&!x.opt_out_at);
+const yes = x => !!(x&&(x.opt_in===true||x.metadata?.service_notifications_opt_in===true)&&!x.opt_out_at);
 const LANG=()=>text(process.env.WHATSAPP_TEMPLATE_LANG||'es',30);
 const names={
  appointment:'ts_cita_confirmada_v2',received:'ts_equipo_recibido_v2',quote:'ts_cotizacion_disponible_v2',
  status:'ts_estado_reparacion_v2',ready:'ts_equipo_listo_v2',payment:'ts_abono_confirmado_v2',
- debt:'ts_financiamiento_recordatorio_v2',order:'ts_pedido_confirmado_v2'
+ debt:'ts_financiamiento_recordatorio_v2',order:'ts_pedido_confirmado_v2',...Object.fromEntries(Object.entries(require('./_request-notifications').names).map(([k,v])=>['care_'+k,v]))
 };
 function first(v){return text(v,140).split(/\s+/)[0]||'Cliente'}
 function amount(v){return Number(v||0).toFixed(2)}
@@ -21,6 +21,7 @@ async function dispatch({category,id,phone,variables,source,event,enabled=true})
  const to=C.normalizePhone(phone);if(!/^\d{10,15}$/.test(to))return{status:'skipped',reason:'invalid_phone'};
  const contact=await C.getContact(to);
  if(!yes(contact))return{status:'skipped',reason:'no_whatsapp_consent'};
+ try{if(!await require('./_request-notifications').approved(template,LANG()))return{status:'skipped',reason:'template_not_approved'};}catch{return{status:'skipped',reason:'template_status_unavailable'};}
  const key=eventId(category,String(id),event,to);
  let claimed=false;
  try{
