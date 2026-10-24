@@ -932,7 +932,7 @@ const TSService=(()=>{
     renderRoleMenu();
     await refreshSupportIdentity();
     const box=document.getElementById('panelContent');if(box)box.innerHTML='<div class="notice">Cargando datos reales de soporte…</div>';
-    try{await loadSupportData();await renderPanel('dashboard');startSupportAlertPolling();startSupportPaymentPolling()}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
+    try{await loadSupportData();await renderPanel('dashboard');startSupportAlertPolling();startSupportPaymentPolling();const linkedOrder=new URL(location.href).searchParams.get('request_order');if(linkedOrder&&orders.some(o=>String(o.id)===linkedOrder))await openOrderManager(linkedOrder)}catch(error){if(box)box.innerHTML=`<div class="tablewrap"><h3>No se pudo cargar Soporte</h3><p>${error.message||error}</p><p>Ejecuta supabase_soporte_produccion.sql en el proyecto de soporte.</p></div>`}
     dash.classList.remove('hidden');
     showSupportWelcome();
     requestAnimationFrame(()=>{
