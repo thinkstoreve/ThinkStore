@@ -5,7 +5,39 @@ exports.handler=async(event)=>{if(event.httpMethod==='OPTIONS')return out(200,{o
  const m=C.mainCfg();let allowed=false;const legacy=C.clean(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']);if(legacy&&[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].filter(Boolean).map(String).includes(legacy))allowed=true;
  if(!allowed){const a=await authenticateInternal(event);const r=C.norm(a?.role);allowed=!!a?.ok&&/admin|superadmin|gerente/.test(r)}if(!allowed)return out(401,{ok:false,error:'No autorizado'});
  const cfg=C.waCfg();if(event.httpMethod==='GET')return out(200,{ok:true,configured:{access_token:!!cfg.token,phone_number_id:!!cfg.phoneId,verify_token:!!cfg.verifyToken,app_secret:!!cfg.appSecret,graph_version:!!cfg.version,debt_automation:String(process.env.WHATSAPP_DEBT_AUTOMATION_ENABLED||'').toLowerCase()==='true',debt_template:!!process.env.WHATSAPP_DEBT_TEMPLATE_NAME,service_notifications:String(process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',appointment_notifications:String(process.env.WHATSAPP_APPOINTMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',payment_notifications:String(process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',shared_relay_secret:!!process.env.WHATSAPP_EVENTS_SECRET,order_notifications:String(process.env.WHATSAPP_ORDER_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true'},webhook_url:`${cfg.site}/.netlify/functions/whatsapp-webhook`,official_phone:'+58 424 170 6142'});
- let b={};try{b=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}if(b.action==='care_contacts'){
+ let b={};try{b=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}if(b.action==='inbox_health'){
+ const configured={token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
+ let connection={ok:false,reason:'Configuración incompleta'};
+ if(configured.token&&configured.phone_id&&configured.version){
+  try{const r=await fetch(`https://graph.facebook.com/${cfg.version}/${cfg.phoneId}?fields=display_phone_number,verified_name`,{headers:{Authorization:`Bearer ${cfg.token}`}});const d=await r.json();
+  connection=r.ok?{ok:true,phone:d.display_phone_number,name:d.verified_name,matches_official:C.normalizePhone(d.display_phone_number)==='584241706142'}:{ok:false,code:d.error?.code,reason:d.error?.code===190?'La credencial de Meta está vencida o no es válida':'Meta no permite consultar el número conectado'};
+  }catch{connection={ok:false,reason:'No se pudo consultar la conexión con Meta'};}
+ }
+ const latest=await C.sb(m,'whatsapp_message_log?select=created_at,direction,source&direction=eq.inbound&order=created_at.desc&limit=1');
+ return out(200,{ok:true,configured,connection,last_inbound:latest?.[0]?.created_at||null,webhook_url:`${cfg.site}/.netlify/functions/whatsapp-webhook`});
+ }
+ if(b.action==='conversation'){
+ const phone=C.normalizePhone(b.phone);if(!/^\d{8,15}$/.test(phone))return out(400,{ok:false,error:'Teléfono inválido'});
+ const rows=await C.sb(m,`whatsapp_message_log?select=id,wa_message_id,direction,message_type,status,source,body_preview,created_at&phone_e164=eq.${encodeURIComponent(phone)}&order=created_at.desc,id.desc&limit=100`);
+ return out(200,{ok:true,rows:rows.reverse(),contact:await C.getContact(phone)});
+ }
+ if(b.action==='send_reply'){
+ const phone=C.normalizePhone(b.phone),text=String(b.message||'').trim(),clientId=String(b.client_id||'');
+ if(!/^\d{8,15}$/.test(phone)||!text||text.length>4000||!/^[a-f0-9-]{36}$/i.test(clientId))return out(400,{ok:false,error:'Mensaje o teléfono inválido'});
+ const contact=await C.getContact(phone),last=Date.parse(contact?.last_inbound_at||'');
+ if(!Number.isFinite(last)||Date.now()-last>=24*60*60*1000)return out(409,{ok:false,error:'Han pasado 24 horas desde el último mensaje recibido. Pide al cliente que vuelva a escribir para responder desde aquí.'});
+ if(!cfg.token||!cfg.phoneId||!cfg.version)return out(503,{ok:false,error:'Falta configurar la conexión de WhatsApp con Meta'});
+ const key='staff:'+clientId,endpoint=`whatsapp_message_log?wa_message_id=eq.${encodeURIComponent(key)}`;
+ const existing=await C.sb(m,`whatsapp_message_log?select=id,status&source=eq.staff_reply&payload->>client_id=eq.${encodeURIComponent(clientId)}&limit=1`);if(existing?.length)return out(409,{ok:false,error:'Este envío ya fue procesado o está en curso. Actualiza la conversación antes de reenviar.'});
+ const reserved=await C.sb(m,'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify({wa_message_id:key,phone_e164:phone,direction:'outbound',message_type:'text',status:'sending',source:'staff_reply',body_preview:text,payload:{client_id:clientId}})});
+ if(!reserved?.length)return out(409,{ok:false,error:'El mensaje ya está en proceso'});
+ await C.upsertContact(phone,{needs_human:true,metadata:{...(contact.metadata||{}),care_assistant:{...(contact.metadata?.care_assistant||{}),active:false}}});
+ try{const sent=await C.sendText(phone,text),messageId=sent?.messages?.[0]?.id;if(!messageId)throw Error('missing_id');
+ await C.sb(m,endpoint,{method:'PATCH',body:JSON.stringify({wa_message_id:messageId,status:'sent',updated_at:new Date().toISOString()})});
+ await C.upsertContact(phone,{last_outbound_at:new Date().toISOString()});return out(200,{ok:true});
+ }catch{await C.sb(m,endpoint,{method:'PATCH',body:JSON.stringify({status:'unconfirmed',updated_at:new Date().toISOString()})}).catch(()=>{});return out(502,{ok:false,error:'No se pudo confirmar el envío. Revisa WhatsApp y la conexión antes de volver a enviarlo.'});}
+ }
+ if(b.action==='care_contacts'){
  const rows=await C.sb(m,'whatsapp_contacts?select=phone_e164,name,needs_human,last_inbound_at,last_message_preview,metadata&order=last_inbound_at.desc.nullslast&limit=100');
  return out(200,{ok:true,rows});
  }
