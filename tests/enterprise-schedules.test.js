@@ -28,3 +28,9 @@ test('payment records actual amount and actor through one atomic RPC',async()=>{
 test('paid reminders cannot create another expense on retry',async()=>{const r=await run({id,action:'pay'},{row:{...planned,status:'paid',paid_entry_id:'existing-expense'}});assert.equal(r.data.already_paid,true);assert.equal(r.calls.some(c=>c.method==='POST'),false);});
 test('Inventory supplier obligations do not become duplicate manual expenses',async()=>{const r=await run({id,action:'pay'},{row:{...planned,category:'supplier'}});assert.equal(r.result.statusCode,409);assert.equal(r.calls.some(c=>c.method==='POST'),false);});
 test('changed schedules and unconfirmed settlement cannot post payments',async()=>{const a=await run({id,action:'pay',updated_at:'old',settled:true});assert.equal(a.result.statusCode,409);assert.equal(a.calls.some(c=>c.method==='POST'),false);const b=await run({id,action:'pay',updated_at:planned.updated_at});assert.equal(b.result.statusCode,400);assert.equal(b.calls.some(c=>c.method==='POST'),false);});
+
+test('pago de empresa exige cuenta y transmite su ID en la misma operación',async()=>{
+ const payment={id,action:'pay',updated_at:planned.updated_at,settled:true,amount:'25',currency:'USD',payment_method:'Efectivo USD',funded_by:'company',paid_on:M.today()};
+ const denied=await run(payment);assert.equal(denied.result.statusCode,400);assert.equal(denied.calls.some(c=>c.method==='POST'),false);
+ const accepted=await run({...payment,bank_account_id:id});assert.equal(accepted.result.statusCode,200);assert.equal(accepted.calls.find(c=>c.url.endsWith('/rpc/enterprise_pay_scheduled')).body.p_payment.bank_account_id,id);
+});

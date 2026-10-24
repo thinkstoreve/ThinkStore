@@ -29,6 +29,12 @@ function weekRange(seed){
   const start=caracasKey(monday),end=caracasKey(sunday);
   return {start,end,startIso:`${start}T00:00:00-04:00`,endIso:`${end}T23:59:59.999-04:00`};
 }
+function quarterRange(key){
+ if(!/^20[0-9]{2}-Q[1-4]$/.test(String(key||'')))return null;
+ const year=Number(key.slice(0,4)),month=(Number(key.slice(-1))-1)*3;
+ const start=new Date(Date.UTC(year,month,1)).toISOString().slice(0,10),end=new Date(Date.UTC(year,month+3,0)).toISOString().slice(0,10);
+ return {start,end,startIso:start+'T00:00:00-04:00',endIso:end+'T23:59:59.999-04:00'};
+}
 function inRange(value,range){const d=safeDate(value);return d&&d>=new Date(range.startIso)&&d<=new Date(range.endIso)}
 function paymentApproved(o){const decision=norm(o.payment_decision),st=norm(o.estado||o.status);return decision==='approved'||/pago verificado|preparando pedido|comprando proveedor|transito|disponible para|enviado|entregado|completado/.test(st)}
 function orderCancelled(o){return /cancel|rechaz|anulad/.test(norm(o.estado||o.status))}
@@ -411,7 +417,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const pettyBalanceVes=money(activePetty.filter(m=>clean(m.currency).toUpperCase()==='VES').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   const pettyAccount=pettyAccounts.find(a=>a.slug==='main')||pettyAccounts[0]||null;
   const activePettyBankMovements=pettyBankMovements.filter(m=>norm(m.status)!=='void');
-  const operationalBankMovements=activePettyBankMovements.filter(m=>['sale_receipt','service_receipt'].includes(norm(m.movement_type)));
+  const operationalBankMovements=activePettyBankMovements.filter(m=>['sale_receipt','service_receipt','expense_payment'].includes(norm(m.movement_type)));
   const operationalBankUsd=money(operationalBankMovements.filter(m=>clean(m.currency).toUpperCase()==='USD').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   const operationalBankVes=money(operationalBankMovements.filter(m=>clean(m.currency).toUpperCase()==='VES').reduce((n,m)=>n+movementSigned(m,x=>x.amount),0));
   // Auditoría informativa: jamás altera saldos, estados, caja ni historial.
@@ -664,7 +670,9 @@ exports.handler=async event=>{
   const supportKey=clean(process.env.SUPPORT_SUPABASE_SECRET_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY);
   if(!mainUrl||!mainKey)return out(501,{ok:false,error:'Falta configurar el Supabase principal en Enterprise'});
   const auth=await authManager(event,mainUrl,mainKey);if(!auth.ok)return out(403,{ok:false,error:auth.error});
-  const range=weekRange(event.queryStringParameters?.week||event.queryStringParameters?.date);
+  const quarter=event.httpMethod==='GET'?event.queryStringParameters?.quarter:null;
+  if(quarter&&!quarterRange(quarter))return out(400,{ok:false,error:'Trimestre inválido'});
+  const range=quarter?quarterRange(quarter):weekRange(event.queryStringParameters?.week||event.queryStringParameters?.date);
 
   try{
     if(event.httpMethod==='GET')return out(200,await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}));
@@ -867,3 +875,5 @@ exports.handler=async event=>{
 exports.authorizeManager=authManager;
 
 exports.receivableModel={storeReceivable,servicePendingAmount};
+
+exports.quarterRange=quarterRange;
