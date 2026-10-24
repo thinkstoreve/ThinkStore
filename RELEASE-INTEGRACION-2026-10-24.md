@@ -12,6 +12,11 @@ Migraciones MAIN y SOPORTE aditivas aplicadas el 24 octubre 2026. Copias privada
 Think Care utiliza UUID retenido en el formulario para que un reintento no duplique la solicitud.
 
 ## Validación
-15 pruebas: `node --test tests/requests-integral.test.js tests/whatsapp-service-events.test.js`; sintaxis y `git diff --check` aprobados. Incluye recuperación de conversión, límites de roles, ausencia de cobros al crear, consentimiento, duplicados y bloqueo por aprobación pendiente.
+24 pruebas: `node --test tests/requests-integral.test.js tests/whatsapp-service-events.test.js tests/whatsapp-integral-webhook.test.js`; sintaxis y `git diff --check` aprobados. Incluye recuperación de conversión, límites de roles, ausencia de cobros al crear, consentimiento, duplicados y bloqueo por aprobación pendiente.
 
 No implica aprobación de Meta ni verificación legal del negocio. La aprobación de plantillas y la documentación de la empresa dependen de Meta y del titular.
+
+## Conexiones de producción verificadas
+Avisos de servicio, citas, abonos y pedidos habilitados con control de aprobación de Meta; deuda automática desactivada. Relay Main–Soporte autenticado por secreto exclusivo de Functions en producción. Suscripción Meta `smb_message_echoes` activada. Las quince plantillas siguen PENDING en la comprobación final.
+
+El subdominio `enterprise.thinkstore.com.ve` presenta un error de certificado preexistente. Los nuevos accesos usan la ruta funcional `/growth-enterprise/index.html` de ThinkStore, verificada con carga de saldos actuales. No se modificaron DNS ni certificados.
