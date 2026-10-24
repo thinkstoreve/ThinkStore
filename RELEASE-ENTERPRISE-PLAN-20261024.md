@@ -1,6 +1,6 @@
 # Enterprise · planificación y saldo verificado
 
-Banesco: se anuló el movimiento 657c0ae3-ab85-4e86-80a6-59a56cca2292, por 22.026,66 VES, con respaldo privado y motivo explícito. Era un ingreso de la venta TS-2026-0015 (4179a652-5e28-49d1-8b76-8fb4dfc379e1), que ya no existe y no tiene pagos. El saldo Banesco resultante es 0. No se alteraron otras cuentas ni se creó un gasto de ajuste.
+Banesco: corrección autorizada de un movimiento de venta sin registro de origen ni pagos asociados. Se conserva el registro anulado, el motivo y una copia privada en Supabase. Los detalles financieros y referencias reales quedan en la auditoría privada, fuera de este informe técnico. No se alteraron otras cuentas ni se creó un gasto de ajuste.
 
 DNS: el CNAME enterprise apuntaba a thinkstore-enterprise.netify.app. Se corrigió en Cloudflare a thinkstore-entreprise.netlify.app, solo DNS. Netlify reconoce el destino; renovar el wildcard heredado falló por el desafío DNS _acme-challenge del dominio raíz. Se conserva la ruta segura /growth-enterprise/ y no se eliminó la zona DNS histórica ni se deshabilitó TLS. La verificación directa del subdominio fue bloqueada por revisión automática de seguridad debido al certificado previo.
 
