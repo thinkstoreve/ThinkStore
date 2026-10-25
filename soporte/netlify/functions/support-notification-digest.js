@@ -3,6 +3,10 @@ const reply=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application
 const meta=t=>({appointment_new:['Cita web','Nueva cita recibida'],appointment_updated:['Cita web','Cita actualizada'],client_message:['Mensaje del cliente','Nuevo mensaje'],client_review:['Reseña del cliente','Nueva reseña'],quote_approved:['Cotización aprobada','Cliente autorizó reparación'],order_ready:['Equipo listo','Listo para entregar'],order_status:['Cambio de estado','Estado actualizado']}[t]||['Soporte','Nueva notificación']);
 
 exports.handler=async()=>{
+  // Revisión de entregas independiente del correo, también cuando no hay alertas pendientes.
+  const reviewSecret=clean(process.env.WHATSAPP_EVENTS_SECRET);
+  if(reviewSecret){try{await fetch(`${clean(process.env.THINKSTORE_MAIN_URL||'https://thinkstore.com.ve').replace(/\/$/,'')}/.netlify/functions/whatsapp-service-relay`,{method:'POST',headers:{Authorization:`Bearer ${reviewSecret}`,'Content-Type':'application/json'},body:JSON.stringify({action:'review_batch'}),signal:AbortSignal.timeout(45000)});}catch(error){console.warn('review-delivery-recovery',error.message)}}
+
   const url=clean(process.env.SUPPORT_SUPABASE_URL||process.env.SUPABASE_URL).replace(/\/$/,'');
   const key=clean(process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY);
   const resend=clean(process.env.RESEND_API_KEY||process.env.RESEND_APY_KEY);
