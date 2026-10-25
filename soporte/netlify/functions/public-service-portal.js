@@ -43,6 +43,7 @@ function clientOrder(o){
     reported_issue:o.reported_issue,
     service_mode:o.service_mode,
     status:o.status,
+    delivery_outcome:o.delivery_outcome||null,
     created_at:o.created_at,
     updated_at:o.updated_at,
     delivered_at:o.delivered_at,
@@ -55,8 +56,8 @@ function clientOrder(o){
     quote_terms_accepted_at:o.quote_terms_accepted_at,
     quote_terms_version:o.quote_terms_version,
     quote_client_comment:o.quote_client_comment,
-    warranty_days:Number(o.warranty_days||0),
-    warranty_expires_at:addDays(delivered,Number(o.warranty_days||0)),
+    warranty_days:o.delivery_outcome==='not_repaired'?0:Number(o.warranty_days||0),
+    warranty_expires_at:o.delivery_outcome==='not_repaired'?null:addDays(delivered,Number(o.warranty_days||0)),
     payment_status:o.payment_status||'Pendiente',
     financing:require('../../repair-financing').snapshot(o),
     amount_paid:paid,
@@ -76,7 +77,7 @@ function historyFrom(o,notes=[]){
   push('Cotización enviada','Cotización enviada',o.quote_sent_at,'Cotización disponible para revisión.');
   push('Cotización aprobada','Aprobado por cliente',o.quote_approved_at,'Autorización registrada por el cliente.');
   push('Pago completado','Pago completado',o.paid_at,'Pago registrado en la orden.');
-  push('Equipo entregado','Entregado',o.delivered_at,'Servicio finalizado y equipo entregado.');
+  push('Equipo entregado','Entregado',o.delivered_at,o.delivery_outcome==='not_repaired'?'Equipo devuelto al cliente sin reparar.':'Servicio finalizado y equipo entregado.');
   const seen=new Set();
   return rows.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).filter(x=>{const k=`${x.title}|${x.created_at}`;if(seen.has(k))return false;seen.add(k);return true}).slice(0,80);
 }
@@ -189,7 +190,8 @@ exports.handler=async event=>{
 
     if(!secure){
       if(phoneLast4)return reply(403,{ok:false,error:'No pudimos verificar esos datos. Revisa los últimos 4 dígitos del teléfono registrado.'});
-      return reply(200,{ok:true,secure:false,requires_verification:Boolean(storedLast4),order:{code:o.code,device_model:o.device_model,status:o.status,updated_at:o.updated_at}});
+      return reply(200,{ok:true,secure:false,requires_verification:Boolean(storedLast4),order:{code:o.code,device_model:o.device_model,status:o.status,
+    delivery_outcome:o.delivery_outcome||null,updated_at:o.updated_at}});
     }
 
     const [notes,messages,photos,feedbackRows]=await Promise.all([
