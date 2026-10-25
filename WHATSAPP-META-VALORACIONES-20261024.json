@@ -1,0 +1,42 @@
+[
+  {
+    "name": "ts_entrega_reparada_opinion_v1",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}. Registramos la entrega de tu {{2}}, reparado, correspondiente a la orden {{3}} de ThinkStore. Gracias por confiar en nuestro servicio técnico.\n\nTu opinión sobre esta atención nos ayuda a mejorar. Si deseas, comparte tu experiencia en Google:\nhttps://www.google.com/maps/place/ThinkStore/data=!4m2!3m1!1s0x8c2a5914663bc5b3:0x13c923565c6dd517#lrd=0x8c2a5914663bc5b3:0x13c923565c6dd517,3,,,\n\nEscribe BAJA para dejar de recibir estos avisos.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "iPhone 14",
+              "TS-SVC-2026-0001"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ts_entrega_sin_reparar_opinion_v1",
+    "language": "es",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}. Registramos la devolución de tu {{2}} sin reparar, correspondiente a la orden {{3}} de ThinkStore. Gracias por confiar en nuestro servicio técnico.\n\nTu opinión sobre esta atención nos ayuda a mejorar. Si deseas, comparte tu experiencia en Google:\nhttps://www.google.com/maps/place/ThinkStore/data=!4m2!3m1!1s0x8c2a5914663bc5b3:0x13c923565c6dd517#lrd=0x8c2a5914663bc5b3:0x13c923565c6dd517,3,,,\n\nEscribe BAJA para dejar de recibir estos avisos.",
+        "example": {
+          "body_text": [
+            [
+              "Andrea",
+              "iPhone 14",
+              "TS-SVC-2026-0001"
+            ]
+          ]
+        }
+      }
+    ]
+  }
+]
