@@ -12,7 +12,7 @@ async function whatsappNotify(order,update={}){
   try{
     const r=await fetch(`${site}/.netlify/functions/whatsapp-service-relay`,{
       method:'POST',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json'},
-      body:JSON.stringify({action:'service_update',id:String(order.id),update})
+      body:JSON.stringify({action:order.status==='Entregado'?'review_send':'service_update',id:String(order.id),update})
     });
     const d=await r.json().catch(()=>({}));if(!r.ok)return{status:'error',reason:'relay_failed'};
     return d.whatsapp||{status:'skipped'};
@@ -248,6 +248,16 @@ exports.handler=async event=>{
       const signed=await sign(null,3600);return reply(200,{ok:true,url:signed,expires_in:3600,inline:true,provider:'supabase'});
     }
 
+    if(action==='review_status'||action==='review_send'){
+      if(!['superadmin','admin','reception'].includes(String(profile.rol||'').toLowerCase()))return reply(403,{ok:false,error:'Solo Recepción o Administración puede gestionar la entrega.'});
+      await ensureOrderAccess(clean(body.order_id));
+      const secret=clean(process.env.WHATSAPP_EVENTS_SECRET);
+      if(!secret)return reply(503,{ok:false,error:'El canal de valoraciones no está configurado.'});
+      const site=clean(process.env.THINKSTORE_MAIN_URL||'https://thinkstore.com.ve').replace(/\/$/,'');
+      const r=await fetch(`${site}/.netlify/functions/whatsapp-service-relay`,{method:'POST',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json'},body:JSON.stringify({action,id:String(body.order_id),retry:body.retry===true}),signal:AbortSignal.timeout(20000)});
+      const d=await r.json();if(!r.ok)return reply(502,{ok:false,error:'No se pudo consultar el envío de valoración.'});
+      return reply(200,d);
+    }
     if(action==='notify_repair_update'){
       const orderId=clean(body.order_id);if(!orderId)return reply(400,{ok:false,error:'Falta la orden'});
       await ensureOrderAccess(orderId);

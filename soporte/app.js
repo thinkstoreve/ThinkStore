@@ -212,7 +212,7 @@ const TSService=(()=>{
   function mapOrder(row){
     const checklist=row.reception_checklist||{},clientMeta=checklist.__client||{};
     const clientName=String(row.client_name||clientMeta.name||clientMeta.full_name||clientMeta.customer_name||row.customer_name||'').trim()||'Cliente';
-    return{id:row.id,code:row.code,client:clientName,phone:row.client_phone||clientMeta.phone||'',email:row.client_email||clientMeta.email||'',clientMeta,device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',quoteRepairDetails:row.quote_repair_details||'',quoteSentAt:row.quote_sent_at||'',quoteApprovedAt:row.quote_approved_at||'',quoteClientComment:row.quote_client_comment||'',quoteTermsVersion:row.quote_terms_version||'',quoteTermsAcceptedAt:row.quote_terms_accepted_at||'',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},receivedByName:checklist?.__meta?.received_by_name||row.created_by_email||'',receivedByEmail:checklist?.__meta?.received_by_email||row.created_by_email||'',receivedByRole:checklist?.__meta?.received_by_role||'',receivedAt:checklist?.__meta?.received_at||row.created_at||'',passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',publicToken:row.public_token||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
+    return{id:row.id,code:row.code,client:clientName,phone:row.client_phone||clientMeta.phone||'',email:row.client_email||clientMeta.email||'',clientMeta,device:row.device_model,deviceType:row.device_type||'',color:row.device_color||'',serial:row.serial_imei||'',priority:row.priority||'Normal',issue:row.reported_issue,accessories:row.accessories_received||'',visual:row.visual_condition||'',status:row.status||'Recibido',deliveryOutcome:row.delivery_outcome||'',tech:row.assigned_technician_email||'',quote:row.quote_status||'Pendiente',quoteAmount:Number(row.quote_amount||0),quoteCurrency:row.quote_currency||'USD',quoteRepairDetails:row.quote_repair_details||'',quoteSentAt:row.quote_sent_at||'',quoteApprovedAt:row.quote_approved_at||'',quoteClientComment:row.quote_client_comment||'',quoteTermsVersion:row.quote_terms_version||'',quoteTermsAcceptedAt:row.quote_terms_accepted_at||'',paymentReady:Object.prototype.hasOwnProperty.call(row,'payment_status'),paymentStatus:row.payment_status||'Pendiente',amountPaid:Number(row.amount_paid||0),paymentMethod:row.payment_method||'',paymentNotes:row.payment_notes||'',paidAt:row.paid_at||'',serviceMode:row.service_mode||'Presencial',warrantyDays:Number(row.warranty_days||0),deliveryMethod:row.delivery_method||'',trackingCompany:row.tracking_company||'',trackingCode:row.tracking_code||'',technicalNotes:row.technical_notes||'',checklist,signatures:row.signatures||{},receivedByName:checklist?.__meta?.received_by_name||row.created_by_email||'',receivedByEmail:checklist?.__meta?.received_by_email||row.created_by_email||'',receivedByRole:checklist?.__meta?.received_by_role||'',receivedAt:checklist?.__meta?.received_at||row.created_at||'',passwordReceived:Boolean(row.password_received),deliveredAt:row.delivered_at||'',publicToken:row.public_token||'',updated_at:row.updated_at||'',updated:dateText(row.updated_at||row.created_at),created_at:row.created_at};}
   function orderPaymentState(o={}){
     const quote=Math.max(0,Number(o.quoteAmount||0)),paid=Math.max(0,Number(o.amountPaid||0)),raw=String(o.paymentStatus||'').toLowerCase();
     const paidOff=/pagado|cobrado/.test(raw)||(quote>0&&paid+0.0001>=quote);
@@ -1027,8 +1027,8 @@ const TSService=(()=>{
     title.textContent=titles[view]||'Panel';
 
     if(view==='dashboard'&&session?.role==='technician'){
-      const repaired=orders.filter(o=>/listo para entregar|entregado|reparado|completado|finalizado/i.test(o.status)).length;
-      const notRepaired=orders.filter(o=>/no reparado|irreparable|no reparable/i.test(o.status)).length;
+      const repaired=orders.filter(o=>o.deliveryOutcome!=='not_repaired'&&!/no reparado|irreparable|no reparable/i.test(o.status)&&/listo para entregar|entregado|reparado|completado|finalizado/i.test(o.status)).length;
+      const notRepaired=orders.filter(o=>o.deliveryOutcome==='not_repaired'||/no reparado|irreparable|no reparable/i.test(o.status)).length;
       const approved=orders.filter(o=>o.quoteApprovedAt||/aprobado/i.test(o.quote)||/aprobado por cliente/i.test(o.status)).length;
       const notApproved=orders.filter(o=>/no aprobado|rechazado|rechaz/i.test(`${o.quote} ${o.status}`)).length;
       const paid=orders.filter(o=>orderPaymentState(o).key==='paid');
@@ -1202,7 +1202,7 @@ const TSService=(()=>{
     const scoped=code?orders.find(o=>String(o.code)===String(code)):null;if(scoped&&!requireTechnicianOrder(scoped))return;
     if(!can('bitacora')){alert('Tu rol no tiene permiso para bitácora');return}
     bOrderCode.value=code||'';bAuthor.value=session?.name||'';bType.value='Diagnóstico';bDetail.value='';bFiles.value='';
-    bStatus.value=scoped?.status&&Array.from(bStatus.options).some(o=>o.value===scoped.status)?scoped.status:'En diagnóstico';
+    bStatus.innerHTML=supportStatusOptions(scoped).map(st=>`<option>${esc(st)}</option>`).join('');bStatus.value=scoped?TSDelivery.label(scoped):'En diagnóstico';
     bClientVisible.checked=false;bNotifyClient.checked=false;bClientTitle.value='';bDiagnosis.value='';bWorkPerformed.value='';bPartsUsed.value='';bTestsPerformed.value='';bClientNotes.value='';
     const ctx=document.getElementById('bOrderContext');if(ctx)ctx.innerHTML=scoped?`<div><span>ORDEN</span><b>${esc(scoped.code)}</b></div><div><span>CLIENTE</span><b>${esc(scoped.client||'Cliente')}</b></div><div><span>EQUIPO</span><b>${esc(scoped.device||'Equipo')}</b></div><div><span>ESTADO ACTUAL</span><b>${esc(scoped.status||'Recibido')}</b></div>`:'<small>Escribe o selecciona una orden para preparar la actualización.</small>';
     syncBitacoraVisibility();renderBitacoraClientHistory(code);renderBitacoraPreview();document.getElementById('bitacoraModal').classList.add('open');
@@ -1256,11 +1256,13 @@ const TSService=(()=>{
     const entry={orderCode:code,type:bType.value,author:bAuthor.value.trim()||session?.name||'Sin responsable',status:bStatus.value,detail:bDetail.value.trim(),files:bFiles.value.trim(),visibility:clientVisible?'client':'internal',clientTitle:bClientTitle.value.trim(),diagnosis:bDiagnosis.value.trim(),workPerformed:bWorkPerformed.value.trim(),partsUsed:bPartsUsed.value.trim(),testsPerformed:bTestsPerformed.value.trim(),clientNotes:bClientNotes.value.trim(),created:new Date().toLocaleString('es-VE')};
     if(clientVisible&&!entry.clientTitle)entry.clientTitle=entry.type==='Entrega'?'Resumen de tu reparación':entry.status;
     if(clientVisible&&!entry.detail&&!entry.workPerformed&&!entry.diagnosis&&!entry.testsPerformed){alert('Para publicar al cliente añade al menos un resumen, diagnóstico, trabajo realizado o pruebas.');return}
+    const deliveryChanges=TSDelivery.change(entry.status);if(!confirmDeliveryChange(order,deliveryChanges))return;entry.status=deliveryChanges.status;entry.deliveryOutcome=deliveryChanges.delivery_outcome;
     const payload={order_id:order.id,note:entry.detail||entry.workPerformed||entry.diagnosis||entry.testsPerformed,visibility:entry.visibility,author_name:entry.author,note_type:entry.type,status_after:entry.status,attachments:entry.files||null,client_title:entry.clientTitle||null,diagnosis:entry.diagnosis||null,work_performed:entry.workPerformed||null,parts_used:entry.partsUsed||null,tests_performed:entry.testsPerformed||null,client_notes:entry.clientNotes||null};
     const {error:noteError}=await supabaseClient.from('service_order_notes').insert(payload);if(noteError){alert('No se pudo guardar la bitácora: '+noteError.message);return}
-    const changes={status:entry.status};if(entry.status==='Entregado')changes.delivered_at=new Date().toISOString();
+    const changes={...deliveryChanges};if(entry.status==='Entregado')changes.delivered_at=order.deliveredAt||new Date().toISOString();
     const {error:updateError}=await supabaseClient.from('service_orders').update(changes).eq('id',order.id);if(updateError){alert('La nota se guardó, pero no se actualizó el estado: '+updateError.message);return}
     await audit('add_note',order.id,null,entry);
+    if(entry.status==='Entregado')await processDeliveryReview(order.id);
     let notificationSent=false;
     if(notifyClient){
       try{
@@ -1403,16 +1405,16 @@ const TSService=(()=>{
 
 
   function supportStatusOptions(order){
-    const all=['Solicitud web','Recibido','En diagnóstico','Diagnóstico disponible','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar','Entregado','No reparado','No aprobado','Cancelado'];
-    if(session?.role!=='technician')return all;
+    const all=['Solicitud web','Recibido','En diagnóstico','Diagnóstico disponible','Cotización enviada','Aprobado por cliente','En reparación','Esperando repuesto','Listo para entregar',TSDelivery.repaired,TSDelivery.notRepaired,'No reparado','No aprobado','Cancelado'];
+    if(session?.role!=='technician')return order?.status==='Entregado'&&!order.deliveryOutcome?['Entregado',...all]:all;
     const allowed=['En diagnóstico','Diagnóstico disponible','En reparación','Esperando repuesto','Listo para entregar','No reparado'];
-    const current=String(order?.status||'');
+    const current=TSDelivery.label(order);
     return current&&!allowed.includes(current)?[current,...allowed]:allowed;
   }
 
   function ordersTable(scope='orders'){
     const filtered=orders.filter(o=>scope==='technical'?['En diagnóstico','Diagnóstico disponible','Aprobado por cliente','En reparación','Esperando repuesto'].includes(o.status):scope==='sales'?['Cotización enviada','No aprobado'].includes(o.status):scope==='logistics'?['Listo para entregar','Entregado'].includes(o.status):true);
-    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Los pagos de App Ventas se sincronizan automáticamente</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado técnico / pago</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id)),pay=orderPaymentState(o);return `<tr class="${pay.key==='paid'?'support-order-paid':''}"><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><div class="support-order-state">${paymentBadgeHtml(o)}<small class="support-order-tech-label">Estado técnico</small><select onchange="TSService.updateStatus(${i},this.value)">${supportStatusOptions(o).map(st=>`<option ${o.status===st?'selected':''}>${st}</option>`).join('')}</select></div></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> ${can('reception')?`<button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button>`:''} <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
+    return `<div class="tablewrap"><div class="bitacora-header"><div><h3>Órdenes reales</h3><p>${filtered.length} registro(s) visibles · Los pagos de App Ventas se sincronizan automáticamente</p></div>${can('reception')?'<button onclick="TSService.openServiceOrder()">Nueva recepción</button>':''}</div><table><tr><th>Código</th><th>Cliente</th><th>Equipo</th><th>Técnico / presupuesto</th><th>Estado técnico / pago</th><th>Acciones</th></tr>${filtered.map(o=>{const i=orders.findIndex(x=>String(x.id)===String(o.id)),pay=orderPaymentState(o);return `<tr class="${pay.key==='paid'?'support-order-paid':''}"><td><b>${esc(o.code)}</b><br><small>${esc(o.updated)}</small>${o.receivedByName?`<br><small>Recibió: ${esc(o.receivedByName)}</small>`:''}</td><td>${esc(o.client)}<br><small>${esc(o.phone)}${o.email?' · '+esc(o.email):''}</small></td><td>${esc(o.device)}<br><small>${esc(o.serial||'Sin serial')} ${o.color?'· '+esc(o.color):''}</small></td><td>${esc(o.tech||'Sin asignar')}<br><small>${o.quoteAmount?`${esc(o.quoteCurrency)} ${o.quoteAmount.toFixed(2)} · `:''}${esc(o.quote)}</small></td><td><div class="support-order-state">${paymentBadgeHtml(o)}<small class="support-order-tech-label">Estado técnico</small><select onchange="TSService.updateStatus(${i},this.value)">${supportStatusOptions(o).map(st=>`<option ${TSDelivery.label(o)===st?'selected':''}>${st}</option>`).join('')}</select></div></td><td><button onclick="TSService.openOrderManager('${esc(o.id)}')">Gestionar</button> ${can('reception')?`<button class="secondary" onclick="TSService.openExistingReception('${esc(o.id)}')">${o.checklist&&Object.keys(o.checklist).length?'Editar recepción':'Recepción'}</button>`:''} <button class="secondary" onclick="TSService.openBitacora('${esc(o.code)}')">Bitácora</button> <button class="secondary" onclick="TSService.printOrder(${i})">Hoja</button> <button class="secondary" onclick="TSService.printLabel(${i})">Etiqueta QR</button></td></tr>`}).join('')||'<tr><td colspan="6">No hay órdenes para este módulo.</td></tr>'}</table></div>`}
 
   // La vista de "Gestionar" y el editor usan el mismo estado de financiación.
   // Evita referencias a variables locales de otra función (regresión V15.39).
@@ -1689,7 +1691,7 @@ const TSService=(()=>{
     mQuoteAmount.value=window.TSMoneyInput.display(o.quoteAmount||0);mQuoteStatus.value=o.quote;mQuoteRepairDetails.value=o.quoteRepairDetails||'';mPaymentStatus.value=o.paymentStatus||'Pendiente';mAmountPaid.value=o.amountPaid||'';mPaymentMethod.value=o.paymentMethod||'';mPaymentNotes.value=o.paymentNotes||'';mServiceMode.value=o.serviceMode||'Presencial';mWarrantyDays.value=o.warrantyDays||0;mDeliveryMethod.value=o.deliveryMethod||'';mTrackingCompany.value=o.trackingCompany||'';mTrackingCode.value=o.trackingCode||'';mTechnicalNotes.value=sanitizeTechnicalNotes(o.technicalNotes||'');const techMode=session?.role==='technician';[mTechnician,mPaymentStatus,mAmountPaid,mPaymentMethod,mPaymentNotes,mServiceMode,mDeliveryMethod,mTrackingCompany,mTrackingCode].forEach(el=>{if(el)el.disabled=techMode});const qa=document.getElementById('mQuoteApprovalState');if(qa)qa.innerHTML=o.quoteApprovedAt?`<div class="notice success"><b>Cotización aprobada por el cliente</b><small>${dateText(o.quoteApprovedAt)}${o.quoteClientComment?` · Comentario: ${esc(o.quoteClientComment)}`:''}</small></div>`:o.quoteSentAt?`<div class="notice"><b>Cotización enviada</b><small>${dateText(o.quoteSentAt)} · En espera de aprobación.</small></div>`:'';
     repairPartSelection.clear();orderPartRowsForOrder(o).filter(r=>r.status==='reserved').forEach(r=>repairPartSelection.set(String(r.part_id),Number(r.quantity_reserved||1)));const partSearch=document.getElementById('mPartSearch');if(partSearch)partSearch.value='';renderOrderPartPicker('');
     renderManagerFinance(o,[],false);updateManagerPaymentInputs();['mQuoteAmount','mFinInitial','mNewPayAmount','mNewPayUsd'].forEach(id=>window.TSMoneyInput?.attach(id));const recv=document.getElementById('mReceivePaymentBox');if(recv)recv.hidden=session?.role==='technician';
-    await renderOrderFiles(o.id);await renderOrderMessages(o.id,{initial:true});startOrderMessagePolling(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');refreshManagerPaymentView().catch(error=>console.warn('Consulta de caja',error));
+    await renderOrderFiles(o.id);await renderOrderMessages(o.id,{initial:true});startOrderMessagePolling(o.id);const clientTimeline=document.getElementById('mClientTimeline');if(clientTimeline){const visible=clientVisibleNotesForOrder(o.id).slice(0,5);clientTimeline.innerHTML=visible.length?visible.map(clientNoteHtml).join(''):'<small>No hay actualizaciones públicas todavía.</small>'}modal.classList.add('open');refreshDeliveryReview(o);refreshManagerPaymentView().catch(error=>console.warn('Consulta de caja',error));
   }
   async function resolveOrderFileMedia(p={}){
     const key=String(p.id||p.storage_path||p.file_url||'');
@@ -2643,6 +2645,31 @@ const TSService=(()=>{
       'Cancelado':'La orden fue cancelada.'
     };return map[status]||`El estado de tu reparación cambió a ${status}.`;
   }
+  function confirmDeliveryChange(order,changes){
+    if(changes.status!=='Entregado')return true;
+    if(!['superadmin','admin','reception'].includes(session?.role)){toast('La entrega debe confirmarla Recepción o Administración.','error');return false}
+    if(!changes.delivery_outcome){if(order.status==='Entregado')return true;toast('Selecciona si el equipo se entregó reparado o sin reparar.','error');return false}
+    if(order.status==='Entregado'&&order.deliveryOutcome===changes.delivery_outcome)return true;
+    return confirm(`${TSDelivery.label({status:'Entregado',delivery_outcome:changes.delivery_outcome})} · ${order.code}\nConfirma que el cliente ya recibió el equipo. Se preparará una única invitación a valorar la atención por WhatsApp, si el canal y el consentimiento lo permiten.`);
+  }
+  async function processDeliveryReview(id,retry=false){
+    try{return await supportSecureAction({action:'review_send',order_id:id,retry})}
+    catch(error){toast('Entrega guardada. El aviso queda pendiente de comprobar: '+String(error.message||error),'error');return null}
+  }
+  function showDeliveryReview(box,notice){
+    const state=notice?.status||'not_eligible';box.replaceChildren();
+    const title=document.createElement('h3');title.textContent='Opinión del cliente · WhatsApp';box.append(title);
+    const line=document.createElement('p');line.textContent=TSDelivery.messages[state]||'No se pudo comprobar el envío';box.append(line);
+    if(notice?.reason){const reason=document.createElement('p');reason.textContent=TSDelivery.reasons[notice.reason]||'Consulta el estado del canal antes de reenviar.';box.append(reason)}
+    if(state==='pending'||state==='failed'&&Number(notice.attempts||0)<3){const button=document.createElement('button');button.type='button';button.textContent=state==='failed'?'Reintentar envío':'Comprobar y procesar';button.onclick=async()=>{button.disabled=true;const id=String(activeOrderId);await processDeliveryReview(id,state==='failed');if(String(activeOrderId)===id)await refreshDeliveryReview(orders.find(o=>String(o.id)===id));};box.append(button)}
+  }
+  async function refreshDeliveryReview(o){
+    const box=document.getElementById('mReviewDelivery');if(!box)return;
+    box.hidden=!o||o.status!=='Entregado'||!['superadmin','admin','reception'].includes(session?.role);if(box.hidden)return;
+    box.textContent='Consultando invitación de valoración…';const id=String(o.id);
+    try{const d=await supportSecureAction({action:'review_status',order_id:id});if(String(activeOrderId)===id)showDeliveryReview(box,d.whatsapp)}
+    catch(error){if(String(activeOrderId)===id)box.textContent='No se pudo comprobar la invitación. '+String(error.message||'Vuelve a abrir la orden.')}
+  }
   async function updateStatus(i,status){
     const order=orders[i];if(!order||!requireTechnicianOrder(order))return;
     if(session?.role==='technician'&&!['En diagnóstico','Diagnóstico disponible','En reparación','Esperando repuesto','Listo para entregar','No reparado'].includes(status)){toast('Ese estado debe gestionarlo Recepción o Administración.','error');await renderPanel('orders');return}
@@ -2653,12 +2680,13 @@ const TSService=(()=>{
       return;
     }
     const previous=order.status;
-    const changes={status};if(status==='Entregado')changes.delivered_at=new Date().toISOString();
+    const changes=TSDelivery.change(status);if(!confirmDeliveryChange(order,changes)){await renderPanel('orders');return}status=changes.status;if(status==='Entregado')changes.delivered_at=order.deliveredAt||new Date().toISOString();
     const {error}=await supabaseClient.from('service_orders').update(changes).eq('id',order.id);
     if(error){alert('No se pudo actualizar el estado: '+error.message);await renderPanel('orders');return}
     if(['No aprobado','Cancelado'].includes(status))await releasePreparedParts(order,status==='No aprobado'?'Cotización no aprobada':'Orden cancelada');
-    await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:publicStatusMessage(status),visibility:'client',author_name:session?.name||'Soporte ThinkStore',note_type:'Cambio de estado',status_after:status,client_title:status});
+    await supabaseClient.from('service_order_notes').insert({order_id:order.id,note:status==='Entregado'?TSDelivery.description({...order,deliveryOutcome:changes.delivery_outcome}):publicStatusMessage(status),visibility:'client',author_name:session?.name||'Soporte ThinkStore',note_type:'Cambio de estado',status_after:status,client_title:status});
     await audit('update_status',order.id,{status:previous},{status});await loadSupportData();await renderPanel('orders');toast('Estado actualizado y registrado en el seguimiento.');
+    if(status==='Entregado')await processDeliveryReview(order.id);
     if((order.email||order.phone)&&status!==previous)sendOrderEmail({...order,status},true).catch(error=>console.warn('Correo automático de soporte:',error));
   }
   function trackingUrl(order){

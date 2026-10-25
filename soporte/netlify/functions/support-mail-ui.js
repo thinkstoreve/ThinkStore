@@ -69,6 +69,7 @@ function statusPresentation(status){
   if(/aprob/.test(s))return{eyebrow:'REPARACIÓN AUTORIZADA',title:'Cotización aprobada',lead:'Ya recibimos tu autorización. Tu equipo puede continuar al proceso de reparación.',cta:'Ver seguimiento',tone:'green'};
   if(/diagnóstico disponible|diagnostico disponible|diagnóstico complet|diagnostico complet/.test(s))return{eyebrow:'DIAGNÓSTICO LISTO',title:'Diagnóstico de tu equipo disponible',lead:'El diagnóstico técnico ya está publicado y puedes revisarlo desde tu seguimiento seguro.',cta:'Ver diagnóstico',tone:'blue'};
   if(/diagn/.test(s))return{eyebrow:'DIAGNÓSTICO',title:'Estamos revisando tu equipo',lead:'Nuestro equipo técnico está verificando la falla y documentando el diagnóstico.',cta:'Ver seguimiento',tone:'blue'};
+  if(/no reparado|sin reparar/.test(s))return{eyebrow:'DIAGNÓSTICO FINALIZADO',title:'Diagnóstico final de tu equipo',lead:'El equipo no pudo ser reparado. Nuestro equipo coordinará contigo los siguientes pasos.',cta:'Ver diagnóstico',tone:'amber'};
   if(/repar/.test(s))return{eyebrow:'EN REPARACIÓN',title:'Tu equipo está en reparación',lead:'El servicio técnico está avanzando con el trabajo autorizado.',cta:'Ver seguimiento',tone:'blue'};
   if(/repuesto|pieza|espera/.test(s))return{eyebrow:'ACTUALIZACIÓN',title:'Estamos esperando un repuesto',lead:'Tu orden sigue activa. Te avisaremos en cuanto podamos continuar con la reparación.',cta:'Ver seguimiento',tone:'amber'};
   if(/listo/.test(s))return{eyebrow:'EQUIPO LISTO',title:'Tu equipo está listo para entregar',lead:'La reparación finalizó. Revisa el seguimiento y coordina la entrega con nuestro equipo.',cta:'Ver seguimiento',tone:'green'};
@@ -93,12 +94,12 @@ function appointmentClientEmail(body={},appointment={}){
 }
 
 function statusClientEmail(order={}){
-  const isQuote=/cotiz/i.test(`${order.status||''} ${order.quote_status||''}`)||/^enviado$/i.test(clean(order.quote_status));
-  const p=isQuote?statusPresentation('Cotización enviada'):statusPresentation(order.status||order.quote_status);
+  const isQuote=order.status!=='Entregado'&&(/cotiz/i.test(`${order.status||''} ${order.quote_status||''}`)||/^enviado$/i.test(clean(order.quote_status)));
+  const p=order.status==='Entregado'&&order.delivery_outcome==='not_repaired'?{title:'Tu equipo fue devuelto sin reparar',eyebrow:'ENTREGA REGISTRADA',lead:'Registramos la devolución de tu equipo sin reparar. Consulta el diagnóstico y las observaciones del servicio.',cta:'Ver seguimiento'}:isQuote?statusPresentation('Cotización enviada'):statusPresentation(order.status||order.quote_status);
   const url=trackingUrl(order);
-  let body=rows([['Equipo',order.device_model||order.device_type],['Estado',order.status],['Orden',order.code],['Garantía',order.warranty_days?`${order.warranty_days} días`:'' ]]);
+  let body=rows([['Equipo',order.device_model||order.device_type],['Estado',order.status],['Orden',order.code],['Garantía',order.delivery_outcome!=='not_repaired'&&order.warranty_days?`${order.warranty_days} días`:'' ]]);
   if(isQuote){body+=rows([['Monto',money(order.quote_currency,order.quote_amount)]])+callout('Reparación propuesta',order.quote_repair_details||'');}
-  else if(order.quote_repair_details)body+=callout('Trabajo registrado',order.quote_repair_details,'blue');
+  else if(order.quote_repair_details&&order.delivery_outcome!=='not_repaired')body+=callout('Trabajo registrado',order.quote_repair_details,'blue');
   body+=paragraph('Desde el seguimiento seguro puedes revisar la bitácora, fotografías y mensajes de nuestro equipo técnico.');
   return{subject:isQuote?`Cotización lista · ${order.code} · ThinkStore`:`${p.title} · ${order.code} · ThinkStore`,html:emailShell({preheader:`${p.title} · Orden ${clean(order.code)}`,eyebrow:p.eyebrow,title:p.title,lead:`Hola ${clean(order.client_name)||'Cliente'}. ${p.lead}`,body,ctaLabel:p.cta,ctaUrl:url,code:order.code}),text:`ThinkStore Servicio Técnico\n\n${p.title}\nOrden: ${clean(order.code)}\nEquipo: ${clean(order.device_model||order.device_type)}\nEstado: ${clean(order.status)}${isQuote?`\nMonto: ${money(order.quote_currency,order.quote_amount)}\nReparación: ${clean(order.quote_repair_details)}`:''}\n\nSeguimiento: ${url}\n\nsoporte@thinkstore.com.ve`};
 }

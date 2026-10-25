@@ -2,6 +2,7 @@
 const crypto=require('node:crypto');
 const C=require('./_whatsapp-core');
 const W=require('./_whatsapp-service-events');
+const Reviews=require('./_whatsapp-reviews');
 const reply=(s,body)=>({statusCode:s,headers:{'Content-Type':'application/json','Cache-Control':'no-store'},body:JSON.stringify(body)});
 function validSecret(a,b){if(!a||!b)return false;const x=crypto.createHash('sha256').update(String(a)).digest(),y=crypto.createHash('sha256').update(String(b)).digest();return crypto.timingSafeEqual(x,y)}
 exports.handler=async event=>{
@@ -10,9 +11,12 @@ exports.handler=async event=>{
  if(!validSecret(supplied,process.env.WHATSAPP_EVENTS_SECRET))return reply(403,{ok:false,error:'forbidden'});
  let b;try{b=JSON.parse(event.body||'{}')}catch{return reply(400,{ok:false,error:'invalid_json'})}
  const action=String(b.action||''),id=String(b.id||'');
- if(!/^[a-z0-9-]{1,80}$/i.test(id))return reply(400,{ok:false,error:'invalid_id'});
+ if(action!=='review_batch'&&!/^[a-z0-9-]{1,80}$/i.test(id))return reply(400,{ok:false,error:'invalid_id'});
  try{
    const cfg=C.supportCfg();
+   if(action==='review_batch')return reply(200,{ok:true,whatsapp:await Reviews.batch()});
+   if(action==='review_status')return reply(200,{ok:true,whatsapp:Reviews.result(await Reviews.get(id))});
+   if(action==='review_send')return reply(200,{ok:true,whatsapp:await Reviews.send(id,{retry:b.retry===true})});
    if(action==='appointment'){
      const rows=await C.sb(cfg,`service_appointments?select=id,client_name,client_phone,preferred_date,preferred_time&id=eq.${encodeURIComponent(id)}&limit=1`);
      if(!rows?.[0])return reply(404,{ok:false,error:'appointment_missing'});
