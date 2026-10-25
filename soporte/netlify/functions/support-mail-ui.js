@@ -93,10 +93,10 @@ function appointmentClientEmail(body={},appointment={}){
 }
 
 function statusClientEmail(order={}){
-  const isQuote=/cotiz/i.test(`${order.status||''} ${order.quote_status||''}`)||/^enviado$/i.test(clean(order.quote_status));
-  const p=isQuote?statusPresentation('Cotización enviada'):statusPresentation(order.status||order.quote_status);
+  const isQuote=order.status!=='Entregado'&&(/cotiz/i.test(`${order.status||''} ${order.quote_status||''}`)||/^enviado$/i.test(clean(order.quote_status)));
+  const p=order.status==='Entregado'&&order.delivery_outcome==='not_repaired'?{title:'Tu equipo fue devuelto sin reparar',eyebrow:'ENTREGA REGISTRADA',lead:'Registramos la devolución de tu equipo sin reparar. Consulta el diagnóstico y las observaciones del servicio.',cta:'Ver seguimiento'}:isQuote?statusPresentation('Cotización enviada'):statusPresentation(order.status||order.quote_status);
   const url=trackingUrl(order);
-  let body=rows([['Equipo',order.device_model||order.device_type],['Estado',order.status],['Orden',order.code],['Garantía',order.warranty_days?`${order.warranty_days} días`:'' ]]);
+  let body=rows([['Equipo',order.device_model||order.device_type],['Estado',order.status],['Orden',order.code],['Garantía',order.delivery_outcome!=='not_repaired'&&order.warranty_days?`${order.warranty_days} días`:'' ]]);
   if(isQuote){body+=rows([['Monto',money(order.quote_currency,order.quote_amount)]])+callout('Reparación propuesta',order.quote_repair_details||'');}
   else if(order.quote_repair_details)body+=callout('Trabajo registrado',order.quote_repair_details,'blue');
   body+=paragraph('Desde el seguimiento seguro puedes revisar la bitácora, fotografías y mensajes de nuestro equipo técnico.');
