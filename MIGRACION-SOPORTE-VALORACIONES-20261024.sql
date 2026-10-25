@@ -2,7 +2,7 @@
 BEGIN;
 ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS delivery_outcome text CHECK(delivery_outcome IN ('repaired','not_repaired'));
 CREATE TABLE IF NOT EXISTS public.service_review_deliveries (
- order_id bigint PRIMARY KEY REFERENCES public.service_orders(id),
+ order_id bigint PRIMARY KEY REFERENCES public.service_orders(id) ON DELETE CASCADE,
  outcome text NOT NULL CHECK(outcome IN ('repaired','not_repaired','legacy')),
  state text NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','processing','sent','failed','unknown','skipped','excluded')),
  reason text,
@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS public.service_review_deliveries (
  created_at timestamptz NOT NULL DEFAULT now(),
  updated_at timestamptz NOT NULL DEFAULT now()
 );
+-- Conserva la eliminación de órdenes ya autorizada por el flujo existente.
+ALTER TABLE public.service_review_deliveries DROP CONSTRAINT IF EXISTS service_review_deliveries_order_id_fkey;
+ALTER TABLE public.service_review_deliveries ADD CONSTRAINT service_review_deliveries_order_id_fkey FOREIGN KEY(order_id) REFERENCES public.service_orders(id) ON DELETE CASCADE;
 ALTER TABLE public.service_review_deliveries ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.service_review_deliveries FROM PUBLIC,anon,authenticated;
 GRANT ALL ON public.service_review_deliveries TO service_role;
