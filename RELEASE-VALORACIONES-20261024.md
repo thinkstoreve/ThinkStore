@@ -10,4 +10,4 @@ El envío se intenta al confirmar la entrega. El resumen programado existente re
 
 En Gestionar aparece el estado de la invitación y el control de reintento seguro. No se envía a clientes históricos ni se realizan envíos reales durante las pruebas.
 
-Migración: `MIGRACION-SOPORTE-VALORACIONES-20261024.sql`, solo proyecto Soporte. Pruebas: Node (43 casos) y `tests/review-delivery-rollback.sql` para validación transaccional. No modifica saldos, pagos, pedidos ni órdenes de producción durante las pruebas.
+Migración: `MIGRACION-SOPORTE-VALORACIONES-20261024.sql`, solo proyecto Soporte. Pruebas: Node (45 casos) y `tests/review-delivery-rollback.sql` para validación transaccional. No modifica saldos, pagos, pedidos ni órdenes de producción durante las pruebas.
