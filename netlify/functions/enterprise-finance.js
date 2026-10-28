@@ -568,7 +568,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
 
   return{
     ok:true,generated_at:new Date().toISOString(),timezone:'America/Caracas',period:{start:range.start,end:range.end},
-    settings:{company_pct:num(cfg.company_share_pct)||50,freddy_pct:num(cfg.freddy_share_pct)||25,nelson_pct:num(cfg.nelson_share_pct)||25,technician_pct:10,technician_commission_model:'gross_total_10pct',technician_parts_pct:cfg.technician_parts_default_pct??null,technician_service_pct:cfg.technician_service_default_pct??null,technician_hardware_pct:cfg.technician_hardware_default_pct??null,technician_software_pct:cfg.technician_software_default_pct??null,seller_pct:cfg.seller_default_pct??null},
+    settings:{company_pct:hasNum(cfg.company_share_pct)?num(cfg.company_share_pct):50,freddy_pct:hasNum(cfg.freddy_share_pct)?num(cfg.freddy_share_pct):25,nelson_pct:hasNum(cfg.nelson_share_pct)?num(cfg.nelson_share_pct):25,technician_pct:10,technician_commission_model:'gross_total_10pct',technician_parts_pct:cfg.technician_parts_default_pct??null,technician_service_pct:cfg.technician_service_default_pct??null,technician_hardware_pct:cfg.technician_hardware_default_pct??null,technician_software_pct:cfg.technician_software_default_pct??null,seller_pct:cfg.seller_default_pct??null},
     sales_ledger:salesLedger,
     capital_accumulated:Funds.companyCapital(audits),
     voided_entries:entries.filter(e=>!entryActive(e)).slice(0,250),

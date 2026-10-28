@@ -3311,7 +3311,7 @@ function renderV9RealMarketing(data){
   function receiptAllocation(row){
     const money=v=>Math.max(0,Number(v)||0);
     const paid=money(row.collected_usd);
-    const inventory=money(row.inventory_recovery_usd);
+    const inventory=money(row.inventory_recovery_usd)+money(row.service_direct_cost_usd);
     const commission=money(row.total_commission_usd);
     const recovered=Math.min(paid,inventory);
     const reserve=Math.min(Math.max(0,paid-recovered),commission);
@@ -3322,7 +3322,7 @@ function renderV9RealMarketing(data){
     const rows=Array.isArray(d?.treasury_allocations?.settlements)?d.treasury_allocations.settlements:[];
     return rows.slice(0,80).map((x,i)=>{
       const r=receiptAllocation(x);
-      return `<div class="service-profit-row"><div class="service-profit-id"><b>${safe(x.order_code||'Servicio')}</b><small>${fd(x.settled_at||x.updated_at)}${x.technician_name||x.technician_email?` · ${safe(x.technician_name||x.technician_email)}`:''}</small></div><div><span>Cobrado acumulado</span><b>${fm(r.paid)}</b></div><div><span>Costo por recuperar</span><b>${fm(r.inventoryRemaining)}</b></div><div><span>Comisión por reservar</span><b>${fm(r.commissionRemaining)}</b></div><div class="service-profit-company"><span>Excedente provisional</span><b>${fm(r.free)}</b><small>Sin distribuir</small></div><button type="button" class="mini-action ts-original-ver" data-ts-credit-detail="${i}" aria-expanded="false">VER</button><div class="ts-credit-inline" data-credit-inline="${i}" hidden></div></div>`;
+      return `<div class="service-profit-row"><div class="service-profit-id"><b>${safe(x.order_code||'Servicio')}</b><small>${fd(x.settled_at||x.updated_at)}${x.technician_name||x.technician_email?` · ${safe(x.technician_name||x.technician_email)}`:''}</small></div><div><span>Cobrado acumulado</span><b>${fm(r.paid)}</b></div><div><span>Costo por recuperar</span><b>${fm(r.inventoryRemaining)}</b></div><div><span>Comisión por reservar</span><b>${fm(r.commissionRemaining)}</b></div><div class="service-profit-company"><span>Excedente provisional</span><b>${fm(r.free)}</b><small>Sin distribuir</small></div><button type="button" class="mini-action ts-original-ver" data-ts-credit-detail="${i}" aria-expanded="false">Ver desglose</button><div class="ts-credit-inline" data-credit-inline="${i}" hidden></div></div>`;
     }).join('')||'<div class="fin-empty">Todavía no hay liquidaciones automáticas de Servicio Técnico en este periodo.</div>';
   }
   document.addEventListener('click',e=>{
@@ -3333,25 +3333,9 @@ function renderV9RealMarketing(data){
     const panel=btn.closest('.service-profit-row')?.querySelector('[data-credit-inline]');
     if(!row||!panel)return;
     const isOpen=!panel.hidden;
-    document.querySelectorAll('.ts-credit-inline:not([hidden])').forEach(el=>{el.hidden=true;const b=el.closest('.service-profit-row')?.querySelector('[data-ts-credit-detail]');if(b){b.textContent='VER';b.setAttribute('aria-expanded','false')}});
+    document.querySelectorAll('.ts-credit-inline:not([hidden])').forEach(el=>{el.hidden=true;const b=el.closest('.service-profit-row')?.querySelector('[data-ts-credit-detail]');if(b){b.textContent='Ver desglose';b.setAttribute('aria-expanded','false')}});
     if(isOpen)return;
-    const a=receiptAllocation(row);
-    const items=[
-      ['Orden / fuente',row.order_code||'Servicio Técnico'],
-      ['Cobrado acumulado',fm(a.paid)],
-      ['Costo registrado',fm(a.inventory)],
-      ['Costo cubierto',fm(a.recovered)],
-      ['Costo pendiente de recuperar',fm(a.inventoryRemaining)],
-      ['Comisión registrada',fm(a.commission)],
-      ['Comisión cubierta o reservada',fm(a.reserve)],
-      ['Comisión todavía por cubrir',fm(a.commissionRemaining)],
-      ['Excedente provisional · sin distribuir',fm(a.free)],
-      ['Utilidad contractual estimada · no cobrada',fm(row.company_profit_usd)]
-    ];
-    panel.replaceChildren();
-    const heading=document.createElement('strong');heading.textContent='Detalle de la aplicación del cobro';panel.append(heading);
-    items.forEach(([label,value])=>{const line=document.createElement('div');line.className='ts-credit-detail-line';const l=document.createElement('span');l.textContent=label;const v=document.createElement('b');v.textContent=value;line.append(l,v);panel.append(line)});
-    const note=document.createElement('p');note.textContent='Consulta únicamente: no registra pagos, modifica inventario ni distribuye utilidades. La deuda pendiente se verifica en la orden original.';panel.append(note);
+    panel.innerHTML=window.TSServiceBreakdown.render(row,financeCache?.settings||{});
     panel.hidden=false;btn.textContent='OCULTAR';btn.setAttribute('aria-expanded','true');
   });
   function sellerCommissionRows(d){

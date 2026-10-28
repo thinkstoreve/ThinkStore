@@ -28,3 +28,4 @@ test('abono parcial no crea comisión pagadera ni declara factura cobrada',async
  const {saved,commissions}=await settle({paid:50});assert.equal(saved.collected_usd,50);assert.equal(saved.metadata.payment_reconciliation.receivable_usd,50);assert.equal(commissions.length,0);
 });
 test('reserva el 10% aunque falte asignar técnico',async()=>{const {commissions}=await settle({tech:''});assert.equal(commissions.length,1);assert.equal(commissions[0][5],'Técnico por asignar');});
+test('pantalla de la captura: cobro 90, costo 35, técnico 9 y utilidad 46',async()=>{const {saved}=await settle({total:90,subtotal:120,cost:35});assert.equal(saved.total_commission_usd,9);assert.equal(saved.parts_cost_usd,35);assert.equal(saved.company_profit_usd,46);});

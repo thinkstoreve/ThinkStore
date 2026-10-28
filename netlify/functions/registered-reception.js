@@ -30,7 +30,7 @@ exports.handler=async e=>{
   const staff=await fetch(url+'/rest/v1/service_users?select=rol,activo&email=eq.'+encodeURIComponent(user.email||'')+'&limit=1',{headers:{apikey:key,Authorization:'Bearer '+key}});
   if(!staff.ok)return out(403,{ok:false,error:'No se pudieron verificar permisos de Soporte.'});
   const [profile]=await staff.json();
-  if(!profile||profile.activo===false||!['superadmin','admin','reception','sales'].includes(profile.rol))return out(403,{ok:false,error:'No tienes permiso para registrar ingresos.'});
+  if(!profile||profile.activo===false||!(['superadmin','admin','reception','sales'].includes(profile.rol)||(b.action==='read_device_access'&&profile.rol==='technician')))return out(403,{ok:false,error:'No tienes permiso para registrar ingresos.'});
   if(b.action==='read_device_access'){
     if(!['technician','admin','superadmin'].includes(profile.rol))return out(403,{ok:false,error:'Solo el equipo técnico autorizado puede consultar la clave.'});
     const orderId=String(b.order_id||'');if(!/^(?:\d+|[0-9a-f-]{36})$/i.test(orderId))return out(400,{ok:false,error:'Orden inválida.'});

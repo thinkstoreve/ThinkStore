@@ -339,15 +339,19 @@ async function fullAmountForMethod(){
   return{amount:due,usd_equivalent:null,bootstrap:false};
 }
 
-async function saveCombinedPayment(e){
+const repairPaymentGate=window.TSPaymentGuard();
+function runRepairPayment(action){return repairPaymentGate.run(async()=>{try{return await action()}finally{for(const id of ['repairsMarkPaid','repairsPaySave'])$(id)?.classList.remove('is-loading');if(active)updatePaymentUi();}});}
+async function saveCombinedPayment(e){e?.preventDefault?.();return runRepairPayment(()=>performCombinedPayment(e));}
+async function savePayment(e,markPaid){e?.preventDefault?.();if(paymentSelections.length>1)return saveCombinedPayment(e);return runRepairPayment(()=>performPayment(e,markPaid));}
+async function performCombinedPayment(e){
   e?.preventDefault?.();if(!active)return;if(financedOrder(active))return alert('Pago combinado deshabilitado temporalmente en financiación. Registra un abono con un solo método por vez.');const a=detailAccount(active);if(a.budget<=0)return alert('Para combinar métodos primero debe existir un total de reparación.');if(paymentSelections.length<2||paymentSelections.length>MAX_PAYMENT_METHODS)return alert('Selecciona entre 2 y 3 métodos de pago.');
   if(paymentSelections.some(x=>IS_BS.has(x.method))){try{await window.ThinkStoreFX?.requireFresh()}catch(err){return alert(err.message||'No está disponible la tasa BCV.')}}
   const calc=updateSplitCalculations();if(!calc.valid)return alert(calc.remaining>0.02?`Faltan ${usd(calc.remaining)} por distribuir.`:calc.remaining<-.02?'Los montos superan el saldo pendiente.':'Completa los montos y referencias de cada método.');
   const payments=paymentSelections.map(line=>{const code=normalizeRepairDestination(line.method,line.destinationCode),d=destinationInfo(code);return{method:line.method,amount:enteredMoney(line.amount),usd_equivalent:CUSTOM_EQ.has(line.method)?enteredMoney(line.usdEquivalent):null,reference:String(line.reference||'').trim(),destination_code:code||null,destination_name:d?.name||null}});
   for(const p of payments){if(!(p.amount>0))return alert(`Indica el monto recibido en ${p.method}.`);if(CUSTOM_EQ.has(p.method)&&!(p.usd_equivalent>0))return alert(`Indica el equivalente USD para ${p.method}.`);if(NEEDS_REF.has(p.method)&&p.reference.length<3)return alert(`Indica la referencia de ${p.method}.`)}
   const freshBcv=paymentSelections.some(x=>IS_BS.has(x.method))?window.ThinkStoreFX?.snapshot(1):null;
-  const note=$('repairsPayNote')?.value.trim()||'';const detail=payments.map(p=>`${p.method}: ${IS_BS.has(p.method)?ves(p.amount):p.method==='EUR'?`EUR ${p.amount.toFixed(2)}`:p.method==='USDT'?`${p.amount.toFixed(2)} USDT`:p.method==='Otro'?`Otro ${p.amount.toFixed(2)}`:usd(p.amount)}`).join(' + ');
-  if(!confirm(`¿Confirmar pago combinado para ${active.code}?\n\n${detail}\n\nTotal aplicado: ${usd(a.pending)}`))return;
+  const note=$('repairsPayNote')?.value.trim()||'';const paymentSummary=payments.map(p=>`${p.method}: ${IS_BS.has(p.method)?ves(p.amount):p.method==='EUR'?`EUR ${p.amount.toFixed(2)}`:p.method==='USDT'?`${p.amount.toFixed(2)} USDT`:p.method==='Otro'?`Otro ${p.amount.toFixed(2)}`:usd(p.amount)}`).join(' + ');
+  if(!confirm(`¿Confirmar pago combinado para ${active.code}?\n\n${paymentSummary}\n\nTotal aplicado: ${usd(a.pending)}`))return;
   const btn=$('repairsMarkPaid');if(btn){btn.classList.add('is-loading');btn.disabled=true;btn.textContent='Cobrando pago combinado…'}
   const id=active.id;
   try{
@@ -356,7 +360,7 @@ async function saveCombinedPayment(e){
   }catch(err){alert(err.message||'No se pudo registrar el pago combinado.');try{await load(true);const latest=await api('GET',null,'?order_id='+encodeURIComponent(id));active=latest.order;events=latest.events||[];parts=latest.parts||[];extras=latest.extras||[];billing=latest.billing||null;detail()}catch(_){detail()}}
 }
 
-async function savePayment(e,markPaid){
+async function performPayment(e,markPaid){
   e?.preventDefault?.();if(!active)return;if(markPaid&&financedOrder(active))return alert('Esta reparación está financiada. Para cobrar registra exclusivamente el dinero recibido mediante Registrar abono.');if(paymentSelections.length>1)return saveCombinedPayment(e);const id=active.id,line=paymentSelections[0];if(!line)return alert('Selecciona un método de pago.');selectedMethod=line.method;
   let amount=enteredMoney(line.amount),usdEquivalent=CUSTOM_EQ.has(selectedMethod)?enteredMoney(line.usdEquivalent):null;let finalizeNoQuote=false;
   if(markPaid){try{const f=await fullAmountForMethod();amount=f.amount;finalizeNoQuote=!!f.bootstrap;if(f.usd_equivalent)usdEquivalent=f.usd_equivalent;line.amount=Number(amount).toFixed(2);if(CUSTOM_EQ.has(selectedMethod)&&!finalizeNoQuote)line.usdEquivalent=detailAccount(active).pending.toFixed(2);refreshPaymentMethodControls();if(!finalizeNoQuote&&CUSTOM_EQ.has(selectedMethod)&&!(amount>0))return alert(`Indica cuánto recibiste en ${selectedMethod}; el saldo USD ya quedó preparado.`)}catch(err){return alert(err.message||'No se pudo calcular el saldo.')}}
