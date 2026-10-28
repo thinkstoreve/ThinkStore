@@ -1394,8 +1394,15 @@ const TSService=(()=>{
     if(!confirm(`${items.length?'Se prepararán estos repuestos para':'Se liberarán los repuestos preparados de'} ${order.code}:\n\n${summary}\n\nEl stock físico NO se descontará hasta que la orden quede Pagada. ¿Continuar?`))return;
     const btn=document.getElementById('mConsumePartsButton');if(btn){btn.disabled=true;btn.textContent=items.length?'Preparando…':'Liberando…'}
     const payload=items.map(x=>({part_id:x.part.id,quantity:x.qty}));
-    const {error}=await supabaseClient.rpc('ts_save_service_order_parts',{p_order_code:order.code,p_parts:payload,p_actor_email:session?.email||null});
-    if(error){renderOrderPartPicker();return toast('No se pudieron preparar los repuestos: '+error.message,'error')}
+    try{
+      const auth=(await supabaseClient.auth.getSession())?.data?.session;
+      if(!auth?.access_token)throw Error('La sesión de Soporte expiró.');
+      const base=String(window.THINKSTORE_MAIN_SITE||'https://thinkstore.com.ve').replace(/\/$/,'');
+      const nativeFetch=window.ThinkStoreOffline?.nativeFetch||window.fetch.bind(window);
+      const response=await nativeFetch(`${base}/.netlify/functions/support-prepare-parts`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+auth.access_token},body:JSON.stringify({order_id:order.id,parts:payload}),cache:'no-store',signal:AbortSignal.timeout(60000)});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||!result.ok)throw Error(result.error||'No se pudieron verificar los costos de Inventory.');
+    }catch(error){renderOrderPartPicker();return toast('No se pudieron preparar los repuestos: '+error.message,'error')}
     const saleTotal=items.reduce((s,x)=>s+Number(x.part.sale_price||0)*x.qty,0);
     const note=items.length?`Repuestos preparados para la reparación: ${summary}${saleTotal?` · Valor de repuestos $${saleTotal.toFixed(2)}`:''}. El inventario se descontará únicamente al completar el pago.`:'Repuestos preparados liberados; vuelven a estar disponibles para otras reparaciones.';
     await supabaseClient.from('service_order_notes').insert({order_id:order.id,note,visibility:'internal',author_name:session?.name||'Soporte',note_type:'Repuesto',status_after:order.status,parts_used:items.map(x=>`${x.qty}× ${x.part.name}`).join(', ')||null});

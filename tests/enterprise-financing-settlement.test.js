@@ -16,7 +16,7 @@ async function run(paid,oldMetadata={}) {
     pctOrNull:()=>null,
     mainConf:()=>({url:'https://db.test',key:'test'}),
     storeVariantCost:async()=>0,
-    upsertFinanceCommission:async()=>{throw Error('No commissions should be created for test without users')},
+    upsertFinanceCommission:async(...args)=>{calls.push({table:'commission',args});},
     rest:async(conf,table,query,opts={})=>{
       calls.push({table,query,opts});
       if(table==='enterprise_finance_settings')return [{}];

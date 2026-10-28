@@ -1,3 +1,4 @@
+const {mainConfig}=require('./staff-auth-core');
 'use strict';
 const {authorizeManager}=require('./enterprise-finance');
 const M=require('../../growth-enterprise/payment-schedule-model');
@@ -6,8 +7,8 @@ const H={'Content-Type':'application/json','Cache-Control':'no-store'};
 const out=(statusCode,b)=>({statusCode,headers:H,body:JSON.stringify(b)});
 const clean=v=>String(v??'').trim();const uuid=v=>/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(clean(v));
 exports.handler=async e=>{
- const url='https://clhnndxsgzqnihhtrout.supabase.co',key=clean(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY);
- if(!key)return out(503,{ok:false,error:'Finanzas no está configurado.'});
+ const {url,service:key}=mainConfig();
+ if(!key)return out(503,{ok:false,error:'Falta la clave de servidor de Main en este despliegue. Configura MAIN_SUPABASE_SERVICE_ROLE_KEY en Netlify y vuelve a desplegar.'});
  try{
   const auth=await authorizeManager({...e,headers:e.headers||{}},url,key);if(!auth.ok)return out(403,{ok:false,error:auth.error});
   async function db(path,method='GET',body){const r=await fetch(url+'/rest/v1/'+path,{method,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json().catch(()=>null);if(!r.ok){const error=new Error(d?.message||'No se pudo consultar vencimientos.');error.status=r.status;error.code=d?.code;throw error;}return d;}

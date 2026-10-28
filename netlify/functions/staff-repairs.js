@@ -22,7 +22,7 @@ function clientBcvMismatch(payload,serverQuote){
 }
 function supportConfig(){return{
   url:clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/$/,''),
-  key:clean(process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPPORT_SUPABASE_SECRET_KEY)
+  key:clean(process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY||process.env.SUPPORT_SUPABASE_SECRET_KEY,4096)
 }}
 async function rest(conf,table,query={},options={}){
   const url=new URL(conf.url+'/rest/v1/'+table);
@@ -66,7 +66,7 @@ async function movementParts(conf,code){
 async function orderParts(conf,code){
   let rows=[];
   try{rows=await rest(conf,'service_order_parts',{select:'id,part_id,order_code,quantity_reserved,quantity_consumed,unit_cost_snapshot,sale_price_snapshot,status,service_parts(name,sku,category,sale_price,unit_cost)',order_code:`eq.${code}`,status:'neq.released',order:'created_at.asc',limit:100})||[]}catch(e){console.warn('No se pudo leer repuestos de la orden',e.message)}
-  rows=(rows||[]).map(r=>({...r,sale_price_snapshot:Number(r.sale_price_snapshot||0)>0?Number(r.sale_price_snapshot):Number(r.service_parts?.sale_price||0),unit_cost_snapshot:Number(r.unit_cost_snapshot||0)>0?Number(r.unit_cost_snapshot):Number(r.service_parts?.unit_cost||0)}));
+  rows=(rows||[]).map(r=>({...r,sale_price_snapshot:Number(r.sale_price_snapshot||0)>0?Number(r.sale_price_snapshot):Number(r.service_parts?.sale_price||0),unit_cost_snapshot:r.unit_cost_snapshot!=null?Number(r.unit_cost_snapshot):Number(r.service_parts?.unit_cost||0)}));
   const moves=await movementParts(conf,code);
   if(!rows.length)return moves;
   const ids=new Set(rows.map(r=>String(r.part_id||'')));
@@ -127,7 +127,7 @@ async function enrichRepairListBilling(conf,orders=[]){
   }catch(e){console.warn('No se pudo enriquecer cobros pendientes de reparaciones',e.message)}
   return orders;
 }
-function mainConf(){const m=mainConfig();return{url:clean(m.url).replace(/\/$/,''),key:clean(m.service)}}
+function mainConf(){const m=mainConfig();return{url:clean(m.url).replace(/\/$/,''),key:clean(m.service,4096)}}
 async function latestServicePaymentEvent(conf,orderId){
   try{const rows=await rest(conf,'service_payment_events',{select:'id,occurred_at,payment_method,reference,amount_delta,balance_after',service_order_id:`eq.${orderId}`,order:'occurred_at.desc',limit:1});return rows?.[0]||null}catch(e){console.warn('No se pudo resolver el evento de pago para Caja Chica',e.message);return null}
 }
@@ -250,7 +250,7 @@ async function syncEnterpriseServiceSettlement(order,parts,extras,billing,actor)
   const finalTotal=Math.max(0,Number(billing?.invoice_total||order.quote_amount||0));
   const factor=subtotal>0?Math.max(0,Math.min(1,finalTotal/subtotal)):1;
   let partGross=0,partCost=0;
-  for(const r of parts||[]){const q=Math.max(0,Number(r.quantity_consumed||r.quantity_reserved||r.quantity||0)),sale=Math.max(0,Number(r.sale_price_snapshot||r.service_parts?.sale_price||0)),cost=Math.max(0,Number(r.unit_cost_snapshot||r.service_parts?.unit_cost||0));partGross+=q*sale;partCost+=q*cost}
+  for(const r of parts||[]){const q=Math.max(0,Number(r.quantity_consumed||r.quantity_reserved||r.quantity||0)),sale=Math.max(0,Number(r.sale_price_snapshot||r.service_parts?.sale_price||0)),cost=Math.max(0,Number(r.unit_cost_snapshot??r.service_parts?.unit_cost??0));partGross+=q*sale;partCost+=q*cost}
   let hardwareGross=0,softwareGross=0,hardwareCost=0,softwareCost=0,productGross=0,productCost=0;
   for(const x of (extras||[]).filter(x=>x.status!=='removed')){
     const q=Math.max(1,Number(x.quantity||1)),gross=q*Math.max(0,Number(x.unit_price_usd||0)),type=finType(x.financial_type,x.name,x.metadata?.category),cost=q*Math.max(0,Number(x.unit_cost_usd||0));
@@ -264,15 +264,17 @@ async function syncEnterpriseServiceSettlement(order,parts,extras,billing,actor)
   const partMargin=Math.max(0,round(partRevenue-partCost));
   const hardwareBase=Math.max(0,round(hardwareRevenue-hardwareCost)),softwareBase=Math.max(0,round(softwareRevenue-softwareCost));
   const productMargin=Math.max(0,round(productRevenue-productCost));
-  const partRate=pctOrNull(techProfile?.technician_parts_commission_pct)??pctOrNull(settings.technician_parts_default_pct);
-  const serviceBaseRate=pctOrNull(techProfile?.technician_service_commission_pct)??pctOrNull(settings.technician_service_default_pct);
-  const hardwareRate=pctOrNull(techProfile?.technician_hardware_commission_pct)??pctOrNull(settings.technician_hardware_default_pct)??serviceBaseRate;
-  const softwareRate=pctOrNull(techProfile?.technician_software_commission_pct)??pctOrNull(settings.technician_software_default_pct)??serviceBaseRate;
+  // Approved rule: technician receives 10% of the entire discounted invoice.
+  // Component allocations are informational and always reconcile to that total.
+  const partRate=10,serviceBaseRate=10,hardwareRate=10,softwareRate=10;
   const sellerRate=pctOrNull(sellerProfile?.seller_commission_pct)??pctOrNull(settings.seller_default_pct);
-  const partCommission=partRate===null?0:round(partMargin*partRate/100),hardwareCommission=hardwareRate===null?0:round(hardwareBase*hardwareRate/100),softwareCommission=softwareRate===null?0:round(softwareBase*softwareRate/100);
-  const serviceCommission=round(hardwareCommission+softwareCommission),techCommission=round(partCommission+serviceCommission),sellerCommission=sellerRate===null?0:round(productMargin*sellerRate/100);
-  const inventoryRecovery=round(partCost+productCost),directServiceCost=round(hardwareCost+softwareCost),companyProfit=Math.max(0,round(finalTotal-inventoryRecovery-directServiceCost-techCommission-sellerCommission));
-  const totalBase=round(partMargin+hardwareBase+softwareBase),effectiveRate=totalBase>0?round(techCommission/totalBase*100):null;
+  const techCommission=round(finalTotal*0.10);
+  const partCommission=round(partRevenue*0.10);
+  const serviceCommission=round(techCommission-partCommission);
+  const sellerCommission=sellerRate===null?0:round(productMargin*sellerRate/100);
+  const inventoryRecovery=round(partCost+productCost),directServiceCost=round(hardwareCost+softwareCost);
+  const companyProfit=round(finalTotal-inventoryRecovery-directServiceCost-techCommission-sellerCommission);
+  const totalBase=round(finalTotal),effectiveRate=10;
   // V15.40.3: invoice != collected cash. This is also called after multi-line
   // payments; a financed repair may have a receivable even when inventory has
   // already been consumed. Only use the amount confirmed by Support.
@@ -289,6 +291,7 @@ async function syncEnterpriseServiceSettlement(order,parts,extras,billing,actor)
   const priorReconciliation=priorMetadata.payment_reconciliation && typeof priorMetadata.payment_reconciliation==='object'
     ?priorMetadata.payment_reconciliation:{};
   const settlementMetadata={...priorMetadata,
+    commission_model:'gross_total_10pct',technician_rate_pct:10,commission_base_usd:totalBase,
     discount_factor:factor,base_other_service_usd:round(baseOther),part_commission_base:partMargin,
     hardware_commission_base:hardwareBase,software_commission_base:softwareBase,product_margin_usd:productMargin,
     parts_rate_defined:partRate!==null,service_rate_defined:hardwareRate!==null||softwareRate!==null,
@@ -297,8 +300,8 @@ async function syncEnterpriseServiceSettlement(order,parts,extras,billing,actor)
   };
   const settlement={order_code:order.code,service_order_id:String(order.id||''),technician_email:techEmail||null,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail||null,salesperson_email:sellerEmail||null,subtotal_usd:round(subtotal),discount_usd:round(subtotal-finalTotal),collected_usd:receivedUsd,parts_revenue_usd:partRevenue,parts_cost_usd:round(partCost),parts_margin_usd:partMargin,parts_rate_pct:partRate,parts_commission_usd:partCommission,hardware_service_revenue_usd:hardwareRevenue,software_service_revenue_usd:softwareRevenue,service_direct_cost_usd:directServiceCost,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,service_commission_usd:serviceCommission,store_product_revenue_usd:productRevenue,store_product_cost_usd:round(productCost),seller_rate_pct:sellerRate,seller_commission_usd:sellerCommission,inventory_recovery_usd:inventoryRecovery,total_commission_usd:round(techCommission+sellerCommission),company_profit_usd:companyProfit,metadata:settlementMetadata,settled_at:order.paid_at||new Date().toISOString(),updated_at:new Date().toISOString()};
   const saved=await rest(mc,'enterprise_service_settlements',{on_conflict:'order_code'},{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(settlement)});
-  if(receivableUsd<0.005&&techEmail&&techCommission>0){await upsertFinanceCommission(mc,'technician_commission',techCommission,order,actor,techProfile?.full_name||techEmail,{technician_email:techEmail,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail,commission_base:totalBase,rate_pct:effectiveRate,parts_rate_pct:partRate,service_rate_pct:serviceBaseRate,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,parts_commission:partCommission,service_commission:serviceCommission,parts_cost:round(partCost),direct_cost:directServiceCost,gross_service_amount:round(partRevenue+hardwareRevenue+softwareRevenue),settlement_model:'v15.21'})}
-  if(receivableUsd<0.005&&sellerEmail&&sellerCommission>0){await upsertFinanceCommission(mc,'seller_commission',sellerCommission,order,actor,sellerProfile?.full_name||sellerEmail,{salesperson_email:sellerEmail,commission_base:productMargin,rate_pct:sellerRate,store_product_revenue:productRevenue,store_product_cost:round(productCost),settlement_model:'v15.21'})}
+  if(receivableUsd<0.005&&techCommission>0){await upsertFinanceCommission(mc,'technician_commission',techCommission,order,actor,techProfile?.full_name||techEmail||'Técnico por asignar',{technician_email:techEmail,technician_name:techProfile?.full_name||techProfile?.nombre||techEmail,commission_base:totalBase,rate_pct:effectiveRate,parts_rate_pct:partRate,service_rate_pct:serviceBaseRate,hardware_rate_pct:hardwareRate,software_rate_pct:softwareRate,parts_commission:partCommission,service_commission:serviceCommission,parts_cost:round(partCost),direct_cost:directServiceCost,gross_service_amount:round(partRevenue+hardwareRevenue+softwareRevenue),settlement_model:'v15.43',commission_model:'gross_total_10pct'})}
+  if(receivableUsd<0.005&&sellerEmail&&sellerCommission>0){await upsertFinanceCommission(mc,'seller_commission',sellerCommission,order,actor,sellerProfile?.full_name||sellerEmail,{salesperson_email:sellerEmail,commission_base:productMargin,rate_pct:sellerRate,store_product_revenue:productRevenue,store_product_cost:round(productCost),settlement_model:'v15.43',commission_model:'gross_total_10pct'})}
   return saved?.[0]||settlement;
 }
 

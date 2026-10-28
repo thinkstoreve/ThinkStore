@@ -1,3 +1,4 @@
+const {mainConfig}=require('./staff-auth-core');
 const Funds = require('./enterprise-funds-core');
 const H={
   'Content-Type':'application/json',
@@ -62,7 +63,7 @@ function parseOverrides(profile={}){let o=profile?.permission_overrides||{};if(t
 function enterpriseAccess(profile={}){const role=norm(profile?.role||profile?.rol).replace(/\s+/g,'_'),active=(profile?.active??profile?.activo??true)!==false;if(!profile||!active)return{ok:false,role:'viewer',admin:false};const admin=['admin','super_admin','superadmin','administrator','gerente'].includes(role);const o=parseOverrides(profile);const allowed=admin||(!o.deny.includes('platform.enterprise')&&o.allow.includes('platform.enterprise'));const erole=admin||o.allow.includes('enterprise.role.manager')?'manager':'viewer';return{ok:allowed,role:erole,admin}}
 
 async function req(base,key,path,options={}){
-  const r=await fetch(`${base}/rest/v1/${path}`,{...options,headers:{...svc(key),...(options.headers||{})}});
+  const r=await fetch(`${base}/rest/v1/${path}`,{...options,signal:options.signal||AbortSignal.timeout(12000),headers:{...svc(key),...(options.headers||{})}});
   const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}
   if(!r.ok){const e=new Error(data?.message||data?.error||`HTTP ${r.status}`);e.status=r.status;e.code=data?.code;throw e}
   return data;
@@ -99,39 +100,43 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const errors=[];
   let orders=[],orderItems=[],receipts=[],entries=[],settings=[],settlements=[],audits=[],reconciliations=[],orderPayments=[],staffCashSessions=[],staffCashMovements=[],pettyAccounts=[],pettyMovements=[],pettyAudits=[],pettyBankAccounts=[],pettyBankMovements=[];
   let invProductsRaw=[],invSuppliersRaw=[],invPurchasesRaw=[],invStockRaw=[],invUnitsRaw=[],invBridge=[];
-  let supportOrders=[],supportEvents=[],supportParts=[],supportPartMoves=[];
+  let supportOrders=[],supportEvents=[],supportParts=[],supportPartMoves=[],supportOrderParts=[];
   const sourceHealth={store_orders:false,store_payments:false,staff_cash_sessions:false,staff_cash_movements:false,support_orders:false,support_payment_events:false};
-  try{orders=await req(mainUrl,mainKey,'pedidos?select=*&order=created_at.desc&limit=5000');sourceHealth.store_orders=true}catch(e){errors.push('ventas: '+e.message)}
-  try{orderItems=await optionalReq(mainUrl,mainKey,'pedido_items?select=*&limit=10000')}catch(e){errors.push('líneas de venta: '+e.message)}
-  try{receipts=await optionalReq(mainUrl,mainKey,'comprobantes?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('comprobantes: '+e.message)}
-  try{entries=await optionalReq(mainUrl,mainKey,'enterprise_finance_entries?select=*&order=occurred_at.desc&limit=5000')}catch(e){errors.push('finanzas: '+e.message)}
-  try{settings=await optionalReq(mainUrl,mainKey,'enterprise_finance_settings?select=*&id=eq.default&limit=1')}catch(e){errors.push('configuración financiera: '+e.message)}
-  try{settlements=await optionalReq(mainUrl,mainKey,'enterprise_service_settlements?select=*&order=settled_at.desc&limit=3000')}catch(e){errors.push('liquidaciones de servicio: '+e.message)}
-  try{audits=await optionalReq(mainUrl,mainKey,'enterprise_weekly_audits?select=*&order=week_start.desc&limit=5000')}catch(e){errors.push('auditorías: '+e.message)}
-  try{reconciliations=await optionalReq(mainUrl,mainKey,'enterprise_reconciliations?select=*&order=period_start.desc&limit=30')}catch(e){errors.push('conciliaciones: '+e.message)}
-  try{orderPayments=await optionalReq(mainUrl,mainKey,'ts_order_payments?select=*&status=eq.confirmed&order=confirmed_at.desc&limit=10000');sourceHealth.store_payments=true}catch(e){errors.push('pagos mixtos: '+e.message)}
-  try{staffCashSessions=await optionalReq(mainUrl,mainKey,'ts_staff_cash_sessions?select=*&order=opened_at.desc&limit=1500');sourceHealth.staff_cash_sessions=true}catch(e){errors.push('caja Staff: '+e.message)}
-  try{staffCashMovements=await optionalReq(mainUrl,mainKey,'ts_staff_cash_movements?select=*&order=created_at.desc&limit=10000');sourceHealth.staff_cash_movements=true}catch(e){errors.push('movimientos Caja Staff: '+e.message)}
-  try{pettyAccounts=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_accounts?select=*&active=eq.true&order=created_at.asc&limit=20')}catch(e){errors.push('Caja Chica: '+e.message)}
-  try{pettyMovements=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_movements?select=*&order=occurred_at.desc&limit=10000')}catch(e){errors.push('movimientos Caja Chica: '+e.message)}
-  try{pettyAudits=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_audit?select=*&order=created_at.desc&limit=100')}catch(e){errors.push('auditoría Caja Chica: '+e.message)}
-  try{pettyBankAccounts=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_bank_accounts?select=*&active=eq.true&order=currency.asc,sort_order.asc,created_at.asc&limit=50')}catch(e){errors.push('cuentas Caja Chica: '+e.message)}
-  try{pettyBankMovements=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_bank_movements?select=*&order=occurred_at.desc,created_at.desc&limit=10000')}catch(e){errors.push('movimientos por cuenta Caja Chica: '+e.message)}
+  const loads=[];
+  loads.push((async()=>{try{orders=await req(mainUrl,mainKey,'pedidos?select=*&order=created_at.desc&limit=5000');sourceHealth.store_orders=true}catch(e){errors.push('ventas: '+e.message)}})());
+  loads.push((async()=>{try{orderItems=await optionalReq(mainUrl,mainKey,'pedido_items?select=*&limit=10000')}catch(e){errors.push('líneas de venta: '+e.message)}})());
+  loads.push((async()=>{try{receipts=await optionalReq(mainUrl,mainKey,'comprobantes?select=*&order=created_at.desc&limit=5000')}catch(e){errors.push('comprobantes: '+e.message)}})());
+  loads.push((async()=>{try{entries=await optionalReq(mainUrl,mainKey,'enterprise_finance_entries?select=*&order=occurred_at.desc&limit=5000')}catch(e){errors.push('finanzas: '+e.message)}})());
+  loads.push((async()=>{try{settings=await optionalReq(mainUrl,mainKey,'enterprise_finance_settings?select=*&id=eq.default&limit=1')}catch(e){errors.push('configuración financiera: '+e.message)}})());
+  loads.push((async()=>{try{settlements=await optionalReq(mainUrl,mainKey,'enterprise_service_settlements?select=*&order=settled_at.desc&limit=3000')}catch(e){errors.push('liquidaciones de servicio: '+e.message)}})());
+  loads.push((async()=>{try{audits=await optionalReq(mainUrl,mainKey,'enterprise_weekly_audits?select=*&order=week_start.desc&limit=5000')}catch(e){errors.push('auditorías: '+e.message)}})());
+  loads.push((async()=>{try{reconciliations=await optionalReq(mainUrl,mainKey,'enterprise_reconciliations?select=*&order=period_start.desc&limit=30')}catch(e){errors.push('conciliaciones: '+e.message)}})());
+  loads.push((async()=>{try{orderPayments=await optionalReq(mainUrl,mainKey,'ts_order_payments?select=*&status=eq.confirmed&order=confirmed_at.desc&limit=10000');sourceHealth.store_payments=true}catch(e){errors.push('pagos mixtos: '+e.message)}})());
+  loads.push((async()=>{try{staffCashSessions=await optionalReq(mainUrl,mainKey,'ts_staff_cash_sessions?select=*&order=opened_at.desc&limit=1500');sourceHealth.staff_cash_sessions=true}catch(e){errors.push('caja Staff: '+e.message)}})());
+  loads.push((async()=>{try{staffCashMovements=await optionalReq(mainUrl,mainKey,'ts_staff_cash_movements?select=*&order=created_at.desc&limit=10000');sourceHealth.staff_cash_movements=true}catch(e){errors.push('movimientos Caja Staff: '+e.message)}})());
+  loads.push((async()=>{try{pettyAccounts=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_accounts?select=*&active=eq.true&order=created_at.asc&limit=20')}catch(e){errors.push('Caja Chica: '+e.message)}})());
+  loads.push((async()=>{try{pettyMovements=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_movements?select=*&order=occurred_at.desc&limit=10000')}catch(e){errors.push('movimientos Caja Chica: '+e.message)}})());
+  loads.push((async()=>{try{pettyAudits=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_audit?select=*&order=created_at.desc&limit=100')}catch(e){errors.push('auditoría Caja Chica: '+e.message)}})());
+  loads.push((async()=>{try{pettyBankAccounts=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_bank_accounts?select=*&active=eq.true&order=currency.asc,sort_order.asc,created_at.asc&limit=50')}catch(e){errors.push('cuentas Caja Chica: '+e.message)}})());
+  loads.push((async()=>{try{pettyBankMovements=await optionalReq(mainUrl,mainKey,'enterprise_petty_cash_bank_movements?select=*&order=occurred_at.desc,created_at.desc&limit=10000')}catch(e){errors.push('movimientos por cuenta Caja Chica: '+e.message)}})());
 
   // Inventory Central: misma fuente operativa del stock; Enterprise solo lee para contabilidad y auditoría.
-  try{invProductsRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_products?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory productos: '+e.message)}
-  try{invSuppliersRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_suppliers?select=*&workspace_key=eq.main&limit=2500')}catch(e){errors.push('inventory proveedores: '+e.message)}
-  try{invPurchasesRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_purchases?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory compras: '+e.message)}
-  try{invStockRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_stock?select=*&workspace_key=eq.main&limit=10000')}catch(e){errors.push('inventory stock: '+e.message)}
-  try{invUnitsRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_units?select=*&workspace_key=eq.main&limit=10000')}catch(e){errors.push('inventory unidades: '+e.message)}
-  try{invBridge=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_bridge?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory bridge: '+e.message)}
+  loads.push((async()=>{try{invProductsRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_products?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory productos: '+e.message)}})());
+  loads.push((async()=>{try{invSuppliersRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_suppliers?select=*&workspace_key=eq.main&limit=2500')}catch(e){errors.push('inventory proveedores: '+e.message)}})());
+  loads.push((async()=>{try{invPurchasesRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_purchases?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory compras: '+e.message)}})());
+  loads.push((async()=>{try{invStockRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_stock?select=*&workspace_key=eq.main&limit=10000')}catch(e){errors.push('inventory stock: '+e.message)}})());
+  loads.push((async()=>{try{invUnitsRaw=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_units?select=*&workspace_key=eq.main&limit=10000')}catch(e){errors.push('inventory unidades: '+e.message)}})());
+  loads.push((async()=>{try{invBridge=await optionalReq(mainUrl,mainKey,'thinkstore_inventory_bridge?select=*&workspace_key=eq.main&limit=5000')}catch(e){errors.push('inventory bridge: '+e.message)}})());
 
   if(supportUrl&&supportKey){
-    try{supportOrders=await optionalReq(supportUrl,supportKey,'service_orders?select=*&order=created_at.desc&limit=5000');sourceHealth.support_orders=true}catch(e){errors.push('soporte: '+e.message)}
-    try{supportEvents=await optionalReq(supportUrl,supportKey,'service_payment_events?select=*&order=occurred_at.desc&limit=5000');sourceHealth.support_payment_events=true}catch(e){errors.push('abonos soporte: '+e.message)}
-    try{supportParts=await optionalReq(supportUrl,supportKey,'service_parts?select=*&limit=5000')}catch(e){errors.push('repuestos soporte: '+e.message)}
-    try{supportPartMoves=await optionalReq(supportUrl,supportKey,'service_part_movements?select=*&order=created_at.desc&limit=10000')}catch(e){errors.push('consumo repuestos: '+e.message)}
+    loads.push((async()=>{try{supportOrders=await optionalReq(supportUrl,supportKey,'service_orders?select=*&order=created_at.desc&limit=5000');sourceHealth.support_orders=true}catch(e){errors.push('soporte: '+e.message)}})());
+    loads.push((async()=>{try{supportEvents=await optionalReq(supportUrl,supportKey,'service_payment_events?select=*&order=occurred_at.desc&limit=5000');sourceHealth.support_payment_events=true}catch(e){errors.push('abonos soporte: '+e.message)}})());
+    loads.push((async()=>{try{supportParts=await optionalReq(supportUrl,supportKey,'service_parts?select=*&limit=5000')}catch(e){errors.push('repuestos soporte: '+e.message)}})());
+    loads.push((async()=>{try{supportPartMoves=await optionalReq(supportUrl,supportKey,'service_part_movements?select=*&order=created_at.desc&limit=10000')}catch(e){errors.push('consumo repuestos: '+e.message)}})());
+    loads.push((async()=>{try{supportOrderParts=await optionalReq(supportUrl,supportKey,'service_order_parts?select=*&status=eq.consumed&limit=10000')}catch(e){errors.push('costos de repuestos por orden: '+e.message)}})());
   }else errors.push('soporte: faltan variables SUPPORT_SUPABASE_*');
+
+  await Promise.all(loads);
 
   const invProducts=invProductsRaw.map(dataRow),invSuppliers=invSuppliersRaw.map(dataRow),invPurchases=invPurchasesRaw.map(dataRow),invStock=invStockRaw.map(dataRow),invUnits=invUnitsRaw.map(dataRow);
   const productMap=new Map(invProducts.map(p=>[String(p.id),p]));
@@ -226,9 +231,20 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
 
   // Costos reales de repuestos consumidos en Soporte.
   const supportPartMap=new Map(supportParts.map(p=>[String(p.id),p]));
+  const orderPartCost=new Map();
+  for(const row of supportOrderParts){if(hasNum(row.unit_cost_snapshot))orderPartCost.set(String(row.order_code)+'|'+String(row.part_id),num(row.unit_cost_snapshot));}
+  const supportCodeById=new Map(supportOrders.map(o=>[String(o.id),o.code]));
+  function movementCost(m){
+    const explicit=m.unit_cost_usd??m.unit_cost??m.cost_unit_usd??m.metadata?.unit_cost_usd??m.metadata?.cost_unit_usd;
+    if(hasNum(explicit))return {unit:num(explicit),source:'movement_snapshot'};
+    const id=String(m.order_code||m.order_id||''),code=supportCodeById.get(id)||id;
+    const saved=orderPartCost.get(code+'|'+String(m.part_id));
+    if(saved!==undefined)return {unit:saved,source:'order_snapshot'};
+    return {unit:num(supportPartMap.get(String(m.part_id))?.unit_cost),source:'current_catalog_estimate'};
+  }
   const consumedMove=m=>num(m.quantity)<0||/consumo|salida|utiliz|instalad/.test(norm(m.movement_type));
   const realPartsByOrder=new Map();
-  supportPartMoves.filter(consumedMove).forEach(m=>{const p=supportPartMap.get(String(m.part_id)),cost=Math.abs(num(m.quantity))*Math.max(0,num(p?.unit_cost));if(m.order_id){const key=String(m.order_id);realPartsByOrder.set(key,money((realPartsByOrder.get(key)||0)+cost))}});
+  supportPartMoves.filter(consumedMove).forEach(m=>{const p=supportPartMap.get(String(m.part_id)),cost=Math.abs(num(m.quantity))*Math.max(0,movementCost(m).unit);if(m.order_id){const key=String(m.order_id);realPartsByOrder.set(key,money((realPartsByOrder.get(key)||0)+cost))}});
   // Auditoría de repuestos por orden (lectura): no mueve fondos ni genera una segunda venta.
   // Preferir costo capturado en el movimiento; en ausencia de snapshot, marcar el costo como estimado.
   const supportPartDetailByOrder=new Map();
@@ -239,16 +255,16 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     const qty=Math.abs(num(m.quantity));
     const snapshotRaw=m.unit_cost_usd??m.unit_cost??m.cost_unit_usd??m.metadata?.unit_cost_usd??m.metadata?.cost_unit_usd;
     const hasSnapshot=snapshotRaw!==null&&snapshotRaw!==undefined&&snapshotRaw!=='';
-    const unitCost=hasSnapshot?num(snapshotRaw):num(part.unit_cost);
+    const unitCost=movementCost(m).unit;
     const priceRaw=m.unit_price_usd??m.sale_price_usd??m.metadata?.unit_price_usd??m.metadata?.sale_price_usd;
     const hasPrice=priceRaw!==null&&priceRaw!==undefined&&priceRaw!=='';
     const unitPrice=hasPrice?num(priceRaw):null;
     const rows=supportPartDetailByOrder.get(orderKey)||[];
-    rows.push({movement_id:m.id||null,part_id:m.part_id||null,name:clean(part.name||part.nombre||m.part_name||'Repuesto'),quantity:qty,unit_cost_usd:money(unitCost),cost_total_usd:money(unitCost*qty),cost_source:hasSnapshot?'movement_snapshot':'current_catalog_estimate',unit_sale_price_usd:unitPrice===null?null:money(unitPrice),sale_total_usd:unitPrice===null?null:money(unitPrice*qty),gross_margin_usd:unitPrice===null?null:money((unitPrice-unitCost)*qty),supplier_id:m.supplier_id||null,purchase_id:m.purchase_id||null,created_at:m.created_at||null});
+    rows.push({movement_id:m.id||null,part_id:m.part_id||null,name:clean(part.name||part.nombre||m.part_name||'Repuesto'),quantity:qty,unit_cost_usd:money(unitCost),cost_total_usd:money(unitCost*qty),cost_source:movementCost(m).source,unit_sale_price_usd:unitPrice===null?null:money(unitPrice),sale_total_usd:unitPrice===null?null:money(unitPrice*qty),gross_margin_usd:unitPrice===null?null:money((unitPrice-unitCost)*qty),supplier_id:m.supplier_id||null,purchase_id:m.purchase_id||null,created_at:m.created_at||null});
     supportPartDetailByOrder.set(orderKey,rows);
   }
   const weekConsumedMoves=supportPartMoves.filter(m=>consumedMove(m)&&inRange(m.created_at,range));
-  const supportPartsActual=sum(weekConsumedMoves,m=>Math.abs(num(m.quantity))*Math.max(0,num(supportPartMap.get(String(m.part_id))?.unit_cost)));
+  const supportPartsActual=sum(weekConsumedMoves,m=>Math.abs(num(m.quantity))*Math.max(0,movementCost(m).unit));
 
   const otherIncome=money(sum(weekEntries.filter(e=>e.entry_type==='other_income'||e.entry_type==='receivable_collection'),e=>e.amount_usd)+staffOtherIncome);
   const operatingExpenses=money(sum(weekEntries.filter(e=>isOperatingExpenseType(e.entry_type)),e=>e.amount_usd)+staffOperatingExpenses+pettyOperatingNet);
@@ -552,7 +568,7 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
 
   return{
     ok:true,generated_at:new Date().toISOString(),timezone:'America/Caracas',period:{start:range.start,end:range.end},
-    settings:{company_pct:num(cfg.company_share_pct)||50,freddy_pct:num(cfg.freddy_share_pct)||25,nelson_pct:num(cfg.nelson_share_pct)||25,technician_pct:num(cfg.technician_default_pct)||50,technician_parts_pct:cfg.technician_parts_default_pct??null,technician_service_pct:cfg.technician_service_default_pct??null,technician_hardware_pct:cfg.technician_hardware_default_pct??null,technician_software_pct:cfg.technician_software_default_pct??null,seller_pct:cfg.seller_default_pct??null},
+    settings:{company_pct:num(cfg.company_share_pct)||50,freddy_pct:num(cfg.freddy_share_pct)||25,nelson_pct:num(cfg.nelson_share_pct)||25,technician_pct:10,technician_commission_model:'gross_total_10pct',technician_parts_pct:cfg.technician_parts_default_pct??null,technician_service_pct:cfg.technician_service_default_pct??null,technician_hardware_pct:cfg.technician_hardware_default_pct??null,technician_software_pct:cfg.technician_software_default_pct??null,seller_pct:cfg.seller_default_pct??null},
     sales_ledger:salesLedger,
     capital_accumulated:Funds.companyCapital(audits),
     voided_entries:entries.filter(e=>!entryActive(e)).slice(0,250),
@@ -664,8 +680,8 @@ async function insertEntry(mainUrl,mainKey,auth,body){
 
 exports.handler=async event=>{
   if(event.httpMethod==='OPTIONS')return{statusCode:204,headers:H,body:''};
-  const mainUrl='https://clhnndxsgzqnihhtrout.supabase.co';
-  const mainKey=clean(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY);
+  const mainUrl=mainConfig().url;
+  const mainKey=mainConfig().service;
   const supportUrl=clean(process.env.SUPPORT_SUPABASE_URL).replace(/\/$/,'');
   const supportKey=clean(process.env.SUPPORT_SUPABASE_SECRET_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY);
   if(!mainUrl||!mainKey)return out(501,{ok:false,error:'Falta configurar el Supabase principal en Enterprise'});
@@ -772,7 +788,7 @@ exports.handler=async event=>{
 
     if(action==='save_commission_settings'){
       const pct=v=>v===null||v===undefined||v===''?null:Math.max(0,Math.min(100,num(v)));
-      const patch={technician_parts_default_pct:pct(body.technician_parts_default_pct),technician_service_default_pct:pct(body.technician_service_default_pct),technician_hardware_default_pct:pct(body.technician_hardware_default_pct),technician_software_default_pct:pct(body.technician_software_default_pct),seller_default_pct:pct(body.seller_default_pct),updated_at:new Date().toISOString()};
+      const patch={seller_default_pct:pct(body.seller_default_pct),updated_at:new Date().toISOString()};
       const data=await req(mainUrl,mainKey,'enterprise_finance_settings?id=eq.default',{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(patch)});
       return out(200,{ok:true,settings:data?.[0]||patch,summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }
@@ -783,14 +799,14 @@ exports.handler=async event=>{
     if(action==='create_technician_commission'){
       const sourceCode=clean(body.source_code);
       if(sourceCode){const auto=await optionalReq(mainUrl,mainKey,`enterprise_finance_entries?select=id&source_system=eq.support_auto&source_code=eq.${encodeURIComponent(sourceCode)}&entry_type=eq.technician_commission&status=neq.void&limit=1`);if(auto?.[0])return out(409,{ok:false,error:'Esta reparación ya generó su comisión automáticamente al cobrar. Usa la liquidación automática para evitar duplicados.'})}
-      const gross=money(body.gross_service_amount),parts=money(body.parts_cost),direct=money(body.direct_cost),rate=Math.min(100,Math.max(0,num(body.rate_pct||50)));
-      const base=Math.max(0,money(gross-parts-direct)),commission=money(base*rate/100);
+      const gross=money(body.gross_service_amount),parts=money(body.parts_cost),direct=money(body.direct_cost),rate=10;
+      const base=gross,commission=money(base*rate/100);
       if(!(gross>0))return out(400,{ok:false,error:'Indica el valor cobrado del servicio'});
-      if(!(commission>0))return out(400,{ok:false,error:'La base neta del servicio no genera comisión'});
+      if(!(commission>0))return out(400,{ok:false,error:'El total cobrado no genera comisión'});
       const entry=await insertEntry(mainUrl,mainKey,auth,{
         entry_type:'technician_commission',amount_usd:commission,description:clean(body.description)||`Comisión técnica ${clean(body.source_code)||''}`,
         category:'Servicio Técnico',counterparty:clean(body.technician_name||body.technician_email)||'Técnico',source_system:'support',source_id:clean(body.service_order_id),source_code:clean(body.source_code),funded_by:'company',status:'pending',
-        metadata:{technician_email:clean(body.technician_email),technician_name:clean(body.technician_name),service_type:clean(body.service_type),gross_service_amount:gross,parts_cost:parts,direct_cost:direct,commission_base:base,rate_pct:rate}
+        metadata:{technician_email:clean(body.technician_email),technician_name:clean(body.technician_name),service_type:clean(body.service_type),gross_service_amount:gross,parts_cost:parts,direct_cost:direct,commission_base:base,rate_pct:rate,commission_model:'gross_total_10pct'}
       });
       return out(200,{ok:true,entry,calculation:{gross,parts,direct,base,rate,commission},summary:await buildSummary({mainUrl,mainKey,supportUrl,supportKey,range})});
     }

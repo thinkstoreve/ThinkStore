@@ -1,3 +1,4 @@
+const {mainConfig}=require('./staff-auth-core');
 'use strict';
 const {authorizeManager}=require('./enterprise-finance');
 const {buildDaily,day}=require('./enterprise-daily-core');
@@ -5,9 +6,9 @@ const headers={'Content-Type':'application/json','Cache-Control':'no-store'};
 const out=(statusCode,body)=>({statusCode,headers,body:JSON.stringify(body)});
 exports.handler=async event=>{
  if(event.httpMethod!=='GET')return out(405,{ok:false,error:'Consulta de solo lectura.'});
- const url='https://clhnndxsgzqnihhtrout.supabase.co',key=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||process.env.THINKSTORE_SUPABASE_SERVICE_ROLE_KEY;
+ const {url,service:key}=mainConfig();
  const support=(process.env.SUPPORT_SUPABASE_URL||'').replace(/\/$/,''),supportKey=process.env.SUPPORT_SUPABASE_SECRET_KEY||process.env.SUPPORT_SUPABASE_SERVICE_ROLE_KEY;
- if(!key)return out(503,{ok:false,error:'Finanzas no está configurado.'});
+ if(!key)return out(503,{ok:false,error:'Falta la clave de servidor de Main en este despliegue. Configura MAIN_SUPABASE_SERVICE_ROLE_KEY en Netlify y vuelve a desplegar.'});
  try{
   const auth=await authorizeManager({...event,headers:event.headers||{}},url,key);if(!auth.ok)return out(403,{ok:false,error:auth.error});
   const date=event.queryStringParameters?.date||day(new Date());
