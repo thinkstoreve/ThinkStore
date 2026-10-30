@@ -13,6 +13,11 @@ exports.handler=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(20
  if(!/^\d{8,15}$/.test(phone)||!Array.isArray(ids)||ids.length>100||ids.some(x=>!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(String(x))))return out(400,{ok:false,error:'Lectura inválida'});
  const changed=await C.sb(m,'rpc/ts_whatsapp_mark_read',{method:'POST',body:JSON.stringify({p_user:staff.user_id,p_phone:phone,p_ids:ids})});return out(200,{ok:true,changed});
  }
+ if(b.action==='templates')return out(200,{ok:true,templates:await require('./_whatsapp-templates').list()});
+ if(b.action==='send_template'){
+ const result=await require('./_whatsapp-templates').send(b,staff);
+ return out(result.status==='sent'?200:409,{ok:result.status==='sent',result,error:result.status==='duplicate'?'Este envío ya fue procesado. Revisa el historial.':result.status==='unconfirmed'?'Entrega sin confirmar. Revisa Meta antes de reenviar.':undefined});
+ }
  if(b.action==='inbox_health'){
  const configured={token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
  let connection={ok:false,reason:'Configuración incompleta'};
