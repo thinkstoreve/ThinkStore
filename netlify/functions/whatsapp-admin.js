@@ -13,6 +13,11 @@ exports.handler=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(20
  if(!/^\d{8,15}$/.test(phone)||!Array.isArray(ids)||ids.length>100||ids.some(x=>!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(String(x))))return out(400,{ok:false,error:'Lectura inválida'});
  const changed=await C.sb(m,'rpc/ts_whatsapp_mark_read',{method:'POST',body:JSON.stringify({p_user:staff.user_id,p_phone:phone,p_ids:ids})});return out(200,{ok:true,changed});
  }
+ if(b.action==='templates')return out(200,{ok:true,templates:await require('./_whatsapp-templates').list()});
+ if(b.action==='send_template'){
+ let result;try{result=await require('./_whatsapp-templates').send(b,staff)}catch(e){return out(409,{ok:false,error:C.clean(e.message,300)})}
+ return out(result.status==='sent'?200:409,{ok:result.status==='sent',result,error:result.status==='duplicate'?'Este envío ya fue procesado. Revisa el historial.':result.status==='unconfirmed'?'Entrega sin confirmar. Revisa Meta antes de reenviar.':undefined});
+ }
  if(b.action==='inbox_health'){
  const configured={token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
  let connection={ok:false,reason:'Configuración incompleta'};
@@ -22,7 +27,9 @@ exports.handler=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(20
   }catch{connection={ok:false,reason:'No se pudo consultar la conexión con Meta'};}
  }
  const latest=await C.sb(m,'whatsapp_message_log?select=created_at,direction,source&direction=eq.inbound&order=created_at.desc&limit=1');
- return out(200,{ok:true,configured,connection,last_inbound:latest?.[0]?.created_at||null,webhook_url:`${cfg.site}/.netlify/functions/whatsapp-webhook`});
+ let outbox=false;try{await C.sb(m,'whatsapp_notification_outbox?select=event_key&limit=1');outbox=true}catch{}
+ const automation={outbox,service:String(process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED)==='true',appointments:String(process.env.WHATSAPP_APPOINTMENT_NOTIFICATIONS_ENABLED)==='true',payments:String(process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED)==='true',orders:String(process.env.WHATSAPP_ORDER_NOTIFICATIONS_ENABLED)==='true'};
+ return out(200,{ok:true,configured,connection,automation,last_inbound:latest?.[0]?.created_at||null,webhook_url:`${cfg.site}/.netlify/functions/whatsapp-webhook`});
  }
  if(b.action==='conversation'){
  const phone=C.normalizePhone(b.phone);if(!/^\d{8,15}$/.test(phone))return out(400,{ok:false,error:'Teléfono inválido'});

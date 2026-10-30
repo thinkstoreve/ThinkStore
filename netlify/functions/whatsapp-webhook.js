@@ -19,9 +19,14 @@ exports.handler=async(event)=>{
         await C.logMessage({wa_message_id:m.id,phone_e164:phone,direction:'inbound',message_type:m.type||'unknown',status:'received',source:'webhook',body_preview:text,payload:m});
         const current=await C.getContact(phone),n=C.norm(text),now=new Date().toISOString();
         if(/^(stop|salir|baja|cancelar notificaciones)$/.test(n)){
-          await C.upsertContact(phone,{opt_in:false,opt_out_at:now,last_inbound_at:now,last_message_preview:text,needs_human:true,metadata:{...(current?.metadata||{}),care_assistant:{...(current?.metadata?.care_assistant||{}),active:false}}});
+          await C.upsertContact(phone,{opt_in:false,opt_out_at:now,last_inbound_at:now,last_message_preview:text,needs_human:true,metadata:{...(current?.metadata||{}),marketing_opt_in:false,care_assistant:{...(current?.metadata?.care_assistant||{}),active:false}}});
           const sent=await C.sendText(phone,'Listo. Pausamos las notificaciones automáticas de ThinkStore. Puedes escribir ACTIVAR cuando quieras volver a recibirlas.');
           await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'auto_reply',body_preview:'Opt-out confirmado',payload:sent});continue;
+        }
+        if(/^promociones$/.test(n)){
+          await C.upsertContact(phone,{metadata:{...(current?.metadata||{}),marketing_opt_in:true,marketing_opt_in_at:now,marketing_opt_in_source:'customer_keyword'},opt_out_at:null,last_inbound_at:now,last_message_preview:text,needs_human:true});
+          const sent=await C.sendText(phone,'Autorizaste recibir promociones de ThinkStore por WhatsApp. Escribe BAJA cuando quieras dejar de recibirlas.');
+          await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'marketing_consent',body_preview:'Autorización de promociones confirmada'});continue;
         }
         if(/^activar$/.test(n)){
           await C.upsertContact(phone,{opt_in:true,opt_in_source:'customer_reactivation',opt_in_at:now,opt_out_at:null,last_inbound_at:now,last_message_preview:text});
