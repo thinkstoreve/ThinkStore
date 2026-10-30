@@ -19,7 +19,7 @@ exports.handler=async(event)=>{
         await C.logMessage({wa_message_id:m.id,phone_e164:phone,direction:'inbound',message_type:m.type||'unknown',status:'received',source:'webhook',body_preview:text,payload:m});
         const current=await C.getContact(phone),n=C.norm(text),now=new Date().toISOString();
         if(/^(stop|salir|baja|cancelar notificaciones)$/.test(n)){
-          await C.upsertContact(phone,{opt_in:false,opt_out_at:now,last_inbound_at:now,last_message_preview:text,needs_human:true,metadata:{...(current?.metadata||{}),marketing_opt_in:false,care_assistant:{...(current?.metadata?.care_assistant||{}),active:false}}});
+          await C.upsertContact(phone,{opt_in:false,opt_out_at:now,last_inbound_at:now,last_message_preview:text,needs_human:true,metadata:{...(current?.metadata||{}),marketing_opt_in:false,service_notifications_opt_in:false,care_assistant:{...(current?.metadata?.care_assistant||{}),active:false}}});
           const sent=await C.sendText(phone,'Listo. Pausamos las notificaciones automáticas de ThinkStore. Puedes escribir ACTIVAR cuando quieras volver a recibirlas.');
           await C.logMessage({wa_message_id:sent?.messages?.[0]?.id||null,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'auto_reply',body_preview:'Opt-out confirmado',payload:sent});continue;
         }

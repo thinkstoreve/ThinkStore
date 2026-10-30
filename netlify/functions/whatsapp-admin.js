@@ -13,6 +13,7 @@ exports.handler=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(20
  if(!/^\d{8,15}$/.test(phone)||!Array.isArray(ids)||ids.length>100||ids.some(x=>!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(String(x))))return out(400,{ok:false,error:'Lectura inválida'});
  const changed=await C.sb(m,'rpc/ts_whatsapp_mark_read',{method:'POST',body:JSON.stringify({p_user:staff.user_id,p_phone:phone,p_ids:ids})});return out(200,{ok:true,changed});
  }
+ if(String(b.action||'').startsWith('marketing_')){try{return out(200,await require('./_whatsapp-marketing').handle(b,staff))}catch(e){return out(e.status||400,{ok:false,error:C.clean(e.message,300)})}}
  if(b.action==='templates')return out(200,{ok:true,templates:await require('./_whatsapp-templates').list()});
  if(b.action==='send_template'){
  let result;try{result=await require('./_whatsapp-templates').send(b,staff)}catch(e){return out(409,{ok:false,error:C.clean(e.message,300)})}
