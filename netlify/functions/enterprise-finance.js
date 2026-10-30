@@ -282,8 +282,15 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
   const inventoryRecoveryWeek=sum(weekSettlements,x=>x.inventory_recovery_usd);
   const serviceCompanyProfitWeek=sum(weekSettlements,x=>x.company_profit_usd);
 
-  const distributableRaw=money(shopCollected-storeCogs+supportCollected-supportPartsCost-supportStoreProductCost-supportDirectCosts+otherIncome-operatingExpenses-techAccrued-sellerAccrued);
-  const distributable=Math.max(0,distributableRaw);
+  const serviceRecognition=Funds.serviceProfit(supportOrders,weekSettlements,weekSupportEvents);
+  errors.push(...serviceRecognition.warnings);
+  const manualTech=sum(weekEntries.filter(e=>e.entry_type==='technician_commission'&&e.source_system!=='support_auto'),e=>e.amount_usd);
+  const manualSeller=sum(weekEntries.filter(e=>e.entry_type==='seller_commission'&&e.source_system!=='support_auto'),e=>e.amount_usd);
+  const manualDirect=sum(weekEntries.filter(e=>e.entry_type==='technician_commission'&&e.source_system!=='support_auto'),e=>e.metadata?.direct_cost);
+  // Cash received remains in collections. Profit recognizes only complete,
+  // verified settlements and includes prior-week advances exactly once.
+  const distributableRaw=money(shopCollected-storeCogs+serviceRecognition.profit+otherIncome-operatingExpenses-manualTech-manualSeller-manualDirect);
+  const distributable=serviceRecognition.blocked?0:Math.max(0,distributableRaw);
   const grossCollected=money(shopCollected+supportCollected+otherIncome);
 
   const shareCompany=money(distributable*num(cfg.company_share_pct)/100);
@@ -498,10 +505,9 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     sum(activePetty.filter(m=>onToday(m.occurred_at||m.created_at)&&m.movement_type==='refund'&&m.direction==='in'),m=>m.usd_equivalent)
   );
   const todaySettlements=(settlements||[]).filter(x=>onToday(x.settled_at||x.updated_at));
-  const todayServiceCompanyProfit=sum(todaySettlements,x=>x.company_profit_usd);
-  const todaySellerAccrued=sum(activeEntries.filter(e=>onToday(entryDate(e))&&e.entry_type==='seller_commission'),e=>e.amount_usd);
-  const todaySupportFallbackProfit=todaySettlements.length?todayServiceCompanyProfit:todaySupportCollected;
-  const todayEstimatedProfit=money(todayShopCollected-todayStoreCogs+todaySupportFallbackProfit+todayOtherIncome-todayOperatingExpenses-todaySellerAccrued);
+  const todayRecognition=Funds.serviceProfit(supportOrders,todaySettlements,weekSupportEvents.filter(e=>onToday(e.occurred_at||e.created_at)));
+  const todayManualCosts=sum(activeEntries.filter(e=>onToday(entryDate(e))&&e.source_system!=='support_auto'&&['technician_commission','seller_commission'].includes(e.entry_type)),e=>num(e.amount_usd)+num(e.metadata?.direct_cost));
+  const todayEstimatedProfit=money(todayShopCollected-todayStoreCogs+todayRecognition.profit+todayOtherIncome-todayOperatingExpenses-todayManualCosts);
   const todayCashRow=dayRows.find(x=>x.date===todayKey)||{inflow:0,outflow:0,net:0};
   const cashPosition=reconDifferenceTotal!==null?reconActualTotal:reconExpectedTotal;
   const cashPositionMode=reconDifferenceTotal!==null?'actual':'expected';
@@ -575,11 +581,11 @@ async function buildSummary({mainUrl,mainKey,supportUrl,supportKey,range}){
     movement_ledger:{records:movementLedger.slice(0,2000),total_found:movementLedger.length,truncated:movementLedger.length>2000,scope:"cash_reconciliation"},
     collections:{shop:shopCollected,support:supportCollected,other:otherIncome,gross:grossCollected},
     outflows:{
-      operating_expenses:operatingExpenses,store_cogs:storeCogs,support_parts:supportPartsCost,support_store_products:supportStoreProductCost,support_direct:supportDirectCosts,
+      manual_commissions_and_direct:money(manualTech+manualSeller+manualDirect),operating_expenses:operatingExpenses,store_cogs:storeCogs,support_parts:supportPartsCost,support_store_products:supportStoreProductCost,support_direct:supportDirectCosts,
       technician_commissions:techAccrued,seller_commissions:sellerAccrued,expenses_and_purchases:money(operatingExpenses+storeCogs+supportPartsCost+supportStoreProductCost+supportDirectCosts),
       inventory_purchase_cash:purchaseCashWeek,inventory_purchase_value:purchaseValueWeek,manual_purchase_cash:manualPurchaseCash,total:pnlCosts
     },
-    result:{net:distributableRaw,distributable,company:shareCompany,freddy:shareFreddy,nelson:shareNelson,loss_carry:distributableRaw<0?Math.abs(distributableRaw):0},
+    result:{service_profit_recognized:serviceRecognition.profit,service_receipts_held:serviceRecognition.held,profit_review_required:serviceRecognition.blocked,net:distributableRaw,distributable,company:shareCompany,freddy:shareFreddy,nelson:shareNelson,loss_carry:distributableRaw<0?Math.abs(distributableRaw):0},
     cash:{in:cashIn,out:cashOut,net:money(cashIn-cashOut),inventory_purchases_paid:purchaseCashWeek},
     partners,receivables:{store:storePending,store_rows:storeReceivableRows,support:supportPending,manual:manualPending,total:pendingTotal,manual_rows:manualReceivableRows.slice(0,100),support_rows:supportReceivableRows.slice(0,250),support_count:supportReceivableRows.length},
     today:{

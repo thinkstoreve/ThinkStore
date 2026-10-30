@@ -249,6 +249,7 @@ function showApp(){
     setTimeout(()=>hideEnterpriseBoot(),2400);
   }
   Promise.resolve().then(()=>loadEnterpriseV1Real()).catch(error=>console.warn('Enterprise background sync:',error?.message||error));
+  window.dispatchEvent(new Event('thinkstore:enterprise-ready'));
 }
 function applyEnterpriseAccessUI(){const app=qs('app');if(!app)return;app.classList.remove('enterprise-viewer','enterprise-manager');if(!currentProfile?.is_full_admin)app.classList.add(currentProfile?.enterprise_role==='manager'?'enterprise-manager':'enterprise-viewer');const sub=qs('pageSubtitle');if(sub&&!currentProfile?.is_full_admin&&currentProfile?.enterprise_role==='viewer')sub.textContent='Acceso Enterprise · Solo lectura'}
 
@@ -3173,7 +3174,7 @@ function renderV9RealMarketing(data){
         <article><span>Por entregar</span><b>${wNum(p.to_deliver)}</b><small>Órdenes abiertas</small></article>
       </div>
       <div class="ent-split">
-        <div><span>DISTRIBUCIÓN DE UTILIDAD</span><h3>${wMoney(g.distributable_profit)}</h3><p>Cobrado ${wMoney(g.collected_amount)} − COGS tienda ${wMoney(g.store_cogs)} − repuestos soporte ${wMoney(g.support_parts_cost)} − gastos operativos ${wMoney(g.operating_outflows)} − comisión técnica ${wMoney(g.technician_commissions)}. No incluye pendientes por cobrar.</p></div>
+        <div><span>DISTRIBUCIÓN DE UTILIDAD</span><h3>${wMoney(g.distributable_profit)}</h3><p>Los servicios aportan la utilidad de liquidaciones completas: ${wMoney(g.service_profit_recognized)}. Los abonos de servicios pendientes de liquidar (${wMoney(g.service_receipts_held)}) permanecen en caja, fuera del reparto.</p></div>
         <div class="ent-split-values"><article><span>Empresa · ${Number(g.company_pct||50)}%</span><b>${wMoney(g.company_50)}</b></article><article><span>Freddy · ${Number(g.partner_a_pct||25)}%</span><b>${wMoney(g.partner_a_25)}</b></article><article><span>Nelson · ${Number(g.partner_b_pct||25)}%</span><b>${wMoney(g.partner_b_25)}</b></article></div>
       </div>
       ${compact?'':`<article class="panel ent-week-table"><div class="panel-head"><h3>Detalle diario</h3><span class="tag">Datos reales</span></div><div>${weeklyDailyRows(data)}</div></article>`}
@@ -3195,7 +3196,7 @@ function renderV9RealMarketing(data){
       if(!res.ok||!data.ok)throw new Error(data.error||'No se pudo cargar el resumen Enterprise');
       renderWeekly(data);return data;
     }catch(error){
-      window.enterpriseFinanceError=String(msg);const html=`<article class="panel ent-data-warning"><b>Enterprise no pudo cargar el resumen global.</b><p>${safe(error.message||error)}</p></article>`;
+      window.enterpriseFinanceError=String(error.message||error);const html=`<article class="panel ent-data-warning"><b>Enterprise no pudo cargar el resumen global.</b><p>${safe(error.message||error)}</p></article>`;
       targets.forEach(el=>{if(el)el.innerHTML=html});
       return null;
     }
@@ -3364,11 +3365,11 @@ function renderV9RealMarketing(data){
         <div class="formula-head"><div><span>RESULTADO SEMANAL</span><h3>De dónde sale la utilidad</h3></div><button onclick="switchView('weeklyAudit')">Ver cierre</button></div>
         <div class="formula-grid">
           <div><span>Ventas cobradas</span><b>${fm(d.collections?.shop)}</b></div><i>+</i>
-          <div><span>Servicio Técnico</span><b>${fm(d.collections?.support)}</b></div><i>+</i>
+          <div><span>Utilidad de servicios liquidados</span><b>${fm(d.result?.service_profit_recognized)}</b></div><i>+</i>
           <div><span>Otros ingresos</span><b>${fm(d.collections?.other)}</b></div><i>−</i>
           <div><span>COGS tienda</span><b>${fm(d.outflows?.store_cogs)}</b></div><i>−</i>
-          <div><span>Repuestos + directos</span><b>${fm(Number(d.outflows?.support_parts||0)+Number(d.outflows?.support_store_products||0)+Number(d.outflows?.support_direct||0))}</b></div><i>−</i>
-          <div><span>Gastos + comisiones</span><b>${fm(Number(d.outflows?.operating_expenses||0)+Number(d.outflows?.technician_commissions||0)+Number(d.outflows?.seller_commissions||0))}</b></div><i>=</i>
+          <div><span>Comisiones y directos manuales</span><b>${fm(d.outflows?.manual_commissions_and_direct)}</b></div><i>−</i>
+          <div><span>Gastos operativos</span><b>${fm(d.outflows?.operating_expenses)}</b></div><i>=</i>
           <div class="formula-total"><span>Distribuible</span><b>${fm(d.result?.distributable)}</b></div>
         </div>
       </article>
@@ -3443,7 +3444,7 @@ function renderV9RealMarketing(data){
   function renderTreasury(d){
     const el=qs('treasury');if(!el)return;
     el.innerHTML=`${financeActions()}
-      <article class="treasury-focus panel"><div><span>TESORERÍA & SOCIOS</span><h2>Dinero real, obligaciones y rentabilidad</h2><p>Los aportes de socios se muestran como deuda de ThinkStore, nunca como ingreso o ganancia.</p></div><div class="treasury-focus-total"><span>Utilidad distribuible</span><b>${fm(d.result?.distributable)}</b><small>Semana ${safe(d.period?.start)} → ${safe(d.period?.end)}</small></div></article>
+      <article class="treasury-focus panel"><div><span>TESORERÍA & SOCIOS</span><h2>Dinero real, obligaciones y rentabilidad</h2><p>Los aportes de socios se muestran como deuda de ThinkStore, nunca como ingreso o ganancia.</p><p>Abonos de servicios pendientes de liquidar: <b>${fm(d.result?.service_receipts_held)}</b>. Se conservan en caja y no se reparten.</p></div><div class="treasury-focus-total"><span>Utilidad distribuible</span><b>${fm(d.result?.distributable)}</b><small>Semana ${safe(d.period?.start)} → ${safe(d.period?.end)}</small></div></article>
       <div class="fin-kpis treasury-kpis">
         <article><span>Cobrado semana</span><b>${fm(d.collections?.gross)}</b><small>Tienda + Servicio Técnico + otros</small></article>
         <article><span>Gastos operativos</span><b>${fm(d.outflows?.operating_expenses)}</b><small>No incluye compras de inventario como gasto</small></article>
@@ -3629,7 +3630,7 @@ function renderV9RealMarketing(data){
         <article><span>Compras pagadas (caja)</span><b>${fm(d.outflows?.inventory_purchase_cash)}</b><small>No reduce utilidad otra vez</small></article>
         <article><span>Resultado neto</span><b>${fm(d.result?.net)}</b></article>
       </div>
-      <div class="fin-split-card"><div><span>REPARTO SEMANAL</span><h2>${fm(d.result?.distributable)}</h2><p>${d.result?.loss_carry>0?'No se genera reparto mientras exista pérdida semanal.':'El reparto se calcula únicamente sobre utilidad distribuible, no sobre ventas ni sobre aportes de socios.'}</p></div><div class="fin-split-grid"><article><span>Empresa</span><b>${fm(d.result?.company)}</b></article><article><span>Freddy</span><b>${fm(d.result?.freddy)}</b></article><article><span>Nelson</span><b>${fm(d.result?.nelson)}</b></article></div></div>
+      <p class="fin-quality">Abonos de servicios pendientes de liquidar: ${fm(d.result?.service_receipts_held)}. Permanecen en caja, fuera de la utilidad distribuible.</p><div class="fin-split-card"><div><span>REPARTO SEMANAL</span><h2>${fm(d.result?.distributable)}</h2><p>${d.result?.loss_carry>0?'No se genera reparto mientras exista pérdida semanal.':'El reparto se calcula únicamente sobre utilidad distribuible, no sobre ventas ni sobre aportes de socios.'}</p></div><div class="fin-split-grid"><article><span>Empresa</span><b>${fm(d.result?.company)}</b></article><article><span>Freddy</span><b>${fm(d.result?.freddy)}</b></article><article><span>Nelson</span><b>${fm(d.result?.nelson)}</b></article></div></div>
       <article class="panel" style="margin-top:18px"><div class="panel-head"><h3>Historial de cierres</h3><button data-fin-refresh>Actualizar</button></div><div class="table">${auditHistory(d)}</div></article>`;
   }
   async function loadFinanceCenter(force=false){
