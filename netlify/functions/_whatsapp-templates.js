@@ -10,16 +10,16 @@ async function list(){
  }
  return rows.filter(t=>t.status==='APPROVED'&&['UTILITY','MARKETING'].includes(t.category)&&t.components?.every(c=>c.type==='FOOTER'||c.type==='BODY'||(c.type==='HEADER'&&c.format==='TEXT'&&!/{{/.test(c.text||'')))).map(t=>({name:t.name,language:t.language,category:t.category,body:t.components.find(c=>c.type==='BODY')?.text||''}));
 }
-async function send(b,actor){
+async function send(b,actor,context={}){
  const phone=C.normalizePhone(b.phone);if(!/^\d{10,15}$/.test(phone)||!UUID.test(b.client_id||''))throw Error('Teléfono o referencia de envío inválidos');
- const t=(await list()).find(t=>t.name===b.template&&t.language===b.language);if(!t)throw Error('La plantilla no está aprobada o requiere otro tipo de contenido');
+ const t=context.template||(await list()).find(t=>t.name===b.template&&t.language===b.language);if(!t)throw Error('La plantilla no está aprobada o requiere otro tipo de contenido');
  const values=b.variables;if(!Array.isArray(values))throw Error('Completa los datos de la plantilla');
  const indices=[...t.body.matchAll(/{{(\d+)}}/g)].map(m=>Number(m[1])),count=Math.max(0,...indices);
  if(values.length!==count||values.some(v=>typeof v!=='string'||!v.trim()||v.length>500))throw Error('Completa todas las variables (máximo 500 caracteres por dato)');
  const contact=await C.getContact(phone),marketing=t.category==='MARKETING';
  if(!contact||contact.opt_out_at||!(marketing?contact.metadata?.marketing_opt_in===true:(contact.opt_in===true||contact.metadata?.service_notifications_opt_in===true)))throw Error(marketing?'El cliente debe autorizar promociones escribiendo PROMOCIONES por WhatsApp.':'El cliente no tiene autorización de avisos registrada.');
  const key=crypto.createHash('sha256').update('manual|'+b.client_id).digest('hex'),cfg=C.mainCfg();
- try{await C.sb(cfg,'whatsapp_notification_outbox',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({event_key:key,phone_e164:phone,template_name:t.name,entity_type:marketing?'marketing':'manual_template',entity_id:b.client_id,status:'pending'})});}
+ try{await C.sb(cfg,'whatsapp_notification_outbox',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({event_key:key,phone_e164:phone,template_name:t.name,entity_type:context.campaignId?'marketing_campaign':marketing?'marketing':'manual_template',entity_id:context.campaignId||b.client_id,status:'pending'})});}
  catch(e){if(/duplicate key|23505|409/.test(e.message))return{status:'duplicate'};throw Error('No se pudo reservar el envío. Comprueba la migración de avisos.');}
  const endpoint='whatsapp_notification_outbox?event_key=eq.'+key;
  let sent;try{sent=await C.sendTemplate(phone,t.name,t.language,values);if(!sent?.messages?.[0]?.id)throw Error('missing_message_id');}
