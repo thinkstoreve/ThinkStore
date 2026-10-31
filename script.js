@@ -286,9 +286,9 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
     const key=tsCatalogNorm(row.product_group||row.name||'');
     const target=base.find(p=>[p.name,p.family,p.model].some(n=>tsCatalogNorm(n)===key));
     if(!target)return;
-    const urls=(Array.isArray(row.image_urls)?row.image_urls:[]).filter(x=>/^https:\/\//i.test(String(x)));
+    const urls=[...new Set([row.image_url,...(Array.isArray(row.image_urls)?row.image_urls:[])].filter(x=>/^https:\/\//i.test(String(x))))];
     if(urls.length){
-      target.main=row.image_url||urls[0];
+      target.main=urls[0];
       target.gallery=[...new Set([target.main,...urls,...(target.gallery||[])])].slice(0,24);
       target.colors=target.colors||{};if(row.color)target.colors[row.color]=target.main;
     }
