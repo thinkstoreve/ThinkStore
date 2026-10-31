@@ -1481,7 +1481,7 @@ const views={
    const agency=c.agency||c.agencia_destino||u.agency||u.agencia_destino||'Por definir';
    $('content').innerHTML=`${realBar()}<div class="client-section-head"><div><span class="client-eyebrow">ENTREGA</span><h2>Direcciones</h2><p>Administra tu dirección principal y preferencias de entrega.</p></div><button class="btn blue" onclick="openClientProfileEditor()">Editar información</button></div><div class="client-orders-grid"><div class="client-order-card"><span class="client-eyebrow">DIRECCIÓN PRINCIPAL</span><h3>${esc(address)}</h3><p>${esc(city)}</p><div class="actions"><button class="btn ghost" onclick="openClientProfileEditor()">Editar dirección</button></div></div><div class="client-order-card"><span class="client-eyebrow">ENTREGA PREFERIDA</span><h3>${esc(shipping)}</h3><p>${esc(agency)}</p><div class="actions"><button class="btn ghost" onclick="openClientProfileEditor()">Cambiar preferencia</button></div></div></div>`;
  },
- clientes(){const q='';$('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Clientes / CRM</h2><small>Registrados + ventas directas · etiquetas, notas internas y segmentación.</small></div><button class="btn ghost" onclick="exportCustomersCSV()">Exportar CSV</button></div><div class="toolbar"><input id="customerSearch" placeholder="Buscar nombre, correo, teléfono o pedido" oninput="renderCustomersTable()"><select id="customerSegment" onchange="renderCustomersTable()"><option value="">Todos los segmentos</option><option>VIP</option><option>Frecuente</option><option>Nuevo</option><option>Mayorista</option><option>Garantía activa</option><option>Venta directa</option><option>Preferente</option></select></div><div id="customersBox"></div>`;loadCrmMeta().then(renderCustomersTable)},
+ clientes(){const q='';$('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Clientes / CRM</h2><small>Registrados + ventas directas · etiquetas, notas internas y segmentación.</small></div><button class="btn ghost" onclick="exportCustomersCSV()">Exportar CSV</button></div><div class="toolbar"><input id="customerSearch" placeholder="Buscar nombre, correo, teléfono o pedido" oninput="window.tsCustomerVisibleLimit=100;renderCustomersTable()"><select id="customerSegment" onchange="renderCustomersTable()"><option value="">Todos los segmentos</option><option>VIP</option><option>Frecuente</option><option>Nuevo</option><option>Mayorista</option><option>Garantía activa</option><option>Venta directa</option><option>Preferente</option></select></div><div id="customersBox"></div>`;loadCrmMeta().then(renderCustomersTable)},
  crm(){views.clientes()},
  async pedidos(){tsOrderChannel='all';$('content').innerHTML=realBar()+`<div class="section-title"><div><h2>Pedidos reales</h2><small>${orders().length} registros</small></div></div><div class="toolbar"><button class="btn ghost active" data-order-channel="all" onclick="setOrderChannel('all')">Todos</button><button class="btn ghost" data-order-channel="online" onclick="setOrderChannel('online')">Ventas online</button><button class="btn ghost" data-order-channel="presencial" onclick="setOrderChannel('presencial')">Ventas presenciales</button></div><div class="toolbar"><input id="orderSearch" placeholder="Buscar pedido, cliente o correo" oninput="renderOrdersList()"><select id="orderFilter" onchange="renderOrdersList()"><option value="">Todos los estados</option>${STATUS_OPTIONS.map(s=>`<option>${esc(s)}</option>`).join('')}</select></div><div id="ordersBox" class="stack"></div>`;await loadUnitAssignmentSummaries();renderOrdersList()},
  pagos(){$('content').innerHTML=realBar()+`<div class="section-title"><h2>Pagos y comprobantes</h2><small>${realState.comprobantes.length} comprobantes</small></div><div id="paymentsBox"></div>`;renderPayments()},
@@ -1614,8 +1614,8 @@ function crmRows(){
   const base=new Map();
   (customers()||[]).forEach(c=>{
     const email=normalizeEmail(clientEmail(c));
-    const key=email||String(c.id||c.supabase_id||Math.random());
-    base.set(key,{...c,_origin:'Registrado',_email:email,_name:clientName(c),_phone:clientPhone(c)});
+    const key=c.source&&c.source!=='Registrado'?String(c.id):email||String(c.id||c.supabase_id||Math.random());
+    base.set(key,{...c,_origin:c.source||'Registrado',_email:email,_name:clientName(c),_phone:clientPhone(c)});
   });
   (orders()||[]).forEach(o=>{
     const c=orderClient(o),email=normalizeEmail(c.email);
@@ -1624,7 +1624,7 @@ function crmRows(){
   });
   return [...base.values()].map(c=>{
     const email=normalizeEmail(c._email||clientEmail(c));
-    const mine=(orders()||[]).filter(o=>normalizeEmail(orderClient(o).email)===email);
+    const mine=email?(orders()||[]).filter(o=>normalizeEmail(orderClient(o).email)===email):[];
     const paid=mine.filter(o=>/pago verificado|preparando|comprando proveedor|tr[aá]nsito|disponible|enviado|entregado/i.test(orderStatus(o)));
     const spend=paid.reduce((n,o)=>n+orderTotal(o),0);
     const last=mine.slice().sort((a,b)=>Date.parse(b.created_at||b.date||0)-Date.parse(a.created_at||a.date||0))[0];
@@ -1634,13 +1634,13 @@ function crmRows(){
       const od=Date.parse(o.created_at||o.date||0)||0;
       orderItems(o).forEach(i=>{const d=Number(i.garantia_dias||i.warranty_days||0);if(d>0&&od&&now<od+d*86400000)warranties++})
     });
-    const repairs=(tickets()||[]).filter(t=>normalizeEmail(t.email||t.correo||t.customer_email||'')===email).length;
+    const repairs=email?(tickets()||[]).filter(t=>normalizeEmail(t.email||t.correo||t.customer_email||'')===email).length:0;
     return {...c,_email:email,_name:c._name||clientName(c),_phone:c._phone||clientPhone(c),_orders:mine.length,_spend:spend,_last:last,_warranties:warranties,_repairs:repairs};
   }).sort((a,b)=>b._spend-a._spend);
 }
 function openCustomerRecord(email){
-  const row=crmRows().find(c=>normalizeEmail(c._email)===normalizeEmail(email));if(!row)return alert('No se encontró el cliente.');
-  const meta=crmMeta(email);
+  const row=crmRows().find(c=>String(c.id)===String(email)||normalizeEmail(c._email)===normalizeEmail(email));if(!row)return alert('No se encontró el cliente.');
+  const meta=crmMeta(row._email);
   try{localStorage.setItem('ts_crm_customer_snapshot',JSON.stringify({...row,_crm_tags:[...new Set([...autoCrmTags(row),...(meta.tags||[])])],_crm_note:meta.internal_note||''}))}catch(_){}
   const w=window.open('cliente-detalle.html','_blank','noopener');if(!w)alert('Permite ventanas emergentes para ThinkStore.');
 }
@@ -1654,7 +1654,7 @@ function renderCustomersTable(){
     .crm-open{white-space:nowrap}.crm-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.crm-tag{display:inline-flex;padding:4px 7px;border-radius:999px;background:#f2f4f7;color:#344054;font-size:10px;font-weight:800}
     @media(max-width:900px){.crm-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.crm-kpis{grid-template-columns:1fr}}
   </style><div class="crm-kpis"><div class="crm-kpi"><b>${list.length}</b><small>Contactos CRM</small></div><div class="crm-kpi"><b>${direct}</b><small>Ventas directas</small></div><div class="crm-kpi"><b>${money(totalSpend)}</b><small>Compra acumulada</small></div><div class="crm-kpi"><b>${list.reduce((n,c)=>n+c._warranties,0)}</b><small>Garantías activas</small></div></div>
-  <div class="table-wrap"><table class="table"><thead><tr><th>Cliente</th><th>Segmentación</th><th>Compras</th><th>Gasto total</th><th>Último pedido</th><th>Garantías</th><th>Acciones</th></tr></thead><tbody>${list.map(c=>{const meta=crmMeta(c._email),tags=[...new Set([...autoCrmTags(c),...(meta.tags||[])])];return `<tr><td><b>${esc(c._name||'Cliente')}</b><br><small>${esc(c._email||'')} · ${esc(c._phone||'')}</small><br><small>${esc(c._origin||'Registrado')}</small></td><td><div class="crm-tags">${tags.map(t=>`<span class="crm-tag">${esc(t)}</span>`).join('')||'<span class="muted">Sin etiquetas</span>'}</div>${meta.internal_note?`<small>${esc(meta.internal_note)}</small>`:''}</td><td>${c._orders}</td><td><b>${money(c._spend)}</b></td><td>${c._last?`${esc(orderCode(c._last))}<br><small>${esc(fmtDate(c._last.created_at||c._last.date))}</small>`:'—'}</td><td>${c._warranties}${c._repairs?`<br><small>${c._repairs} soporte</small>`:''}</td><td><div class="actions" style="margin:0"><button class="btn ghost crm-open" onclick="openCustomerRecord('${esc(c._email)}')">Ficha ↗</button><button class="btn ghost" onclick="editCustomerCrm('${esc(c._email)}')">CRM</button></div></td></tr>`}).join('')||'<tr><td colspan="7">Sin clientes.</td></tr>'}</tbody></table></div>`;
+  <div class="table-wrap"><table class="table"><thead><tr><th>Cliente</th><th>Segmentación</th><th>Compras</th><th>Gasto total</th><th>Último pedido</th><th>Garantías</th><th>Acciones</th></tr></thead><tbody>${list.slice(0,window.tsCustomerVisibleLimit||100).map(c=>{const meta=crmMeta(c._email),tags=[...new Set([...autoCrmTags(c),...(meta.tags||[])])];return `<tr><td><b>${esc(c._name||'Cliente')}</b><br><small>${esc(c._email||'')} · ${esc(c._phone||'')}</small><br><small>${esc(c._origin||'Registrado')}</small></td><td><div class="crm-tags">${tags.map(t=>`<span class="crm-tag">${esc(t)}</span>`).join('')||'<span class="muted">Sin etiquetas</span>'}</div>${meta.internal_note?`<small>${esc(meta.internal_note)}</small>`:''}</td><td>${c._orders}</td><td><b>${money(c._spend)}</b></td><td>${c._last?`${esc(orderCode(c._last))}<br><small>${esc(fmtDate(c._last.created_at||c._last.date))}</small>`:'—'}</td><td>${c._warranties}${c._repairs?`<br><small>${c._repairs} soporte</small>`:''}</td><td><div class="actions" style="margin:0"><button class="btn ghost crm-open" onclick="openCustomerRecord('${esc(c.id||c._email)}')">Ficha ↗</button><button class="btn ghost" ${c._email?'':'disabled'} onclick="editCustomerCrm('${esc(c._email)}')">CRM</button></div></td></tr>`}).join('')||'<tr><td colspan="7">Sin clientes.</td></tr>'}</tbody></table></div><p class="muted">Se muestran ${Math.min(list.length,window.tsCustomerVisibleLimit||100)} de ${list.length} contactos. Busca por nombre, correo o teléfono para filtrar toda la base.</p>${list.length>(window.tsCustomerVisibleLimit||100)?'<button class="btn ghost" onclick="window.tsCustomerVisibleLimit=(window.tsCustomerVisibleLimit||100)+100;renderCustomersTable()">Mostrar 100 más</button>':''}`;
 }function receiptForOrder(o){return (realState.comprobantes||[]).find(c=>String(c.pedido_id||'')===String(o?.id||''))||null}
 function receiptButton(c,label='Ver comprobante'){
   if(!c) return '<span class="muted">Sin comprobante</span>';

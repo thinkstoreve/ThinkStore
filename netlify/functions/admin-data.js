@@ -71,6 +71,13 @@ exports.handler = async function(event) {
   try {
     // Clientes se lee SIEMPRE de forma independiente para que el dashboard nunca quede en 1 por fallo de pedidos.
     const clientes = await get('clientes?select=*&order=created_at.desc');
+    // Imported contacts are business records, without creating Auth accounts.
+    for(let offset=0;offset<20000;offset+=1000){
+      const page=await get('ts_customer_directory?select=*&source=neq.Registrado&order=id.asc&limit=1000&offset='+offset);
+      clientes.push(...page);
+      if(page.length<1000)break;
+      if(offset===19000)throw new Error('El directorio supera el máximo de consulta.');
+    }
 
     const pedidos = await getOptional([
       'pedidos?select=*,clientes(*),pedido_items(*),order_status_history(*)&order=created_at.desc',
