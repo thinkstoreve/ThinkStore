@@ -1,0 +1,5 @@
+ThinkStore MAIN - Mejora visual del video en tarjetas.
+Subir catalog-video-preview.css e index.html a la raiz de MAIN.
+No reemplazar otros archivos ni modificar Inventory.
+No modifica datos, URL multimedia, ni logica de asociacion.
+El video se muestra completo con object-fit:contain y un marco visual suave.
