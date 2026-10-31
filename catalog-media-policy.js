@@ -14,8 +14,8 @@
    const primary=ordered.find(x=>x.catalog_media_primary===true)||ordered.find(x=>urls(x).length)||ordered[0];
    const variantMedia={};for(const row of ordered){const key=norm(row.variant_color||row.color)+'|'+conditionKey(row.condition);if(!Object.hasOwn(variantMedia,key))variantMedia[key]={images:urls(row),video:String(row.video_url||''),id:row.id};}
    const galleries={};for(const row of ordered){const color=String(row.variant_color||row.color||'').trim();if(color&&!Object.hasOwn(galleries,color))galleries[color]={images:urls(row),video:String(row.video_url||''),id:row.id};}
-   const cover=urls(primary)[0]||'assets/logo-thinkstore.png';
-   if(managed){target.main=cover;target.gallery=[...new Set(ordered.flatMap(urls))].slice(0,24);target.video_url=String(primary.video_url||'');target.colors={};}
+   const cover=urls(primary)[0]||'';
+   if(managed){target.main=cover||'assets/logo-thinkstore.png';target.gallery=[...new Set(ordered.flatMap(urls))].slice(0,24);target.video_url=String(primary.video_url||'');target.colors={};}
    else{if(cover)target.main=cover;const extra=ordered.flatMap(urls);if(extra.length)target.gallery=[...new Set([...extra,...(target.gallery||[])])].slice(0,24);const video=ordered.find(x=>/^https:\/\//i.test(String(x.video_url||'')));if(video)target.video_url=video.video_url;}
    if(colorsManaged)target.colors={};target.colors=target.colors||{};
    for(const [color,media] of Object.entries(galleries))target.colors[color]=media.images[0]||(managed?'assets/logo-thinkstore.png':target.colors[color]||target.main||'');
