@@ -19,6 +19,8 @@
    else{if(cover)target.main=cover;const extra=ordered.flatMap(urls);if(extra.length)target.gallery=[...new Set([...extra,...(target.gallery||[])])].slice(0,24);const video=ordered.find(x=>/^https:\/\//i.test(String(x.video_url||'')));if(video)target.video_url=video.video_url;}
    if(colorsManaged)target.colors={};target.colors=target.colors||{};
    for(const [color,media] of Object.entries(galleries))target.colors[color]=media.images[0]||(managed?'assets/logo-thinkstore.png':target.colors[color]||target.main||'');
+   const card=items.find(x=>/^https:\/\//i.test(String(x.catalog_card_image_url||'')));
+   if(card){target.main=card.catalog_card_image_url;target.inventory_card_cover=card.catalog_card_image_url;}
    target.inventory_variant_media=variantMedia;target.inventory_color_media=galleries;target.inventory_media_managed=managed;target.inventory_media_product_id=primary.id;
   }
   return base;
