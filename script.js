@@ -281,25 +281,8 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
     if(variantsForGroup.length)enrich(p,variantsForGroup);
     base.push(p);
   });
-  // Gallery/video published by Inventory. Primary image remains an image, not a video.
-  inventoryRows.forEach(row=>{
-    const rawName=String(row.product_group||row.name||'');
-    const key=tsCatalogNorm(rawName);
-    // Alias EXPLÍCITO de catálogo; no asociar por parecido ni reutilizar entre modelos.
-    const canonicalKey=key==='iphone 18 ultra'?'iphone ultra':key;
-    const target=base.find(p=>[p.name,p.family,p.model].some(n=>tsCatalogNorm(n)===canonicalKey));
-    if(!target)return;
-    const urls=[...new Set([row.image_url,...(Array.isArray(row.image_urls)?row.image_urls:[])].filter(x=>/^https:\/\//i.test(String(x))))];
-    if(urls.length){
-      target.main=urls[0];
-      target.gallery=[...new Set([target.main,...urls,...(target.gallery||[])])].slice(0,24);
-      target.colors=target.colors||{};if(row.color)target.colors[row.color]=target.main;
-    }
-    if(/^https:\/\//i.test(String(row.video_url||''))){
-      target.video_url=row.video_url;
-      target.inventory_media_product_id=row.id;
-    }
-  });
+  // Explicit Inventory galleries replace legacy MAIN media only when requested.
+  window.ThinkStoreCatalogMedia.apply(base,inventoryRows);
   // A reference photo is explicit, and is replaced as soon as Inventory has its own media.
   base.filter(tsIsSiliconeCase).forEach(p=>{
     const wrong=url=>String(url||'').includes('0006EEA4-4088-48F6-A287-F0EBB608BB63');
@@ -483,6 +466,8 @@ function drawDetail(){
   // V1.6.3: la galería es independiente de los colores.
   // selectedGallery tiene prioridad cuando el usuario pulsa una miniatura;
   // al cambiar de color setColor() la reinicia a la imagen de ese color.
+  const colorMedia=window.ThinkStoreCatalogMedia.forSelection(p,selectedColor,selectedCondition);
+  if(colorMedia&&!colorMedia.images.includes(selectedGallery))selectedGallery=colorMedia.images[0]||colorMap[selectedColor]||'assets/logo-thinkstore.png';
   const img = selectedGallery || colorMap[selectedColor] || p.main;
   selectedGallery = img;
   $('mainImg').src=asset(img);
@@ -493,8 +478,8 @@ function drawDetail(){
     const u=String(url||'').trim();
     if(u && !galleryUrls.includes(u)) galleryUrls.push(u);
   };
-  (p.gallery||[]).forEach(pushGallery);
-  pushGallery(p.main);
+  (colorMedia?colorMedia.images:(p.gallery||[])).forEach(pushGallery);
+  if(!colorMedia)pushGallery(p.main);
   if(!galleryUrls.length) pushGallery(colorMap[selectedColor]);
 
   $('thumbs').innerHTML=galleryUrls.map((g,i)=>`<button class="thumb ${g==img?'sel':''}" title="Vista ${i+1}" onclick="setGal('${safe(g)}')"><img loading="lazy" src="${asset(g)}" alt="${p.name} vista ${i+1}"><span>${i===0?'Principal':`Imagen ${i+1}`}</span></button>`).join('\n');
@@ -508,7 +493,7 @@ function drawDetail(){
   if(meta){
     meta.innerHTML=`<span>Marca: <b>${p.brand||'Apple'}</b></span><span>Categoría: <b>${getCat(p)}</b></span><span>Modelo: <b>${p.model||p.family||p.name}</b></span>`;
   }
-  if(typeof window.tsRefreshProductMedia==='function')window.tsRefreshProductMedia(p);
+  if(typeof window.tsRefreshProductMedia==='function')window.tsRefreshProductMedia(colorMedia?{...p,video_url:colorMedia.video}:p);
 }
 
 function setGal(g){
