@@ -283,8 +283,11 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
   });
   // Gallery/video published by Inventory. Primary image remains an image, not a video.
   inventoryRows.forEach(row=>{
-    const key=tsCatalogNorm(row.product_group||row.name||'');
-    const target=base.find(p=>[p.name,p.family,p.model].some(n=>tsCatalogNorm(n)===key));
+    const rawName=String(row.product_group||row.name||'');
+    const key=tsCatalogNorm(rawName);
+    // Alias EXPLÍCITO de catálogo; no asociar por parecido ni reutilizar entre modelos.
+    const canonicalKey=key==='iphone 18 ultra'?'iphone ultra':key;
+    const target=base.find(p=>[p.name,p.family,p.model].some(n=>tsCatalogNorm(n)===canonicalKey));
     if(!target)return;
     const urls=[...new Set([row.image_url,...(Array.isArray(row.image_urls)?row.image_urls:[])].filter(x=>/^https:\/\//i.test(String(x))))];
     if(urls.length){
@@ -292,7 +295,10 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
       target.gallery=[...new Set([target.main,...urls,...(target.gallery||[])])].slice(0,24);
       target.colors=target.colors||{};if(row.color)target.colors[row.color]=target.main;
     }
-    if(/^https:\/\//i.test(String(row.video_url||'')))target.video_url=row.video_url;
+    if(/^https:\/\//i.test(String(row.video_url||''))){
+      target.video_url=row.video_url;
+      target.inventory_media_product_id=row.id;
+    }
   });
   // A reference photo is explicit, and is replaced as soon as Inventory has its own media.
   base.filter(tsIsSiliconeCase).forEach(p=>{
