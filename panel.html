@@ -1645,7 +1645,7 @@ function openCustomerRecord(email){
   const snapshot={...row,_crm_tags:[...new Set([...autoCrmTags(row),...(meta.tags||[])])],_crm_note:meta.internal_note||''};
   try{localStorage.setItem('ts_crm_customer_snapshot',JSON.stringify(snapshot));localStorage.setItem('ts_crm_customer_snapshot:'+key,JSON.stringify(snapshot))}catch(_){}
   const query=row.supabase_id?'id='+encodeURIComponent(row.supabase_id):row._last?.id?'order='+encodeURIComponent(row._last.id):'';
-  const w=window.open('cliente-detalle.html'+(query?'?'+query:''),'_blank','noopener');if(!w)alert('Permite ventanas emergentes para ThinkStore.');
+  window.open('cliente-detalle.html'+(query?'?'+query:''),'_blank','noopener');
 }
 function renderCustomersTable(){
   const box=$('customersBox');if(!box)return;
