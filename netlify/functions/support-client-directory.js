@@ -74,9 +74,15 @@ exports.handler=async event=>{
     const role=String(profile?.rol||'').toLowerCase();
     if(!profile||profile.activo===false||!ALLOWED_ROLES.has(role))return out(event,403,{ok:false,error:'Tu rol no tiene acceso al directorio de clientes.'});
 
-    const r=await fetch(`${c.mainUrl}/rest/v1/clientes?select=*&order=created_at.desc&limit=1000`,{headers:{apikey:c.mainKey,Authorization:`Bearer ${c.mainKey}`}});
-    const rows=await readJson(r);
-    if(!r.ok)return out(event,502,{ok:false,error:'No se pudo consultar el CRM principal.'});
+    const rows=[];
+    for(let offset=0;offset<20000;offset+=1000){
+      const r=await fetch(`${c.mainUrl}/rest/v1/ts_customer_directory?select=*&order=id.asc&limit=1000&offset=${offset}`,{headers:{apikey:c.mainKey,Authorization:`Bearer ${c.mainKey}`}});
+      const page=await readJson(r);
+      if(!r.ok||!Array.isArray(page))return out(event,502,{ok:false,error:'No se pudo consultar el CRM principal.'});
+      rows.push(...page);
+      if(page.length<1000)break;
+      if(offset===19000)throw Error('El directorio supera el máximo de consulta.');
+    }
     const clients=(Array.isArray(rows)?rows:[]).map(sanitize).filter(x=>x.nombre||x.correo||x.telefono||x.cedula_rif);
     return out(event,200,{ok:true,clients,count:clients.length});
   }catch(error){
