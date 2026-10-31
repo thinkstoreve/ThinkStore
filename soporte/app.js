@@ -2607,7 +2607,10 @@ const TSService=(()=>{
     const previousReceptionMeta=existingOrder?.checklist?.__meta||{};
     const checklist={...(existingOrder?.checklist||{})};document.querySelectorAll('#receptionChecklist label').forEach(label=>{const name=label.childNodes[1]?.textContent?.trim()||label.textContent.trim().split(/Funciona|No funciona|No aplica/)[0].trim();const checked=label.querySelector('input')?.checked||false;const value=label.querySelector('select')?.value||'';checklist[name]={checked,value}});
     checklist.__meta={...previousReceptionMeta,device_category:receptionDeviceCategory,quick_failures:receptionQuickFailures.slice(),reception_v2:true,received_by_name:previousReceptionMeta.received_by_name||session?.name||'',received_by_email:previousReceptionMeta.received_by_email||session?.email||'',received_by_role:previousReceptionMeta.received_by_role||session?.role||'',received_at:previousReceptionMeta.received_at||new Date().toISOString(),last_reception_by_name:session?.name||'',last_reception_by_email:session?.email||'',last_reception_at:new Date().toISOString()};
-    checklist.__client={...collectReceptionClientMeta(),source_order_lookup:selectedReceptionClientId||null};
+    const directorySelection=receptionClientDirectoryCache.find(c=>c.lookupId===selectedReceptionClientId);
+    checklist.__client={...collectReceptionClientMeta(),source_order_lookup:selectedReceptionClientId||null,main_customer_id:directorySelection?.registered_id||existingOrder?.checklist?.__client?.main_customer_id||null};
+    checklist.__meta.intake_source=document.getElementById('oIntakeSource')?.value||'Recepción directa';
+    checklist.__meta.appointment_id=pendingAppointmentId||previousReceptionMeta.appointment_id||null;
     syncReceptionSignerNames();
     const signatures={reception:session?.name||'',client:oClient.value.trim(),technician:sigTechName.value.trim(),supervisor:sigSupervisorName.value.trim()};
     const deviceType=receptionDeviceCategory==='apple'?(device?.category||oCategory.value||'Apple'):receptionDeviceCategory==='gaming'?`Gaming · ${oCategory.value||'Consola / control'}`:`Other · ${oCategory.value||'Otro equipo'}`;
