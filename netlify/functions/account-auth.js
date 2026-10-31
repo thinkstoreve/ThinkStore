@@ -31,6 +31,7 @@ async function upsertCustomer(url,service,userId,c){
   const record={id:userId,nombre:c.name,correo:c.email,telefono:c.phone,cedula_rif:c.idNumber,estado:c.state,ciudad:c.city,direccion:c.address};
   const r=await fetch(`${url}/rest/v1/clientes?on_conflict=id`,{method:'POST',headers:{...svc(service),Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(record)});
   if(!r.ok){const t=await r.text().catch(()=> '');console.warn('ThinkStore clientes upsert:',t||r.status);}
+  else { try { const origin=await fetch(`${url}/rest/v1/ts_customer_origins?on_conflict=customer_id`,{method:'POST',headers:{...svc(service),Prefer:'resolution=ignore-duplicates,return=minimal'},body:JSON.stringify({customer_id:userId,origin:'website',evidence:'Alta desde el formulario de registro de la página principal.'})});if(!origin.ok)console.warn('ThinkStore: no se pudo registrar el origen del alta.'); } catch (_) { console.warn('ThinkStore: origen del alta pendiente de registrar.'); } }
 }
 async function signup(body,conf){
   const email=clean(body.email).toLowerCase(),password=String(body.password||''),name=clean(body.name,180),phone=clean(body.phone,80),idNumber=clean(body.idNumber||body.id_number,80),state=clean(body.state,120),city=clean(body.city,120),address=clean(body.address,320);
