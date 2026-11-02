@@ -11,3 +11,6 @@
 # El envío real solo ocurre si WHATSAPP_DEBT_AUTOMATION_ENABLED=true.
 [functions."whatsapp-debt-reminders"]
 schedule = "0 13 * * *"
+
+[functions."care-membership-visits"]
+schedule = "0 12 * * *"
