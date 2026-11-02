@@ -12,3 +12,6 @@ for (const [name, encoded] of Object.entries(assets)) {
  fs.writeFileSync(path.join(__dirname, name), Buffer.from(encoded, "base64"));
 }
 console.log("ThinkStore: five static browser icons ready.");
+
+// Verified service card media and shared Think Care presentation.
+require("./scripts/service-media/build.cjs");
