@@ -77,6 +77,7 @@
     devices.innerHTML = 'Cantidad de equipos (opcional)<input name="care_devices" type="number" min="1" max="1000" inputmode="numeric">';
     form.insertBefore(label, form.firstChild); label.after(devices);
     problem.maxLength = 1200;
+    document.querySelectorAll('[data-service]').forEach(button => button.addEventListener('click', () => {form.elements.care_intent.value='visit';}));
     form.addEventListener('formdata', event => {
       const data = event.formData;
       if (data.get('care_intent') !== 'membership') return;
