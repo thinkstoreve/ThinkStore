@@ -1,0 +1,13 @@
+/* Membership configuration stored with the existing audited request revision. */
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.ThinkCareMembership=api;})(typeof window==='object'?window:this,()=>{
+'use strict';const marker='\n[THINKCARE_PLAN_V1]';
+function read(note){const text=String(note||''),at=text.lastIndexOf(marker);if(at<0)return{note:text,plan:null};try{const plan=JSON.parse(text.slice(at+marker.length));if(plan.version!==1)return{note:text,plan:null};return{note:text.slice(0,at),plan};}catch{return{note:text,plan:null}}}
+function validate(p){if(!p)return null;const plan={version:1,active:!!p.active,devices:p.devices==null||p.devices===''?null:Number(p.devices),visits:p.visits==null||p.visits===''?null:Number(p.visits),months:p.months==null||p.months===''?null:Number(p.months),start:String(p.start||''),price:p.price==null||p.price===''?null:Number(p.price),reviews:String(p.reviews||'').trim().slice(0,250),confirmed:!!p.confirmed};
+for(const [key,max] of [['devices',1000],['visits',60],['months',12]])if(plan[key]!==null&&(!Number.isInteger(plan[key])||plan[key]<1||plan[key]>max))throw Error('Revisa equipos, visitas y frecuencia del plan');
+if(plan.price!==null&&(!Number.isFinite(plan.price)||plan.price<0||plan.price>1000000||Math.abs(plan.price*100-Math.round(plan.price*100))>.00001))throw Error('Precio inválido');
+if(plan.start&&(!/^\d{4}-\d{2}-\d{2}$/.test(plan.start)||new Date(plan.start+'T12:00:00Z').toISOString().slice(0,10)!==plan.start))throw Error('Fecha inicial inválida');
+if(plan.active&&(!plan.confirmed||!plan.start||!plan.devices||!plan.visits||!plan.months||plan.price===null||!plan.reviews))throw Error('Para activar, completa las condiciones y confirma la aceptación del cliente');return plan;}
+function write(note,p){const plan=validate(p),text=String(note||'').trim()+(plan?marker+JSON.stringify(plan):'');if(text.length>1200)throw Error('Reduce la nota interna para guardar el plan completo');return text;}
+function dates(plan){const p=validate(plan);if(!p?.start||!p.visits||!p.months)return[];const [y,m,d]=p.start.split('-').map(Number);return Array.from({length:p.visits},(_,i)=>{const first=new Date(Date.UTC(y,m-1+i*p.months,1,12)),last=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+1,0)).getUTCDate();first.setUTCDate(Math.min(d,last));return first.toISOString().slice(0,10);});}
+function due(plan,now=new Date()){if(!validate(plan)?.active)return[];const horizon=new Date(now.getTime()+7*86400000).toISOString().slice(0,10);return dates(plan).map((date,index)=>({date,index})).filter(x=>x.date<=horizon);}
+return{read,write,validate,dates,due};});
