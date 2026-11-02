@@ -2,6 +2,7 @@
 const {randomUUID}=require('node:crypto');
 const {authenticateInternal,mainConfig}=require('./staff-auth-core');
 const C=require('./_whatsapp-core');
+const Membership=require('../../care-membership-model');
 const TYPES=['think_care','sale','support','appointment','technical_visit','business','general'];
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const s=(v,n=150)=>String(v??'').trim().slice(0,n);
@@ -68,11 +69,14 @@ exports.handler=async event=>{
    if(data.quote_amount!==null&&(!Number.isFinite(Number(data.quote_amount))||Number(data.quote_amount)<0||Number(data.quote_amount)>1000000||Math.abs(Math.round(Number(data.quote_amount)*100)-Number(data.quote_amount)*100)>0.00001))return out(400,{error:'Cotización inválida; usa como máximo dos decimales'});
    if(data.status==='scheduled'&&(!Number.isFinite(Date.parse(data.scheduled_at))||Date.parse(data.scheduled_at)<Date.now()-300000))return out(400,{error:'Selecciona fecha y hora futuras'});
    if(data.assigned_email){const staff=await db(supportConfig(),'service_users?select=email&activo=eq.true&email=eq.'+encodeURIComponent(data.assigned_email)+'&rol=in.(technician,admin,superadmin)&limit=1');if(!staff.length)return out(400,{error:'Selecciona un técnico activo de Soporte'})}
+   if(String(b.note||'').includes('[THINKCARE_PLAN_V1]')&&String(b.note).length>1200)return out(400,{error:'Reduce la nota para conservar el plan completo'});
+   const membership=Membership.read(data.note).plan;if(membership)Membership.validate(membership);
    const row=await manage(a,b,'update',data);return out(200,{ok:true,row});
   }
   if(b.action==='approve'){const row=await manage(a,b,'approve',{evidence:s(b.evidence,1200)});return out(200,{ok:true,row})}
   if(b.action==='convert'){
    if(!canConvert)return out(403,{error:'La conversión requiere Recepción, Soporte o Administración'});
+   const records=await db(main,'think_care_requests?select=internal_note&id=eq.'+b.id+'&limit=1');if(Membership.read(records[0]?.internal_note).plan)return out(409,{error:'Conserva el registro de membresía y crea la orden desde cada visita.'});
    const r=await manage(a,b,'prepare_conversion',{confirmation:s(b.confirmation,1200)});
    if(r.linked_order_id)return out(200,{ok:true,order_id:r.linked_order_id,order_code:r.linked_order_code,duplicate:true});
    // Dos transacciones locales. La clave única en Soporte permite recuperar un fallo entre ambas sin duplicar.
