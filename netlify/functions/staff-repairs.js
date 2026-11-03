@@ -380,6 +380,13 @@ async function handleRequest(event,verifiedSupportActor=null){
     }
     let b;try{b=JSON.parse(event.body||'{}')}catch{return result(400,{ok:false,error:'Solicitud inválida'})}
     if(!['pay','multi_pay','view_delivery_note','resend_delivery_note','view_payment_receipt','add_charge','remove_charge','update_discount','set_financing','void_payment'].includes(b.action))return result(400,{ok:false,error:'Acción no autorizada'});
+    // Staff collections require a current open cash session before any payment mutation.
+    if(!verifiedSupportActor&&['pay','multi_pay'].includes(b.action)){
+      const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+      const day=['year','month','day'].map(t=>parts.find(p=>p.type===t).value).join('-');
+      const sessions=await rest(mainConf(),'ts_staff_cash_sessions',{select:'id,business_date',user_id:`eq.${actor.user_id||actor.user?.id}`,status:'eq.open',order:'opened_at.desc',limit:2});
+      if(sessions.length!==1||String(sessions[0].business_date)!==day)return result(409,{ok:false,cash_required:true,error:'Abre tu caja del día en App Ventas antes de cobrar reparaciones o registrar abonos. Si tienes una caja anterior pendiente, concíliala primero.'});
+    }
     const id=clean(b.order_id,50);
     if(!validOrderId(id))return result(400,{ok:false,error:'ID de reparación inválido'});
     let current=await getOrder(conf,id);
