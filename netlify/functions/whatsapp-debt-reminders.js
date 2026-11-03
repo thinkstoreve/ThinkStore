@@ -16,6 +16,14 @@ function copy(c,stage){
  return {subject:stage==='due_today'?'Hoy es tu fecha de pago · ThinkStore':'Tu próximo pago está cerca · ThinkStore',
  text:`¡Hola, ${first}! 👋 Esperamos que estés muy bien.\n\n${stage==='due_today'?'Hoy es la fecha acordada para tu pago':'Te recordamos con cariño que faltan 2 días para tu pago'} de la orden ${c.code} en ThinkStore.\n\nSaldo pendiente: USD ${Number(c.balance).toFixed(2)}\nFecha de pago: ${date}\n\nPuedes responder a este mensaje para consultar los métodos de pago o enviarnos tu comprobante. Si ya pagaste, gracias; avísanos para verificarlo y actualizar tu saldo. 💛\n\n¡Gracias por confiar en ThinkStore!`};
 }
+function testCandidate(now=new Date()){
+ const raw=process.env.FINANCING_REMINDER_TEST;if(!raw)return null;
+ const t=JSON.parse(raw),today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+ if(t.date!==today)return null;
+ const email=C.clean(t.email),phone=C.normalizePhone(t.phone),run=C.clean(t.run_id);
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!/^\d{10,15}$/.test(phone)||!/^[a-zA-Z0-9_-]{1,60}$/.test(run))throw Error('Destinatario de prueba inválido');
+ return{entity_type:'reminder_test',entity_id:run,code:'PRUEBA-SIN-DEUDA',name:C.clean(t.name)||'Prueba',email,phone,balance:60,due_date:t.date,test:true};
+}
 async function candidates(){
  // Do not turn a quote into a debt: only explicitly financed service orders.
  const rows=await C.sb(C.supportCfg(),'service_orders?select=id,code,client_name,client_phone,client_email,device_model,status,quote_status,quote_amount,quote_currency,amount_paid,payment_status,reception_checklist&limit=2500');
@@ -46,15 +54,15 @@ exports.handler=async(event={})=>{
  if(!enabled)return{statusCode:200,body:JSON.stringify({ok:true,enabled:false})};
  const result={ok:true,enabled:true,whatsapp:0,email:0,duplicates:0,skipped:0,errors:[]};
  try{
- const list=await candidates();let processed=0;
+ const list=await candidates(),fixture=testCandidate();if(fixture)list.push(fixture);let processed=0;
  for(const c of list){const stage=stageFor(c.due_date);if(!stage)continue;if(processed++>=Number(process.env.WHATSAPP_DEBT_DAILY_LIMIT||25))break;
- const message=copy(c,stage);
+ const message=copy(c,stage);if(c.test){message.subject='[PRUEBA] '+message.subject;message.text='PRUEBA TÉCNICA · DATOS FICTICIOS · NO TIENES UNA DEUDA POR ESTE MENSAJE.\n\n'+message.text;}
  for(const channel of ['email','whatsapp'])try{
  if(channel==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email)){result.skipped++;continue;}
  let contact=null;
  if(channel==='whatsapp'){
  contact=await C.getContact(c.phone);
- if(!/^\d{10,15}$/.test(c.phone)||!contact||contact.opt_out_at||!(contact.opt_in===true||contact.metadata?.service_notifications_opt_in===true)){result.skipped++;continue;}
+ if(!/^\d{10,15}$/.test(c.phone)||(!c.test&&(!contact||contact.opt_out_at||!(contact.opt_in===true||contact.metadata?.service_notifications_opt_in===true)))){result.skipped++;continue;}
  const approved=await require('./_request-notifications').approved(C.clean(process.env.WHATSAPP_DEBT_TEMPLATE_NAME||'ts_financiamiento_recordatorio_v2'),C.clean(process.env.WHATSAPP_TEMPLATE_LANG||'es'));
  if(!approved){result.errors.push({code:c.code,channel,error:'Plantilla de utilidad no aprobada'});continue;}
  }
@@ -71,3 +79,5 @@ exports.handler=async(event={})=>{
  return{statusCode:result.ok?200:500,body:JSON.stringify(result)};
 };
 exports.stageFor=stageFor;exports.copy=copy;exports.candidates=candidates;exports.once=once;
+
+exports.testCandidate=testCandidate;
