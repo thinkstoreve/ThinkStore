@@ -40,8 +40,8 @@ async function email(c,message,key){
  const d=await r.json();if(!r.ok)throw Error(d.message||'No se pudo enviar el correo');return d.id;
 }
 exports.handler=async(event={})=>{
- // Scheduled only: never expose an unauthenticated HTTP endpoint that triggers collection messages.
- if(event.httpMethod)return {statusCode:405,body:'Scheduled function only'};
+ // Netlify invokes scheduled Lambda handlers with POST. Production schedules are not URL-invocable.
+ if(event.httpMethod&&event.httpMethod!=='POST')return {statusCode:405,body:'Scheduled function only'};
  const enabled=String(process.env.WHATSAPP_DEBT_AUTOMATION_ENABLED||'').toLowerCase()==='true';
  if(!enabled)return{statusCode:200,body:JSON.stringify({ok:true,enabled:false})};
  const result={ok:true,enabled:true,whatsapp:0,email:0,duplicates:0,skipped:0,errors:[]};
