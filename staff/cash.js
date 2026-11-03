@@ -32,7 +32,7 @@ function status(){
  $('cashStatus').classList.toggle('cash-closed',s.status==='closed');
 }
 function managerSelector(){
- const box=$('cashManagerArea');show(box,!!isManager());if(!isManager())return;
+ show('cashManagerArea',!!isManager());if(!isManager())return;
  const s=$('cashSessionSelect');const old=s.value;s.replaceChildren();
  const opt=new Option('Mi caja actual','');s.add(opt);
  (data?.sessions||[]).forEach(row=>{
