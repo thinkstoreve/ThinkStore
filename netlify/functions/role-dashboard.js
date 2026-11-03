@@ -122,6 +122,9 @@ exports.handler=async event=>{
     if(role==='vendedor'){
       const all=await rows(mainUrl,mainKey,'pedidos?select=*&order=created_at.desc&limit=5000');
       const mine=all.filter(o=>String(o.salesperson_user_id||'')===userId||same(o.salesperson_email,email));
+      // Receiving a service order and collecting its payment are independent of opening Cash.
+      const receptions=supportUrl&&supportKey?(await rows(supportUrl,supportKey,'service_orders?select=id,code,client_name,device_model,status,payment_status,quote_amount,amount_paid,reception_checklist,created_by_email,created_at,updated_at&order=updated_at.desc&limit=3000')).filter(o=>same(o.reception_checklist?.__meta?.received_by_email||o.received_by_email||o.created_by_email,email)&&!/cancel|anulad|rechaz|no aprobado/i.test(o.status||'')):[];
+      const receptionBase=money(receptions.filter(paidService).reduce((n,o)=>n+Math.min(Math.max(0,num(o.amount_paid)),Math.max(0,num(o.quote_amount))),0));
       const active=mine.filter(o=>!rejectedSale(o));
       const paid=mine.filter(paidSale),pending=active.filter(o=>!paidSale(o));
       const commission=commissionFor(finance,email,'seller');
@@ -136,7 +139,7 @@ exports.handler=async event=>{
         cancelled:mine.filter(rejectedSale).length,
         sold_amount:money(active.reduce((n,o)=>n+num(o.total_usd),0)),
         collected:money(paid.reduce((n,o)=>n+num(o.total_usd),0))
-      },commission,orders:mine.slice(0,30).map(o=>({id:o.id,code:o.codigo||o.code||o.id,status:o.estado||o.status,total_usd:num(o.total_usd),payment_decision:o.payment_decision,customer:o.guest_name||o.client_name||o.nombre_cliente||'',created_at:o.created_at,updated_at:o.updated_at}))});
+      },commission,reception:{count:receptions.length,paid:receptions.filter(paidService).length,collected_usd:receptionBase,commission_rate_pct:configuredRate,commission_usd:configuredRate===null?null:money(receptionBase*configuredRate/100),commission_status:'pending_settlement',orders:receptions.slice(0,30)},orders:mine.slice(0,30).map(o=>({id:o.id,code:o.codigo||o.code||o.id,status:o.estado||o.status,total_usd:num(o.total_usd),payment_decision:o.payment_decision,customer:o.guest_name||o.client_name||o.nombre_cliente||'',created_at:o.created_at,updated_at:o.updated_at}))});
     }
 
     if(role==='recepcion'||role==='soporte'){
