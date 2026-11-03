@@ -69,6 +69,12 @@ async function loadCash(url,key,session){
  }
  const movements=await rest(url,key,'ts_staff_cash_movements',{select:'id,session_id,type,direction,method,currency,amount,usd_equivalent,bcv_rate,bcv_effective_date,bcv_source,bcv_checked_at,concept,reference,created_at',session_id:`eq.${session.id}`,order:'created_at.desc',limit:1001});
  const result=ledger(session,orders,lines,movements);
+ // Read the original service-payment events. Never create another payment to repair a report.
+ const owner=await rest(url,key,'profiles',{select:'email',id:`eq.${session.user_id}`,limit:1});
+ const earlier=await rest(url,key,'ts_staff_cash_sessions',{select:'id,closed_at,opened_at',user_id:`eq.${session.user_id}`,business_date:`eq.${session.business_date}`,opened_at:`lt.${session.opened_at}`,order:'opened_at.desc',limit:1});
+ const serviceStart=earlier.length?session.opened_at:`${session.business_date}T00:00:00-04:00`;
+ if(!owner?.[0]?.email)result.warnings.push('No se pudo identificar el correo del titular para conciliar servicios');
+ else await require('./staff-service-cash').addServiceCash(result,session,{email:owner[0].email,start:serviceStart,stop});
  if(all.length>=1001||movements.length>=1001||mixed.length>0&&lines.length>=1001)result.warnings.push('Demasiados movimientos para cargar completamente; no se puede cerrar hasta ampliar el período de consulta.');
  return result;
 }
