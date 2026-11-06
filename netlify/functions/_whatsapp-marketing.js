@@ -47,9 +47,35 @@ function mergeContacts(whatsapp,customers,imports){
  customers.forEach(r=>add(r,'ThinkStore'));imports.forEach(r=>{add(r,'FileMaker');for(const telefono of Array.isArray(r.telefonos)?r.telefonos:[])add({...r,telefono},'FileMaker');});whatsapp.forEach(r=>add(r,'WhatsApp'));return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'es'));
 }
 async function directory(){const [wa,customers,imports]=await Promise.all([allContacts('whatsapp_contacts?select=phone_e164,name,opt_out_at,metadata&order=phone_e164.asc'),allContacts('clientes?select=id,nombre,correo,telefono&order=id.asc'),allContacts('ts_imported_customers?select=id,nombre,correo,telefono,telefonos&order=id.asc')]);return{ok:true,contacts:mergeContacts(wa,customers,imports),partial:false};}
+function individualWindow(contact,now=Date.now()){
+ const last=Date.parse(contact?.last_inbound_at||'');return Number.isFinite(last)&&last<=now&&now-last<86400000;
+}
+async function individualContext(b){
+ const phone=C.normalizePhone(b.phone);if(!/^\d{10,15}$/.test(phone))throw Error('Indica un teléfono válido');
+ const contact=await C.getContact(phone),rows=await req('whatsapp_message_log?select=direction,body_preview,status,created_at&phone_e164=eq.'+phone+'&order=created_at.desc,id.desc&limit=20');
+ return{ok:true,phone,open:individualWindow(contact),last_inbound_at:contact?.last_inbound_at||null,authorized:authorized(contact),revoked:!!(contact?.opt_out_at||contact?.metadata?.marketing_revoked_at),rows:rows.reverse()};
+}
+async function individualSend(b,a){
+ const phone=C.normalizePhone(b.phone),text=String(b.message||'').trim();
+ if(!/^\d{10,15}$/.test(phone)||!UUID.test(b.client_id||'')||!text||text.length>4000||!['service','permission','promotion'].includes(b.purpose))throw Error('Revisa el teléfono, mensaje y finalidad del envío');
+ const contact=await C.getContact(phone);
+ if(!individualWindow(contact))throw Error('La conversación no está activa. El cliente debe escribir primero o debes usar una plantilla aprobada con su autorización correspondiente.');
+ if(b.purpose!=='service'&&(contact?.opt_out_at||contact?.metadata?.marketing_revoked_at))throw Error('El cliente solicitó la baja. No se enviarán promociones ni solicitudes de autorización.');
+ if(b.purpose==='promotion'&&!authorized(contact))throw Error('El cliente todavía no autorizó promociones. Usa Solicitar autorización en una conversación activa.');
+ if(b.purpose==='permission'&&!/\bPROMOCIONES\b/i.test(text))throw Error('Incluye la palabra PROMOCIONES para que el cliente pueda autorizar respondiendo.');
+ const key=crypto.createHash('sha256').update('individual:'+b.client_id).digest('hex'),endpoint='whatsapp_notification_outbox?event_key=eq.'+key;
+ try{await req('whatsapp_notification_outbox','POST',{event_key:key,phone_e164:phone,template_name:'individual_text',entity_type:'individual_text',entity_id:b.client_id,status:'pending'});}catch(e){if(/duplicate key|23505|409/.test(e.message))throw Error('Este envío ya se procesó o está en curso. Revisa la conversación antes de enviar otro.');throw Error('No se pudo reservar el envío. No se envió ningún mensaje.');}
+ try{await C.upsertContact(phone,{needs_human:true,metadata:{...(contact.metadata||{}),care_assistant:{...(contact.metadata?.care_assistant||{}),active:false}}});const sent=await C.sendText(phone,text),mid=sent?.messages?.[0]?.id;if(!mid)throw Error('missing_message_id');
+ await req(endpoint,'PATCH',{status:'sent',provider_message_id:mid,updated_at:new Date().toISOString()}).catch(()=>{});
+ await C.logMessage({wa_message_id:mid,phone_e164:phone,direction:'outbound',message_type:'text',status:'sent',source:'staff_individual',body_preview:text,payload:{client_id:b.client_id,actor:a.user_id,purpose:b.purpose}});
+ return{ok:true,result:{status:'sent',message_id:mid}};
+ }catch{await req(endpoint,'PATCH',{status:'failed',last_error:'Entrega sin confirmar; revisar antes de reenviar',updated_at:new Date().toISOString()}).catch(()=>{});throw Error('Entrega sin confirmar. Revisa la conversación antes de reenviar; no se reintentará automáticamente.');}
+}
 async function handle(b,a){
  if(!allowed(a)||!a?.user_id){const e=Error('Inicia sesión como administrador o vendedor para gestionar marketing');e.status=403;throw e;}
  switch(b.action){
+ case 'marketing_individual_context':return individualContext(b);
+ case 'marketing_individual_send':return individualSend(b,a);
  case 'marketing_contacts':return directory();
  case 'marketing_templates':return{ok:true,templates:await T.catalog()};
  case 'marketing_template_create':if(!['admin','superadmin','gerente'].includes(C.norm(a.role)))throw Error('Solo administración puede crear plantillas');return{ok:true,template:await T.createTemplate(b)};
@@ -61,4 +87,4 @@ async function handle(b,a){
  default:throw Error('Acción de marketing inválida');
  }
 }
-module.exports={handle,mergeContacts,authorized,sendId,create,consent,send,progress};
+module.exports={handle,individualWindow,individualContext,individualSend,mergeContacts,authorized,sendId,create,consent,send,progress};
