@@ -1514,7 +1514,8 @@ const TSService=(()=>{
       if(seq!==managerFxRefreshId)return;
       const q=window.ThinkStoreFX.snapshot?.(1);
       if(!q||q.stale||!(q.rate>0))throw Error('La cotización aún no está verificada');
-      updateManagerUsdConversion();
+      if(managerAmount('mNewPayUsd')>0)updateManagerUsdConversion();
+      else if(help)help.textContent=`Tasa BCV: 1 USD = ${window.TSMoneyInput.display(q.rate)} Bs. · Vigencia ${q.effective_date}`;
     }catch(e){if(seq===managerFxRefreshId){
       const amount=document.getElementById('mNewPayAmount');
       if(document.getElementById('mNewPayUsd')?.value&&amount)amount.value='';
@@ -1556,6 +1557,7 @@ const TSService=(()=>{
     if(!Number.isFinite(amount)||amount<=0||Math.abs(Math.round(amount*100)/100-amount)>0.00001)return toast('Indica un importe positivo con máximo dos decimales.','error');
     if(NEEDS_PAYMENT_REFERENCE.has(method)&&reference.length<3)return toast('Indica la referencia del pago.','error');
     if((PAY_DESTINATIONS[method]||[]).length&&!destination_code)return toast('Selecciona la cuenta de destino.','error');
+    let paymentSubmitted=false;
     managerPaymentBusy=true;const btn=document.getElementById('mNewPayConfirm');if(btn){btn.disabled=true;btn.textContent='Verificando…'}
     try{
       let bcvr=null;
@@ -1597,7 +1599,7 @@ const TSService=(()=>{
       const mainSite=String(window.THINKSTORE_MAIN_SITE||'https://thinkstore.com.ve').replace(/\/$/,'');
       const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),60000);
       let response;
-      try{response=await nativeFetch(`${mainSite}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'pay',order_id:id,method,amount,reference,note,destination_code,expected_paid:paid,receipt_ack_usd:receiptAck,client_bcv_rate:bcvr?.rate??null,client_bcv_date:bcvr?.effective_date??null}),cache:'no-store',signal:controller.signal})}
+      try{paymentSubmitted=true;response=await nativeFetch(`${mainSite}/.netlify/functions/support-record-payment`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.access_token}`},body:JSON.stringify({action:'pay',order_id:id,method,amount,reference,note,destination_code,expected_paid:paid,receipt_ack_usd:receiptAck,client_bcv_rate:bcvr?.rate??null,client_bcv_date:bcvr?.effective_date??null}),cache:'no-store',signal:controller.signal})}
       finally{clearTimeout(timeout)}
       const result=await response.json().catch(()=>({}));
       if(!response.ok||!result.ok)throw Error(result.error||`Error al registrar abono (${response.status}).`);
@@ -1619,7 +1621,8 @@ const TSService=(()=>{
         await loadSupportData();
       }
     }catch(error){
-      alert((error.name==='AbortError'?'La conexión tardó demasiado.':String(error.message||error))+' Verifica el historial y la caja antes de reintentar: el servidor podría haber procesado el cobro.');
+      const detail=error.name==='AbortError'?'La conexión tardó demasiado.':String(error.message||error);
+      alert(paymentSubmitted?detail+' Verifica el historial y la caja antes de reintentar: el servidor podría haber procesado el cobro.':detail+' El cobro no se envió al servidor.');
       await refreshManagerPaymentView().catch(()=>{});
     }finally{managerPaymentBusy=false;if(btn){btn.disabled=false;btn.textContent='Registrar abono en caja'}}
   }
