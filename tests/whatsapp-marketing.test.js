@@ -32,3 +32,14 @@ test('directorio unifica orígenes y teléfonos alternos sin conceder permiso po
 test('plantillas validan nombre, categoría, variables consecutivas y ejemplos',()=>{
  const b={name:'ts_promo_v1',category:'MARKETING',body:'Hola {{1}}, conoce {{2}}.',examples:['Ana','promoción ficticia']};const p=T.templatePayload(b);assert.deepEqual(p.components[0].example.body_text,[b.examples]);assert.equal(p.language,'es');assert.throws(()=>T.templatePayload({...b,name:'Mala plantilla'}));assert.throws(()=>T.templatePayload({...b,body:'Hola {{2}}'}));assert.throws(()=>T.templatePayload({...b,examples:[]}));assert.throws(()=>T.templatePayload({...b,body:'Hola {{nombre}}'}));
 });
+test('mensaje individual comprueba ventana exacta y no admite fechas futuras',()=>{
+ const now=Date.parse('2026-11-06T18:00:00Z');assert.equal(M.individualWindow({last_inbound_at:'2026-11-05T18:00:00Z'},now),false);assert.equal(M.individualWindow({last_inbound_at:'2026-11-05T18:00:01Z'},now),true);assert.equal(M.individualWindow({last_inbound_at:'2026-11-07T18:00:00Z'},now),false);assert.equal(M.individualWindow({},now),false);
+});
+test('individual solicita permiso sin otorgarlo y reserva antes de enviar; duplicados bloqueados',async()=>{
+ const old={get:C.getContact,sb:C.sb,send:C.sendText,upsert:C.upsertContact,log:C.logMessage};let sent=0,reserved=false,patch;
+ const contact={last_inbound_at:new Date().toISOString(),metadata:{}};C.getContact=async()=>contact;C.upsertContact=async(_,b)=>{patch=b};C.logMessage=async()=>{};
+ C.sendText=async()=>{assert.equal(reserved,true);sent++;return{messages:[{id:'wamid.test'}]}};
+ C.sb=async(_,path,opt)=>{if(path==='whatsapp_notification_outbox'){if(reserved)throw Error('23505 duplicate key');reserved=true;return[];}return[];};
+ const b={phone:'04241706142',client_id:id,message:'Hola, responde PROMOCIONES si deseas recibir ofertas.',purpose:'permission'};
+ try{await M.individualSend(b,actor);assert.equal(sent,1);assert.equal(patch.metadata.marketing_opt_in,undefined);await assert.rejects(M.individualSend(b,actor),/ya se procesó/);assert.equal(sent,1);await assert.rejects(M.individualSend({...b,purpose:'promotion'},actor),/todavía no autorizó/);contact.opt_out_at=new Date().toISOString();await assert.rejects(M.individualSend(b,actor),/solicitó la baja/);delete contact.opt_out_at;contact.last_inbound_at='2020-01-01';await assert.rejects(M.individualSend(b,actor),/no está activa/);}finally{C.getContact=old.get;C.sb=old.sb;C.sendText=old.send;C.upsertContact=old.upsert;C.logMessage=old.log;}
+});
