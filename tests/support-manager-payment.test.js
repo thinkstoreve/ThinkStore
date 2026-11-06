@@ -51,3 +51,15 @@ test('Soporte presenta formulario real y no escribe montos manualmente en Guarda
  const save=app.split('async function saveOrderManager(e)')[1].split('async function sendQuoteToClient')[0];
  assert.doesNotMatch(save,/amount_paid\s*:/);
 });
+test('Soporte carga cotizador antes del formulario y conserva fecha y caducidad',async()=>{
+ const vm=require('node:vm'),html=fs.readFileSync(path.join(root,'soporte/panel.html'),'utf8'),code=fs.readFileSync(path.join(root,'soporte/ts-fx.js'),'utf8');
+ assert.ok(html.indexOf('src="ts-fx.js?v=15.45-bcv-abonos"')<html.indexOf('src="app.js?v=15.45-bcv-abonos"'));
+ assert.ok(html.includes('src="ts-fx.js?v=15.45-bcv-abonos"'));
+ const window={dispatchEvent(){},addEventListener(){}},document={readyState:'loading',addEventListener(){},querySelectorAll(){return[];}};
+ let calls=0;const day=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ const payload={ok:true,rate:123.456,effective_date:day,source_date:new Date().toISOString(),checked_at:new Date().toISOString(),stale:false};
+ vm.runInNewContext(code,{window,document,Intl,Date,CustomEvent:function(){},fetch:async()=>{calls++;if(calls>1)throw Error('network');return{ok:true,json:async()=>payload}}});
+ await window.ThinkStoreFX.refresh(true);const quote=window.ThinkStoreFX.snapshot(25);assert.equal(quote.total_ves,3086.4);assert.equal(quote.effective_date,day);assert.equal(quote.stale,false);
+ await assert.rejects(window.ThinkStoreFX.refresh(true),/network/);assert.equal(window.ThinkStoreFX.snapshot(1).stale,true);
+ const shared=require('../netlify/functions/fx-rate-core'),support=require('../soporte/netlify/functions/fx-rate-core');assert.deepEqual(support.normalize({USD:123,effective_date:day,updated_at:new Date().toISOString()},'test'),shared.normalize({USD:123,effective_date:day,updated_at:new Date().toISOString()},'test'));
+});
