@@ -39,10 +39,20 @@ async function send(b,a){
  const result=await T.send({phone,template:campaign.template_name,language:campaign.language,variables:campaign.variables,client_id:sendId(campaign.id,phone)},a,{campaignId:campaign.id,template:t});
  return{ok:true,result};
 }
+async function allContacts(path){
+ const rows=[];for(let offset=0;offset<20000;offset+=1000){const page=await req(path+'&limit=1000&offset='+offset);rows.push(...page);if(page.length<1000)return rows;}throw Error('El directorio supera 20.000 registros. Solicita una consulta por segmentos.');
+}
+function mergeContacts(whatsapp,customers,imports){
+ const map=new Map(),add=(row,origin)=>{const phone=C.normalizePhone(row.phone_e164||row.telefono);if(!/^\d{10,15}$/.test(phone))return;let c=map.get(phone);if(!c){c={phone,name:'Cliente',email:'',origins:[],authorized:false,revoked:false};map.set(phone,c);}const name=row.nombre||row.name;if(name&&name!=='Cliente')c.name=name;if(row.correo)c.email=row.correo;if(!c.origins.includes(origin))c.origins.push(origin);if(origin==='WhatsApp'){c.authorized=authorized(row);c.revoked=!!row.opt_out_at;c.source=row.metadata?.marketing_opt_in_source||null;c.obtained_at=row.metadata?.marketing_opt_in_at||null;}};
+ customers.forEach(r=>add(r,'ThinkStore'));imports.forEach(r=>{add(r,'FileMaker');for(const telefono of Array.isArray(r.telefonos)?r.telefonos:[])add({...r,telefono},'FileMaker');});whatsapp.forEach(r=>add(r,'WhatsApp'));return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'es'));
+}
+async function directory(){const [wa,customers,imports]=await Promise.all([allContacts('whatsapp_contacts?select=phone_e164,name,opt_out_at,metadata&order=phone_e164.asc'),allContacts('clientes?select=id,nombre,correo,telefono&order=id.asc'),allContacts('ts_imported_customers?select=id,nombre,correo,telefono,telefonos&order=id.asc')]);return{ok:true,contacts:mergeContacts(wa,customers,imports),partial:false};}
 async function handle(b,a){
  if(!allowed(a)||!a?.user_id){const e=Error('Inicia sesión como administrador o vendedor para gestionar marketing');e.status=403;throw e;}
  switch(b.action){
- case 'marketing_contacts':{const rows=await req('whatsapp_contacts?select=phone_e164,name,opt_out_at,metadata&order=name.asc.nullslast&limit=1001');return{ok:true,partial:rows.length>1000,contacts:rows.slice(0,1000).map(c=>({phone:c.phone_e164,name:c.name||'Cliente',authorized:authorized(c),source:c.metadata?.marketing_opt_in_source||null,obtained_at:c.metadata?.marketing_opt_in_at||null}))};}
+ case 'marketing_contacts':return directory();
+ case 'marketing_templates':return{ok:true,templates:await T.catalog()};
+ case 'marketing_template_create':if(!['admin','superadmin','gerente'].includes(C.norm(a.role)))throw Error('Solo administración puede crear plantillas');return{ok:true,template:await T.createTemplate(b)};
  case 'marketing_consent':return consent(b,a);
  case 'marketing_create':return create(b,a);
  case 'marketing_progress':return{ok:true,...await progress(b.id)};
@@ -51,4 +61,4 @@ async function handle(b,a){
  default:throw Error('Acción de marketing inválida');
  }
 }
-module.exports={handle,authorized,sendId,create,consent,send,progress};
+module.exports={handle,mergeContacts,authorized,sendId,create,consent,send,progress};
