@@ -18,7 +18,7 @@
     const color=String(row.variant_color||row.color||'').trim();if(!color)continue;
     const label=Object.keys(galleries).find(x=>norm(x)===norm(color))||color;
     const media=galleries[label]||(galleries[label]={images:[],video:'',id:row.id});
-    media.images=[...new Set([...media.images,...urls(row)])].slice(0,24);
+    const incoming=urls(row);if(incoming.length>media.images.length)media.images=incoming.slice(0,24);
     if(!media.video&&String(row.video_url||'').toLowerCase().startsWith('https://'))media.video=row.video_url;
    }
    for(const [color,media] of Object.entries(galleries)){
