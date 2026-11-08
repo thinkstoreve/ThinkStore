@@ -6396,6 +6396,7 @@ window.addEventListener('load', ()=>{
   }
 
   async function applyAvailability(){
+    if(typeof window.tsRefreshConditionState==='function')return window.tsRefreshConditionState();
     try{
       if(typeof selectedProduct==='undefined' || !selectedProduct || typeof tsFindInventoryVariant!=='function') return;
       const p=selectedProduct;
@@ -6671,6 +6672,7 @@ window.addEventListener('load', ()=>{
     }catch(e){console.warn('ThinkStore precios por capacidad:',e)}
   }
   async function refresh(){
+    if(typeof window.tsRefreshConditionState==='function'&&window.tsRefreshConditionState!==refresh)return window.tsRefreshConditionState();
     if(!selectedProduct)return;
     const rows=await exactVariants();
     const opts=drawButtons(rows);
