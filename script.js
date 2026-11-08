@@ -356,15 +356,29 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
     product.category=product.cat=tsCatalogCategoryForProduct(product.name,spec.category);enrichedSpecs.add(product);
   }
   const sorted=base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
-  // Orden numérico de iPhone: 15 antes de 16; Pro y Pro Max dentro de su generación.
-  const phoneKey=p=>{const n=tsCatalogNorm(p.name),m=n.match(/^iphone (\d+)\b/);return m?[Number(m[1]),/pro max/.test(n)?3:/pro/.test(n)?2:/air|plus/.test(n)?1:0]:[Infinity,0];};
-  const phones=sorted.filter(p=>getCat(p)==='iPhone').sort((a,b)=>{const x=phoneKey(a),y=phoneKey(b);return x[0]-y[0]||x[1]-y[1]||String(a.name).localeCompare(String(b.name));});
-  let phoneIndex=0;
-  return sorted.map(p=>getCat(p)==='iPhone'?phones[phoneIndex++]:p);
+  return tsOrderModels(sorted);
+}
+function tsOrderModels(list){
+  const groups=new Map(), positions=new Map();
+  function modelKey(p){
+    const n=String(p.name||'').toLowerCase();
+    const year=Number(n.match(/\b(20[0123]\d)\b/)?.[1]||0);
+    const m=n.match(/\b(?:iphone|airpods(?:\s+pro)?|series|ultra|pixel|galaxy\s+[asz]|playstation|m|a)\s*[-(]?(\d{1,3})(?!\d)/i);
+    const tier=/\bultra\b/.test(n)?6:/pro\s+max/.test(n)?5:/\bmax\b/.test(n)?4:/\bpro\b/.test(n)?3:/plus|\+/.test(n)?2:/air/.test(n)?1:0;
+    const date=Date.parse(p.release_date||p.launch_date||'');
+    return {year:Number.isFinite(date)?new Date(date).getUTCFullYear():year,gen:Number(m?.[1]||0),tier,date:Number.isFinite(date)?date:0};
+  }
+  for(const p of list){const key=getCat(p);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p);}
+  for(const rows of groups.values()){
+    const keys=new Map(rows.map(p=>[p,modelKey(p)]));
+    const dated=rows.every(p=>keys.get(p).year);
+    rows.sort((a,b)=>{const x=keys.get(a),y=keys.get(b);return (dated&&(y.year-x.year||y.date-x.date))||y.gen-x.gen||y.tier-x.tier||y.year-x.year;});
+  }
+  return list.map(p=>{const key=getCat(p),i=positions.get(key)||0;positions.set(key,i+1);return groups.get(key)[i];});
 }
 function tsCatalogProducts(){
   const base=tsBaseCatalogProducts();
-  if(!Array.isArray(tsInventoryCatalogProducts)||!tsInventoryCatalogProducts.length) return base;
+  if(!Array.isArray(tsInventoryCatalogProducts)||!tsInventoryCatalogProducts.length) return tsOrderModels(base);
   // tsInventoryCatalogProducts ya contiene clones seguros del catálogo base.
   return tsInventoryCatalogProducts;
 }
