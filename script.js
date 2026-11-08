@@ -346,6 +346,15 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
       return {id:row.id,sku:row.sku,parent_id:product.id,name:row.name||group.name,style:row.case_style||'',family:row.case_family||'',model:row.variant_model||row.compatibility||row.model||'',color:row.variant_color||row.color||'Único',price:Number(variant?.price_usd||row.sale_price||0),available:variant?Math.max(0,Number(variant.stock_on_hand||0)-Number(variant.stock_reserved||0)):0,image:row.image_url||row.image_urls?.[0]||'',images:row.image_urls||[],video:row.video_url||'',condition:row.condition||'Nuevo'};
     }).filter(v=>v.sku);
   });
+  // La ficha oficial guardada pertenece al modelo, no a su capacidad o precio.
+  const specificationsRows=inventoryRows.filter(row=>row.official_specifications?.source_url).sort((a,b)=>String(b.official_specifications.reviewed_at||b.official_specifications.retrieved_at).localeCompare(String(a.official_specifications.reviewed_at||a.official_specifications.retrieved_at)));
+  const enrichedSpecs=new Set();
+  for(const row of specificationsRows){
+    const key=tsCatalogNorm(row.product_group||row.name);const product=base.find(p=>[p.name,p.family,p.model].some(n=>tsCatalogNorm(n)===key));
+    if(!product||enrichedSpecs.has(product))continue;
+    const spec=row.official_specifications;product.official_specifications=spec;product.details={...spec.details};product.features=(spec.features||[]).slice(0,3);product.description=spec.description;product.desc=spec.description;
+    product.category=product.cat=tsCatalogCategoryForProduct(product.name,spec.category);enrichedSpecs.add(product);
+  }
   const sorted=base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
   // Orden numérico de iPhone: 15 antes de 16; Pro y Pro Max dentro de su generación.
   const phoneKey=p=>{const n=tsCatalogNorm(p.name),m=n.match(/^iphone (\d+)\b/);return m?[Number(m[1]),/pro max/.test(n)?3:/pro/.test(n)?2:/air|plus/.test(n)?1:0]:[Infinity,0];};
@@ -528,10 +537,12 @@ function drawDetail(){
 
   $('thumbs').innerHTML=galleryUrls.map((g,i)=>`<button class="thumb ${g==img?'sel':''}" title="Vista ${i+1}" onclick="setGal('${safe(g)}')"><img loading="lazy" src="${asset(g)}" alt="${p.name} vista ${i+1}"><span>${i===0?'Principal':`Imagen ${i+1}`}</span></button>`).join('\n');
 
-  const details=p.details||{};
+  const details=p.details||{},specEscape=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   $('features').innerHTML=Object.entries(details).length
-    ? Object.entries(details).map(([k,v])=>`<li><b>${k}:</b> ${v}</li>`).join('\n')
-    : (p.features||[]).map(f=>`<li>${f}</li>`).join('\n');
+    ? Object.entries(details).map(([k,v])=>`<li><b>${specEscape(k)}:</b> ${specEscape(v)}</li>`).join('\n')
+    : (p.features||[]).map(f=>`<li>${specEscape(f)}</li>`).join('\n');
+  const source=p.official_specifications?.source_url;
+  if(source&&/^https:\/\/(support\.apple\.com|www\.apple\.com|apple\.com)\//i.test(source))$('features').insertAdjacentHTML('beforeend',`<li><a href="${specEscape(source)}" target="_blank" rel="noopener noreferrer">Ficha técnica oficial de Apple ↗</a></li>`);
 
   const meta=$('productMeta');
   if(meta){
