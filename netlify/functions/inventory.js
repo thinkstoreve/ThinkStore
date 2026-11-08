@@ -11,6 +11,10 @@ const DEFAULT_CATEGORIES=[
 ];
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS')return {statusCode:200,headers:H,body:''};
+  if(event.httpMethod==='GET'&&event.queryStringParameters?.action==='official_specs'){
+    try{return r(200,await osOfficialSpecs(event.queryStringParameters));}
+    catch(error){return r(422,{ok:false,error:error.name==='AbortError'?'La fuente oficial tardó demasiado. Vuelve a intentarlo.':error.message||'No se pudo consultar la fuente oficial.'});}
+  }
   const url=String(process.env.SUPABASE_URL||'').replace(/\/$/,'');
   const service=String(process.env.SUPABASE_SERVICE_ROLE_KEY||'');
   if(!url||!service)return r(501,{ok:false,error:'Faltan variables de Supabase'});
@@ -50,7 +54,7 @@ exports.handler=async(event)=>{
             capacity:String(d.capacity||''),color:String(d.color||''),condition:String(d.condition||'Nuevo'),brand:String(d.brand||'Apple'),
             case_style:String(d.case_style||''),case_family:String(d.case_family||''),variant_model:String(d.variant_model||''),variant_color:String(d.variant_color||''),
             original_price:Number(d.original_price??d.sale_price??0),discount_percent:Math.max(0,Math.min(100,Number(d.discount_percent)||0)),sale_price:Number(d.sale_price||0),published:d.published!==false,active:d.active!==false,image_url:String(d.image_url||''),
-            description:String(d.catalog_description||d.description||''),sort_order:Number(d.sort_order||1000),tracking_mode:String(d.tracking_mode||''),
+            official_specifications:osPublicSpecs(d.official_specifications),description:String(d.catalog_description||d.description||''),sort_order:Number(d.sort_order||1000),tracking_mode:String(d.tracking_mode||''),
             image_urls:Array.isArray(d.image_urls)?d.image_urls.filter(x=>typeof x==='string'&&/^https:\/\//i.test(x)).slice(0,8):[],video_url:/^https:\/\//i.test(String(d.video_url||''))?String(d.video_url):'',media_fit:'contain',catalog_card_image_url:/^https:\/\//i.test(String(d.catalog_card_image_url||''))?String(d.catalog_card_image_url):'',media_replace_catalog:d.media_replace_catalog===true,catalog_colors_managed:d.catalog_colors_managed===true,catalog_media_primary:d.catalog_media_primary===true
           };
         }).filter(p=>p.id&&p.name&&p.active!==false);
@@ -352,4 +356,104 @@ async function r2Delete(cfg,key){
   const canonicalRequest=['DELETE',canonicalUri,'',canonicalHeaders,signedHeaders,payloadHash].join('\n'),scope=`${dateStamp}/auto/s3/aws4_request`,stringToSign=['AWS4-HMAC-SHA256',amzDate,scope,crypto.createHash('sha256').update(canonicalRequest).digest('hex')].join('\n');
   const hm=(k,d,e)=>crypto.createHmac('sha256',k).update(d).digest(e),kDate=hm(Buffer.from('AWS4'+cfg.secretKey),dateStamp),kRegion=hm(kDate,'auto'),kService=hm(kRegion,'s3'),kSigning=hm(kService,'aws4_request'),signature=hm(kSigning,stringToSign,'hex');
   return fetch(`https://${host}${canonicalUri}`,{method:'DELETE',headers:{'Content-Type':contentType,'Host':host,'x-amz-date':amzDate,'x-amz-content-sha256':payloadHash,'Authorization':`AWS4-HMAC-SHA256 Credential=${cfg.accessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`}});
+}
+'use strict';
+const osCache=new Map();
+function osText(value){
+ const entities={nbsp:' ',amp:'&',quot:'"',apos:"'",lt:'<',gt:'>',aacute:'á',eacute:'é',iacute:'í',oacute:'ó',uacute:'ú',Aacute:'Á',Eacute:'É',Iacute:'Í',Oacute:'Ó',Uacute:'Ú',ntilde:'ñ',Ntilde:'Ñ',uuml:'ü',Uuml:'Ü',ordf:'ª',ordm:'º',ndash:'–',mdash:'—',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',times:'×',hellip:'…',copy:'©',reg:'®',deg:'°',shy:''};
+ return String(value||'').replace(/<sup\b[^>]*>[\s\S]*?<\/sup>/gi,'').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,(all,key)=>{if(key[0]==='#'){const code=key[1].toLowerCase()==='x'?parseInt(key.slice(2),16):Number(key.slice(1));return code>0&&code<=0x10ffff?String.fromCodePoint(code):'';}return entities[key]??all;}).replace(/[\u00a0\u200b\u202f]/g,' ').replace(/\s+/g,' ').trim();
+}
+function osNorm(value){return osText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+function osSafeUrl(value){
+ const url=new URL(String(value));
+ if(url.protocol!=='https:'||url.username||url.password||url.port||!['support.apple.com','www.apple.com','apple.com'].includes(url.hostname))throw new Error('Usa una página HTTPS oficial de Apple.');
+ if(url.hostname!=='support.apple.com'&&!/\/specs\/?$/.test(url.pathname))throw new Error('La URL debe ser una ficha de especificaciones oficial.');
+ return url;
+}
+async function osFetch(value){
+ let url=osSafeUrl(value);
+ for(let redirects=0;redirects<5;redirects++){
+  const cached=osCache.get(url.href);if(cached&&Date.now()-cached.at<21600000)return cached;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+  let response;try{response=await fetch(url.href,{redirect:'manual',signal:controller.signal,headers:{'Accept-Language':'es-ES,es;q=0.9','User-Agent':'ThinkStore-Catalog/1.0'}});
+   if(response.status>=300&&response.status<400){url=osSafeUrl(new URL(response.headers.get('location'),url).href);continue;}
+   if(!response.ok)throw new Error('La fuente oficial no respondió. Inténtalo de nuevo más tarde.');
+   const type=response.headers.get('content-type')||'';if(!/html/i.test(type))throw new Error('La fuente oficial no es una ficha HTML.');
+   const html=await response.text();if(html.length>2500000)throw new Error('La ficha oficial supera el tamaño admitido.');
+   const item={html,url:url.href,at:Date.now()};if(osCache.size>=100)osCache.delete(osCache.keys().next().value);osCache.set(url.href,item);return item;
+  }finally{clearTimeout(timer);}
+ }
+ throw new Error('La fuente oficial redirigió demasiadas veces.');
+}
+function osLinks(html,base){return [...html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)].map(m=>{try{return {url:new URL(osText(m[1]),base).href,title:osText(m[2]),raw:m[2]};}catch{return null;}}).filter(Boolean);}
+function osPhoneName(value){return osNorm(value).match(/\biphone\s+(?:\d+(?:\s+(?:pro\s+max|pro|plus|mini|air|ultra))?|air|se(?:\s+\d+)?)/)?.[0]||'';}
+function osCategory(name){const n=osNorm(name);return /iphone/.test(n)?'iPhone':/ipad/.test(n)?'iPad':/airpods/.test(n)?'AirPods':/watch/.test(n)?'Watch':/mac/.test(n)?'Mac':'Otros';}
+function osMatchName(want,actual){
+ const a=osNorm(want),b=osNorm(actual);
+ if(osPhoneName(a))return osPhoneName(a)===osPhoneName(b);
+ const tokens=a.replace(/\bapple\b/g,'').split(' ').filter(t=>!['de','con','pulgadas','inch','y','o','para'].includes(t));
+ return tokens.length>0&&tokens.every(t=>b.split(' ').includes(t));
+}
+async function osDiscover(name,model){
+ const category=osCategory(name),physical=String(model||'').toUpperCase().match(/\bA\d{4}\b/)?.[0];
+ if(category==='iPhone'){
+  const page=await osFetch('https://support.apple.com/es-es/108044'),heads=[...page.html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)];
+  const items=heads.map((h,i)=>{const block=page.html.slice(h.index+h[0].length,heads[i+1]?.index||page.html.length),title=osText(h[1]);const link=osLinks(block,page.url).find(l=>/especificaciones tecnicas|tech specs|technical specifications/.test(osNorm(l.title)));return {title,modelMatch:physical?new RegExp('\\b'+physical+'\\b').test(osText(block)):true,url:link?.url};}).filter(x=>x.url&&osPhoneName(x.title));
+  const found=items.filter(x=>osMatchName(name,x.title));
+  if(found.length===1){if(physical&&!found[0].modelMatch)throw new Error('El número de modelo no coincide con el nombre en la fuente oficial. Revisa la ficha antes de importar.');return found[0];}
+  const byModel=physical?items.filter(x=>x.modelMatch):[];if(byModel.length===1&&osMatchName(name,byModel[0].title))return byModel[0];
+  return {candidates:found.map(({title,url})=>({title,url}))};
+ }
+ const slug={Mac:'mac',iPad:'ipad',AirPods:'airpods',Watch:'watch'}[category];
+ if(!slug)return {candidates:[]};
+ const page=await osFetch('https://support.apple.com/es-es/docs/'+slug);
+ const candidates=[...new Map(osLinks(page.html,page.url).filter(l=>/class=["']product-name["']/.test(l.raw)&&osMatchName(name,l.title)).map(l=>[l.url,l])).values()];
+ if(candidates.length!==1)return {candidates:candidates.slice(0,15).map(({title,url})=>({title,url}))};
+ const doc=await osFetch(candidates[0].url),spec=osLinks(doc.html,doc.url).find(l=>/especificaciones tecnicas|tech specs|technical specifications/.test(osNorm(l.title)));
+ return spec?{title:candidates[0].title,url:spec.url}:{candidates:[]};
+}
+function osParse(html,url,name){
+ const title=osText(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]||'');
+ if(!title||!osMatchName(name,title))throw new Error('La ficha oficial encontrada no coincide con el equipo. Selecciona la fuente exacta.');
+ const headings=[...html.matchAll(/<h[23]\b[^>]*>([\s\S]*?)<\/h[23]>/gi)],sections={};
+ for(let i=0;i<headings.length;i++){
+  const key=osText(headings[i][1]),normal=osNorm(key),body=html.slice(headings[i].index+headings[i][0].length,headings[i+1]?.index||html.length);
+  let label='';
+  if(/^pantalla|^display/.test(normal))label='Pantalla';
+  else if(/^chip$|^procesador|^chip de/.test(normal))label='Procesador';
+  else if(/^camara$|^camaras|^camera$/.test(normal))label='Cámaras';
+  else if(/bateria|battery|alimentacion/.test(normal))label='Batería';
+  else if(/redes moviles|inalambric|conectividad|wireless|comunicaciones/.test(normal))label='Conectividad';
+  else if(/dimensiones|size and weight/.test(normal))label='Dimensiones y peso';
+  else if(/^capacidad|^capacity|almacenamiento/.test(normal))label='Capacidades compatibles';
+  else if(/^acabado|^finish|^colores/.test(normal))label='Colores oficiales';
+  else if(/carga y ampliacion|carga y expansion|charging and expansion|puertos/.test(normal))label='Puertos y carga';
+  else if(/resistencia a|water.*resistant/.test(normal))label='Resistencia';
+  else if(/^sistema operativo|^operating system/.test(normal))label='Sistema operativo';
+  if(!label||sections[label])continue;
+  let values=[...body.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map(m=>osText(m[1]));
+  if(!values.length)values=[...body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m=>osText(m[1]));
+  values=[...new Set(values.filter(v=>v&&v.length<800&&!/mas informacion|comprar|obtener ayuda/.test(osNorm(v))))].slice(0,label==='Sistema operativo'?1:10);
+  if(values.length)sections[label]=values;
+ }
+ if(Object.keys(sections).length<3)throw new Error('No pude extraer una ficha técnica suficiente de esta página. No se guardó ningún cambio.');
+ const first=(label)=>{const values=sections[label]||[];let text=label==='Pantalla'?(values.find(t=>/pulgadas|inch/.test(t))||values[0]):values[0];if(!text)return '';if(label==='Cámaras')text=text.split(':')[0];return text.length>160?text.slice(0,157)+'…':text;};
+ const features=['Pantalla','Procesador','Cámaras','Batería','Conectividad'].map(first).filter(x=>x&&x!=='undefined…').slice(0,3);
+ const details=Object.fromEntries(Object.entries(sections).map(([k,v])=>[k,v.join(' · ')]));
+ return {product_name:name,category:osCategory(name),description:name+'. '+features.join('. ')+'.',features,details,sections,compatible_capacities:sections['Capacidades compatibles']||[],source_url:url,source_title:title,retrieved_at:new Date().toISOString(),manufacturer:'Apple'};
+}
+async function osOfficialSpecs(query){
+ const name=String(query.product_name||'').trim().slice(0,140),model=String(query.model||'').trim().slice(0,100);
+ if(!name)throw new Error('Indica el nombre del equipo.');
+ const brand=String(query.brand||'Apple').toLowerCase();if(brand!=='apple')throw new Error('La búsqueda automática está disponible para Apple. No se modificó la ficha.');
+ let source=String(query.source_url||'').trim();
+ if(!source){const discovered=await osDiscover(name,model);if(!discovered.url)return {ok:false,needs_source:true,candidates:discovered.candidates||[],error:'No encontré una ficha oficial inequívoca. Selecciona una coincidencia o pega la URL oficial exacta.'};source=discovered.url;}
+ if(/\/docs\//.test(source)){const doc=await osFetch(source),spec=osLinks(doc.html,doc.url).find(l=>/especificaciones tecnicas|tech specs|technical specifications/.test(osNorm(l.title)));if(!spec)throw new Error('Este documento no enlaza una ficha técnica oficial.');source=spec.url;}
+ const page=await osFetch(source);return {ok:true,specifications:osParse(page.html,page.url,name)};
+}
+function osPublicSpecs(value){
+ if(!value||typeof value!=='object')return null;
+ try{osSafeUrl(value.source_url);}catch{return null;}
+ const details=Object.fromEntries(Object.entries(value.details||{}).filter(([k,v])=>k.length<100&&typeof v==='string').slice(0,20).map(([k,v])=>[k,v.slice(0,6000)]));
+ return {product_name:String(value.product_name||'').slice(0,140),category:String(value.category||'').slice(0,40),description:String(value.description||'').slice(0,1500),features:(Array.isArray(value.features)?value.features:[]).filter(x=>typeof x==='string').slice(0,3).map(x=>x.slice(0,160)),details,source_url:value.source_url,source_title:String(value.source_title||'').slice(0,300),retrieved_at:String(value.retrieved_at||'').slice(0,50),reviewed_at:String(value.reviewed_at||'').slice(0,50),manufacturer:'Apple'};
 }
