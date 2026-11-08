@@ -364,7 +364,7 @@ function tsOrderModels(list){
     const n=String(p.name||'').toLowerCase();
     const year=Number(n.match(/\b(20[0123]\d)\b/)?.[1]||0);
     const m=n.match(/\b(?:iphone|airpods(?:\s+pro)?|series|ultra|pixel|galaxy\s+[asz]|playstation|m|a)\s*[-(]?(\d{1,3})(?!\d)/i);
-    const tier=/\bultra\b/.test(n)?6:/pro\s+max/.test(n)?5:/\bmax\b/.test(n)?4:/\bpro\b/.test(n)?3:/plus|\+/.test(n)?2:/air/.test(n)?1:0;
+    const tier=/\bultra\b/.test(n)?6:/pro\s+max/.test(n)?7:/\bmax\b/.test(n)?4:/\bpro\b/.test(n)?3:/plus|\+/.test(n)?2:/air/.test(n)?1:0;
     const pods=n.match(/\bairpods\s*(pro|max)?\s*(?:\(\s*)?(\d+)?/);
     let launch=year;
     if(pods&&!launch){
