@@ -281,6 +281,41 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
     if(variantsForGroup.length)enrich(p,variantsForGroup);
     base.push(p);
   });
+  // Equipos publicados en Inventory también pueden crear fichas nuevas en MAIN.
+  const deviceGroups=new Map();
+  inventoryRows.filter(p=>/^(iphone|mac|macbook|imac|ipad|airpods|audio|watch|apple watch)$/.test(tsCatalogNorm(p.category))).forEach(p=>{
+    const name=String(p.product_group||p.name||'').trim(),key=tsCatalogNorm(name);
+    if(!key)return;
+    if(!deviceGroups.has(key))deviceGroups.set(key,{name,rows:[]});
+    deviceGroups.get(key).rows.push(p);
+  });
+  deviceGroups.forEach(group=>{
+    const key=tsCatalogNorm(group.name);
+    if(base.some(p=>tsCatalogNorm(p.name||'')===key))return;
+    const entries=group.rows,skus=new Set(entries.map(p=>String(p.sku||'')).filter(Boolean));
+    const matched=rows.filter(v=>skus.has(String(v.sku||''))||tsCatalogNorm(v.product_name||'')===key);
+    const category=tsCatalogCategoryForProduct(group.name,entries[0].category);
+    const urls=[...new Set(entries.flatMap(p=>[p.catalog_card_image_url,p.image_url,...(p.image_urls||[])]).filter(u=>String(u||'').toLowerCase().startsWith('https://')))];
+    const main=urls[0]||catalogImageFallback({name:group.name,category});
+    const colorNames=[...new Set(entries.map(p=>String(p.color||'').trim()).filter(Boolean))];
+    const colors={};
+    colorNames.forEach(color=>{
+      const own=entries.find(p=>tsCatalogNorm(p.color)===tsCatalogNorm(color)&&(p.image_url||p.image_urls?.length));
+      colors[color]=own?.image_url||own?.image_urls?.[0]||main;
+    });
+    if(!colorNames.length)colors['Único']=main;
+    const capacities=[...new Set([...entries,...matched].map(p=>String(p.capacity||'').trim()).filter(Boolean))];
+    const conditions=[...new Set(entries.map(p=>String(p.condition||'Nuevo').trim()).filter(Boolean))];
+    const prices=entries.map(p=>Number(p.sale_price||0)).filter(n=>n>0);
+    const product={id:'inv-'+tsCatalogSlug(group.name),name:group.name,family:group.name,model:group.name,
+      category,cat:category,brand:entries[0].brand||'Apple',badge:category,
+      description:entries.find(p=>p.description)?.description||'Consulta configuración y disponibilidad.',
+      main,gallery:urls.length?urls:[main],colors,storage:capacities.length?capacities:['Consultar configuración'],
+      condition:conditions.length?conditions:['Nuevo'],active:true,inventory_live:true,inventory_source:'central',
+      sort_order:Math.min(...entries.map(p=>Number(p.sort_order||1000)))};
+    if(prices.length)product.price=Math.min(...prices);
+    enrich(product,matched);base.push(product);
+  });
   // Explicit Inventory galleries replace legacy MAIN media only when requested.
   window.ThinkStoreCatalogMedia.apply(base,inventoryRows);
   // A reference photo is explicit, and is replaced as soon as Inventory has its own media.
@@ -307,7 +342,12 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
       return {id:row.id,sku:row.sku,parent_id:product.id,name:row.name||group.name,style:row.case_style||'',family:row.case_family||'',model:row.variant_model||row.compatibility||row.model||'',color:row.variant_color||row.color||'Único',price:Number(variant?.price_usd||row.sale_price||0),available:variant?Math.max(0,Number(variant.stock_on_hand||0)-Number(variant.stock_reserved||0)):0,image:row.image_url||row.image_urls?.[0]||'',images:row.image_urls||[],video:row.video_url||'',condition:row.condition||'Nuevo'};
     }).filter(v=>v.sku);
   });
-  return base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
+  const sorted=base.sort((a,b)=>(Number(a.sort_order||1000)-Number(b.sort_order||1000)));
+  // Orden numérico de iPhone: 15 antes de 16; Pro y Pro Max dentro de su generación.
+  const phoneKey=p=>{const n=tsCatalogNorm(p.name),m=n.match(/^iphone (\d+)\b/);return m?[Number(m[1]),/pro max/.test(n)?3:/pro/.test(n)?2:/air|plus/.test(n)?1:0]:[Infinity,0];};
+  const phones=sorted.filter(p=>getCat(p)==='iPhone').sort((a,b)=>{const x=phoneKey(a),y=phoneKey(b);return x[0]-y[0]||x[1]-y[1]||String(a.name).localeCompare(String(b.name));});
+  let phoneIndex=0;
+  return sorted.map(p=>getCat(p)==='iPhone'?phones[phoneIndex++]:p);
 }
 function tsCatalogProducts(){
   const base=tsBaseCatalogProducts();
