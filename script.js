@@ -365,13 +365,21 @@ function tsOrderModels(list){
     const year=Number(n.match(/\b(20[0123]\d)\b/)?.[1]||0);
     const m=n.match(/\b(?:iphone|airpods(?:\s+pro)?|series|ultra|pixel|galaxy\s+[asz]|playstation|m|a)\s*[-(]?(\d{1,3})(?!\d)/i);
     const tier=/\bultra\b/.test(n)?6:/pro\s+max/.test(n)?5:/\bmax\b/.test(n)?4:/\bpro\b/.test(n)?3:/plus|\+/.test(n)?2:/air/.test(n)?1:0;
+    const pods=n.match(/\bairpods\s*(pro|max)?\s*(?:\(\s*)?(\d+)?/);
+    let launch=year;
+    if(pods&&!launch){
+      const g=Number(pods[2]||0);
+      if(pods[1]==='max')launch=g===2?2026:/usb.c/.test(n)?2024:g===1||/lightning/.test(n)?2020:0;
+      else if(pods[1]==='pro')launch=[0,2019,/usb.c/.test(n)?2023:2022,2025][g]||0;
+      else launch=[0,2016,2019,2021,2024,2026][g]||0;
+    }
     const date=Date.parse(p.release_date||p.launch_date||'');
-    return {year:Number.isFinite(date)?new Date(date).getUTCFullYear():year,gen:Number(m?.[1]||0),tier,date:Number.isFinite(date)?date:0};
+    return {year:Number.isFinite(date)?new Date(date).getUTCFullYear():launch,gen:Number(m?.[1]||0),tier,date:Number.isFinite(date)?date:0};
   }
   for(const p of list){const key=getCat(p);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p);}
   for(const rows of groups.values()){
     const keys=new Map(rows.map(p=>[p,modelKey(p)]));
-    const dated=rows.every(p=>keys.get(p).year);
+    const dated=rows.every(p=>keys.get(p).year)||rows.every(p=>/airpods/i.test(p.name));
     rows.sort((a,b)=>{const x=keys.get(a),y=keys.get(b);return (dated&&(y.year-x.year||y.date-x.date))||y.gen-x.gen||y.tier-x.tier||y.year-x.year;});
   }
   return list.map(p=>{const key=getCat(p),i=positions.get(key)||0;positions.set(key,i+1);return groups.get(key)[i];});
@@ -556,7 +564,7 @@ function drawDetail(){
     ? Object.entries(details).map(([k,v])=>`<li><b>${specEscape(k)}:</b> ${specEscape(v)}</li>`).join('\n')
     : (p.features||[]).map(f=>`<li>${specEscape(f)}</li>`).join('\n');
   const source=p.official_specifications?.source_url;
-  if(source&&/^https:\/\/(support\.apple\.com|www\.apple\.com|apple\.com)\//i.test(source))$('features').insertAdjacentHTML('beforeend',`<li><a href="${specEscape(source)}" target="_blank" rel="noopener noreferrer">Ficha técnica oficial de Apple ↗</a></li>`);
+  if(source&&/^https:\/\//i.test(source))$('features').insertAdjacentHTML('beforeend',`<li><a href="${specEscape(source)}" target="_blank" rel="noopener noreferrer">Ficha técnica del fabricante ↗</a></li>`);
 
   const meta=$('productMeta');
   if(meta){
