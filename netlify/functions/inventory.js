@@ -360,12 +360,13 @@ async function r2Delete(cfg,key){
 'use strict';
 const osCache=new Map();
 function osText(value){
- const entities={nbsp:' ',amp:'&',quot:'"',apos:"'",lt:'<',gt:'>',aacute:'á',eacute:'é',iacute:'í',oacute:'ó',uacute:'ú',Aacute:'Á',Eacute:'É',Iacute:'Í',Oacute:'Ó',Uacute:'Ú',ntilde:'ñ',Ntilde:'Ñ',uuml:'ü',Uuml:'Ü',ordf:'ª',ordm:'º',ndash:'–',mdash:'—',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',times:'×',hellip:'…',copy:'©',reg:'®',deg:'°',shy:''};
+ const entities={nbsp:' ',amp:'&',quot:'"',apos:"'",lt:'<',gt:'>',aacute:'á',eacute:'é',iacute:'í',oacute:'ó',uacute:'ú',Aacute:'Á',Eacute:'É',Iacute:'Í',Oacute:'Ó',Uacute:'Ú',ntilde:'ñ',Ntilde:'Ñ',uuml:'ü',Uuml:'Ü',ordf:'ª',ordm:'º',ndash:'–',mdash:'—',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',times:'×',hellip:'…',copy:'©',reg:'®',deg:'°',fnof:'ƒ',shy:''};
  return String(value||'').replace(/<sup\b[^>]*>[\s\S]*?<\/sup>/gi,'').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,(all,key)=>{if(key[0]==='#'){const code=key[1].toLowerCase()==='x'?parseInt(key.slice(2),16):Number(key.slice(1));return code>0&&code<=0x10ffff?String.fromCodePoint(code):'';}return entities[key]??all;}).replace(/[\u00a0\u200b\u202f]/g,' ').replace(/\s+/g,' ').trim();
 }
 function osNorm(value){return osText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
 function osSafeUrl(value){
  const url=new URL(String(value));
+ if(!['support.apple.com','www.apple.com','apple.com'].includes(url.hostname))return manufacturerUrl(value);
  if(url.protocol!=='https:'||url.username||url.password||url.port||!['support.apple.com','www.apple.com','apple.com'].includes(url.hostname))throw new Error('Usa una página HTTPS oficial de Apple.');
  if(url.hostname!=='support.apple.com'&&!/\/specs\/?$/.test(url.pathname))throw new Error('La URL debe ser una ficha de especificaciones oficial.');
  return url;
@@ -401,7 +402,7 @@ async function osDiscover(name,model){
   const items=heads.map((h,i)=>{const block=page.html.slice(h.index+h[0].length,heads[i+1]?.index||page.html.length),title=osText(h[1]);const link=osLinks(block,page.url).find(l=>/especificaciones tecnicas|tech specs|technical specifications/.test(osNorm(l.title)));return {title,modelMatch:physical?new RegExp('\\b'+physical+'\\b').test(osText(block)):true,url:link?.url};}).filter(x=>x.url&&osPhoneName(x.title));
   const found=items.filter(x=>osMatchName(name,x.title));
   if(found.length===1){if(physical&&!found[0].modelMatch)throw new Error('El número de modelo no coincide con el nombre en la fuente oficial. Revisa la ficha antes de importar.');return found[0];}
-  const byModel=physical?items.filter(x=>x.modelMatch):[];if(byModel.length===1&&osMatchName(name,byModel[0].title))return byModel[0];
+  const byModel=physical?items.filter(x=>x.modelMatch):[];if(byModel.length===1&&(name==='iPhone'||osMatchName(name,byModel[0].title)))return byModel[0];
   return {candidates:found.map(({title,url})=>({title,url}))};
  }
  const slug={Mac:'mac',iPad:'ipad',AirPods:'airpods',Watch:'watch'}[category];
@@ -440,12 +441,13 @@ function osParse(html,url,name){
  const first=(label)=>{const values=sections[label]||[];let text=label==='Pantalla'?(values.find(t=>/pulgadas|inch/.test(t))||values[0]):values[0];if(!text)return '';if(label==='Cámaras')text=text.split(':')[0];return text.length>160?text.slice(0,157)+'…':text;};
  const features=['Pantalla','Procesador','Cámaras','Batería','Conectividad'].map(first).filter(x=>x&&x!=='undefined…').slice(0,3);
  const details=Object.fromEntries(Object.entries(sections).map(([k,v])=>[k,v.join(' · ')]));
- return {product_name:name,category:osCategory(name),description:name+'. '+features.join('. ')+'.',features,details,sections,compatible_capacities:sections['Capacidades compatibles']||[],source_url:url,source_title:title,retrieved_at:new Date().toISOString(),manufacturer:'Apple'};
+ return {product_name:name,category:osCategory(name),description:name+'. '+features.join('. ')+'.',features,details,sections,compatible_capacities:sections['Capacidades compatibles']||[],source_url:url,source_title:title,retrieved_at:new Date().toISOString(),manufacturer:String(value.manufacturer||'Apple').slice(0,100)};
 }
 async function osOfficialSpecs(query){
- const name=String(query.product_name||'').trim().slice(0,140),model=String(query.model||'').trim().slice(0,100);
- if(!name)throw new Error('Indica el nombre del equipo.');
- const brand=String(query.brand||'Apple').toLowerCase();if(brand!=='apple')throw new Error('La búsqueda automática está disponible para Apple. No se modificó la ficha.');
+ let name=String(query.product_name||'').trim().slice(0,140),model=String(query.model||'').trim().slice(0,100);
+ if(!name)name=model;if(!name)throw Error('Indica el nombre o modelo.');
+ if(/^A[0-9]{4}$/i.test(name)){const code=name.toUpperCase(),result=await osDiscover('iPhone',code);if(result.title)name=result.title;}
+ const brand=String(query.brand||'Apple').toLowerCase();if(!/^(?:apple\s+)?(?:iphone|ipad|airpods|apple watch|watch|imac|macbook|mac )/i.test(name)||query.source_url&&!/^(?:https:\/\/)(?:support\.|www\.)?apple\.com\//i.test(query.source_url))return lookupManufacturer(name,model,String(query.category||'').slice(0,80),query.source_url);
  let source=String(query.source_url||'').trim();
  if(!source){const discovered=await osDiscover(name,model);if(!discovered.url)return {ok:false,needs_source:true,candidates:discovered.candidates||[],error:'No encontré una ficha oficial inequívoca. Selecciona una coincidencia o pega la URL oficial exacta.'};source=discovered.url;}
  if(/\/docs\//.test(source)){const doc=await osFetch(source),spec=osLinks(doc.html,doc.url).find(l=>/especificaciones tecnicas|tech specs|technical specifications/.test(osNorm(l.title)));if(!spec)throw new Error('Este documento no enlaza una ficha técnica oficial.');source=spec.url;}
@@ -456,4 +458,46 @@ function osPublicSpecs(value){
  try{osSafeUrl(value.source_url);}catch{return null;}
  const details=Object.fromEntries(Object.entries(value.details||{}).filter(([k,v])=>k.length<100&&typeof v==='string').slice(0,20).map(([k,v])=>[k,v.slice(0,6000)]));
  return {product_name:String(value.product_name||'').slice(0,140),category:String(value.category||'').slice(0,40),description:String(value.description||'').slice(0,1500),features:(Array.isArray(value.features)?value.features:[]).filter(x=>typeof x==='string').slice(0,3).map(x=>x.slice(0,160)),details,source_url:value.source_url,source_title:String(value.source_title||'').slice(0,300),retrieved_at:String(value.retrieved_at||'').slice(0,50),reviewed_at:String(value.reviewed_at||'').slice(0,50),manufacturer:'Apple'};
+}
+
+const catalogDomains=['samsung.com','sony.com','playstation.com','xbox.com','microsoft.com','mi.com','motorola.com','lenovo.com','asus.com','dell.com','hp.com','store.google.com','nintendo.com','logitech.com','anker.com','huawei.com','oneplus.com','oppo.com','garmin.com','jbl.com','kingston.com','crucial.com'];
+function manufacturerUrl(value){
+ const u=new URL(value);
+ if(u.protocol!=='https:'||u.port||u.username||u.password||!catalogDomains.some(d=>u.hostname===d||u.hostname==='www.'+d))throw Error('La fuente debe ser una página de producto de un fabricante compatible.');
+ return u;
+}
+async function lookupManufacturer(name,model,category,source){
+ const norm=s=>osNorm(s).replace(/[^a-z0-9]+/g,' ').trim();
+ const same=(s,t)=>norm(s)===norm(t);
+ if(!source){
+  const api=new URL('https://www.wikidata.org/w/api.php');
+  const query=async params=>{api.search=new URLSearchParams({...params,format:'json'});const r=await fetch(api,{signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('El índice de modelos no respondió. Puedes introducir la URL oficial.');return r.json();};
+  for(const term of [...new Set([model,name].filter(Boolean))]){
+   const results=await query({action:'wbsearchentities',search:term,language:'en',limit:8});
+   const ids=(results.search||[]).filter(x=>[x.label,x.match?.text,...(x.aliases||[])].some(a=>a&&same(a,term))).map(x=>x.id);
+   if(!ids.length)continue;
+   const items=await query({action:'wbgetentities',ids:ids.join('|'),props:'claims|labels',languages:'en'});
+   const links=[];
+   for(const item of Object.values(items.entities||{}))for(const c of item.claims?.P856||[]){
+    try{const url=manufacturerUrl(c.mainsnak.datavalue.value);if(url.pathname.length>1&&!links.some(x=>x.url===url.href))links.push({url:url.href,title:item.labels?.en?.value||term});}catch{}
+   }
+   if(links.length>1)return {ok:false,needs_source:true,error:'Selecciona la ficha del modelo.',candidates:links};
+   if(links.length){source=links[0].url;break;}
+  }
+ }
+ if(!source)return {ok:false,needs_source:true,error:'No encontré una ficha oficial para esa referencia. Puedes pegar el enlace del fabricante.'};
+ const page=await osFetch(source);
+ const details={},entries=[];
+ function visit(x){if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(visit);return;}if([x['@type']].flat().some(t=>t==='Product'||t==='ProductModel'))entries.push(x);if(x['@graph'])visit(x['@graph']);}
+ for(const m of page.html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){try{visit(JSON.parse(m[1]));}catch{}}
+ const h=osText(page.html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]||'');
+ const fit=s=>[name,model].some(t=>t&&same(s,t));
+ const entry=entries.find(x=>[x.name,x.model,x.mpn,x.sku].some(s=>typeof s==='string'&&fit(s)));
+ if(!entry&&!fit(h))throw Error('No pude verificar que la página corresponde exactamente al nombre o modelo indicado.');
+ const add=(k,v)=>{if(typeof k==='string'&&typeof v==='string'&&k.length<100&&!/precio|price|offer|stock|shipping|discount/i.test(k)&&Object.keys(details).length<20){k=osText(k);v=osText(v);if(k&&v)details[k]=v.slice(0,800);}};
+ for(const p of [entry?.additionalProperty||[]].flat())add(p.name,String(p.value??'')+' '+(p.unitText||''));
+ if(fit(h)||entries.length===1)for(const m of page.html.matchAll(/<tr\b[^>]*>\s*<(?:th|td)\b[^>]*>([\s\S]*?)<\/(?:th|td)>\s*<td\b[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi))add(osText(m[1]),osText(m[2]));
+ const features=Object.entries(details).slice(0,3).map(([k,v])=>(k+': '+v).slice(0,160));
+ if(!features.length)throw Error('Encontré el producto, pero su página no ofrece especificaciones que se puedan importar.');
+ return {ok:true,specifications:{product_name:entry?.name||h,category:category||'Otros',description:osText(entry?.description||features.join('. ')).slice(0,1500),features,details,source_url:page.url,source_title:entry?.name||h,manufacturer:manufacturerUrl(page.url).hostname,retrieved_at:new Date().toISOString()}};
 }
