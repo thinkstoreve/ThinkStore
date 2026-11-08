@@ -49,7 +49,7 @@ exports.handler=async(event)=>{
             category:String(d.category||''),subcategory:String(d.subcategory||''),compatibility:String(d.compatibility||''),model:String(d.model||''),
             capacity:String(d.capacity||''),color:String(d.color||''),condition:String(d.condition||'Nuevo'),brand:String(d.brand||'Apple'),
             case_style:String(d.case_style||''),case_family:String(d.case_family||''),variant_model:String(d.variant_model||''),variant_color:String(d.variant_color||''),
-            sale_price:Number(d.sale_price||0),published:d.published!==false,active:d.active!==false,image_url:String(d.image_url||''),
+            original_price:Number(d.original_price??d.sale_price??0),discount_percent:Math.max(0,Math.min(100,Number(d.discount_percent)||0)),sale_price:Number(d.sale_price||0),published:d.published!==false,active:d.active!==false,image_url:String(d.image_url||''),
             description:String(d.catalog_description||d.description||''),sort_order:Number(d.sort_order||1000),tracking_mode:String(d.tracking_mode||''),
             image_urls:Array.isArray(d.image_urls)?d.image_urls.filter(x=>typeof x==='string'&&/^https:\/\//i.test(x)).slice(0,8):[],video_url:/^https:\/\//i.test(String(d.video_url||''))?String(d.video_url):'',media_fit:'contain',catalog_card_image_url:/^https:\/\//i.test(String(d.catalog_card_image_url||''))?String(d.catalog_card_image_url):'',media_replace_catalog:d.media_replace_catalog===true,catalog_colors_managed:d.catalog_colors_managed===true,catalog_media_primary:d.catalog_media_primary===true
           };
@@ -73,7 +73,7 @@ exports.handler=async(event)=>{
         if(Array.isArray(loaded)&&loaded.length)catalogCategories=loaded;
       }
     }catch(_e){}
-    return r(200,{ok:true,cosmetic_grade_ready:cosmeticGradeReady,battery_health_ready:batteryHealthReady,catalog_image_color_ready:catalogImageColorReady!==false,variants:rows.map(v=>({...v,cosmetic_grade:v.cosmetic_grade||'',battery_health_pct:v.battery_health_pct??null,cosmetic_note:v.cosmetic_note||'',available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),inventory_products:inventoryProducts,catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
+    return r(200,{ok:true,cosmetic_grade_ready:cosmeticGradeReady,battery_health_ready:batteryHealthReady,catalog_image_color_ready:catalogImageColorReady!==false,variants:rows.map(v=>({...v,...(()=>{const p=inventoryProducts.find(p=>p.sku===v.sku);return p?{original_price:p.original_price,discount_percent:p.discount_percent}:{};})(),cosmetic_grade:v.cosmetic_grade||'',battery_health_pct:v.battery_health_pct??null,cosmetic_note:v.cosmetic_note||'',available:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),low_stock:Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0))<=Number(v.stock_min||0)})),inventory_products:inventoryProducts,catalog_products:catalog,catalog_images:catalogImages,catalog_categories:catalogCategories});
   }
   if(event.httpMethod!=='POST')return r(405,{ok:false,error:'Método no permitido'});
   const auth=await authorizeAdmin(event,url,service);
