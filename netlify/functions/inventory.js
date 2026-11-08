@@ -441,7 +441,7 @@ function osParse(html,url,name){
  const first=(label)=>{const values=sections[label]||[];let text=label==='Pantalla'?(values.find(t=>/pulgadas|inch/.test(t))||values[0]):values[0];if(!text)return '';if(label==='Cámaras')text=text.split(':')[0];return text.length>160?text.slice(0,157)+'…':text;};
  const features=['Pantalla','Procesador','Cámaras','Batería','Conectividad'].map(first).filter(x=>x&&x!=='undefined…').slice(0,3);
  const details=Object.fromEntries(Object.entries(sections).map(([k,v])=>[k,v.join(' · ')]));
- return {product_name:name,category:osCategory(name),description:name+'. '+features.join('. ')+'.',features,details,sections,compatible_capacities:sections['Capacidades compatibles']||[],source_url:url,source_title:title,retrieved_at:new Date().toISOString(),manufacturer:String(value.manufacturer||'Apple').slice(0,100)};
+ return {product_name:name,category:osCategory(name),description:name+'. '+features.join('. ')+'.',features,details,sections,compatible_capacities:sections['Capacidades compatibles']||[],source_url:url,source_title:title,retrieved_at:new Date().toISOString(),manufacturer:'Apple'};
 }
 async function osOfficialSpecs(query){
  let name=String(query.product_name||'').trim().slice(0,140),model=String(query.model||'').trim().slice(0,100);
@@ -457,7 +457,7 @@ function osPublicSpecs(value){
  if(!value||typeof value!=='object')return null;
  try{osSafeUrl(value.source_url);}catch{return null;}
  const details=Object.fromEntries(Object.entries(value.details||{}).filter(([k,v])=>k.length<100&&typeof v==='string').slice(0,20).map(([k,v])=>[k,v.slice(0,6000)]));
- return {product_name:String(value.product_name||'').slice(0,140),category:String(value.category||'').slice(0,40),description:String(value.description||'').slice(0,1500),features:(Array.isArray(value.features)?value.features:[]).filter(x=>typeof x==='string').slice(0,3).map(x=>x.slice(0,160)),details,source_url:value.source_url,source_title:String(value.source_title||'').slice(0,300),retrieved_at:String(value.retrieved_at||'').slice(0,50),reviewed_at:String(value.reviewed_at||'').slice(0,50),manufacturer:'Apple'};
+ return {product_name:String(value.product_name||'').slice(0,140),category:String(value.category||'').slice(0,40),description:String(value.description||'').slice(0,1500),features:(Array.isArray(value.features)?value.features:[]).filter(x=>typeof x==='string').slice(0,3).map(x=>x.slice(0,160)),details,source_url:value.source_url,source_title:String(value.source_title||'').slice(0,300),retrieved_at:String(value.retrieved_at||'').slice(0,50),reviewed_at:String(value.reviewed_at||'').slice(0,50),manufacturer:String(value.manufacturer||'Apple').slice(0,100)};
 }
 
 const catalogDomains=['samsung.com','sony.com','playstation.com','xbox.com','microsoft.com','mi.com','motorola.com','lenovo.com','asus.com','dell.com','hp.com','store.google.com','nintendo.com','logitech.com','anker.com','huawei.com','oneplus.com','oppo.com','garmin.com','jbl.com','kingston.com','crucial.com'];
