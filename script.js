@@ -359,7 +359,7 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
   return tsOrderModels(sorted);
 }
 function tsOrderModels(list){
-  const groups=new Map(), positions=new Map();
+  const groups=new Map();
   function modelKey(p){
     const n=String(p.name||'').toLowerCase();
     const year=Number(n.match(/\b(20[0123]\d)\b/)?.[1]||0);
@@ -382,7 +382,7 @@ function tsOrderModels(list){
     const dated=rows.every(p=>keys.get(p).year)||rows.every(p=>/airpods/i.test(p.name));
     rows.sort((a,b)=>{const x=keys.get(a),y=keys.get(b);return (dated&&(y.year-x.year||y.date-x.date))||y.gen-x.gen||y.tier-x.tier||y.year-x.year;});
   }
-  return list.map(p=>{const key=getCat(p),i=positions.get(key)||0;positions.set(key,i+1);return groups.get(key)[i];});
+  return [...(groups.get('iPhone')||[]), ...Array.from(groups).filter(([category])=>category!=='iPhone').flatMap(([,products])=>products)];
 }
 function tsCatalogProducts(){
   const base=tsBaseCatalogProducts();
