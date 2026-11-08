@@ -45,7 +45,7 @@
         <div class="tsc-capacities">${configs.slice(0,4).map(c=>`<span class="tsc-chip">${esc(c)}</span>`).join('')}</div>
         <div class="tsc-features">${features.map(f=>`<div class="tsc-feature"><i>${icon(f)}</i><span>${esc(f)}</span></div>`).join('')}</div>
         <div class="tsc-price-line">
-          <div class="tsc-price"><small>${Number(p.price||0)>0?'Desde':'Precio'}</small><strong>${money(p.price)}</strong></div>
+          <div class="tsc-price"><small>${Number(p.price||0)>0?'Desde':'Precio'}</small><strong>${Number(p.original_price)>Number(p.price)?`<del style="font-size:.7em;color:#777;margin-right:6px">${money(p.original_price)}</del>`:''}${money(p.price)}</strong>${Number(p.discount_percent)>0?`<span class="tsc-discount" style="font-size:12px;color:#a2294e;font-weight:800">−${Number(p.discount_percent)}%</span>`:''}</div>
           <span class="tsc-stock ${pre?'preorder':''}">${stock>0?`${stock} en stock`:'Pre-Order'}</span>
         </div>
         <div class="tsc-actions">
