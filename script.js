@@ -137,7 +137,11 @@ function tsBuildInventoryCatalog(variants,catalogProducts,catalogImages,inventor
     const prices=matched.map(v=>Number(v.price_usd||0)).filter(n=>n>0);
     p.inventory_available=matched.reduce((a,v)=>a+Math.max(0,Number(v.stock_on_hand||0)-Number(v.stock_reserved||0)),0);
     p.inventory_live=true;
-    if(prices.length)p.price=Math.min(...prices);
+    if(getCat(p)==='iPhone'){
+      const capacities=[...new Set(matched.map(v=>String(v.capacity||'').trim()).filter(Boolean))];
+      if(capacities.length)p.storage=capacities.sort((a,b)=>parseFloat(tsInventoryCapacityKey(a))-parseFloat(tsInventoryCapacityKey(b)));
+    }
+    if(prices.length){p.price=Math.min(...prices);const best=matched.find(v=>Number(v.price_usd)===p.price);p.original_price=Number(best?.original_price||p.price);p.discount_percent=Number(best?.discount_percent||0);}
     return p;
   }
 
@@ -574,6 +578,8 @@ async function tsGetInventoryVariants(force=false){
   const res=await fetch('/.netlify/functions/inventory?ts='+now,{cache:'no-store'});
   const out=await res.json().catch(()=>({}));
   if(!res.ok||!out.ok||!Array.isArray(out.variants)) return [];
+  const commercial=new Map((out.inventory_products||[]).map(p=>[p.sku,p]));
+  out.variants=out.variants.map(v=>{const p=commercial.get(v.sku);return p?{...v,original_price:Number(p.original_price??p.sale_price??v.price_usd),discount_percent:Number(p.discount_percent||0)}:v;});
   tsInventoryVariantCache={at:now,rows:out.variants};
   return out.variants;
 }
@@ -3359,7 +3365,7 @@ function productImageV2(p){
 }
 function productPriceV2(p){
   const price = Number(p.price || p.from || p.basePrice || 0);
-  return price ? `Desde $${price.toLocaleString('es-VE')}` : 'Precio a consultar';
+  return price ? `Desde ${Number(p.original_price)>price?'<del style="font-size:.75em;color:#777">$'+Number(p.original_price).toLocaleString('es-VE')+'</del> ':''}$${price.toLocaleString('es-VE')}${Number(p.discount_percent)>0?' · −'+Number(p.discount_percent)+'%':''}` : 'Precio a consultar';
 }
 function openProductFromV2(id){
   if(typeof openProduct === 'function') return openProduct(id);
@@ -6645,7 +6651,7 @@ window.addEventListener('load', ()=>{
     const price=Number(inv?.price_usd||0);
     let p=document.getElementById('tsConditionPrice');
     if(!p){p=document.createElement('div');p.id='tsConditionPrice';p.style.cssText='margin-top:10px;font-size:22px;font-weight:950;letter-spacing:-.3px';badge.appendChild(p)}
-    p.textContent=price>0?`Precio seleccionado · USD ${moneyPrice(price)}`:(tsIsPreorderCondition(condition)?'Precio Pre-Order por definir':'Precio por definir');
+    p.innerHTML=price>0?`Precio seleccionado · USD ${Number(inv?.original_price)>price?'<del style="font-size:.75em;color:#777">'+moneyPrice(inv.original_price)+'</del> ':''}${moneyPrice(price)}${Number(inv?.discount_percent)>0?' · −'+Number(inv.discount_percent)+'%':''}`:(tsIsPreorderCondition(condition)?'Precio Pre-Order por definir':'Precio por definir');
   }
   async function annotateCapacityPrices(condition){
     try{
@@ -6731,7 +6737,7 @@ window.addEventListener('load', ()=>{
       const capacity=(window.tsSelectedCapacity?window.tsSelectedCapacity():''),rows=matchRows(all,selectedProduct,(typeof selectedColor!=='undefined'?selectedColor:''),capacity);
       if(!rows.length)return;
       const byCond={};rows.forEach(v=>{const k=ckey(v.condition);if(!byCond[k]||score(v,selectedProduct)>score(byCond[k],selectedProduct))byCond[k]=v});
-      const immediate=['Nuevo','Pre-Owned'].filter(c=>{const v=byCond[ckey(c)];return v&&available(v)>0});
+      const immediate=['Nuevo','Pre-Owned'].filter(c=>!!byCond[ckey(c)]);
       const options=immediate.length?[...immediate,'Pre-Order']:['Pre-Order'];
       let current=(typeof selectedCondition!=='undefined'?selectedCondition:'')||options[0];if(!options.some(x=>ckey(x)===ckey(current)))current=options[0];selectedCondition=current;
       const box=document.getElementById('conditions');
@@ -6746,7 +6752,7 @@ window.addEventListener('load', ()=>{
         button.textContent=!pre&&inv&&q>0?'Añadir al carrito':'Pre-ordenar';
         button.onclick=!pre&&inv&&q>0?()=>addCart():()=>tsStartPreorder();
       });
-      badge.innerHTML=`<div>${pre?'Pre-Order · disponible bajo pedido':(inv&&q>0?`En stock · ${q} ${q===1?'unidad disponible':'unidades disponibles'}`:'Sin stock inmediato')}</div><div id="tsConditionPrice" style="margin-top:8px;font-size:22px;font-weight:950">${pr?`Precio seleccionado · USD ${money2(pr)}`:(pre?'Precio Pre-Order por definir':'Precio por definir')}</div>`;
+      badge.innerHTML=`<div>${pre?'Pre-Order · disponible bajo pedido':(inv&&q>0?`En stock · ${q} ${q===1?'unidad disponible':'unidades disponibles'}`:'Sin stock inmediato')}</div><div id="tsConditionPrice" style="margin-top:8px;font-size:22px;font-weight:950">${pr?`Precio seleccionado · USD ${Number(inv?.original_price)>pr?'<del style="font-size:.75em;color:#777">'+money2(inv.original_price)+'</del> ':''}${money2(pr)}${Number(inv?.discount_percent)>0?' · −'+Number(inv.discount_percent)+'%':''}`:(pre?'Precio Pre-Order por definir':'Precio por definir')}</div>`;
       if(pr){selectedProduct.price=pr;['pprice','productPrice','detailPrice'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=money2(pr)})}
       // Anota precios de cada capacidad para la condición seleccionada.
       const wantCond=ckey(current),prodRows=(all||[]).map(v=>({v,s:score(v,selectedProduct)})).filter(x=>x.s>0&&(!color(selectedColor)||color(x.v.color)===color(selectedColor))&&ckey(x.v.condition)===wantCond).sort((a,b)=>b.s-a.s).map(x=>x.v);
