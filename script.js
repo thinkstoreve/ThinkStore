@@ -608,7 +608,7 @@ function tsConditionKey(v){
 async function tsGetInventoryVariants(force=false){
   const now=Date.now();
   if(!force && tsInventoryVariantCache.rows.length && now-tsInventoryVariantCache.at<10000) return tsInventoryVariantCache.rows;
-  const res=await fetch('/.netlify/functions/inventory?ts='+now,{cache:'no-store'});
+  const res=await fetch('/.netlify/functions/inventory?view='+(force?'fresh':'variants'),force?{cache:'no-store'}:{});
   const out=await res.json().catch(()=>({}));
   if(!res.ok||!out.ok||!Array.isArray(out.variants)) return [];
   const commercial=new Map((out.inventory_products||[]).map(p=>[p.sku,p]));
@@ -6088,8 +6088,9 @@ window.addEventListener('load', ()=>{
   function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
   async function hydrate(){
     try{
-      const res=await fetch('/.netlify/functions/inventory',{cache:'no-store'}),data=await res.json().catch(()=>({}));
+      const res=await fetch('/.netlify/functions/inventory?view=catalog'),data=await res.json().catch(()=>({}));
       if(!res.ok||!data.ok||!Array.isArray(data.variants))return;
+      for(const p of data.inventory_products||[]){if(Number.isInteger(p.spec_index))p.official_specifications=data.specifications?.[p.spec_index];}
       tsInventoryCatalogProducts=tsBuildInventoryCatalog(data.variants,data.catalog_products||[],data.catalog_images||[],data.inventory_products||[]);
       window.tsInventoryCatalogProducts=tsInventoryCatalogProducts;
       // Mantiene también el precio mínimo en los objetos locales para compatibilidad con módulos antiguos.
