@@ -37,8 +37,8 @@ exports.handler=async event=>{
   const q=event.queryStringParameters||{},main=mainConfig();
   if(event.httpMethod==='GET'){
    if(q.mode==='count'){
-    const rows=await db(main,'think_care_requests?select=id,status,updated_at&status=in.(new,contacted,quoted)&order=created_at.desc&limit=1000');
-    return out(200,{ok:true,pending:rows.length,new_count:rows.filter(x=>x.status==='new').length,latest:rows[0]?.id||null});
+    const rows=await db(main,'think_care_requests?select=id,name,status,updated_at,internal_note,source,problem,scheduled_at,service,request_type,location,phone&order=created_at.desc&limit=1000');
+    const reminders=Membership.reminders(rows);return out(200,{ok:true,pending:rows.filter(x=>['new','contacted','quoted'].includes(x.status)).length,new_count:rows.filter(x=>x.status==='new').length,latest:rows.filter(x=>x.status==='new')[0]?.id||null,care_reminders:reminders.length,care_overdue:reminders.filter(x=>x.overdue).length,partial:rows.length===1000});
    }
    if(q.id){if(!UUID.test(q.id))return out(400,{error:'Referencia inválida'});const history=await db(main,'thinkstore_request_events?request_id=eq.'+q.id+'&order=created_at.desc&limit=100');return out(200,{ok:true,history})}
    const rows=await db(main,'think_care_requests?select=*&order=created_at.desc&limit=500');
@@ -70,7 +70,7 @@ exports.handler=async event=>{
    if(data.status==='scheduled'&&(!Number.isFinite(Date.parse(data.scheduled_at))||Date.parse(data.scheduled_at)<Date.now()-300000))return out(400,{error:'Selecciona fecha y hora futuras'});
    if(data.assigned_email){const staff=await db(supportConfig(),'service_users?select=email&activo=eq.true&email=eq.'+encodeURIComponent(data.assigned_email)+'&rol=in.(technician,admin,superadmin)&limit=1');if(!staff.length)return out(400,{error:'Selecciona un técnico activo de Soporte'})}
    if(String(b.note||'').includes('[THINKCARE_PLAN_V1]')&&String(b.note).length>1200)return out(400,{error:'Reduce la nota para conservar el plan completo'});
-   const membership=Membership.read(data.note).plan;if(membership)Membership.validate(membership);
+   const membership=Membership.read(data.note).plan;if(membership){Membership.validate(membership);Membership.dates(membership);}
    const row=await manage(a,b,'update',data);return out(200,{ok:true,row});
   }
   if(b.action==='approve'){const row=await manage(a,b,'approve',{evidence:s(b.evidence,1200)});return out(200,{ok:true,row})}
