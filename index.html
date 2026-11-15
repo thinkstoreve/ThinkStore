@@ -1190,4 +1190,21 @@
 <link rel="stylesheet" href="checkout-flow.css?v=15.41.5">
 <script src="checkout-flow.js?v=15.41.5"></script>
 <script src="mobile-header.js?v=15.41.6" defer></script>
+<!-- ThinkStore seasonal decorations: automatic Nov–Jan 6, no network requests. -->
+<style id="ts-holiday-style">
+#ts-holiday-season{position:fixed;inset:0;z-index:35;pointer-events:none;overflow:hidden;contain:layout paint}#ts-holiday-season .ts-snow{position:absolute;top:-24px;left:var(--left);width:var(--size);height:var(--size);border-radius:50%;background:#fff;box-shadow:0 0 3px #638a9b;opacity:.55;animation:ts-snowfall var(--duration) linear var(--delay) infinite}#ts-holiday-season .ts-bauble{position:absolute;top:0;width:92px;height:158px;transform-origin:50% 0;animation:ts-bauble-swing 6s ease-in-out infinite alternate;filter:drop-shadow(0 5px 7px #0002)}#ts-holiday-season .ts-bauble-left{left:12px}#ts-holiday-season .ts-bauble-right{right:12px;animation-delay:-3s}#ts-holiday-pause{position:fixed;bottom:18px;left:16px;z-index:36;border:1px solid #dadfdc;background:#fffffff0;color:#325741;border-radius:999px;padding:9px 13px;font:500 11px/1.4 system-ui;box-shadow:0 3px 12px #0000000b;cursor:pointer;backdrop-filter:blur(8px)}#ts-holiday-pause:focus-visible{outline:3px solid #296d4b;outline-offset:3px}#ts-holiday-season[data-paused=true] .ts-snow{visibility:hidden}#ts-holiday-season[data-paused=true] .ts-bauble{animation-play-state:paused}@keyframes ts-snowfall{to{transform:translate3d(32px,calc(100vh + 50px),0)}}@keyframes ts-bauble-swing{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}@media(max-width:700px){#ts-holiday-season .ts-bauble{width:54px;height:100px}#ts-holiday-season .ts-bauble-left{left:2px}#ts-holiday-season .ts-bauble-right{right:2px}#ts-holiday-pause{bottom:10px;left:10px;padding:7px 10px;font-size:10px}}@media(prefers-reduced-motion:reduce){#ts-holiday-season .ts-snow{display:none}#ts-holiday-season .ts-bauble{animation:none}}@media print{#ts-holiday-season,#ts-holiday-pause{display:none!important}}
+</style>
+<script id="ts-holiday-script">
+(function(){'use strict';
+const date=new Intl.DateTimeFormat('en-US',{timeZone:'America/Caracas',month:'numeric',day:'numeric'}).formatToParts(new Date()),month=Number(date.find(x=>x.type==='month').value),day=Number(date.find(x=>x.type==='day').value);if(!(month>=11||(month===1&&day<=6)))return;
+const root=document.createElement('div');root.id='ts-holiday-season';root.setAttribute('aria-hidden','true');
+function ornament(side,color,accent){const holder=document.createElement('div');holder.className='ts-bauble ts-bauble-'+side;holder.innerHTML=`<svg viewBox="0 0 92 158" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M29 0v69M67 0v103" stroke="#bc9b5e" stroke-width="1.2"/><path d="M23 68h12v9H23zM62 102h10v7H62z" fill="#b99b62"/><circle cx="29" cy="99" r="26" fill="${color}"/><path d="M7 91c14 8 30 8 44 0M7 107c14-8 30-8 44 0" stroke="#e2c78d" stroke-width="1.2"/><ellipse cx="20" cy="88" rx="5" ry="9" fill="white" opacity=".18"/><circle cx="67" cy="127" r="20" fill="${accent}"/><path d="M49 123c12 6 24 6 36 0" stroke="#fff" opacity=".5"/><ellipse cx="60" cy="119" rx="3" ry="6" fill="white" opacity=".35"/></svg>`;root.append(holder);}
+ornament('left','#82332e','#c7aa70');ornament('right','#285640','#ddc79c');
+const count=matchMedia('(max-width:700px)').matches?10:22;for(let i=0;i<count;i++){const flake=document.createElement('i');flake.className='ts-snow';flake.style.cssText=`--left:${(i*47)%100}%;--size:${2+i%3}px;--duration:${12+i%9}s;--delay:-${i%17}s`;root.append(flake);}
+const button=document.createElement('button');button.id='ts-holiday-pause';button.type='button';let paused=false;try{paused=localStorage.getItem('ts-holiday-paused')==='1'}catch{}
+function sync(){root.dataset.paused=String(paused||document.hidden);button.textContent=paused?'Navidad · activar animación':'Navidad · pausar animación';button.setAttribute('aria-label',paused?'Activar animación navideña':'Pausar animación navideña');button.setAttribute('aria-pressed',String(paused));}
+button.onclick=()=>{paused=!paused;try{localStorage.setItem('ts-holiday-paused',paused?'1':'0')}catch{}sync();};document.addEventListener('visibilitychange',sync);document.body.append(root,button);sync();
+})();
+</script>
+
 </body></html>
