@@ -21,13 +21,13 @@ exports.handler=async function(event){
   }
   if(!await auth())return reply(401,{ok:false,error:'Acceso no autorizado'});
   try{
-    const r=await fetch(`${url}/rest/v1/marketing_campaigns?select=*&order=created_at.desc&limit=50`,{headers:sh});
+    const r=await fetch(`${url}/rest/v1/marketing_campaigns?select=*&content_json->>kind=is.null&order=created_at.desc&limit=50`,{headers:sh});
     const d=await r.json().catch(()=>[]);
     if(!r.ok){
       const msg=d?.message||d?.error||'No se pudo leer historial';
       if(/marketing_campaigns|relation|schema cache/i.test(msg))return reply(200,{ok:true,rows:[],migration_required:true});
       throw new Error(msg);
     }
-    return reply(200,{ok:true,rows:Array.isArray(d)?d:[]});
+    return reply(200,{ok:true,rows:(Array.isArray(d)?d:[]).filter(r=>!['daily_marketing_state_v1','daily_marketing_budget_v1'].includes(r.content_json?.kind)).map(r=>{const x={...(r.content_json||{})};delete x.recipients;delete x.payload;delete x.exclude;return {...r,content_json:x};})});
   }catch(e){return reply(500,{ok:false,error:e.message||'No se pudo cargar historial'})}
 }
