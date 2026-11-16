@@ -112,9 +112,10 @@ exports.handler = async function(event) {
   let recipients=[],sourceCounts={},delivery=null,deliveryChunk=null,warnings=[];
   try {
     if(testEmail){if(!Delivery.valid(testEmail))throw Error('El correo de prueba no es válido');recipients=[{email:testEmail,nombre:'Prueba ThinkStore',source:'test'}];}
-    else if(payload.action==='batch'){
+    else if(payload.action==='batch'||payload.action==='inspect'){
       delivery=Delivery.unseal(payload.deliveryToken,SUPABASE_SERVICE_ROLE_KEY);
       deliveryChunk=Delivery.chunk(delivery,payload,from);recipients=deliveryChunk.recipients;sourceCounts=delivery.sources;warnings=delivery.warnings||[];
+      if(payload.action==='inspect'){const invalid=delivery.recipients.filter(r=>!Delivery.valid(r.email));return {statusCode:200,headers,body:JSON.stringify({ok:true,total:delivery.recipients.length,offset:deliveryChunk.offset,batchCount:recipients.length,invalidCount:invalid.length,invalidInBatch:recipients.filter(r=>!Delivery.valid(r.email)).map(r=>r.email),invalidExamples:invalid.slice(0,20).map(r=>r.email),providerCalled:false})};}
     }else{
       const getAuth=async()=>{const rows=[];for(let page=1;page<=50;page++){const r=await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000&page=${page}`,{headers:baseHeaders}),d=await r.json();if(!r.ok)throw Error('No se pudieron consultar las cuentas registradas');const users=Array.isArray(d)?d:d.users||[];rows.push(...users);if(users.length<1000)return rows;}throw Error('La fuente supera 50.000 cuentas');};
       const result=await Delivery.audience(supabaseGet,getAuth,payload);
@@ -279,23 +280,26 @@ ${priceCards.map(c=>{const n=CampaignCards.normalize(c);return `${n.label}: ${n.
 ${actionUrl}${secondaryActionLabel&&secondaryActionUrl?`
 ${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
         };mail.headers={'List-Unsubscribe':'<'+unsubscribe(r.email)+'>'};return mail;}
+  const consumed=recipients.length,skippedRecipients=recipients.filter(r=>!Delivery.valid(r.email)).map(r=>r.email);recipients=recipients.filter(r=>Delivery.valid(r.email));
   let sent=0,failed=0,errors=[],providerIds=[],replayed=false;
   try{
+    if(recipients.length){
     const batch=!!deliveryChunk;
     const response=await fetch(batch?'https://api.resend.com/emails/batch':'https://api.resend.com/emails',{
       method:'POST',headers:{Authorization:'Bearer '+RESEND_API_KEY,'Content-Type':'application/json',...(batch?{'Idempotency-Key':deliveryChunk.idempotencyKey}:{})},
       body:JSON.stringify(batch?recipients.map(mailFor):mailFor(recipients[0])),signal:AbortSignal.timeout(15000)
     });
     const result=await response.json().catch(()=>({}));
-    if(!response.ok){const error=result.message||result.error||`Resend HTTP ${response.status}`;return {statusCode:response.status===429?429:502,headers,body:JSON.stringify({ok:false,error,retryAfter:Number(response.headers?.get?.('retry-after')||3),sent:0,failed:0,nextOffset:deliveryChunk?.offset||0})};}
+    if(!response.ok){const error=result.message||result.error||`Resend HTTP ${response.status}`;return {statusCode:response.status>=400&&response.status<500?response.status:502,headers,body:JSON.stringify({ok:false,error,retryAfter:Number(response.headers?.get?.('retry-after')||3),sent:0,failed:0,nextOffset:deliveryChunk?.offset||0})};}
     providerIds=batch?(result.data||[]).map(x=>x.id).filter(Boolean):[result.id].filter(Boolean);
     if(providerIds.length!==recipients.length)throw Error('El proveedor respondió sin confirmar todos los identificadores. Reanuda el mismo lote para comprobarlo.');
     sent=providerIds.length;replayed=response.headers?.get?.('idempotent-replayed')==='true';
+    }
   }catch(error){return {statusCode:502,headers,body:JSON.stringify({ok:false,error:error.message||'No se pudo confirmar la respuesta de Resend; reanuda el mismo lote.',nextOffset:deliveryChunk?.offset||0,sent:0,failed:0})};}
-  const offset=deliveryChunk?.offset||0,total=delivery?delivery.recipients.length:recipients.length,nextOffset=offset+sent;
-  const history={subject,title,subtitle,audience,recipients_count:recipients.length,sent_count:sent,failed_count:failed,banner_url:bannerUrl||null,
-    content_json:{priceCards,message,productName,productDetails,offer,pricePro,priceProMax,actionUrl,actionLabel,secondaryActionUrl,secondaryActionLabel,kicker,badge,preheader,bannerFit,bannerPosition,campaignStyle,occasion,manualCount:manualEmails.length,deliveryStatus:'accepted',providerIds,...(delivery?{jobId:delivery.jobId,batchOffset:offset,campaignTotal:total}:{})},created_at:new Date().toISOString()};
+  const offset=deliveryChunk?.offset||0,total=delivery?delivery.recipients.length:recipients.length,nextOffset=offset+consumed;
+  const history={subject,title,subtitle,audience,recipients_count:consumed,sent_count:sent,failed_count:failed,banner_url:bannerUrl||null,
+    content_json:{priceCards,message,productName,productDetails,offer,pricePro,priceProMax,actionUrl,actionLabel,secondaryActionUrl,secondaryActionLabel,kicker,badge,preheader,bannerFit,bannerPosition,campaignStyle,occasion,manualCount:manualEmails.length,deliveryStatus:sent?'accepted':'skipped_invalid',providerIds,skippedRecipients,...(delivery?{jobId:delivery.jobId,batchOffset:offset,campaignTotal:total}:{})},created_at:new Date().toISOString()};
   if(delivery){history.id=Delivery.historyId(delivery.jobId,offset);try{const h=await fetch(api+'marketing_campaigns?on_conflict=id',{method:'POST',headers:{...baseHeaders,Prefer:'resolution=ignore-duplicates,return=minimal'},body:JSON.stringify([history])});if(!h.ok)warnings.push('El proveedor aceptó el lote, pero no se pudo registrar en el historial.')}catch{warnings.push('El proveedor aceptó el lote, pero el historial no respondió.');}}
   else await supabaseInsert('marketing_campaigns',[history]);
-  return {statusCode:200,headers,body:JSON.stringify({ok:true,total,sent,accepted:sent,failed,sources:sourceCounts,errors,providerIds,replayed,warnings,nextOffset,done:nextOffset>=total,deliveryStatus:'accepted'})};
+  return {statusCode:200,headers,body:JSON.stringify({ok:true,total,sent,accepted:sent,skipped:skippedRecipients.length,skippedRecipients,processed:consumed,failed,sources:sourceCounts,errors,providerIds,replayed,warnings,nextOffset,done:nextOffset>=total,deliveryStatus:sent?'accepted':'skipped_invalid'})};
 };
