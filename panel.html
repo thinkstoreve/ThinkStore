@@ -2291,6 +2291,7 @@ async function openModule(id,opts={}){
     return false;
   }
 
+  if(id==='marketing'&&window.currentModule===id&&$('tsDraftToolbar'))return true;
   window.currentModule=id;
   updatePanelIdentity();
   document.querySelectorAll('#side button[data-module]').forEach(b=>b.classList.toggle('active',b.dataset.module===id));
@@ -3194,6 +3195,6 @@ window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{const boot=docume
 <link rel="stylesheet" href="marketing-studio.css?v=2">
 <script src="campaign-card-model.js?v=1"></script>
 <script src="marketing-studio.js?v=20261116-drafts"></script>
-<script src="marketing-drafts.js?v=20261116"></script>
+<script src="marketing-drafts.js?v=20261116-2"></script>
 <script src="https://thinkstore.com.ve/requests-alerts.js?v=integral1" defer></script><script src="/whatsapp-inbox-model.js?v=20261024" defer></script><script src="/whatsapp-alerts.js?v=20261102-2" defer></script></body>
 </html>
