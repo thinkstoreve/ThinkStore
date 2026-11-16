@@ -1,3 +1,4 @@
+const Delivery = require('./_campaign-delivery');
 const CampaignCards = require('../../campaign-card-model');
 exports.handler = async function(event) {
   const headers = {
@@ -55,6 +56,9 @@ exports.handler = async function(event) {
   try { payload = JSON.parse(event.body || '{}'); } catch(e) { return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'JSON inválido' }) }; }
 
   const clean = (v) => String(v || '').trim();
+  const from = process.env.FROM_MARKETING_EMAIL || process.env.FROM_INFO_EMAIL || 'ThinkStore <info@thinkstore.com.ve>';
+  const replyTo = process.env.REPLY_TO_MARKETING || process.env.REPLY_TO_INFO || 'info@thinkstore.com.ve';
+  if(payload.action==='diagnostics'){try{return {statusCode:200,headers,body:JSON.stringify({ok:true,diagnostics:await Delivery.diagnostics(RESEND_API_KEY,from,replyTo)})}}catch(e){return {statusCode:502,headers,body:JSON.stringify({ok:false,error:e.message})}}}
   const subject = clean(payload.subject || 'Preventa iPhone 18 | ThinkStore');
   const title = clean(payload.title || 'El nuevo iPhone 18 llega a ThinkStore');
   const subtitle = clean(payload.subtitle || 'Sé de los primeros en reservarlo. Preventa de lanzamiento con atención personalizada.');
@@ -105,93 +109,21 @@ exports.handler = async function(event) {
     } catch (_) {}
   }
 
-  let recipients = [];
-  const sourceCounts = { registered:0, direct_sales:0, newsletter:0, manual:0 };
+  let recipients=[],sourceCounts={},delivery=null,deliveryChunk=null,warnings=[];
   try {
-    if (testEmail) {
-      recipients = [{ email: testEmail, nombre: 'Prueba ThinkStore', source:'test' }];
-    } else {
-      const registered = [];
-      // 1) clientes: perfiles comerciales ya existentes.
-      try {
-        const clientes = await supabaseGet('clientes?select=*');
-        registered.push(...(clientes || []).map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.name || c.full_name || 'Cliente'), source:'registered' })));
-      } catch (e) { console.warn('Campañas: clientes', e.message || e); }
-      // 2) profiles: asegura incluir usuarios registrados aunque aún no tengan fila en clientes.
-      try {
-        const profiles = await supabaseGet('profiles?select=*');
-        registered.push(...(profiles || []).map(c => ({ id:c.id, email: clean(c.correo || c.email), nombre: clean(c.nombre || c.full_name || c.name || 'Cliente'), source:'registered' })));
-      } catch (e) { console.warn('Campañas: profiles', e.message || e); }
-      // 3) Supabase Auth: fuente definitiva de cuentas registradas, incluso si su perfil comercial está incompleto.
-      try {
-        const ar = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000&page=1`, { headers:{apikey:SUPABASE_SERVICE_ROLE_KEY,Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`} });
-        const aj = await ar.json().catch(()=>({}));
-        if(ar.ok){
-          const authUsers = Array.isArray(aj?.users)?aj.users:Array.isArray(aj)?aj:[];
-          registered.push(...authUsers.map(u=>({id:u.id,email:clean(u.email),nombre:clean(u.user_metadata?.full_name||u.user_metadata?.name||'Cliente'),source:'registered'})));
-        }
-      } catch (e) { console.warn('Campañas: auth users', e.message || e); }
-      const regValid = registered.filter(c => c.email && c.email.includes('@'));
-      sourceCounts.registered = new Set(regValid.map(c=>c.email.toLowerCase())).size;
-
-      // 3) ventas presenciales / directas: el cliente puede no tener cuenta Auth.
-      let direct = [];
-      try {
-        const pedidos = await supabaseGet('pedidos?select=*');
-        direct = (pedidos || []).map(o => ({
-          id:o.id,
-          email: clean(o.guest_email || o.customer_email || o.email),
-          nombre: clean(o.guest_name || o.customer_name || 'Cliente ThinkStore'),
-          source:'direct_sales',
-          client_id:o.cliente_id
-        })).filter(c => c.email && c.email.includes('@'));
-        sourceCounts.direct_sales = new Set(direct.map(c=>c.email.toLowerCase())).size;
-
-        if (audience === 'buyers') {
-          const buyerIds = new Set((pedidos || []).map(o => String(o.cliente_id || '')).filter(Boolean));
-          const buyerEmails = new Set(direct.map(x=>x.email.toLowerCase()));
-          recipients = regValid.filter(c => buyerIds.has(String(c.id || '')) || buyerEmails.has(c.email.toLowerCase())).concat(direct);
-        }
-      } catch (e) { if(audience==='direct_sales'||audience==='buyers') throw e; console.warn('Campañas: ventas directas', e.message || e); }
-
-      // 4) suscriptores web con consentimiento explícito.
-      let newsletterRecipients = [];
-      try {
-        const subscribers = await supabaseGet('newsletter_subscribers?select=email,status&status=eq.subscribed');
-        newsletterRecipients = (subscribers || []).map(n => ({ email: clean(n.email), nombre: 'Cliente ThinkStore', source:'newsletter' })).filter(n => n.email && n.email.includes('@'));
-        sourceCounts.newsletter = new Set(newsletterRecipients.map(n=>n.email.toLowerCase())).size;
-      } catch (newsletterError) {
-        if (audience === 'newsletter') throw newsletterError;
-        console.warn('ThinkStore Newsletter aún no activado:', newsletterError.message || newsletterError);
-      }
-
-      if (audience === 'registered') recipients = regValid;
-      else if (audience === 'direct_sales') recipients = direct;
-      else if (audience === 'newsletter') recipients = newsletterRecipients;
-      else if (audience === 'buyers') { /* ya armado arriba */ }
-      else if (audience === 'crm_tag') {
-        if(!crmTag) throw new Error('Selecciona una etiqueta CRM.');
-        const crmRows = await supabaseGet('ts_customer_crm?select=email,tags');
-        const wanted = crmTag.toLowerCase();
-        const allowed = new Set((crmRows||[]).filter(x=>Array.isArray(x.tags)&&x.tags.some(t=>clean(t).toLowerCase()===wanted)).map(x=>clean(x.email).toLowerCase()).filter(Boolean));
-        recipients = regValid.concat(direct,newsletterRecipients).filter(x=>allowed.has(x.email.toLowerCase()));
-      }
-      else if (audience === 'manual') recipients = [];
-      else recipients = regValid.concat(direct, newsletterRecipients); // all_contacts
-
-      if (manualEmails.length) {
-        const manualRows = manualEmails.map(email => ({ email, nombre:'Contacto ThinkStore', source:'manual' }));
-        sourceCounts.manual = manualRows.length;
-        recipients = recipients.concat(manualRows);
-      }
+    if(testEmail){if(!Delivery.valid(testEmail))throw Error('El correo de prueba no es válido');recipients=[{email:testEmail,nombre:'Prueba ThinkStore',source:'test'}];}
+    else if(payload.action==='batch'){
+      delivery=Delivery.unseal(payload.deliveryToken,SUPABASE_SERVICE_ROLE_KEY);
+      deliveryChunk=Delivery.chunk(delivery,payload,from);recipients=deliveryChunk.recipients;sourceCounts=delivery.sources;warnings=delivery.warnings||[];
+    }else{
+      const getAuth=async()=>{const rows=[];for(let page=1;page<=50;page++){const r=await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000&page=${page}`,{headers:baseHeaders}),d=await r.json();if(!r.ok)throw Error('No se pudieron consultar las cuentas registradas');const users=Array.isArray(d)?d:d.users||[];rows.push(...users);if(users.length<1000)return rows;}throw Error('La fuente supera 50.000 cuentas');};
+      const result=await Delivery.audience(supabaseGet,getAuth,payload);
+      if(!result.recipients.length)throw Error('No hay destinatarios válidos en esta selección');
+      if(payload.action!=='preview')return {statusCode:400,headers,body:JSON.stringify({ok:false,error:'Comprueba primero la audiencia desde el editor actualizado; las campañas se envían en lotes de 100.'})};
+      const prepared=Delivery.snapshot(result,payload,from);
+      return {statusCode:200,headers,body:JSON.stringify({ok:true,total:result.recipients.length,sources:result.sources,warnings:result.warnings,batchSize:100,batches:Math.ceil(result.recipients.length/100),expiresAt:prepared.expiresAt,deliveryToken:Delivery.seal(prepared,SUPABASE_SERVICE_ROLE_KEY),sender:from})};
     }
-  } catch (error) {
-    return { statusCode: 502, headers, body: JSON.stringify({ ok:false, error:`No se pudieron cargar los destinatarios: ${error.message || error}` }) };
-  }
-
-  recipients = Array.from(new Map(recipients.map(r => [r.email.toLowerCase(), r])).values());
-  if (recipients.length > 2000) return { statusCode:400, headers, body:JSON.stringify({ok:false,error:'La audiencia supera 2.000 destinatarios. Divide la campaña en segmentos.'}) };
-  if (!recipients.length) return { statusCode: 400, headers, body: JSON.stringify({ ok: false, error: 'No hay destinatarios válidos.' }) };
+  }catch(error){return {statusCode:400,headers,body:JSON.stringify({ok:false,error:error.message||'No se pudieron preparar los destinatarios'})};}
 
   const esc = (v) => String(v || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -314,17 +246,10 @@ exports.handler = async function(event) {
     </div>`;
   }
 
-  const from = process.env.FROM_MARKETING_EMAIL || process.env.FROM_INFO_EMAIL || 'ThinkStore <info@thinkstore.com.ve>';
-  const replyTo = process.env.REPLY_TO_MARKETING || process.env.REPLY_TO_INFO || 'info@thinkstore.com.ve';
-  let sent = 0, failed = 0, errors = [];
-  async function sendOne(r) {
-    try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+  const unsubscribe=email=>'mailto:'+replyTo+'?subject='+encodeURIComponent('Baja de promociones ThinkStore')+'&body='+encodeURIComponent('Solicito no recibir promociones en: '+email);
+  function mailFor(r){const mail={
           from, to: r.email, reply_to: replyTo, subject,
-          html: htmlFor(r.nombre),
+          html: htmlFor(r.nombre) + `<div style="font:12px/1.6 Arial,sans-serif;color:#6e6e73;text-align:center;padding:18px">Recibes comunicaciones de ThinkStore. <a href="${esc(unsubscribe(r.email))}">Solicitar baja de promociones</a>.<br>Las alertas dependen de la configuración de tu correo.</div>`,
           text: isServiceCampaign
             ? `${title}
 
@@ -353,22 +278,24 @@ ${priceCards.map(c=>{const n=CampaignCards.normalize(c);return `${n.label}: ${n.
 
 ${actionUrl}${secondaryActionLabel&&secondaryActionUrl?`
 ${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
-        })
-      });
-      const result = await response.json().catch(() => ({}));
-      if (response.ok) sent++; else { failed++; errors.push(`${r.email}: ${result.message || result.error || `Resend HTTP ${response.status}`}`); }
-    } catch (error) { failed++; errors.push(`${r.email}: ${error.message || 'No fue posible conectar con Resend'}`); }
-  }
-  // Concurrencia moderada: más rápido sin disparar cientos de solicitudes simultáneas.
-  for (let i=0;i<recipients.length;i+=5) await Promise.all(recipients.slice(i,i+5).map(sendOne));
-
-  await supabaseInsert('marketing_campaigns', [{
-    subject, title, subtitle, audience,
-    recipients_count: recipients.length, sent_count: sent, failed_count: failed,
-    banner_url: bannerUrl || null,
-    content_json: { priceCards, message, productName, productDetails, offer, pricePro, priceProMax, actionUrl, actionLabel, secondaryActionUrl, secondaryActionLabel, kicker, badge, preheader, bannerFit, bannerPosition, campaignStyle, occasion, manualCount: manualEmails.length },
-    created_at: new Date().toISOString()
-  }]);
-
-  return { statusCode: sent > 0 ? 200 : 502, headers, body: JSON.stringify({ ok: sent > 0, total: recipients.length, sent, failed, sources:sourceCounts, errors: errors.slice(0, 8), error: sent > 0 ? null : (errors[0] || 'Resend no aceptó ningún correo') }) };
+        };mail.headers={'List-Unsubscribe':'<'+unsubscribe(r.email)+'>'};return mail;}
+  let sent=0,failed=0,errors=[],providerIds=[],replayed=false;
+  try{
+    const batch=!!deliveryChunk;
+    const response=await fetch(batch?'https://api.resend.com/emails/batch':'https://api.resend.com/emails',{
+      method:'POST',headers:{Authorization:'Bearer '+RESEND_API_KEY,'Content-Type':'application/json',...(batch?{'Idempotency-Key':deliveryChunk.idempotencyKey}:{})},
+      body:JSON.stringify(batch?recipients.map(mailFor):mailFor(recipients[0])),signal:AbortSignal.timeout(15000)
+    });
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){const error=result.message||result.error||`Resend HTTP ${response.status}`;return {statusCode:response.status===429?429:502,headers,body:JSON.stringify({ok:false,error,retryAfter:Number(response.headers?.get?.('retry-after')||3),sent:0,failed:0,nextOffset:deliveryChunk?.offset||0})};}
+    providerIds=batch?(result.data||[]).map(x=>x.id).filter(Boolean):[result.id].filter(Boolean);
+    if(providerIds.length!==recipients.length)throw Error('El proveedor respondió sin confirmar todos los identificadores. Reanuda el mismo lote para comprobarlo.');
+    sent=providerIds.length;replayed=response.headers?.get?.('idempotent-replayed')==='true';
+  }catch(error){return {statusCode:502,headers,body:JSON.stringify({ok:false,error:error.message||'No se pudo confirmar la respuesta de Resend; reanuda el mismo lote.',nextOffset:deliveryChunk?.offset||0,sent:0,failed:0})};}
+  const offset=deliveryChunk?.offset||0,total=delivery?delivery.recipients.length:recipients.length,nextOffset=offset+sent;
+  const history={subject,title,subtitle,audience,recipients_count:recipients.length,sent_count:sent,failed_count:failed,banner_url:bannerUrl||null,
+    content_json:{priceCards,message,productName,productDetails,offer,pricePro,priceProMax,actionUrl,actionLabel,secondaryActionUrl,secondaryActionLabel,kicker,badge,preheader,bannerFit,bannerPosition,campaignStyle,occasion,manualCount:manualEmails.length,deliveryStatus:'accepted',providerIds,...(delivery?{jobId:delivery.jobId,batchOffset:offset,campaignTotal:total}:{})},created_at:new Date().toISOString()};
+  if(delivery){history.id=Delivery.historyId(delivery.jobId,offset);try{const h=await fetch(api+'marketing_campaigns?on_conflict=id',{method:'POST',headers:{...baseHeaders,Prefer:'resolution=ignore-duplicates,return=minimal'},body:JSON.stringify([history])});if(!h.ok)warnings.push('El proveedor aceptó el lote, pero no se pudo registrar en el historial.')}catch{warnings.push('El proveedor aceptó el lote, pero el historial no respondió.');}}
+  else await supabaseInsert('marketing_campaigns',[history]);
+  return {statusCode:200,headers,body:JSON.stringify({ok:true,total,sent,accepted:sent,failed,sources:sourceCounts,errors,providerIds,replayed,warnings,nextOffset,done:nextOffset>=total,deliveryStatus:'accepted'})};
 };
