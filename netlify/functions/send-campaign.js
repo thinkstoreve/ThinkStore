@@ -1,6 +1,7 @@
+const Queue = require('./_campaign-queue');
 const Delivery = require('./_campaign-delivery');
 const CampaignCards = require('../../campaign-card-model');
-exports.handler = async function(event) {
+async function handle(event,trusted=false) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, x-admin-secret, Authorization',
@@ -44,7 +45,7 @@ exports.handler = async function(event) {
     }
   }
 
-  if (!(await authorizeAdmin())) {
+  if (!trusted && !(await authorizeAdmin())) {
     return { statusCode: 401, headers, body: JSON.stringify({ ok: false, error: 'Acceso administrador no autorizado' }) };
   }
 
@@ -58,6 +59,15 @@ exports.handler = async function(event) {
   const clean = (v) => String(v || '').trim();
   const from = process.env.FROM_MARKETING_EMAIL || process.env.FROM_INFO_EMAIL || 'ThinkStore <info@thinkstore.com.ve>';
   const replyTo = process.env.REPLY_TO_MARKETING || process.env.REPLY_TO_INFO || 'info@thinkstore.com.ve';
+  if(['queue_adopt','queue_list','queue_pause','queue_resume'].includes(payload.action)){
+    try{const repo=Queue.repository();let queue;
+      if(payload.action==='queue_list')return {statusCode:200,headers,body:JSON.stringify({ok:true,queues:(await repo.list()).map(Queue.summary),schedule:'10 * * * *',timezone:'UTC',dailyLimit:100})};
+      if(payload.action==='queue_adopt'){const prepared=Delivery.unseal(payload.deliveryToken,SUPABASE_SERVICE_ROLE_KEY,{adopt:true}),cleanPayload={...payload};delete cleanPayload.queueExclude;queue=await Queue.create(repo,prepared,cleanPayload,from,{offset:payload.deliveryOffset||0,alreadySent:Array.isArray(payload.queueExclude)?payload.queueExclude:[]});await Queue.run(repo,p=>exports.sendFromQueue(p),{maxCalls:2,maxMillis:16000});queue=Queue.summary(await repo.get(queue.id));}
+      else queue=await Queue.change(repo,payload.queueId,payload.action==='queue_pause');
+      return {statusCode:200,headers,body:JSON.stringify({ok:true,queue})};
+    }catch(e){return {statusCode:400,headers,body:JSON.stringify({ok:false,error:e.message})};}
+  }
+
   if(payload.action==='diagnostics'){try{return {statusCode:200,headers,body:JSON.stringify({ok:true,diagnostics:await Delivery.diagnostics(RESEND_API_KEY,from,replyTo)})}}catch(e){return {statusCode:502,headers,body:JSON.stringify({ok:false,error:e.message})}}}
   const subject = clean(payload.subject || 'Preventa iPhone 18 | ThinkStore');
   const title = clean(payload.title || 'El nuevo iPhone 18 llega a ThinkStore');
@@ -114,6 +124,7 @@ exports.handler = async function(event) {
     if(testEmail){if(!Delivery.valid(testEmail))throw Error('El correo de prueba no es válido');recipients=[{email:testEmail,nombre:'Prueba ThinkStore',source:'test'}];}
     else if(payload.action==='batch'||payload.action==='inspect'){
       delivery=Delivery.unseal(payload.deliveryToken,SUPABASE_SERVICE_ROLE_KEY);
+      if(!trusted&&payload.action==='batch'){const queued=await supabaseGet('marketing_campaigns?select=id,content_json&id=eq.'+Delivery.historyId(delivery.jobId,'daily-state')+'&limit=1');if(queued?.length)throw Error('Esta campaña está en la cola automática. Usa sus controles para consultar o pausar el envío.');}
       deliveryChunk=Delivery.chunk(delivery,payload,from);recipients=deliveryChunk.recipients;sourceCounts=delivery.sources;warnings=delivery.warnings||[];
       if(payload.action==='inspect'){const invalid=delivery.recipients.filter(r=>!Delivery.valid(r.email));return {statusCode:200,headers,body:JSON.stringify({ok:true,total:delivery.recipients.length,offset:deliveryChunk.offset,batchCount:recipients.length,invalidCount:invalid.length,invalidInBatch:recipients.filter(r=>!Delivery.valid(r.email)).map(r=>r.email),invalidExamples:invalid.slice(0,20).map(r=>r.email),providerCalled:false})};}
     }else{
@@ -280,17 +291,17 @@ ${priceCards.map(c=>{const n=CampaignCards.normalize(c);return `${n.label}: ${n.
 ${actionUrl}${secondaryActionLabel&&secondaryActionUrl?`
 ${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
         };mail.headers={'List-Unsubscribe':'<'+unsubscribe(r.email)+'>'};return mail;}
-  const consumed=recipients.length,skippedRecipients=recipients.filter(r=>!Delivery.valid(r.email)).map(r=>r.email);recipients=recipients.filter(r=>Delivery.valid(r.email));
-  let sent=0,failed=0,errors=[],providerIds=[],replayed=false;
+  const suppressed=new Set(delivery?.suppressed||[]);const consumed=recipients.length,skippedRecipients=recipients.filter(r=>!Delivery.valid(r.email)||suppressed.has(r.email)).map(r=>r.email);recipients=recipients.filter(r=>Delivery.valid(r.email)&&!suppressed.has(r.email));
+  let sent=0,failed=0,errors=[],providerIds=[],replayed=false,quota={daily:null,monthly:null};
   try{
     if(recipients.length){
     const batch=!!deliveryChunk;
     const response=await fetch(batch?'https://api.resend.com/emails/batch':'https://api.resend.com/emails',{
       method:'POST',headers:{Authorization:'Bearer '+RESEND_API_KEY,'Content-Type':'application/json',...(batch?{'Idempotency-Key':deliveryChunk.idempotencyKey}:{})},
-      body:JSON.stringify(batch?recipients.map(mailFor):mailFor(recipients[0])),signal:AbortSignal.timeout(15000)
+      body:JSON.stringify(batch?recipients.map(mailFor):mailFor(recipients[0])),signal:AbortSignal.timeout(trusted?8000:15000)
     });
-    const result=await response.json().catch(()=>({}));
-    if(!response.ok){const error=result.message||result.error||`Resend HTTP ${response.status}`;return {statusCode:response.status>=400&&response.status<500?response.status:502,headers,body:JSON.stringify({ok:false,error,retryAfter:Number(response.headers?.get?.('retry-after')||3),sent:0,failed:0,nextOffset:deliveryChunk?.offset||0})};}
+    const result=await response.json().catch(()=>({}));quota={daily:Queue.quotaNumber(response.headers?.get?.('x-resend-daily-quota')),monthly:Queue.quotaNumber(response.headers?.get?.('x-resend-monthly-quota'))};
+    if(!response.ok){const error=result.message||result.error||`Resend HTTP ${response.status}`;return {statusCode:response.status>=400&&response.status<500?response.status:502,headers,body:JSON.stringify({ok:false,error,providerError:result.name||'',quota,retryAfter:Number(response.headers?.get?.('retry-after')||3),sent:0,failed:0,nextOffset:deliveryChunk?.offset||0})};}
     providerIds=batch?(result.data||[]).map(x=>x.id).filter(Boolean):[result.id].filter(Boolean);
     if(providerIds.length!==recipients.length)throw Error('El proveedor respondió sin confirmar todos los identificadores. Reanuda el mismo lote para comprobarlo.');
     sent=providerIds.length;replayed=response.headers?.get?.('idempotent-replayed')==='true';
@@ -299,7 +310,10 @@ ${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
   const offset=deliveryChunk?.offset||0,total=delivery?delivery.recipients.length:recipients.length,nextOffset=offset+consumed;
   const history={subject,title,subtitle,audience,recipients_count:consumed,sent_count:sent,failed_count:failed,banner_url:bannerUrl||null,
     content_json:{priceCards,message,productName,productDetails,offer,pricePro,priceProMax,actionUrl,actionLabel,secondaryActionUrl,secondaryActionLabel,kicker,badge,preheader,bannerFit,bannerPosition,campaignStyle,occasion,manualCount:manualEmails.length,deliveryStatus:sent?'accepted':'skipped_invalid',providerIds,skippedRecipients,...(delivery?{jobId:delivery.jobId,batchOffset:offset,campaignTotal:total}:{})},created_at:new Date().toISOString()};
-  if(delivery){history.id=Delivery.historyId(delivery.jobId,offset);try{const h=await fetch(api+'marketing_campaigns?on_conflict=id',{method:'POST',headers:{...baseHeaders,Prefer:'resolution=ignore-duplicates,return=minimal'},body:JSON.stringify([history])});if(!h.ok)warnings.push('El proveedor aceptó el lote, pero no se pudo registrar en el historial.')}catch{warnings.push('El proveedor aceptó el lote, pero el historial no respondió.');}}
+  if(delivery){history.id=Delivery.historyId(delivery.jobId,offset);try{const h=await fetch(api+'marketing_campaigns?on_conflict=id',{method:'POST',headers:{...baseHeaders,Prefer:'resolution=ignore-duplicates,return=minimal'},body:JSON.stringify([history]),signal:AbortSignal.timeout(5000)});if(!h.ok)warnings.push('El proveedor aceptó el lote, pero no se pudo registrar en el historial.')}catch{warnings.push('El proveedor aceptó el lote, pero el historial no respondió.');}}
   else await supabaseInsert('marketing_campaigns',[history]);
-  return {statusCode:200,headers,body:JSON.stringify({ok:true,total,sent,accepted:sent,skipped:skippedRecipients.length,skippedRecipients,processed:consumed,failed,sources:sourceCounts,errors,providerIds,replayed,warnings,nextOffset,done:nextOffset>=total,deliveryStatus:sent?'accepted':'skipped_invalid'})};
+  return {statusCode:200,headers,body:JSON.stringify({ok:true,total,sent,accepted:sent,quota,skipped:skippedRecipients.length,skippedRecipients,processed:consumed,failed,sources:sourceCounts,errors,providerIds,replayed,warnings,nextOffset,done:nextOffset>=total,deliveryStatus:sent?'accepted':'skipped_invalid'})};
 };
+
+exports.handler=event=>handle(event,false);
+exports.sendFromQueue=async payload=>{const r=await handle({httpMethod:'POST',headers:{},body:JSON.stringify(payload)},true);return {httpStatus:r.statusCode,...JSON.parse(r.body)};};
