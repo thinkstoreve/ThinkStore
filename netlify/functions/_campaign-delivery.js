@@ -1,7 +1,12 @@
 'use strict';
 const crypto=require('node:crypto');
 const email=v=>String(v||'').trim().toLowerCase();
-const valid=v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+function valid(v){
+ if(typeof v!=='string'||v.length>254||!/^[\x21-\x7e]+$/.test(v))return false;
+ const parts=v.split('@');if(parts.length!==2)return false;const [local,domain]=parts;
+ if(!local||local.length>64||local.startsWith('.')||local.endsWith('.')||local.includes('..')||!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/i.test(local))return false;
+ const labels=domain.split('.');return labels.length>=2&&labels.every(x=>x.length<=63&&/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(x))&&/^(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/i.test(labels.at(-1));
+}
 const unique=rows=>[...new Map(rows.filter(r=>valid(r.email)).map(r=>[email(r.email),{...r,email:email(r.email),nombre:String(r.nombre||'Cliente ThinkStore').slice(0,100)}])).values()].sort((a,b)=>a.email.localeCompare(b.email,'en'));
 async function pages(get,path){const rows=[];for(let offset=0;offset<50000;offset+=1000){const page=await get(path+'&limit=1000&offset='+offset);if(!Array.isArray(page))throw Error('Respuesta inválida al consultar destinatarios');rows.push(...page);if(page.length<1000)return rows;}throw Error('La fuente supera 50.000 registros; segmenta la consulta.');}
 async function audience(get,getAuth,payload){
