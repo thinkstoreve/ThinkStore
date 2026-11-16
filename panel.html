@@ -928,19 +928,6 @@ async function loadCampaignHistory(){
     renderCampaignHistory(d.migration_required);
   }catch(e){if(host)host.innerHTML=`<div class="notice warn">${esc(e.message||e)}</div>`}
 }
-
-let tsCampaignHistory=[];
-async function loadCampaignHistory(){
-  const host=$('campaignHistoryHost');if(host)host.innerHTML='<div class="muted">Cargando historial…</div>';
-  try{
-    const headers=await adminApiHeaders({},{requireAuth:true});
-    const res=await fetch('/.netlify/functions/campaign-history',{headers,cache:'no-store',signal:AbortSignal.timeout(25000)});
-    const d=await res.json().catch(()=>({}));
-    if(!res.ok||!d.ok)throw new Error(d.error||'No se pudo cargar el historial.');
-    tsCampaignHistory=Array.isArray(d.rows)?d.rows:[];
-    renderCampaignHistory(d.migration_required);
-  }catch(e){if(host)host.innerHTML=`<div class="notice warn">${esc(e.message||e)}</div>`}
-}
 function initCampaignHistory(){
   const body=document.querySelector('.campaign-body');if(!body||$('campaignHistorySection'))return;
   const sec=document.createElement('section');sec.id='campaignHistorySection';sec.className='campaign-section';
