@@ -14,3 +14,7 @@ schedule = "0 13 * * *"
 
 [functions."care-membership-visits"]
 schedule = "0 12 * * *"
+
+# Cola persistente de marketing: revisa cada hora, máximo 100 diarios y espera cuotas.
+[functions."marketing-daily-queue"]
+schedule = "10 * * * *"
