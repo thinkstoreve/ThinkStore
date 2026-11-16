@@ -816,7 +816,7 @@ async function refreshRealData(opts={}){
     realState.clientes=(data.clientes||[]).map(mapClient); realState.pedidos=(data.pedidos||[]).map(mapOrder); realState.comprobantes=data.comprobantes||[]; realState.lastRefresh=data.refreshed_at||new Date().toISOString();
     // Usuarios internos: nunca cargar aquí todos los perfiles públicos.
     if(!opts.silent) result('globalStatus',`Datos reales actualizados: ${realState.clientes.length} clientes · ${realState.pedidos.length} pedidos`);
-  }catch(e){realState.error=e.message||String(e); if(!opts.silent) result('globalStatus','Error: '+realState.error)}finally{realState.loading=false;refreshKpis()}
+  }catch(e){realState.error=e.message||String(e); if(!opts.silent) result('globalStatus','Error: '+realState.error)}finally{realState.loading=false;refreshKpis();if($('mCountRegistered'))campaignRecipientCounts()}
 }
 
 async function refreshClientRealData(opts={}){
@@ -904,7 +904,30 @@ function useServiceCampaign(){if($('mOccasion'))$('mOccasion').value='servicio';
 function setCampaignStyle(style){if(style==='service'){useServiceCampaign();return}if(val('mOccasion')==='servicio')campaignPreset('general');if($('mCampaignStyle'))$('mCampaignStyle').value=style;document.querySelectorAll('.campaign-style-card').forEach(x=>x.classList.toggle('selected',x.dataset.style===style));if(style==='minimal'){if($('mOffer'))$('mOffer').value='';window.tsMarketingEditor?.reset(false)}updateCampaignPreview()}
 
 function setupCampaignDropzone(){const z=$('mDropzone');if(!z)return;['dragenter','dragover'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.add('drag')}));['dragleave','drop'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.remove('drag')}));z.addEventListener('drop',ev=>{const f=ev.dataTransfer?.files?.[0];if(!f)return;const inp=$('mImageFile');if(inp){const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;previewCampaignImage(inp)}})}
-function campaignRecipientCounts(){const clients=customers()||[],ordersList=orders()||[];const registered=new Set(clients.map(c=>String(c.email||c.correo||'').trim().toLowerCase()).filter(x=>x.includes('@')));const direct=new Set(ordersList.map(o=>String(o.guest_email||o.customer_email||'').trim().toLowerCase()).filter(x=>x.includes('@')));$('mCountRegistered')&&($('mCountRegistered').textContent=registered.size);$('mCountDirect')&&($('mCountDirect').textContent=direct.size);$('mCountCombined')&&($('mCountCombined').textContent=new Set([...registered,...direct]).size)}
+function campaignRecipientCounts(){
+ const verified=!!realState.lastRefresh,waiting=!verified;
+ const clients=customers()||[],ordersList=orders()||[];
+ const emails=rows=>new Set(rows.map(x=>String(x||'').trim().toLowerCase()).filter(x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)));
+ const registered=emails(clients.map(c=>c.email||c.correo)),direct=emails(ordersList.map(o=>o.guest_email||o.customer_email||o.email));
+ const counts={Registered:registered.size,Direct:direct.size,Combined:new Set([...registered,...direct]).size};
+ const message=waiting?(realState.error?'No disponible':'Cargando…'):null;
+ const note=realState.error?'No se pudo actualizar la base. '+(verified?'Se muestran los últimos datos cargados.':'Pulsa Actualizar para volver a consultar.'):waiting?'Consultando la base de contactos…':'Correos únicos de la base cargada; incluye contactos importados de FileMaker.';
+ Object.entries(counts).forEach(([key,count])=>{['mCount','mDash'].forEach(prefix=>{const el=$(prefix+key);if(el){el.textContent=message===null?count:message;el.title=note;}})});
+ return verified?counts:null;
+}
+
+let tsCampaignHistory=[];
+async function loadCampaignHistory(){
+  const host=$('campaignHistoryHost');if(host)host.innerHTML='<div class="muted">Cargando historial…</div>';
+  try{
+    const headers=await adminApiHeaders({},{requireAuth:true});
+    const res=await fetch('/.netlify/functions/campaign-history',{headers,cache:'no-store',signal:AbortSignal.timeout(25000)});
+    const d=await res.json().catch(()=>({}));
+    if(!res.ok||!d.ok)throw new Error(d.error||'No se pudo cargar el historial.');
+    tsCampaignHistory=Array.isArray(d.rows)?d.rows:[];
+    renderCampaignHistory(d.migration_required);
+  }catch(e){if(host)host.innerHTML=`<div class="notice warn">${esc(e.message||e)}</div>`}
+}
 
 let tsCampaignHistory=[];
 async function loadCampaignHistory(){
