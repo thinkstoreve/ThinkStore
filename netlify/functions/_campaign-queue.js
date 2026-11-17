@@ -1,6 +1,7 @@
 'use strict';
 const D=require('./_campaign-delivery');
 const KIND='daily_marketing_v1',STATE='daily_marketing_state_v1',BUDGET='daily_marketing_budget_v1';
+const LEGACY_ERROR='La preparación antigua necesita conciliarse antes de reanudar para evitar duplicados';
 const CONTENT_ERROR='El contenido cambió. Comprueba la audiencia otra vez antes de enviar.';
 const budgetId=D.historyId('thinkstore','daily-marketing-budget-v1');
 const day=now=>new Date(now).toISOString().slice(0,10),month=now=>day(now).slice(0,7);
@@ -9,7 +10,7 @@ const nextMonth=now=>{const d=new Date(now);return new Date(Date.UTC(d.getUTCFul
 const stamp=now=>new Date(now).toISOString();
 const waitUntil=(code,now)=>['monthly_quota_exceeded','daily_quota_exceeded'].includes(code)?nextDay(now):new Date(now+3600000).toISOString();
 const quotaNumber=v=>v===null||v===undefined||v===''?null:Number.isFinite(Number(v))?Math.max(0,Number(v)):null;
-function summary(row){const q=row.content_json;return {id:row.id,name:row.subject,status:q.status,recoverable:q.status==='needs_review'&&q.lastError===CONTENT_ERROR,cursor:q.cursor||0,total:row.recipients_count,accepted:q.accepted||0,skipped:q.skipped||0,alreadySent:q.alreadySent||0,nextAttemptAt:q.nextAttemptAt,lastError:q.lastError||'',lastResult:q.lastResult||'',createdAt:row.created_at,updatedAt:q.updatedAt,version:q.version,dailyLimit:100};}
+function summary(row){const q=row.content_json;return {id:row.id,name:row.subject,status:q.status,recoverable:q.status==='needs_review'&&q.lastError===CONTENT_ERROR,reconcilable:(q.status==='needs_review'&&q.lastError===LEGACY_ERROR)||(q.status==='paused'&&!!q.reconciliationPending),cursor:q.cursor||0,total:row.recipients_count,accepted:q.accepted||0,skipped:q.skipped||0,alreadySent:q.alreadySent||0,nextAttemptAt:q.nextAttemptAt,lastError:q.lastError||'',lastResult:q.lastResult||'',createdAt:row.created_at,updatedAt:q.updatedAt,version:q.version,dailyLimit:100};}
 function repository(config){const c=config||{url:process.env.SUPABASE_URL,service:process.env.SUPABASE_SERVICE_ROLE_KEY};const base=String(c.url||'').replace(/\/$/,'')+'/rest/v1/marketing_campaigns';
  async function request(query='',method='GET',body,prefer='return=representation'){if(!c.url||!c.service)throw Error('No hay configuración de almacenamiento de campañas');const r=await fetch(base+query,{method,headers:{apikey:c.service,Authorization:'Bearer '+c.service,'Content-Type':'application/json',Prefer:prefer},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(7000)});const text=await r.text();let data=[];try{data=text?JSON.parse(text):[]}catch{}if(!r.ok)throw Error(data.message||data.error||'No se pudo guardar la cola diaria (HTTP '+r.status+')');return data;}
  return {
@@ -18,6 +19,7 @@ function repository(config){const c=config||{url:process.env.SUPABASE_URL,servic
  async list(){return request('?content_json->>kind=eq.'+STATE+'&order=created_at.asc&limit=100');},
  async batches(jobId){return request('?content_json->>jobId=eq.'+encodeURIComponent(jobId)+'&select=id,recipients_count,sent_count,content_json,created_at&order=created_at.asc&limit=1000');},
  async cas(row,state,extra={}){const json={...state,version:Number(row.content_json.version||0)+1,updatedAt:stamp(Date.now())};const rows=await request('?id=eq.'+row.id+'&content_json->>version=eq.'+row.content_json.version,'PATCH',{content_json:json,...extra});return rows[0]||null;},
+ async reconcileContent(row,exclude,evidence){const rows=await request('?id=eq.'+row.id+'&content_json->>kind=eq.'+KIND+'&content_json->>hash=eq.'+encodeURIComponent(row.content_json.hash),'PATCH',{content_json:{...row.content_json,exclude,reconciliation:evidence}});return rows[0]||null;},
  async totals(id,accepted,skipped){await request('?id=eq.'+id,'PATCH',{sent_count:accepted,failed_count:skipped},'return=minimal');}
  };
 }
@@ -35,6 +37,24 @@ async function create(repo,data,payload,from,{offset=0,alreadySent=[]}={},now=Da
  await repo.create(row);
  const state={id,subject:row.subject,title:row.title,subtitle:'Cola diaria automática',audience:row.audience,recipients_count:row.recipients_count,sent_count:accepted,failed_count:skipped,banner_url:null,content_json:{kind:STATE,version:0,payloadId,jobId:data.jobId,contentHash:data.hash,status:cursor>=data.recipients.length?'completed':'active',cursor,accepted,skipped,alreadySent:exclude.length,acceptedByDay,nextAttemptAt:stamp(now),lastError:'',lastResult:'Programada para comprobar el cupo disponible',inflight:null,legacyResolved:false,legacyDeadline:stamp(data.expiresAt+17*3600000),updatedAt:stamp(now)},created_at:stamp(now)};
  return summary(await repo.create(state));
+}
+async function reconcile(repo,id,addresses,evidence={},now=Date.now()){
+ if(!Array.isArray(addresses)||addresses.length>50000||evidence.source!=='resend-dashboard'||evidence.complete!==true)throw Error('Verifica la lista completa de esta promoción en Resend antes de conciliar');
+ const emails=[...new Set(addresses.map(D.email).filter(D.valid))].sort();if(!emails.length)throw Error('Añade las direcciones procesadas en Resend');
+ const row=await repo.get(id);if(!row||row.content_json?.kind!==STATE)throw Error('No se encontró la cola');
+ if(evidence.subject!==row.subject)throw Error('La revisión corresponde a otra campaña');
+ const key=D.signature({emails,subject:row.subject},'resend-reconciliation-v1'),q=row.content_json;if(q.reconciliation?.key===key)return summary(row);
+ if(q.cursor!==0||q.accepted!==0||!((q.status==='needs_review'&&q.lastError===LEGACY_ERROR)||(q.status==='paused'&&q.reconciliationPending===key)))throw Error('Esta conciliación solo recupera el primer lote antiguo detenido; conserva el seguimiento para revisar su avance');
+ const content=await repo.get(q.payloadId);if(content?.content_json?.kind!==KIND||content.content_json.jobId!==q.jobId)throw Error('No se encontró el contenido original');
+ const members=new Set(content.content_json.recipients.map(r=>D.email(r.email))),matched=emails.filter(e=>members.has(e));if(!matched.length)throw Error('Ninguna dirección revisada coincide con este lote');
+ const exclude=[...new Set([...(content.content_json.exclude||[]),...matched])];
+ const locked=await repo.cas(row,{...q,status:'paused',pauseRequested:true,reconciliationPending:key});if(!locked)throw Error('La cola cambió durante la revisión; actualiza antes de reintentar');
+ const proof={key,source:'resend-dashboard',complete:true,subject:row.subject,reviewedAt:stamp(now),reviewedRecipients:emails.length,matched:matched.length,notes:String(evidence.notes||'').slice(0,1000)};
+ if(!await repo.reconcileContent(content,exclude,proof))throw Error('La cola permanece pausada: no se pudo guardar la conciliación');
+ const excluded=new Set(exclude);let cursor=q.cursor;while(cursor<content.recipients_count&&excluded.has(D.email(content.content_json.recipients[cursor].email)))cursor++;
+ const saved=await repo.cas(locked,{...locked.content_json,status:cursor>=content.recipients_count?'completed':'active',pauseRequested:false,reconciliationPending:null,reconciliation:proof,alreadySent:exclude.length,cursor,skipped:(q.skipped||0)+cursor-q.cursor,legacyResolved:true,inflight:null,lastError:'',lastResult:matched.length+' direcciones conciliadas y excluidas de esta promoción',nextAttemptAt:stamp(now)},{failed_count:(q.skipped||0)+cursor-q.cursor});
+ if(!saved)throw Error('La conciliación quedó guardada y la cola pausada; actualiza antes de reintentar');
+ await repo.totals(q.payloadId,saved.content_json.accepted,saved.content_json.skipped);return summary(saved);
 }
 async function change(repo,id,pause){for(let i=0;i<3;i++){const row=await repo.get(id);if(!row||row.content_json?.kind!==STATE)throw Error('No se encontró la cola');if(row.content_json.status==='completed')return summary(row);if(row.content_json.status==='needs_review'&&!pause&&row.content_json.lastError!==CONTENT_ERROR)throw Error('Esta cola necesita revisar un intento no confirmado antes de reanudar');const state={...row.content_json,pauseRequested:pause,status:pause?'paused':'active',lastError:pause?row.content_json.lastError:'',nextAttemptAt:pause?row.content_json.nextAttemptAt:stamp(Date.now())};const saved=await repo.cas(row,state);if(saved)return summary(saved);}throw Error('La cola cambió en otra sesión; actualiza su estado');}
 async function commitState(repo,row,patch){for(let i=0;i<3;i++){const current=i?await repo.get(row.id):row;const state={...current.content_json,...patch};if(current.content_json.pauseRequested&&state.status!=='completed')state.status='paused';const saved=await repo.cas(current,state,{sent_count:state.accepted||0,failed_count:state.skipped||0});if(saved)return saved;}throw Error('No se pudo confirmar el avance; el siguiente intento conservará la misma referencia');}
@@ -79,4 +99,4 @@ async function run(repo,dispatch,{now=()=>Date.now(),sleep=ms=>new Promise(r=>se
   budget=await repo.cas(budget,b)||budget;return {ok:true,status:record.content_json.status,calls,queue:summary(record)};
  }finally{const fresh=await repo.get(budgetId);if(fresh&&fresh.content_json.leaseUntil===lease.content_json.leaseUntil)await repo.cas(fresh,{...fresh.content_json,leaseUntil:0});}
 }
-module.exports={repository,create,change,run,summary,day,month,nextDay,nextMonth,quotaNumber,KIND,STATE,BUDGET,budgetId};
+module.exports={repository,create,change,reconcile,run,summary,day,month,nextDay,nextMonth,quotaNumber,KIND,STATE,BUDGET,budgetId};
