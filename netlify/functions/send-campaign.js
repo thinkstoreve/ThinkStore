@@ -63,7 +63,7 @@ async function handle(event,trusted=false) {
     try{const repo=Queue.repository();let queue;
       if(payload.action==='queue_list')return {statusCode:200,headers,body:JSON.stringify({ok:true,queues:(await repo.list()).map(Queue.summary),schedule:'10 * * * *',timezone:'UTC',dailyLimit:100})};
       if(payload.action==='queue_adopt'){const prepared=Delivery.unseal(payload.deliveryToken,SUPABASE_SERVICE_ROLE_KEY,{adopt:true}),cleanPayload={...payload};delete cleanPayload.queueExclude;queue=await Queue.create(repo,prepared,cleanPayload,from,{offset:payload.deliveryOffset||0,alreadySent:Array.isArray(payload.queueExclude)?payload.queueExclude:[]});await Queue.run(repo,p=>exports.sendFromQueue(p),{maxCalls:2,maxMillis:16000});queue=Queue.summary(await repo.get(queue.id));}
-      else queue=await Queue.change(repo,payload.queueId,payload.action==='queue_pause');
+      else {queue=await Queue.change(repo,payload.queueId,payload.action==='queue_pause');if(payload.action==='queue_resume'){await Queue.run(repo,p=>exports.sendFromQueue(p),{maxCalls:2,maxMillis:16000});queue=Queue.summary(await repo.get(queue.id));}}
       return {statusCode:200,headers,body:JSON.stringify({ok:true,queue})};
     }catch(e){return {statusCode:400,headers,body:JSON.stringify({ok:false,error:e.message})};}
   }
