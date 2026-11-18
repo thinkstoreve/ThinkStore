@@ -17,7 +17,7 @@ test('campaña elimina teléfonos repetidos y rechaza contactos no autorizados',
  T.list=async()=>[{name:'promo',language:'es',category:'MARKETING',body:'Revisión gratis'}];
  C.sb=async(_,path,opt)=>{if(path.startsWith('whatsapp_marketing_campaigns?'))return[];if(path.startsWith('whatsapp_contacts?'))return[contact];if(path==='whatsapp_marketing_campaigns'){saved=JSON.parse(opt.body);return[saved]}throw Error(path)};
  const b={id,name:'Campaña',template:'promo',language:'es',variables:[],phones:['04241706142','584241706142']};
- try{await M.create(b,actor);assert.equal(saved.recipients.length,1);assert.deepEqual(saved.variables,[]);contact.metadata.marketing_opt_in=false;await assert.rejects(M.create(b,actor),/autorización/);await assert.rejects(M.create({...b,phones:Array(251).fill('04241706142')},actor),/250/);}finally{C.sb=oldSb;T.list=oldList;}
+ try{await M.create(b,actor);assert.equal(saved.recipients.length,1);assert.deepEqual(saved.variables.body,[]);contact.metadata.marketing_opt_in=false;await assert.rejects(M.create(b,actor),/autorización/);await assert.rejects(M.create({...b,phones:Array(251).fill('04241706142')},actor),/250/);}finally{C.sb=oldSb;T.list=oldList;}
 });
 test('envío usa audiencia guardada, vuelve a comprobar BAJA y detecta cambios de plantilla',async()=>{
  const original={sb:C.sb,get:C.getContact,list:T.list,send:T.send};let calls=0;
