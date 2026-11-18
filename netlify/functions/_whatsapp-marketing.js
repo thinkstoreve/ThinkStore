@@ -7,7 +7,7 @@ const req=(path,method='GET',body)=>C.sb(C.mainCfg(),path,{method,...(body===und
 function sendId(id,phone){const h=crypto.createHash('sha256').update(id+'|'+phone).digest('hex');return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-a${h.slice(17,20)}-${h.slice(20,32)}`;}
 const fields='id,name,template_name,language,body,variables,recipients,created_at,created_by';
 async function get(id){if(!UUID.test(id||''))throw Error('Campaña inválida');const rows=await req('whatsapp_marketing_campaigns?select='+fields+'&id=eq.'+id+'&limit=1');if(!rows?.[0])throw Error('No se encontró la campaña');return rows[0];}
-async function progress(id){const campaign=await get(id),rows=await req('whatsapp_notification_outbox?select=phone_e164,status,provider_message_id,last_error,created_at&entity_type=eq.marketing_campaign&entity_id=eq.'+id+'&limit=250');const byPhone=new Map((rows||[]).map(r=>[r.phone_e164,r]));const phones=campaign.recipients.map(c=>c.phone);const contacts=await req('whatsapp_contacts?select=phone_e164,opt_out_at,metadata&phone_e164=in.('+phones.join(',')+')&limit=250');const current=new Map((contacts||[]).map(c=>[c.phone_e164,c]));return{campaign,recipients:campaign.recipients.map(c=>({...c,...(byPhone.get(c.phone)||{status:authorized(current.get(c.phone))?'ready':'skipped'})}))};}
+async function progress(id){const campaign=await get(id),rows=await req('whatsapp_notification_outbox?select=phone_e164,status,provider_message_id,last_error,created_at&entity_type=eq.marketing_campaign&entity_id=eq.'+id+'&limit=250');const ids=(rows||[]).map(r=>r.provider_message_id).filter(x=>typeof x==='string'&&/^[a-zA-Z0-9._=:-]+$/.test(x));let events=[];for(let i=0;i<ids.length;i+=40)events.push(...await req('whatsapp_message_log?select=wa_message_id,status&wa_message_id=in.('+ids.slice(i,i+40).map(encodeURIComponent).join(',')+')&limit=40'));const statuses=new Map(events.map(x=>[x.wa_message_id,x.status]));for(const row of rows||[]){const status=statuses.get(row.provider_message_id);if(['delivered','read','failed'].includes(status))row.status=status==='failed'?'rejected':status;}const byPhone=new Map((rows||[]).map(r=>[r.phone_e164,r]));const phones=campaign.recipients.map(c=>c.phone);const contacts=await req('whatsapp_contacts?select=phone_e164,opt_out_at,metadata&phone_e164=in.('+phones.join(',')+')&limit=250');const current=new Map((contacts||[]).map(c=>[c.phone_e164,c]));return{campaign,recipients:campaign.recipients.map(c=>({...c,...(byPhone.get(c.phone)||{status:authorized(current.get(c.phone))?'ready':'skipped'})}))};}
 async function consent(b,a){
  const phone=C.normalizePhone(b.phone),grant=b.granted===true;if(!/^\d{10,15}$/.test(phone)||typeof b.granted!=='boolean')throw Error('Indica un teléfono válido y la autorización');
  const source=C.clean(b.source,40),evidence=C.clean(b.evidence,500),at=new Date(b.obtained_at),now=new Date();
@@ -28,15 +28,15 @@ async function create(b,a){
  const phones=[...new Set(b.phones.map(C.normalizePhone))];if(phones.some(p=>!/^\d{10,15}$/.test(p)))throw Error('Hay teléfonos inválidos');
  const contacts=await req('whatsapp_contacts?select=phone_e164,name,opt_out_at,metadata&phone_e164=in.('+phones.join(',')+')&limit=250'),map=new Map((contacts||[]).map(c=>[c.phone_e164,c]));
  if(phones.some(p=>!authorized(map.get(p))))throw Error('Uno o más destinatarios no tienen autorización promocional vigente. Actualiza la lista.');
- const row={id:b.id,name:C.clean(b.name,120),template_name:t.name,language:t.language,body:t.body,variables:values.map(v=>v.trim()),recipients:phones.map(phone=>({phone,name:C.clean(map.get(phone).name||'Cliente',160)})),created_by:a.user_id};
+ const row={id:b.id,name:C.clean(b.name,120),template_name:t.name,language:t.language,body:t.body,variables:{body:values.map(v=>v.trim()),image:t.header?.format==='IMAGE'?T.publicImage(b.image):null,definition:t,fingerprint:T.fingerprint(t)},recipients:phones.map(phone=>({phone,name:C.clean(map.get(phone).name||'Cliente',160)})),created_by:a.user_id};
  const saved=await req('whatsapp_marketing_campaigns','POST',row);return{ok:true,campaign:saved?.[0]||row};
 }
 async function send(b,a){
  const campaign=await get(b.id),phone=C.normalizePhone(b.phone);if(!campaign.recipients.some(c=>c.phone===phone))throw Error('El destinatario no pertenece a esta campaña');
  const t=(await T.list()).find(t=>t.category==='MARKETING'&&t.name===campaign.template_name&&t.language===campaign.language);
- if(!t||t.body!==campaign.body)throw Error('La plantilla cambió o ya no está aprobada. Prepara una nueva campaña.');
+ if(!t||t.body!==campaign.body||(Array.isArray(campaign.variables)&&(t.header?.format==='IMAGE'||t.buttons?.length))||(!Array.isArray(campaign.variables)&&campaign.variables.fingerprint!==T.fingerprint(t)))throw Error('La plantilla cambió o ya no está aprobada. Prepara una nueva campaña.');
  if(!authorized(await C.getContact(phone)))return{ok:true,result:{status:'skipped',reason:'Autorización revocada o no disponible'}};
- const result=await T.send({phone,template:campaign.template_name,language:campaign.language,variables:campaign.variables,client_id:sendId(campaign.id,phone)},a,{campaignId:campaign.id,template:t});
+ const result=await T.send({phone,template:campaign.template_name,language:campaign.language,variables:Array.isArray(campaign.variables)?campaign.variables:campaign.variables.body,image:campaign.variables?.image,client_id:sendId(campaign.id,phone)},a,{campaignId:campaign.id,template:t});
  return{ok:true,result};
 }
 async function allContacts(path){
@@ -78,6 +78,7 @@ async function handle(b,a){
  case 'marketing_individual_send':return individualSend(b,a);
  case 'marketing_contacts':return directory();
  case 'marketing_templates':return{ok:true,templates:await T.catalog()};
+ case 'marketing_sample_upload':if(!['admin','superadmin','gerente'].includes(C.norm(a.role)))throw Error('Solo administración puede crear plantillas');return{ok:true,...await T.uploadSample(b)};
  case 'marketing_template_create':if(!['admin','superadmin','gerente'].includes(C.norm(a.role)))throw Error('Solo administración puede crear plantillas');return{ok:true,template:await T.createTemplate(b)};
  case 'marketing_consent':return consent(b,a);
  case 'marketing_create':return create(b,a);
