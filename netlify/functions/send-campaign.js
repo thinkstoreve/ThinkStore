@@ -1,6 +1,30 @@
 const Queue = require('./_campaign-queue');
 const Delivery = require('./_campaign-delivery');
 const CampaignCards = require('../../campaign-card-model');
+const crypto = require('node:crypto');
+function signature(address, key) {
+  return crypto.createHmac('sha256', key).update('thinkstore:unsubscribe:' + address).digest('base64url');
+}
+async function unsubscribeRequest(event) {
+  const headers = {'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer'};
+  const reply = (statusCode, body) => ({statusCode, headers, body:'<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>ThinkStore</title><main style="font:1rem/1.5 system-ui;max-width:34rem;margin:12vh auto;padding:1rem"><h1>Promociones de ThinkStore</h1>'+body+'</main></html>'});
+  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  const address = String(event.queryStringParameters.email || '').trim().toLowerCase();
+  const token = Buffer.from(event.queryStringParameters.token || '');
+  if (!key || !process.env.SUPABASE_URL) return reply(503,'Servicio temporalmente no disponible.');
+  const expected = Buffer.from(signature(address,key));
+  if (!Delivery.valid(address) || token.length !== expected.length || !crypto.timingSafeEqual(token,expected)) return reply(400,'El enlace de baja no es válido.');
+  if (event.httpMethod === 'GET') return reply(200,'<form method="post"><p>¿Deseas dejar de recibir promociones por correo?</p><button>Confirmar baja</button></form>');
+  if (event.httpMethod !== 'POST') return reply(405,'Método no permitido.');
+  try {
+    const result = await fetch(new URL('/rest/v1/newsletter_subscribers?on_conflict=email',process.env.SUPABASE_URL),{
+      method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify({email:address,status:'unsubscribed'})
+    });
+    if(result.ok) return reply(200,'Tu baja quedó registrada. Ya no recibirás promociones por correo.');
+  } catch (_) {}
+  return reply(503,'No se pudo registrar la baja. Vuelve a intentarlo.');
+}
 async function handle(event,trusted=false) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -259,7 +283,7 @@ async function handle(event,trusted=false) {
     </div>`;
   }
 
-  const unsubscribe=email=>'mailto:'+replyTo+'?subject='+encodeURIComponent('Baja de promociones ThinkStore')+'&body='+encodeURIComponent('Solicito no recibir promociones en: '+email);
+  const unsubscribe=email=>{const address=email.trim().toLowerCase();return 'https://thinkstore.com.ve/.netlify/functions/send-campaign?unsubscribe=1&'+new URLSearchParams({email:address,token:signature(address,SUPABASE_SERVICE_ROLE_KEY)});};
   function mailFor(r){const mail={
           from, to: r.email, reply_to: replyTo, subject,
           html: htmlFor(r.nombre) + `<div style="font:12px/1.6 Arial,sans-serif;color:#6e6e73;text-align:center;padding:18px">Recibes comunicaciones de ThinkStore. <a href="${esc(unsubscribe(r.email))}">Solicitar baja de promociones</a>.<br>Las alertas dependen de la configuración de tu correo.</div>`,
@@ -291,8 +315,18 @@ ${priceCards.map(c=>{const n=CampaignCards.normalize(c);return `${n.label}: ${n.
 
 ${actionUrl}${secondaryActionLabel&&secondaryActionUrl?`
 ${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
-        };mail.headers={'List-Unsubscribe':'<'+unsubscribe(r.email)+'>'};return mail;}
-  const suppressed=new Set(delivery?.suppressed||[]);const consumed=recipients.length,skippedRecipients=recipients.filter(r=>!Delivery.valid(r.email)||suppressed.has(r.email)).map(r=>r.email);recipients=recipients.filter(r=>Delivery.valid(r.email)&&!suppressed.has(r.email));
+        };mail.headers={'List-Unsubscribe':'<'+unsubscribe(r.email)+'>','List-Unsubscribe-Post':'List-Unsubscribe=One-Click'};return mail;}
+  const suppressed = new Set(delivery?.suppressed || []);
+  try {
+    for (let offset = 0; ; offset += 1000) {
+      const rows = await supabaseGet('newsletter_subscribers?select=email&status=in.(unsubscribed,bounced,complained,suppressed)&order=email.asc&limit=1000&offset='+offset);
+      rows.forEach(row => suppressed.add(String(row.email).trim().toLowerCase()));
+      if (rows.length < 1000) break;
+    }
+  } catch (_) {
+    return {statusCode:503,headers,body:JSON.stringify({ok:false,error:'No se pudieron verificar las bajas antes del envío.'})};
+  }
+  const consumed=recipients.length,skippedRecipients=recipients.filter(r=>!Delivery.valid(r.email)||suppressed.has(r.email)).map(r=>r.email);recipients=recipients.filter(r=>Delivery.valid(r.email)&&!suppressed.has(r.email));
   let sent=0,failed=0,errors=[],providerIds=[],replayed=false,quota={daily:null,monthly:null};
   try{
     if(recipients.length){
@@ -316,5 +350,5 @@ ${secondaryActionLabel}: ${secondaryActionUrl}`:''}`
   return {statusCode:200,headers,body:JSON.stringify({ok:true,total,sent,accepted:sent,quota,skipped:skippedRecipients.length,skippedRecipients,processed:consumed,failed,sources:sourceCounts,errors,providerIds,replayed,warnings,nextOffset,done:nextOffset>=total,deliveryStatus:sent?'accepted':'skipped_invalid'})};
 };
 
-exports.handler=event=>handle(event,false);
+exports.handler=event=>event.queryStringParameters?.unsubscribe==='1'?unsubscribeRequest(event):handle(event,false);
 exports.sendFromQueue=async payload=>{const r=await handle({httpMethod:'POST',headers:{},body:JSON.stringify(payload)},true);return {httpStatus:r.statusCode,...JSON.parse(r.body)};};
