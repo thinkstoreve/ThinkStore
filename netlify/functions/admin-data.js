@@ -87,6 +87,13 @@ exports.handler = async function(event) {
       'orders?select=*&order=created_at.desc'
     ], []);
 
+    const bajasCorreo = [];
+    for (let offset = 0; ; offset += 1000) {
+      const page = await get('newsletter_subscribers?select=email&status=eq.unsubscribed&order=email.asc&limit=1000&offset=' + offset);
+      bajasCorreo.push(...page.map(row => row.email));
+      if (page.length < 1000) break;
+    }
+
     const comprobantesRaw = await getOptional([
       'comprobantes?select=*&order=created_at.desc'
     ], []);
@@ -96,7 +103,7 @@ exports.handler = async function(event) {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true, clientes, pedidos, comprobantes, refreshed_at: new Date().toISOString() })
+      body: JSON.stringify({ ok: true, bajasCorreo, clientes, pedidos, comprobantes, refreshed_at: new Date().toISOString() })
     };
   } catch (error) {
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: error.message || 'Error interno' }) };
