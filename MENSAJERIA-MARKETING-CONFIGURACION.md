@@ -1,35 +1,22 @@
-# Bandeja de ThinkStore Marketing
+# Marketing y atención nativa de ThinkStore
 
-Página: `/whatsapp-care.html`. Acceso desde WhatsApp Marketing → Bandeja de mensajes · IA.
+La bandeja funciona con el canal oficial de WhatsApp Cloud API de ThinkStore. No requiere Wati.
 
-## Funciones
+## Plantillas
 
-Escritorio de cuatro columnas, diseño adaptable a móviles, respuestas manuales, ocho respuestas rápidas con búsqueda y atajos `/`, emojis, negrita, enlaces, notas internas y borradores por usuario guardados en el servidor. Las sugerencias de IA siempre se revisan en el editor antes de enviar.
+«Crear plantillas» abre una biblioteca guardada en el servidor: nuevas plantillas, edición, eliminación, generación con IA y uso en el editor. Las plantillas de esta biblioteca son textos reutilizables. Para iniciar una conversación fuera de la ventana de 24 horas siguen siendo necesarias las plantillas aprobadas por Meta y las autorizaciones correspondientes; «Campañas y plantillas» conserva ese flujo. No se ha configurado ningún envío de campañas automático desde esta biblioteca.
 
-Los avisos de citas, pagos y reparaciones de la tienda conservan su canal Meta y configuración actuales. El selector Wati es independiente; no migra ni sustituye el número oficial.
+## IA automática
 
-## Conexión Wati +1
+Configurar en Netlify, únicamente como variables privadas de funciones:
 
-Configurar como variables privadas de las funciones de Netlify:
+- `OPENAI_API_KEY`: clave de API de OpenAI; ChatGPT Plus no proporciona esta clave.
+- `THINKSTORE_AI_MODEL`: opcional, predeterminado `gpt-4.1-mini`.
+- `WHATSAPP_APP_SECRET`: firma de los eventos recibidos desde Meta.
+- Las credenciales existentes del canal oficial y de Supabase permanecen necesarias.
 
-- `WATI_API_BASE_URL`: origen regional HTTPS mostrado por Wati; por defecto `https://live-mt-server.wati.io`. Sin el tenant en la ruta para API v3.
-- `WATI_API_TOKEN`: token con lectura de conversaciones y escritura de mensajes, según los permisos y plan de la cuenta.
-- `WATI_CHANNEL_ID`: identificador exacto del canal WhatsApp +1.
-- `WATI_CHANNEL_PHONE`: número completo del canal, con código internacional y solo dígitos.
+Administración puede activar «IA automática». Se guarda en el servidor y funciona con la página cerrada. Responde solo a nuevos mensajes de texto recibidos hace menos de cinco minutos, nunca inicia campañas. Las conversaciones en atención humana siguen en pausa hasta usar «Asignar IA automática». Las solicitudes guiadas ya activas tienen prioridad. Si el usuario pide una persona, se pausa. Responder desde el editor también pasa la conversación al equipo.
 
-Se usa API v3: listado de conversaciones por canal, historial por ID y envío de texto a conversación activa. El backend verifica el canal de cada historial antes de permitir un envío. Si Wati no devuelve el canal, rechaza el envío hasta verificar el contrato de esa cuenta. Debe probarse contra respuestas reales de la cuenta al activar sus credenciales. La interfaz consulta los cambios cada ocho segundos con la página abierta; no es una integración por webhooks.
+Antes de generar se reserva el ID del mensaje; si el envío queda sin confirmar no se reintenta automáticamente. Un fallo pausa el chat para revisión del equipo. Se revalida la atención humana y la configuración antes de enviar. Las respuestas no confirman citas, pagos ni acciones privadas y no solicitan contraseñas. Se envía a OpenAI un máximo de diez mensajes de texto, excluyendo notas internas, con `store:false`.
 
-HTTP 200 solo significa aceptación por Wati. La entrega se consulta en el historial del proveedor. Un envío de resultado desconocido queda bloqueado para evitar duplicados y debe reconciliarse manualmente en Wati. Fuera de la ventana de atención se utiliza una plantilla aprobada desde Wati; no se altera ninguna autorización comercial.
-
-## Sugerencias con IA
-
-- `OPENAI_API_KEY`: clave privada del proyecto OpenAI.
-- `THINKSTORE_AI_MODEL`: modelo compatible con Responses; por defecto `gpt-4.1-mini`.
-
-Se envían como máximo doce mensajes de texto del chat, sin adjuntar la ficha del contacto ni las notas internas. `store:false`. La clave nunca se entrega al navegador. Las instrucciones limitan precios, existencias y confirmaciones a datos de referencia. El asesor revisa siempre el resultado. No hay respuestas automáticas ni envíos al generar una sugerencia. Si no se configura la clave se muestra el motivo y el editor manual permanece disponible.
-
-## Persistencia y seguridad
-
-Reutiliza la tabla protegida `whatsapp_message_log` y la autenticación interna existente. Borradores y notas tienen `direction=internal` y claves separadas por canal/conversación; los borradores también se separan por usuario. No requiere cambiar los permisos públicos ni ejecutar una nueva migración. Las reservas de envíos Wati no comparten claves con Meta.
-
-Pruebas: `node --test tests/whatsapp-workspace.test.js tests/whatsapp-inbox.test.js`.
+No hay una clave de IA incorporada al código. Sin las credenciales, la interfaz indica la configuración pendiente y no permite activar el envío automático.
