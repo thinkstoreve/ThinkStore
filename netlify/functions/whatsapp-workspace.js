@@ -11,6 +11,32 @@ exports.handler=async event=>{
   let b;try{b=JSON.parse(event.body||'{}');}catch{return out(400,{ok:false,error:'JSON inválido'});}
   if(b.channel==='wati'&&['care_contacts','conversation','inbox_health','send_reply','mark_read'].includes(b.action))return out(200,await require('./_wati-inbox').handle(b));
   if(!['meta','wati'].includes(b.channel))return out(400,{ok:false,error:'Canal inválido'});
+  const AI=require('./_whatsapp-ai');
+  const admin=['admin','superadmin'].includes(C.norm(user.role));
+  if(b.action==='ai_settings')return out(200,{ok:true,...await AI.settings(),admin});
+  if(b.action==='save_ai_settings'){
+   if(!admin)return out(403,{ok:false,error:'Solo administración puede activar respuestas automáticas.'});
+   if(b.enabled===true&&(!process.env.OPENAI_API_KEY||!process.env.WHATSAPP_APP_SECRET))return out(409,{ok:false,error:'Configura OPENAI_API_KEY y la firma WHATSAPP_APP_SECRET en el servidor antes de activar la IA.'});
+   await AI.save(AI.SETTINGS,{enabled:b.enabled===true,instructions:C.clean(b.instructions,1800)});return out(200,{ok:true});
+  }
+  if(b.action==='resume_ai'){
+   if(!admin)return out(403,{ok:false,error:'Solo administración puede asignar la IA automática.'});
+   const phone=C.normalizePhone(b.phone),c=await C.getContact(phone),cfg=await AI.settings();
+   if(!cfg.enabled||!cfg.ready||!c||c.opt_out_at||!/^\d{8,15}$/.test(phone))return out(409,{ok:false,error:'Activa la IA y selecciona una conversación habilitada.'});
+   await C.upsertContact(phone,{needs_human:false,metadata:{...(c.metadata||{}),ai_assistant:{active:true},care_assistant:{...(c.metadata?.care_assistant||{}),active:false}}});return out(200,{ok:true});
+  }
+  if(b.action==='library_list'){
+   const rows=await C.sb(C.mainCfg(),'whatsapp_message_log?source=eq.workspace_template&direction=eq.internal&status=eq.saved&select=payload&order=updated_at.desc&limit=100');return out(200,{ok:true,templates:(rows||[]).map(r=>r.payload).filter(t=>t?.id&&t.title&&t.text)});
+  }
+  if(['library_upsert','library_delete'].includes(b.action)){
+   const t=b.template||{},id=C.clean(t.id,80);if(!/^[a-f0-9-]{36}$/i.test(id))return out(400,{ok:false,error:'ID de plantilla inválido.'});
+   const title=C.clean(t.title,100),text=C.clean(t.text,3500);if(b.action==='library_upsert'&&(!title||!text))return out(400,{ok:false,error:'Completa título y mensaje.'});
+   await C.sb(C.mainCfg(),'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({wa_message_id:'workspace-template:'+id,phone_e164:'workspace:meta',direction:'internal',message_type:'template',status:b.action==='library_delete'?'deleted':'saved',source:'workspace_template',payload:{id,title,text,author:user.user_id},updated_at:new Date().toISOString()})});return out(200,{ok:true,template:{id,title,text}});
+  }
+  if(b.action==='library_generate'){
+   const topic=C.clean(b.topic,1200);if(!topic)return out(400,{ok:false,error:'Indica el tema de la plantilla.'});
+   const reply=await AI.generate([{direction:'inbound',body_preview:topic}],'Crea una plantilla reutilizable para este tema. No inventes promociones ni precios; usa [precio] o [modelo] si faltan. Solo devuelve el texto de la plantilla.');return out(200,{ok:true,reply});
+  }
   if(b.action==='suggest'){
    const key=process.env.OPENAI_API_KEY;
    if(!key)return out(503,{ok:false,error:'La IA necesita configurar OPENAI_API_KEY en el servidor. Las respuestas rápidas y la escritura manual siguen disponibles.'});
