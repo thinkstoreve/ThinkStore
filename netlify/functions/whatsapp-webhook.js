@@ -37,6 +37,7 @@ exports.handler=async(event)=>{
         await C.upsertContact(phone,{name:C.clean(value.contacts?.find(x=>x.wa_id===m.from)?.profile?.name||current?.name||'',160),opt_in:optedOut?false:(current?.opt_in===true),opt_in_source:current?.opt_in_source||'customer_inbound',opt_in_at:current?.opt_in_at||null,last_inbound_at:now,last_message_preview:text});
         const metadata={...(current?.metadata||{})}, intake=metadata.care_assistant;
         const human=/\b(asesor|humano|persona|agente)\b/.test(n)||/^(cancelar|salir|baja|stop)$/.test(n);
+        if(await require('./_whatsapp-ai').respond({phone,message:m,contact:current,text,human}))continue;
         if(human||current?.needs_human||!intake?.active||Date.parse(intake.expires_at||'')<Date.now()){
           if(intake?.active)metadata.care_assistant={...intake,active:false};
           await C.upsertContact(phone,{needs_human:true,metadata,last_intent:'human_first'});
