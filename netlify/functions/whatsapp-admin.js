@@ -19,7 +19,7 @@ const handle=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{
  if(String(b.action||'').startsWith('marketing_')){try{return out(200,await require('./_whatsapp-marketing').handle(b,staff))}catch(e){return out(e.status||400,{ok:false,error:C.clean(e.message,300)})}}
  if(b.action==='templates')return out(200,{ok:true,templates:await require('./_whatsapp-templates').list()});
  if(b.action==='send_template'){
- let result;try{result=await require('./_whatsapp-templates').send(b,staff)}catch(e){return out(409,{ok:false,error:C.clean(e.message,300)})}
+ let result;try{result=await require('./_whatsapp-templates').send(b,staff,{manual:!!staff?.user_id})}catch(e){return out(409,{ok:false,error:C.clean(e.message,300)})}
  return out(result.status==='sent'?200:409,{ok:result.status==='sent',result,error:result.status==='duplicate'?'Este envío ya fue procesado. Revisa el historial.':result.status==='unconfirmed'?'Entrega sin confirmar. Revisa Meta antes de reenviar.':undefined});
  }
  if(b.action==='inbox_health'){
