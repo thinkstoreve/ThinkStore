@@ -5,21 +5,18 @@ Canal `meta-us`: **+1 555-780-5646**. El +58 conserva su configuración y su alm
 ## Preparación
 
 1. Ejecutar `MIGRACION-WHATSAPP-SEGUNDO-CANAL.sql` en el proyecto principal. Es una transacción aditiva e idempotente: crea tablas y funciones del canal US sin modificar registros existentes. Solo el servidor con `service_role` tiene acceso.
-2. Autorizar la aplicación propia de ThinkStore para gestionar y enviar mensajes en la cuenta de Meta correspondiente al +1. Usar un token de esa aplicación con acceso a ese activo; las credenciales de OpenAI no sirven para WhatsApp. No copiar claves a chats ni al repositorio.
-3. Configurar en Netlify, contexto Production / Functions:
+2. Para usar la misma aplicación **ThinkStore Mensajería**, configurar en Netlify únicamente estas variables en Production / Functions. La aplicación reutiliza internamente las credenciales privadas que ya están en el servidor. No copia ni devuelve sus valores al navegador ni al repositorio.
 
-| Variable | Valor o procedencia |
+| Variable | Valor |
 | --- | --- |
+| `WHATSAPP_US_USE_PRIMARY_APP` | `true` |
 | `WHATSAPP_US_PHONE_NUMBER_ID` | `1370682272805383` |
-| `WHATSAPP_US_BUSINESS_ACCOUNT_ID` | `1604603670987071` (cuenta de mensajes Thinkstore - Zoho Corporation, verificar acceso de la aplicación) |
-| `WHATSAPP_US_ACCESS_TOKEN` | Token privado con acceso al activo +1 |
-| `WHATSAPP_US_APP_SECRET` | Secreto privado de la aplicación que firma los eventos de ese canal |
-| `WHATSAPP_US_VERIFY_TOKEN` | Token privado de verificación del webhook |
-| `WHATSAPP_US_GRAPH_VERSION` | Versión de Graph habilitada para la aplicación |
-| `WHATSAPP_US_ENABLED` | Mantener `false` hasta verificar el webhook; cambiar a `true` al terminar la configuración |
+| `WHATSAPP_US_BUSINESS_ACCOUNT_ID` | `1604603670987071` |
+| `WHATSAPP_US_ENABLED` | `true` |
 
-4. Registrar y verificar el callback `https://thinkstore.com.ve/.netlify/functions/whatsapp-us-webhook` con el token de verificación del canal. Si se usa la misma aplicación del +58, conservar su callback global y establecer un callback alternativo exclusivo para la cuenta del +1 mediante `override_callback_uri` y `verify_token` al suscribir esa cuenta en `/{WABA-ID}/subscribed_apps`. Verificar la suscripción de la aplicación ThinkStore Mensajería (`1316000427204759`) y el callback alternativo mediante GET antes de habilitar envíos. No reemplazar el callback global del +58 ni desconectar otros proveedores como paso de prueba. Referencia oficial: https://www.postman.com/meta/whatsapp-business-platform/request/un84tul/override-callback-url
-5. Tras aplicar la configuración de Functions, seleccionar el +1 en `whatsapp-care.html`. El diagnóstico debe mostrar el número correcto, firma, verificación y almacenamiento disponibles. Las acciones del canal permanecen bloqueadas si falta configuración o si el identificador de teléfono no coincide.
+3. Publicar la versión que admite este modo. La reutilización de `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET` y `WHATSAPP_VERIFY_TOKEN` solo ocurre con la bandera explícita anterior; el remitente y la cuenta de mensajes nunca se heredan del +58.
+4. Seleccionar el +1 en Mensajería. El diagnóstico consulta en Meta la aplicación asociada al token, el remitente, su cuenta, la suscripción y el callback efectivo. Solo administración puede autorizar la conexión. El botón exige confirmación explícita y no envía mensajes. Si falta acceso a ese activo, asignarlo primero en Meta al usuario del sistema/aplicación propios mediante su flujo de autorización.
+5. En modo compartido, la suscripción de la cuenta del +1 usa el callback global existente. El webhook firmado identifica el remitente de cada evento y guarda los datos en su canal. No cambia el callback global ni la cuenta del +58. Los proveedores existentes conservan sus propias suscripciones. Para una aplicación independiente, dejar la bandera en `false`, configurar `WHATSAPP_US_ACCESS_TOKEN`, `WHATSAPP_US_APP_SECRET`, `WHATSAPP_US_VERIFY_TOKEN` y `WHATSAPP_US_GRAPH_VERSION`, y utilizar el callback alternativo `https://thinkstore.com.ve/.netlify/functions/whatsapp-us-webhook` solo para la suscripción de esa aplicación. Referencia: https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/override
 6. Hacer una prueba entrante desde un teléfono del propietario, verificar que aparece solo en el canal +1 y enviar una respuesta de prueba autorizada. Confirmar el estado en Meta antes de activar atención automática.
 
 ## Comportamiento
@@ -33,4 +30,4 @@ Canal `meta-us`: **+1 555-780-5646**. El +58 conserva su configuración y su alm
 
 ## Validación
 
-73 pruebas específicas de WhatsApp aprobadas antes de publicación, incluyendo concurrencia sin mutar el entorno del proceso, credenciales y tablas aisladas, remitente esperado, autenticación y firma del webhook. La prueba de entrega real requiere completar los pasos de Meta y configuración privada.
+81 pruebas específicas de WhatsApp aprobadas antes de publicación, incluyendo concurrencia sin mutar el entorno del proceso, credenciales y tablas aisladas, remitente esperado, autenticación y firma del webhook. La prueba de entrega real requiere completar los pasos de Meta y configuración privada.
