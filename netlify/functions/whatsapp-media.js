@@ -12,13 +12,14 @@ function mediaType(type,bytes){
  return null;
 }
 exports.mediaType=mediaType;
-exports.handler=async event=>{
+const handle=async event=>{
  let endpoint,attempted=false;
  try{
   if(event.httpMethod!=='POST')return out(405,{ok:false,error:'Método no permitido.'});
   const u=await authenticate(event);if(!u.ok||!u.user_id||!['admin','superadmin','gerente','vendedor','soporte','recepcion'].includes(C.norm(u.role)))return out(401,{ok:false,error:'Inicia sesión con una cuenta del equipo.'});
   if((event.body||'').length>LIMIT*1.38)return out(413,{ok:false,error:'El archivo supera 3 MB.'});
   let b;try{b=JSON.parse(event.body||'{}');}catch{return out(400,{ok:false,error:'Solicitud inválida.'});}
+  if(C.channel()==='meta-us'&&require('./_whatsapp-channels').missing().length)return out(409,{ok:false,error:'El número +1 está pendiente de conectar con Meta.'});
   const phone=C.normalizePhone(b.phone),client=String(b.client_id||'');if(!/^\d{8,15}$/.test(phone)||!/^[a-f0-9-]{36}$/i.test(client))return out(400,{ok:false,error:'Conversación inválida.'});
   const c=await C.getContact(phone),last=Date.parse(c?.last_inbound_at||''),age=Date.now()-last;
   if(!Number.isFinite(age)||age<0||age>=86400000)return out(409,{ok:false,error:'El cliente debe escribir de nuevo para recibir archivos dentro de la ventana de atención.'});
@@ -41,3 +42,5 @@ exports.handler=async event=>{
   return out(200,{ok:true,status:'accepted'});
  }catch(e){if(endpoint)await C.sb(C.mainCfg(),endpoint,{method:'PATCH',body:JSON.stringify({status:attempted?'unconfirmed':'failed',updated_at:new Date().toISOString()})}).catch(()=>{});return out(503,{ok:false,error:attempted?'Envío sin confirmar. Revisa el historial antes de reenviar este archivo.':'No se pudo preparar el archivo. Revisa la conexión de WhatsApp y vuelve a seleccionar el archivo.'});}
 };
+
+exports.handler=async event=>{try{return await C.withChannel(C.requestChannel(event),()=>handle(event));}catch(e){return out(e.status||503,{ok:false,error:e.status?e.message:'No se pudo abrir el canal de WhatsApp.'});}};
