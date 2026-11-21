@@ -32,7 +32,22 @@ function templatePayload(b){
  if(b.header?.format==='IMAGE'){if(typeof b.header.handle!=='string'||!/^\d+::/.test(b.header.handle)||b.header.handle.length>5000)throw Error('Sube una imagen de ejemplo antes de solicitar revisión');components.push({type:'HEADER',format:'IMAGE',example:{header_handle:[b.header.handle]}});}
  components.push(component);
  if(b.footer){if(typeof b.footer!=='string'||b.footer.length>60||/[{}]/.test(b.footer))throw Error('El pie admite hasta 60 caracteres sin variables');components.push({type:'FOOTER',text:b.footer.trim()});}
- if(b.buttons?.length){if(!Array.isArray(b.buttons)||b.buttons.length>3)throw Error('Usa hasta tres respuestas rápidas o un enlace');const buttons=b.buttons.map(x=>{const text=String(x.text||'').trim();if(!text||text.length>25)throw Error('Cada botón necesita un título de hasta 25 caracteres');if(x.type==='QUICK_REPLY')return{type:x.type,text};if(x.type==='URL'){const url=publicImage(x.url);if(/[{}]/.test(url))throw Error('El enlace del botón debe ser fijo');return{type:x.type,text,url}}throw Error('Tipo de botón no compatible');});if(buttons.some(x=>x.type==='URL')&&(buttons.length>2||buttons.some(x=>x.type!=='URL')||buttons.length>1))throw Error('Usa un enlace o hasta tres respuestas rápidas');components.push({type:'BUTTONS',buttons});}
+ if(b.buttons!==undefined&&!Array.isArray(b.buttons))throw Error('Los botones deben ser una lista');
+ if(b.buttons?.length){
+  if(b.buttons.length>3)throw Error('Usa hasta tres respuestas rápidas o un enlace y una llamada');
+  const buttons=b.buttons.map(x=>{const text=String(x.text||'').trim();if(!text||text.length>25)throw Error('Cada botón necesita un título de hasta 25 caracteres');
+   if(x.type==='QUICK_REPLY')return{type:x.type,text};
+   if(x.type==='URL'){const url=publicImage(x.url);if(/[{}]/.test(url))throw Error('El enlace del botón debe ser fijo');return{type:x.type,text,url};}
+   if(x.type==='PHONE_NUMBER'){const raw=String(x.phone_number||'').trim();if(!/^\+?[\d\s().-]+$/.test(raw))throw Error('Indica un teléfono internacional válido para llamar');const phone=C.normalizePhone(raw);if(!/^[1-9]\d{7,14}$/.test(phone))throw Error('Indica un teléfono internacional válido para llamar');return{type:x.type,text,phone_number:'+'+phone};}
+   throw Error('Tipo de botón no compatible');
+  });
+  if(new Set(buttons.map(b=>b.text.toLowerCase())).size!==buttons.length)throw Error('Usa títulos diferentes para los botones');
+  const quick=buttons.filter(b=>b.type==='QUICK_REPLY').length;
+  if(quick&&quick!==buttons.length)throw Error('Elige respuestas rápidas o botones de enlace y llamada');
+  if(!quick&&(buttons.length>2||buttons.filter(b=>b.type==='URL').length>1||buttons.filter(b=>b.type==='PHONE_NUMBER').length>1))throw Error('Usa como máximo un enlace y una llamada en esta plantilla');
+  components.push({type:'BUTTONS',buttons});
+ }
+
  return{name,language:'es',category,components};
 }
 async function uploadSample(b){

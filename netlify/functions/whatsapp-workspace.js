@@ -13,6 +13,12 @@ exports.handler=async event=>{
   if(!['meta','wati'].includes(b.channel))return out(400,{ok:false,error:'Canal inválido'});
   const AI=require('./_whatsapp-ai');
   const admin=['admin','superadmin'].includes(C.norm(user.role));
+  if(b.action==='start_chat'){
+   const phone=String(b.phone||'');if(!/^[1-9]\d{7,14}$/.test(phone))return out(400,{ok:false,error:'Indica un número internacional válido.'});
+   const rows=await C.sb(C.mainCfg(),'whatsapp_contacts?phone_e164=eq.'+encodeURIComponent(phone)+'&select=*&limit=1');
+   const contact=rows?.[0]||await C.upsertContact(phone,{name:C.clean(b.name,160)||'Cliente',opt_in:false,needs_human:true,metadata:{workspace:{status:'open',created_by:user.user_id,origin:'manual_chat'}}});
+   return out(200,{ok:true,phone,contact});
+  }
   if(b.action==='conversation_update'){
    const phone=C.normalizePhone(b.phone);if(!/^\d{8,15}$/.test(phone))return out(400,{ok:false,error:'Teléfono inválido.'});
    const c=await C.getContact(phone);if(!c)return out(404,{ok:false,error:'Conversación no encontrada.'});
