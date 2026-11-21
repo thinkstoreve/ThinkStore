@@ -7,6 +7,7 @@ const handle=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{
  if(!allowed){const a=await authenticateInternal(event);staff=a;const r=C.norm(a?.role);allowed=!!a?.ok&&['admin','superadmin','gerente','vendedor','soporte','recepcion'].includes(r)}if(!allowed)return out(401,{ok:false,error:'No autorizado'});
  const cfg=C.waCfg();if(event.httpMethod==='GET')return out(200,{ok:true,configured:{access_token:!!cfg.token,phone_number_id:!!cfg.phoneId,verify_token:!!cfg.verifyToken,app_secret:!!cfg.appSecret,graph_version:!!cfg.version,debt_automation:String(process.env.WHATSAPP_DEBT_AUTOMATION_ENABLED||'').toLowerCase()==='true',debt_template:!!process.env.WHATSAPP_DEBT_TEMPLATE_NAME,service_notifications:String(process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',appointment_notifications:String(process.env.WHATSAPP_APPOINTMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',payment_notifications:String(process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',shared_relay_secret:!!process.env.WHATSAPP_EVENTS_SECRET,order_notifications:String(process.env.WHATSAPP_ORDER_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true'},webhook_url:`${cfg.site}/.netlify/functions/${cfg.webhook}`,official_phone:'+'+cfg.expectedPhone});
  let b={};try{b=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}if(C.channel()==='meta-us'&&b.action!=='inbox_health'&&require('./_whatsapp-channels').missing().length)return out(409,{ok:false,error:'El número +1 está pendiente de conectar con Meta. No se han enviado mensajes.'});
+ if(b.action==='connect_channel'){if(C.channel()!=='meta-us'||!staff?.user_id||!['admin','superadmin'].includes(C.norm(staff.role)))return out(403,{ok:false,error:'Solo administración puede conectar el número +1.'});if(b.confirm!==true)return out(400,{ok:false,error:'Confirma la autorización del número +1.'});try{return out(200,{ok:true,connection:await require('./_whatsapp-channel-connection').connect()});}catch(e){return out(e.status||503,{ok:false,error:e.status?e.message:'No se pudo confirmar la conexión con Meta.'});}}
  if(['alerts','mark_read'].includes(b.action)){
  if(!staff?.user_id)return out(401,{ok:false,error:'Inicia sesión para consultar tus notificaciones'});
  if(b.action==='alerts')return out(200,{ok:true,...await C.sb(m,'rpc/ts_whatsapp_alerts',{method:'POST',body:JSON.stringify({p_user:staff.user_id})})});
@@ -22,7 +23,7 @@ const handle=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{
  return out(result.status==='sent'?200:409,{ok:result.status==='sent',result,error:result.status==='duplicate'?'Este envío ya fue procesado. Revisa el historial.':result.status==='unconfirmed'?'Entrega sin confirmar. Revisa Meta antes de reenviar.':undefined});
  }
  if(b.action==='inbox_health'){
- const configured={enabled:cfg.enabled,token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
+ const configured={waba_id:!!cfg.wabaId,enabled:cfg.enabled,token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
  let connection={ok:false,reason:'Configuración incompleta'};
  if(configured.token&&configured.phone_id&&configured.version){
   try{const r=await fetch(`https://graph.facebook.com/${cfg.version}/${cfg.phoneId}?fields=display_phone_number,verified_name`,{headers:{Authorization:`Bearer ${cfg.token}`}});const d=await r.json();
@@ -31,8 +32,9 @@ const handle=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{
  }
  let databaseReady=true;const latest=await C.sb(m,'whatsapp_message_log?select=created_at,direction,source&direction=eq.inbound&order=created_at.desc&limit=1').catch(()=>{databaseReady=false;return[];});
  let outbox=false;try{await C.sb(m,'whatsapp_notification_outbox?select=event_key&limit=1');outbox=true}catch{}
+ const metaConnection=C.channel()==='meta-us'?await require('./_whatsapp-channel-connection').inspect():null;
  const automation={outbox,service:String(process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED)==='true',appointments:String(process.env.WHATSAPP_APPOINTMENT_NOTIFICATIONS_ENABLED)==='true',payments:String(process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED)==='true',orders:String(process.env.WHATSAPP_ORDER_NOTIFICATIONS_ENABLED)==='true'};
- return out(200,{ok:true,channel:C.channel(),expected_phone:'+'+cfg.expectedPhone,database_ready:databaseReady,configured,connection,automation,last_inbound:latest?.[0]?.created_at||null,webhook_url:`${cfg.site}/.netlify/functions/${cfg.webhook}`});
+ return out(200,{ok:true,meta_connection:metaConnection,can_manage_channel:!!staff?.user_id&&['admin','superadmin'].includes(C.norm(staff.role)),channel:C.channel(),expected_phone:'+'+cfg.expectedPhone,database_ready:databaseReady,configured,connection,automation,last_inbound:latest?.[0]?.created_at||null,webhook_url:`${cfg.site}/.netlify/functions/${cfg.webhook}`});
  }
  if(b.action==='conversation'){
  const phone=C.normalizePhone(b.phone);if(!/^\d{8,15}$/.test(phone))return out(400,{ok:false,error:'Teléfono inválido'});
