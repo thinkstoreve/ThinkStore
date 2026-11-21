@@ -3,14 +3,15 @@ const C=require('./_whatsapp-core');
 const {authenticate}=require('./requests-inbox');
 const out=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/json','Cache-Control':'no-store'},body:JSON.stringify(body)});
 const roles=['admin','superadmin','gerente','vendedor','soporte','recepcion'];
-exports.handler=async event=>{
+const handle=async event=>{
  try{
   if(event.httpMethod!=='POST')return out(405,{ok:false,error:'Método no permitido'});
   const user=await authenticate(event);
   if(!user.ok||!roles.includes(C.norm(user.role))||!user.user_id)return out(401,{ok:false,error:'Inicia sesión con una cuenta del equipo.'});
   let b;try{b=JSON.parse(event.body||'{}');}catch{return out(400,{ok:false,error:'JSON inválido'});}
   if(b.channel==='wati'&&['care_contacts','conversation','inbox_health','send_reply','mark_read'].includes(b.action))return out(200,await require('./_wati-inbox').handle(b));
-  if(!['meta','wati'].includes(b.channel))return out(400,{ok:false,error:'Canal inválido'});
+  if(!['meta','meta-us','wati'].includes(b.channel))return out(400,{ok:false,error:'Canal inválido'});
+  if(C.channel()==='meta-us'&&require('./_whatsapp-channels').missing().length)return out(409,{ok:false,error:'El número +1 está pendiente de conectar con Meta.'});
   const AI=require('./_whatsapp-ai');
   const admin=['admin','superadmin'].includes(C.norm(user.role));
   if(b.action==='start_chat'){
@@ -36,7 +37,7 @@ exports.handler=async event=>{
   if(b.action==='ai_settings')return out(200,{ok:true,...await AI.settings(),admin});
   if(b.action==='save_ai_settings'){
    if(!admin)return out(403,{ok:false,error:'Solo administración puede activar respuestas automáticas.'});
-   if(b.enabled===true&&(!process.env.OPENAI_API_KEY||!process.env.WHATSAPP_APP_SECRET))return out(409,{ok:false,error:'Configura OPENAI_API_KEY y la firma WHATSAPP_APP_SECRET en el servidor antes de activar la IA.'});
+   if(b.enabled===true&&(!process.env.OPENAI_API_KEY||!C.waCfg().appSecret))return out(409,{ok:false,error:'Configura OPENAI_API_KEY y la firma de WhatsApp del canal seleccionado en el servidor antes de activar la IA.'});
    await AI.save(AI.SETTINGS,{enabled:b.enabled===true,instructions:C.clean(b.instructions,1800)});return out(200,{ok:true});
   }
   if(b.action==='resume_ai'){
@@ -79,3 +80,5 @@ exports.handler=async event=>{
   return out(400,{ok:false,error:'Acción no soportada'});
  }catch(e){return out(e.status||503,{ok:false,error:e.status?e.message:'No se pudo actualizar la bandeja. Reintenta en unos segundos.',...(e.reason?{reason:e.reason,retry_after:e.retryAfter||null}:{})});}
 };
+
+exports.handler=async event=>{try{return await C.withChannel(C.requestChannel(event),()=>handle(event));}catch(e){return out(e.status||503,{ok:false,error:e.status?e.message:'No se pudo abrir el canal de WhatsApp.'});}};
