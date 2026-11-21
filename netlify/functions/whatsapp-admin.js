@@ -1,4 +1,5 @@
 const C=require('./_whatsapp-core');
+const Preview=require('../../whatsapp-message-preview');
 const {authenticate:authenticateInternal}=require('./requests-inbox');
 const Intake=require('./_whatsapp-intake');
 const out=(s,b)=>({statusCode:s,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization, x-admin-secret','Access-Control-Allow-Methods':'GET,POST,OPTIONS'},body:JSON.stringify(b)});
@@ -39,21 +40,23 @@ const handle=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{
  if(b.action==='conversation'){
  const phone=C.normalizePhone(b.phone);if(!/^\d{8,15}$/.test(phone))return out(400,{ok:false,error:'Teléfono inválido'});
  let before='';if(b.before_at||b.before_id){if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(b.before_at||'')||!Number.isFinite(Date.parse(b.before_at))||!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(b.before_id||''))return out(400,{ok:false,error:'Cursor inválido'});const at=b.before_at;before='&or='+encodeURIComponent('(created_at.lt.'+at+',and(created_at.eq.'+at+',id.lt.'+b.before_id+'))');}
- const rows=await C.sb(m,`whatsapp_message_log?select=id,wa_message_id,direction,message_type,status,source,body_preview,created_at&phone_e164=eq.${encodeURIComponent(phone)}${before}&order=created_at.desc,id.desc&limit=100`);
- return out(200,{ok:true,has_more:rows.length===100,rows:rows.reverse(),contact:await C.getContact(phone)});
+ const rows=await C.sb(m,`whatsapp_message_log?select=id,wa_message_id,direction,message_type,status,source,body_preview,created_at,payload&phone_e164=eq.${encodeURIComponent(phone)}${before}&order=created_at.desc,id.desc&limit=100`);
+ const visible=rows.reverse().map(({payload,...row})=>{let button=null;try{button=Preview.button(payload?.button);}catch{}return{...row,...(button?{button}:{})};});
+ return out(200,{ok:true,has_more:rows.length===100,rows:visible,contact:await C.getContact(phone)});
  }
  if(b.action==='send_reply'){
  const phone=C.normalizePhone(b.phone),text=String(b.message||'').trim(),clientId=String(b.client_id||'');
  if(!/^\d{8,15}$/.test(phone)||!text||text.length>4000||!/^[a-f0-9-]{36}$/i.test(clientId))return out(400,{ok:false,error:'Mensaje o teléfono inválido'});
+ let button;try{button=Preview.button(b.button);if(button)Preview.interactive(text,button);}catch(e){return out(400,{ok:false,error:e.message});}
  const contact=await C.getContact(phone),last=Date.parse(contact?.last_inbound_at||'');
- if(!Number.isFinite(last)||Date.now()-last>=24*60*60*1000)return out(409,{ok:false,error:'Han pasado 24 horas desde el último mensaje recibido. Pide al cliente que vuelva a escribir para responder desde aquí.'});
+ if(!Number.isFinite(last)||Date.now()<last||Date.now()-last>=24*60*60*1000)return out(409,{ok:false,error:'La ventana de respuesta está cerrada. Usa una plantilla aprobada para continuar.'});
  if(!cfg.token||!cfg.phoneId||!cfg.version)return out(503,{ok:false,error:'Falta configurar la conexión de WhatsApp con Meta'});
  const key='staff:'+clientId,endpoint=`whatsapp_message_log?wa_message_id=eq.${encodeURIComponent(key)}`;
  const existing=await C.sb(m,`whatsapp_message_log?select=id,status&source=eq.staff_reply&payload->>client_id=eq.${encodeURIComponent(clientId)}&limit=1`);if(existing?.length)return out(409,{ok:false,error:'Este envío ya fue procesado o está en curso. Actualiza la conversación antes de reenviar.'});
- const reserved=await C.sb(m,'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify({wa_message_id:key,phone_e164:phone,direction:'outbound',message_type:'text',status:'sending',source:'staff_reply',body_preview:text,payload:{client_id:clientId}})});
+ const reserved=await C.sb(m,'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=representation'},body:JSON.stringify({wa_message_id:key,phone_e164:phone,direction:'outbound',message_type:button?'interactive':'text',status:'sending',source:'staff_reply',body_preview:text,payload:{client_id:clientId,...(button?{button}:{})}})});
  if(!reserved?.length)return out(409,{ok:false,error:'El mensaje ya está en proceso'});
  await C.upsertContact(phone,{needs_human:true,metadata:{...(contact.metadata||{}),care_assistant:{...(contact.metadata?.care_assistant||{}),active:false}}});
- try{const sent=await C.sendText(phone,text),messageId=sent?.messages?.[0]?.id;if(!messageId)throw Error('missing_id');
+ try{const sent=await C.sendText(phone,text,button),messageId=sent?.messages?.[0]?.id;if(!messageId)throw Error('missing_id');
  await C.sb(m,endpoint,{method:'PATCH',body:JSON.stringify({wa_message_id:messageId,status:'sent',updated_at:new Date().toISOString()})});
  await C.upsertContact(phone,{last_outbound_at:new Date().toISOString()});return out(200,{ok:true});
  }catch{await C.sb(m,endpoint,{method:'PATCH',body:JSON.stringify({status:'unconfirmed',updated_at:new Date().toISOString()})}).catch(()=>{});return out(502,{ok:false,error:'No se pudo confirmar el envío. Revisa WhatsApp y la conexión antes de volver a enviarlo.'});}

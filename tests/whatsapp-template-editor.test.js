@@ -9,6 +9,7 @@ class Element{
  querySelectorAll(tag){return this.children.flatMap(c=>[...(c.tag===tag?[c]:[]),...c.querySelectorAll(tag)]);}
  setAttribute(k,v){this.attributes[k]=v;}
  focus(){this.focused=true;}
+ get ownerDocument(){return{createElement:tag=>new Element(tag)};}
 }
 const approved={name:'first_contact',language:'es',category:'UTILITY',body:'Hola {{1}}',header:null,buttons:[]};
 function harness({templates=[approved],api:handle}={}){
@@ -16,7 +17,7 @@ function harness({templates=[approved],api:handle}={}){
  $('templatePanel').hidden=true;
  const state={phone:'12125550123',channel:'meta-us',epoch:0,busy:false},calls=[],messages=[];
  const api=async(action,data,options)=>{calls.push({action,data,options});return handle?handle(action,data):action==='templates'?{templates}:{ok:true,result:{status:'sent',message_id:'test'}};};
- vm.runInNewContext(editor,{state,$,api,message:(text,error)=>messages.push({text,error}),refresh:async()=>{},el:(tag,text)=>Object.assign(new Element(tag),{textContent:text}),crypto,URL});
+ vm.runInNewContext(editor,{state,$,api,P:require('../whatsapp-message-preview'),message:(text,error)=>messages.push({text,error}),refresh:async()=>{},el:(tag,text)=>Object.assign(new Element(tag),{textContent:text}),crypto,URL});
  return{$,state,calls,messages,open:()=>$('templatesToggle').onclick(),send:()=>$('templateSend').onclick()};
 }
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{promise,resolve,reject};};

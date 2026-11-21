@@ -1,5 +1,6 @@
 'use strict';
 const C=require('./_whatsapp-core');
+const Preview=require('../../whatsapp-message-preview');
 const {authenticate}=require('./requests-inbox');
 const out=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application/json','Cache-Control':'no-store'},body:JSON.stringify(body)});
 const roles=['admin','superadmin','gerente','vendedor','soporte','recepcion'];
@@ -71,10 +72,12 @@ const handle=async event=>{
    const isDraft=b.action.includes('draft'),key=(isDraft?'workspace-draft:'+user.user_id:'workspace-note')+':'+b.channel+':'+phone;
    if(b.action==='notes'||b.action==='draft'){
     const rows=await C.sb(C.mainCfg(),'whatsapp_message_log?wa_message_id=eq.'+encodeURIComponent(key)+'&select=body_preview,updated_at,payload&limit=1');
-    return out(200,{ok:true,text:rows?.[0]?.body_preview||'',updated_at:rows?.[0]?.updated_at||null,client_id:isDraft?rows?.[0]?.payload?.client_id||null:undefined});
+    let button=null;if(isDraft)try{button=Preview.draftButton(rows?.[0]?.payload?.button);}catch{}
+    return out(200,{ok:true,text:rows?.[0]?.body_preview||'',updated_at:rows?.[0]?.updated_at||null,client_id:isDraft?rows?.[0]?.payload?.client_id||null:undefined,...(isDraft?{button}:{})});
    }
    const text=C.clean(b.text,isDraft?4000:6000);
-   await C.sb(C.mainCfg(),'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({wa_message_id:key,phone_e164:'workspace:'+b.channel+':'+phone,direction:'internal',message_type:isDraft?'draft':'note',status:'saved',source:'workspace_'+(isDraft?'draft':'note'),body_preview:text,payload:{author:user.user_id,...(isDraft?{client_id:/^[a-f\d-]{36}$/i.test(String(b.client_id||''))?b.client_id:null}:{})},updated_at:new Date().toISOString()})});
+   let button=null;if(isDraft)try{button=Preview.draftButton(b.button);}catch(e){return out(400,{ok:false,error:e.message});}
+   await C.sb(C.mainCfg(),'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({wa_message_id:key,phone_e164:'workspace:'+b.channel+':'+phone,direction:'internal',message_type:isDraft?'draft':'note',status:'saved',source:'workspace_'+(isDraft?'draft':'note'),body_preview:text,payload:{author:user.user_id,...(isDraft?{button,client_id:/^[a-f\d-]{36}$/i.test(String(b.client_id||''))?b.client_id:null}:{})},updated_at:new Date().toISOString()})});
    return out(200,{ok:true});
   }
   return out(400,{ok:false,error:'Acción no soportada'});
