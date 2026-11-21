@@ -20,7 +20,7 @@ const handle=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{
  if(b.action==='templates')return out(200,{ok:true,templates:await require('./_whatsapp-templates').list()});
  if(b.action==='send_template'){
  let result;try{result=await require('./_whatsapp-templates').send(b,staff,{manual:!!staff?.user_id})}catch(e){return out(409,{ok:false,error:C.clean(e.message,300)})}
- return out(result.status==='sent'?200:409,{ok:result.status==='sent',result,error:result.status==='duplicate'?'Este envío ya fue procesado. Revisa el historial.':result.status==='unconfirmed'?'Entrega sin confirmar. Revisa Meta antes de reenviar.':undefined});
+ return out(result.status==='sent'?200:409,{ok:result.status==='sent',result,error:result.status==='duplicate'?'Este envío ya fue procesado. Revisa el historial.':['unconfirmed','rejected'].includes(result.status)?result.reason||'Entrega sin confirmar. Revisa Meta antes de reenviar.':undefined});
  }
  if(b.action==='inbox_health'){
  const configured={waba_id:!!cfg.wabaId,enabled:cfg.enabled,token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
