@@ -1,16 +1,16 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),C=require('../netlify/functions/_whatsapp-core'),T=require('../netlify/functions/_whatsapp-templates');
-test('promoción requiere consentimiento específico y bloquea duplicados',async()=>{
+test('envíos automáticos requieren autorización y bloquean duplicados',async()=>{
  const original={fetch:global.fetch,get:C.getContact,sb:C.sb,send:C.sendTemplate,log:C.logMessage};let delivered=0,claimed=false;
  global.fetch=async()=>({ok:true,json:async()=>({data:[{name:'promo',language:'es',category:'MARKETING',status:'APPROVED',components:[{type:'BODY',text:'Hola'}]}]})});
  C.getContact=async()=>({opt_in:true,metadata:{}});C.sendTemplate=async()=>{delivered++;return{messages:[{id:'wamid.test'}]}};C.logMessage=async()=>{};
  C.sb=async(_,__,o)=>{if(o.method==='POST'){if(claimed)throw Error('23505 duplicate key');claimed=true;}return[];};
  const b={phone:'04241706142',client_id:'12345678-1234-4234-8234-123456789abc',template:'promo',language:'es',variables:[]};
  try{
- await assert.rejects(T.send(b,{}),/PROMOCIONES/);assert.equal(delivered,0);
+ await assert.rejects(T.send(b,{}),/autorización/);assert.equal(delivered,0);
  C.getContact=async()=>({metadata:{marketing_opt_in:true}});
  assert.equal((await T.send(b,{})).status,'sent');assert.equal((await T.send(b,{})).status,'duplicate');assert.equal(delivered,1);
- C.getContact=async()=>({opt_out_at:'2026-10-30',metadata:{marketing_opt_in:true}});await assert.rejects(T.send(b,{}),/PROMOCIONES/);
+ C.getContact=async()=>({opt_out_at:'2026-10-30',metadata:{marketing_opt_in:true}});await assert.rejects(T.send(b,{}),/BAJA/);
  }finally{global.fetch=original.fetch;C.getContact=original.get;C.sb=original.sb;C.sendTemplate=original.send;C.logMessage=original.log;}
 });
 test('plantillas sin variables omiten componentes vacíos en la petición a Meta',async()=>{
@@ -19,3 +19,19 @@ test('plantillas sin variables omiten componentes vacíos en la petición a Meta
  global.fetch=async(_,o)=>{payload=JSON.parse(o.body);return{ok:true,json:async()=>({messages:[{id:'test'}]})}};
  try{await C.sendTemplate('584241706142','promo','es',[]);assert.equal(payload.template.components,undefined);}finally{global.fetch=old;process.env=env;}
 });
+async function manualHarness(fn,{initial={opt_in:false,metadata:{}},category='MARKETING',fail=false}={}){
+ const old={fetch:global.fetch,get:C.getContact,sb:C.sb,send:C.sendTemplate,log:C.logMessage,upsert:C.upsertContact};let contact=initial,sends=0;const writes=[],logs=[],claims=new Set();
+ global.fetch=async()=>({ok:true,json:async()=>({data:[{name:'approved_first_contact',language:'es',category,status:'APPROVED',components:[{type:'BODY',text:'Hola, somos ThinkStore.'}]}]})});
+ C.getContact=async()=>contact;C.upsertContact=async(phone,patch)=>{writes.push(patch);contact={phone_e164:phone,...contact,...patch};return contact;};C.logMessage=async row=>logs.push(row);
+ C.sendTemplate=async()=>{sends++;if(fail)throw Error('network outcome unknown');return{messages:[{id:'accepted-manual'}]};};
+ C.sb=async(_cfg,path,opt)=>{if(path==='whatsapp_notification_outbox'&&opt.method==='POST'){const row=JSON.parse(opt.body);if(claims.has(row.event_key))throw Error('23505 duplicate key');claims.add(row.event_key);}return[];};
+ const b={phone:'12125550123',client_id:'12345678-1234-4234-8234-123456789abc',template:'approved_first_contact',language:'es',variables:[]},actor={user_id:'staff-a'};
+ try{return await fn({b,actor,writes,logs,sends:()=>sends,contact:()=>contact});}finally{global.fetch=old.fetch;C.getContact=old.get;C.sb=old.sb;C.sendTemplate=old.send;C.logMessage=old.log;C.upsertContact=old.upsert;}
+}
+test('authenticated individual template does not require a keyword, prior inbound message, or campaign subscription',()=>manualHarness(async h=>{const r=await T.send(h.b,h.actor,{manual:true});assert.equal(r.status,'sent');assert.equal(h.sends(),1);assert.equal(h.writes.length,0);assert.equal(h.contact().metadata.marketing_opt_in,undefined);assert.equal(h.logs[0].payload.mode,'individual');assert.equal(h.logs[0].payload.authorization_recorded,false);}));
+test('first individual service template opens a contact without manufacturing permission or an inbound session',()=>manualHarness(async h=>{assert.equal((await T.send(h.b,h.actor,{manual:true})).status,'sent');assert.equal(h.writes[0].opt_in,false);assert.equal(h.writes[0].last_inbound_at,undefined);assert.equal(h.writes[0].metadata.marketing_opt_in,undefined);assert.equal(h.writes[0].metadata.workspace.origin,'manual_template');},{initial:null,category:'UTILITY'}));
+test('an explicit opt-out still blocks individual templates before any provider call',()=>manualHarness(async h=>{await assert.rejects(T.send(h.b,h.actor,{manual:true}),/BAJA/);assert.equal(h.sends(),0);assert.equal(h.writes.length,0);},{initial:{opt_out_at:'2026-11-01',metadata:{}}}));
+test('switching sender does not bypass an opt-out recorded on the other ThinkStore number',()=>manualHarness(async h=>{C.getContact=async()=>C.channel()==='meta'?{opt_out_at:'2026-11-01'}:{opt_in:false,metadata:{}};await assert.rejects(C.withChannel('meta-us',()=>T.send(h.b,h.actor,{manual:true})),/BAJA/);assert.equal(h.sends(),0);assert.equal(h.writes.length,0);}));
+test('campaigns and requests without an authenticated operator cannot use individual mode to bypass their audience rules',()=>manualHarness(async h=>{for(const [actor,context] of [[{}, {manual:true}],[h.actor,{manual:true,campaignId:'campaign'}],[h.actor,{}]])await assert.rejects(T.send(h.b,actor,context),/autorización/);assert.equal(h.sends(),0);}));
+test('individual sends preserve idempotency after an accepted or uncertain delivery',async()=>{for(const fail of [false,true])await manualHarness(async h=>{assert.equal((await T.send(h.b,h.actor,{manual:true})).status,fail?'unconfirmed':'sent');assert.equal((await T.send(h.b,h.actor,{manual:true})).status,'duplicate');assert.equal(h.sends(),1);},{fail});});
+test('only the authenticated staff endpoint supplies the individual template context',async()=>{const Auth=require('../netlify/functions/requests-inbox'),auth=Auth.authenticate,send=T.send;let captured;Auth.authenticate=async()=>({ok:true,role:'vendedor',user_id:'staff-real'});delete require.cache[require.resolve('../netlify/functions/whatsapp-admin')];const API=require('../netlify/functions/whatsapp-admin');Auth.authenticate=auth;T.send=async(b,actor,context)=>{captured={actor,context};return{status:'sent'};};try{const r=await API.handler({httpMethod:'POST',headers:{},body:JSON.stringify({channel:'meta',action:'send_template',user_id:'forged',manual:false})});assert.equal(r.statusCode,200);assert.equal(captured.actor.user_id,'staff-real');assert.deepEqual(captured.context,{manual:true});}finally{T.send=send;}});
