@@ -17,7 +17,7 @@ exports.handler=async(event)=>{
       for(const st of value.statuses||[])await C.updateStatus(st.id,st.status,st);
       for(const m of value.messages||[]){if(!m?.id||await C.seenMessage(m.id))continue;const phone=C.normalizePhone(m.from),text=C.clean(m.text?.body||m.button?.text||m.interactive?.button_reply?.title||m.interactive?.list_reply?.title||'',1500);if(!phone)continue;
         await C.logMessage({wa_message_id:m.id,phone_e164:phone,direction:'inbound',message_type:m.type||'unknown',status:'received',source:'webhook',body_preview:text,payload:m});
-        const current=await C.getContact(phone),n=(m.button?.payload||m.interactive?.button_reply?.id)==='TS_MARKETING_STOP'?'baja':C.norm(text),now=new Date().toISOString();
+        const current=await C.getContact(phone);if(current?.metadata?.workspace?.status==='closed'){current.metadata.workspace={...current.metadata.workspace,status:'open'};await C.upsertContact(phone,{metadata:current.metadata});}const n=(m.button?.payload||m.interactive?.button_reply?.id)==='TS_MARKETING_STOP'?'baja':C.norm(text),now=new Date().toISOString();
         if(/^(stop|salir|baja|cancelar notificaciones)$/.test(n)){
           await C.upsertContact(phone,{opt_in:false,opt_out_at:now,last_inbound_at:now,last_message_preview:text,needs_human:true,metadata:{...(current?.metadata||{}),marketing_opt_in:false,service_notifications_opt_in:false,care_assistant:{...(current?.metadata?.care_assistant||{}),active:false}}});
           const sent=await C.sendText(phone,'Listo. Pausamos las notificaciones automáticas de ThinkStore. Puedes escribir ACTIVAR cuando quieras volver a recibirlas.');
