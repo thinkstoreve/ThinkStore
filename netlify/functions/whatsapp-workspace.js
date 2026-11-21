@@ -13,6 +13,20 @@ exports.handler=async event=>{
   if(!['meta','wati'].includes(b.channel))return out(400,{ok:false,error:'Canal inválido'});
   const AI=require('./_whatsapp-ai');
   const admin=['admin','superadmin'].includes(C.norm(user.role));
+  if(b.action==='conversation_update'){
+   const phone=C.normalizePhone(b.phone);if(!/^\d{8,15}$/.test(phone))return out(400,{ok:false,error:'Teléfono inválido.'});
+   const c=await C.getContact(phone);if(!c)return out(404,{ok:false,error:'Conversación no encontrada.'});
+   const w={...(c.metadata?.workspace||{})};
+   if(b.status!==undefined){if(!['open','pending','closed'].includes(b.status))return out(400,{ok:false,error:'Estado inválido.'});w.status=b.status;}
+   if(b.priority!==undefined)w.priority=b.priority===true;
+   if(b.tags!==undefined){if(!Array.isArray(b.tags)||b.tags.length>8)return out(400,{ok:false,error:'Usa hasta ocho etiquetas.'});w.tags=[...new Set(b.tags.map(t=>C.clean(t,30)).filter(Boolean))];}
+   if(b.assignment==='me')w.assigned_to=user.user_id;
+   if(b.assignment==='release'){
+    if(w.assigned_to&&w.assigned_to!==user.user_id&&!admin)return out(403,{ok:false,error:'Solo el responsable o administración puede liberar este chat.'});
+    w.assigned_to=null;
+   }
+   w.updated_at=new Date().toISOString();const takeover=b.assignment==='me'||b.status==='closed';await C.upsertContact(phone,{...(takeover?{needs_human:true}:{}),metadata:{...(c.metadata||{}),...(takeover?{care_assistant:{...(c.metadata?.care_assistant||{}),active:false}}:{}),workspace:w}});return out(200,{ok:true,workspace:w});
+  }
   if(b.action==='ai_settings')return out(200,{ok:true,...await AI.settings(),admin});
   if(b.action==='save_ai_settings'){
    if(!admin)return out(403,{ok:false,error:'Solo administración puede activar respuestas automáticas.'});
