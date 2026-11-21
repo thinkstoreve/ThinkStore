@@ -77,5 +77,5 @@ exports.handler=async event=>{
    return out(200,{ok:true});
   }
   return out(400,{ok:false,error:'Acción no soportada'});
- }catch(e){return out(e.status||503,{ok:false,error:e.status?e.message:'No se pudo actualizar la bandeja. Reintenta en unos segundos.'});}
+ }catch(e){return out(e.status||503,{ok:false,error:e.status?e.message:'No se pudo actualizar la bandeja. Reintenta en unos segundos.',...(e.reason?{reason:e.reason,retry_after:e.retryAfter||null}:{})});}
 };
