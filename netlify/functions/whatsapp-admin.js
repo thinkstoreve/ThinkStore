@@ -2,17 +2,19 @@ const C=require('./_whatsapp-core');
 const {authenticate:authenticateInternal}=require('./requests-inbox');
 const Intake=require('./_whatsapp-intake');
 const out=(s,b)=>({statusCode:s,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization, x-admin-secret','Access-Control-Allow-Methods':'GET,POST,OPTIONS'},body:JSON.stringify(b)});
-exports.handler=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{ok:true});
+const handle=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(200,{ok:true});
  const m=C.mainCfg();let allowed=false,staff=null;const legacy=C.clean(event.headers['x-admin-secret']||event.headers['X-Admin-Secret']);if(legacy&&[process.env.THINKSTORE_ADMIN_SECRET,process.env.THINKSTORE_ADMIN_CODE].filter(Boolean).map(String).includes(legacy))allowed=true;
  if(!allowed){const a=await authenticateInternal(event);staff=a;const r=C.norm(a?.role);allowed=!!a?.ok&&['admin','superadmin','gerente','vendedor','soporte','recepcion'].includes(r)}if(!allowed)return out(401,{ok:false,error:'No autorizado'});
- const cfg=C.waCfg();if(event.httpMethod==='GET')return out(200,{ok:true,configured:{access_token:!!cfg.token,phone_number_id:!!cfg.phoneId,verify_token:!!cfg.verifyToken,app_secret:!!cfg.appSecret,graph_version:!!cfg.version,debt_automation:String(process.env.WHATSAPP_DEBT_AUTOMATION_ENABLED||'').toLowerCase()==='true',debt_template:!!process.env.WHATSAPP_DEBT_TEMPLATE_NAME,service_notifications:String(process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',appointment_notifications:String(process.env.WHATSAPP_APPOINTMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',payment_notifications:String(process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',shared_relay_secret:!!process.env.WHATSAPP_EVENTS_SECRET,order_notifications:String(process.env.WHATSAPP_ORDER_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true'},webhook_url:`${cfg.site}/.netlify/functions/whatsapp-webhook`,official_phone:'+58 424 170 6142'});
- let b={};try{b=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}if(['alerts','mark_read'].includes(b.action)){
+ const cfg=C.waCfg();if(event.httpMethod==='GET')return out(200,{ok:true,configured:{access_token:!!cfg.token,phone_number_id:!!cfg.phoneId,verify_token:!!cfg.verifyToken,app_secret:!!cfg.appSecret,graph_version:!!cfg.version,debt_automation:String(process.env.WHATSAPP_DEBT_AUTOMATION_ENABLED||'').toLowerCase()==='true',debt_template:!!process.env.WHATSAPP_DEBT_TEMPLATE_NAME,service_notifications:String(process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',appointment_notifications:String(process.env.WHATSAPP_APPOINTMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',payment_notifications:String(process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true',shared_relay_secret:!!process.env.WHATSAPP_EVENTS_SECRET,order_notifications:String(process.env.WHATSAPP_ORDER_NOTIFICATIONS_ENABLED||'').toLowerCase()==='true'},webhook_url:`${cfg.site}/.netlify/functions/${cfg.webhook}`,official_phone:'+'+cfg.expectedPhone});
+ let b={};try{b=JSON.parse(event.body||'{}')}catch{return out(400,{ok:false,error:'JSON inválido'})}if(C.channel()==='meta-us'&&b.action!=='inbox_health'&&require('./_whatsapp-channels').missing().length)return out(409,{ok:false,error:'El número +1 está pendiente de conectar con Meta. No se han enviado mensajes.'});
+ if(['alerts','mark_read'].includes(b.action)){
  if(!staff?.user_id)return out(401,{ok:false,error:'Inicia sesión para consultar tus notificaciones'});
  if(b.action==='alerts')return out(200,{ok:true,...await C.sb(m,'rpc/ts_whatsapp_alerts',{method:'POST',body:JSON.stringify({p_user:staff.user_id})})});
  const phone=C.normalizePhone(b.phone),ids=b.ids;
  if(!/^\d{8,15}$/.test(phone)||!Array.isArray(ids)||ids.length>100||ids.some(x=>!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(String(x))))return out(400,{ok:false,error:'Lectura inválida'});
  const changed=await C.sb(m,'rpc/ts_whatsapp_mark_read',{method:'POST',body:JSON.stringify({p_user:staff.user_id,p_phone:phone,p_ids:ids})});return out(200,{ok:true,changed});
  }
+ if(C.channel()==='meta-us'&&String(b.action||'').startsWith('marketing_'))return out(409,{ok:false,error:'Las difusiones del +1 todavía no están habilitadas. Usa la conversación y sus plantillas.'});
  if(String(b.action||'').startsWith('marketing_')){try{return out(200,await require('./_whatsapp-marketing').handle(b,staff))}catch(e){return out(e.status||400,{ok:false,error:C.clean(e.message,300)})}}
  if(b.action==='templates')return out(200,{ok:true,templates:await require('./_whatsapp-templates').list()});
  if(b.action==='send_template'){
@@ -20,17 +22,17 @@ exports.handler=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(20
  return out(result.status==='sent'?200:409,{ok:result.status==='sent',result,error:result.status==='duplicate'?'Este envío ya fue procesado. Revisa el historial.':result.status==='unconfirmed'?'Entrega sin confirmar. Revisa Meta antes de reenviar.':undefined});
  }
  if(b.action==='inbox_health'){
- const configured={token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
+ const configured={enabled:cfg.enabled,token:!!cfg.token,phone_id:!!cfg.phoneId,version:!!cfg.version,signature:!!cfg.appSecret,verify_token:!!cfg.verifyToken};
  let connection={ok:false,reason:'Configuración incompleta'};
  if(configured.token&&configured.phone_id&&configured.version){
   try{const r=await fetch(`https://graph.facebook.com/${cfg.version}/${cfg.phoneId}?fields=display_phone_number,verified_name`,{headers:{Authorization:`Bearer ${cfg.token}`}});const d=await r.json();
-  connection=r.ok?{ok:true,phone:d.display_phone_number,name:d.verified_name,matches_official:C.normalizePhone(d.display_phone_number)==='584241706142'}:{ok:false,code:d.error?.code,reason:d.error?.code===190?'La credencial de Meta está vencida o no es válida':'Meta no permite consultar el número conectado'};
+  connection=r.ok?{ok:true,phone:d.display_phone_number,name:d.verified_name,matches_official:C.normalizePhone(d.display_phone_number)===cfg.expectedPhone}:{ok:false,code:d.error?.code,reason:d.error?.code===190?'La credencial de Meta está vencida o no es válida':'Meta no permite consultar el número conectado'};
   }catch{connection={ok:false,reason:'No se pudo consultar la conexión con Meta'};}
  }
- const latest=await C.sb(m,'whatsapp_message_log?select=created_at,direction,source&direction=eq.inbound&order=created_at.desc&limit=1');
+ let databaseReady=true;const latest=await C.sb(m,'whatsapp_message_log?select=created_at,direction,source&direction=eq.inbound&order=created_at.desc&limit=1').catch(()=>{databaseReady=false;return[];});
  let outbox=false;try{await C.sb(m,'whatsapp_notification_outbox?select=event_key&limit=1');outbox=true}catch{}
  const automation={outbox,service:String(process.env.WHATSAPP_SERVICE_NOTIFICATIONS_ENABLED)==='true',appointments:String(process.env.WHATSAPP_APPOINTMENT_NOTIFICATIONS_ENABLED)==='true',payments:String(process.env.WHATSAPP_PAYMENT_NOTIFICATIONS_ENABLED)==='true',orders:String(process.env.WHATSAPP_ORDER_NOTIFICATIONS_ENABLED)==='true'};
- return out(200,{ok:true,configured,connection,automation,last_inbound:latest?.[0]?.created_at||null,webhook_url:`${cfg.site}/.netlify/functions/whatsapp-webhook`});
+ return out(200,{ok:true,channel:C.channel(),expected_phone:'+'+cfg.expectedPhone,database_ready:databaseReady,configured,connection,automation,last_inbound:latest?.[0]?.created_at||null,webhook_url:`${cfg.site}/.netlify/functions/${cfg.webhook}`});
  }
  if(b.action==='conversation'){
  const phone=C.normalizePhone(b.phone);if(!/^\d{8,15}$/.test(phone))return out(400,{ok:false,error:'Teléfono inválido'});
@@ -77,3 +79,5 @@ exports.handler=async(event)=>{try{if(event.httpMethod==='OPTIONS')return out(20
  if(b.action==='preview_debts'){const a=await authenticateInternal(event);if(!a.ok||!['admin','superadmin'].includes(a.role))return out(403,{ok:false,error:'Solo administración puede consultar financiación'});const rows=await C.debtCandidates();return out(200,{ok:true,count:rows.length,rows:rows.slice(0,100)})}if(b.action==='preview_reply'){return out(200,{ok:true,reply:await C.smartReply(C.clean(b.message,1000))})}return out(400,{ok:false,error:'Acción no soportada'});
 }catch(e){console.error('whatsapp-admin',e.message);return out(503,{ok:false,error:'No se pudo actualizar WhatsApp. Reintenta en unos segundos.'});}
 };
+
+exports.handler=async event=>{try{return await C.withChannel(C.requestChannel(event),()=>handle(event));}catch(e){return out(e.status||503,{ok:false,error:e.status?e.message:'No se pudo abrir el canal de WhatsApp.'});}};
