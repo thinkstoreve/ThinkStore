@@ -82,7 +82,14 @@ async function send(b,actor,context={}){
  catch(e){if(/duplicate key|23505|409/.test(e.message))return{status:'duplicate'};throw Error('No se pudo reservar el envío. Comprueba la migración de avisos.');}
  const endpoint='whatsapp_notification_outbox?event_key=eq.'+key;
  let sent;try{sent=await C.sendTemplate(phone,t.name,t.language,values,extra);if(!sent?.messages?.[0]?.id)throw Error('missing_message_id');}
- catch{await C.sb(cfg,endpoint,{method:'PATCH',body:JSON.stringify({status:'failed',last_error:'Entrega sin confirmar; revisar Meta antes de reenviar',updated_at:new Date().toISOString()})}).catch(()=>{});return{status:'unconfirmed'};}
+ catch(e){
+  const rejected=e.providerRejected===true&&Number.isInteger(e.providerCode),code=rejected?e.providerCode:null;
+  const hints={190:'La credencial de Meta venció o no es válida.',131037:'Meta aún no aprobó el nombre visible de este número.',131042:'Revisa la facturación de esta cuenta de WhatsApp en Meta.',131045:'El número necesita completar su registro en Meta.',133010:'El número no está registrado en WhatsApp Business Platform.',132000:'Los datos enviados no coinciden con las variables de la plantilla.',132001:'La plantilla no está aprobada en este número o idioma.',132012:'El formato de los datos o la imagen no coincide con la plantilla.',132015:'Meta pausó esta plantilla.',132016:'Meta desactivó esta plantilla.'};
+  const reason=rejected?'Meta rechazó la plantilla (código '+code+'). '+(hints[code]||'Revisa el número y la plantilla en WhatsApp Manager.'):'Entrega sin confirmar; revisa Meta antes de reenviar.';
+  await C.sb(cfg,endpoint,{method:'PATCH',body:JSON.stringify({status:'failed',last_error:reason,updated_at:new Date().toISOString()})}).catch(()=>{});
+  await C.logMessage({wa_message_id:'template-attempt:'+key,phone_e164:phone,direction:'outbound',message_type:'template',template_name:t.name,status:rejected?'failed':'unconfirmed',source:'staff_template_attempt',body_preview:t.body.replace(/{{(\d+)}}/g,(_,i)=>values[Number(i)-1]),payload:{actor:actor?.user_id||null,client_id:b.client_id,provider_code:code,error:reason}});
+  return{status:rejected?'rejected':'unconfirmed',...(rejected?{provider_code:code}:{}),reason};
+ }
  const mid=sent.messages[0].id,preview=t.body.replace(/{{(\d+)}}/g,(_,i)=>values[Number(i)-1]);
  await C.sb(cfg,endpoint,{method:'PATCH',body:JSON.stringify({status:'sent',provider_message_id:mid,updated_at:new Date().toISOString()})}).catch(()=>{});
  await C.logMessage({wa_message_id:mid,phone_e164:phone,direction:'outbound',message_type:'template',template_name:t.name,status:'sent',source:marketing?'staff_marketing':'staff_template',body_preview:preview,payload:{actor:actor?.user_id||null,client_id:b.client_id,mode:individual?'individual':'automation',authorization_recorded:marketing?contact?.metadata?.marketing_opt_in===true:(contact?.opt_in===true||contact?.metadata?.service_notifications_opt_in===true)}});
