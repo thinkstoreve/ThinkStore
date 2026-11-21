@@ -2,7 +2,7 @@
 const crypto=require('node:crypto'), C=require('./_whatsapp-core');
 const UUID=/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 async function catalog(){
- const c=C.waCfg(),id=process.env.WHATSAPP_BUSINESS_ACCOUNT_ID||'1394432156184316';let url=`https://graph.facebook.com/${c.version}/${id}/message_templates?fields=name,status,language,category,components&limit=100`,rows=[];
+ const c=C.waCfg(),id=c.wabaId;let url=`https://graph.facebook.com/${c.version}/${id}/message_templates?fields=name,status,language,category,components&limit=100`,rows=[];
  for(let page=0;url&&page<5;page++){
   const r=await fetch(url,{headers:{Authorization:'Bearer '+c.token},signal:AbortSignal.timeout(10000)}),d=await r.json();
   if(!r.ok)throw Error('No se pudieron consultar las plantillas en Meta');
@@ -57,7 +57,7 @@ async function uploadSample(b){
  const result=await fetch(base+session.id,{method:'POST',headers:{Authorization:'OAuth '+c.token,file_offset:'0','Content-Type':match[1]},body:bytes,signal:AbortSignal.timeout(10000)}),d=await result.json();if(!result.ok||typeof d.h!=='string')throw Error('Meta no pudo recibir la imagen de muestra');return{handle:d.h};
 }
 async function createTemplate(b){
- const payload=templatePayload(b),c=C.waCfg(),id=process.env.WHATSAPP_BUSINESS_ACCOUNT_ID||'1394432156184316';
+ const payload=templatePayload(b),c=C.waCfg(),id=c.wabaId;
  const r=await fetch(`https://graph.facebook.com/${c.version}/${id}/message_templates`,{method:'POST',headers:{Authorization:'Bearer '+c.token,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(15000)});
  const d=await r.json();if(!r.ok)throw Error('Meta no aceptó la plantilla. '+C.clean(d.error?.error_user_msg||d.error?.message||'Revisa el nombre y el contenido antes de reintentar.',250));return{id:d.id,name:payload.name,status:d.status||'PENDING'};
 }

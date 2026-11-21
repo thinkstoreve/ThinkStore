@@ -12,7 +12,7 @@ exports.handler=async(event)=>{
   const raw=event.body||'';if(!C.verifySignature(raw,event.headers['x-hub-signature-256']||event.headers['X-Hub-Signature-256']))return out(401,{ok:false,error:'invalid_signature'});
   let body={};try{body=JSON.parse(raw||'{}')}catch{return out(400,{ok:false,error:'invalid_json'})}
   try{
-    for(const entry of body.entry||[])for(const change of entry.changes||[]){const value=change.value||{};
+    for(const entry of body.entry||[])for(const change of entry.changes||[]){const value=change.value||{};if((C.channel()==='meta-us'||value.metadata?.phone_number_id)&&value.metadata?.phone_number_id!==C.waCfg().phoneId)continue;
       for(const echo of value.message_echoes||[]){if(!echo.id||await C.seenMessage(echo.id))continue;const phone=C.normalizePhone(echo.to);if(!phone)continue;await C.logMessage({wa_message_id:echo.id,phone_e164:phone,direction:'outbound',message_type:echo.type||'unknown',status:'sent',source:'whatsapp_business_app',body_preview:C.clean(echo.text?.body||'['+(echo.type||'Archivo')+']',1500),payload:echo});const c=await C.getContact(phone);await C.upsertContact(phone,{last_outbound_at:new Date().toISOString(),needs_human:true,metadata:{...(c?.metadata||{}),care_assistant:{...(c?.metadata?.care_assistant||{}),active:false}}});}
       for(const st of value.statuses||[])await C.updateStatus(st.id,st.status,st);
       for(const m of value.messages||[]){if(!m?.id||await C.seenMessage(m.id))continue;const phone=C.normalizePhone(m.from),text=C.clean(m.text?.body||m.button?.text||m.interactive?.button_reply?.title||m.interactive?.list_reply?.title||'',1500);if(!phone)continue;
