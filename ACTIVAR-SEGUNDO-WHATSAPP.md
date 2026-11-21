@@ -22,7 +22,7 @@ Canal `meta-us`: **+1 555-780-5646**. El +58 conserva su configuración y su alm
 ## Comportamiento
 
 - Contactos, historial, lecturas, notas, borradores, configuración de IA y reservas de envío independientes.
-- Respuestas manuales y archivos dentro de la ventana de atención; fuera de ella se utilizan plantillas aprobadas y consentimiento registrado.
+- Respuestas manuales y archivos dentro de la ventana de atención. Para iniciar un contacto se elige una plantilla aprobada; el envío individual del operador no exige una palabra clave ni inscribe al contacto en campañas. Debe utilizarse para comunicaciones que el destinatario haya aceptado recibir. Las bajas registradas en cualquiera de los dos números bloquean ese envío. Las campañas mantienen su selección de destinatarios autorizados.
 - La biblioteca y las plantillas consultadas pertenecen al canal seleccionado.
 - Las automatizaciones existentes de citas, pagos y campañas siguen usando el +58. Las difusiones del +1 quedan bloqueadas hasta integrar ese flujo.
 - La IA automática del canal nuevo comienza desactivada. Necesita créditos de OpenAI por separado.
@@ -30,4 +30,4 @@ Canal `meta-us`: **+1 555-780-5646**. El +58 conserva su configuración y su alm
 
 ## Validación
 
-81 pruebas específicas de WhatsApp aprobadas antes de publicación, incluyendo concurrencia sin mutar el entorno del proceso, credenciales y tablas aisladas, remitente esperado, autenticación y firma del webhook. La prueba de entrega real requiere completar los pasos de Meta y configuración privada.
+90 pruebas específicas de WhatsApp aprobadas antes de publicación, incluyendo concurrencia sin mutar el entorno del proceso, credenciales y tablas aisladas, remitente esperado, autenticación y firma del webhook. La prueba de entrega real requiere completar los pasos de Meta y configuración privada.

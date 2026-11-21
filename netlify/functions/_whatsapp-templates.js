@@ -62,23 +62,30 @@ async function createTemplate(b){
  const d=await r.json();if(!r.ok)throw Error('Meta no aceptó la plantilla. '+C.clean(d.error?.error_user_msg||d.error?.message||'Revisa el nombre y el contenido antes de reintentar.',250));return{id:d.id,name:payload.name,status:d.status||'PENDING'};
 }
 async function send(b,actor,context={}){
- const phone=C.normalizePhone(b.phone);if(!/^\d{10,15}$/.test(phone)||!UUID.test(b.client_id||''))throw Error('Teléfono o referencia de envío inválidos');
+ const phone=C.normalizePhone(b.phone);if(!/^[1-9]\d{7,14}$/.test(phone)||!UUID.test(b.client_id||''))throw Error('Teléfono o referencia de envío inválidos');
  const t=context.template||(await list()).find(t=>t.name===b.template&&t.language===b.language);if(!t)throw Error('La plantilla no está aprobada o requiere otro tipo de contenido');
  const values=b.variables;if(!Array.isArray(values))throw Error('Completa los datos de la plantilla');
  const indices=[...t.body.matchAll(/{{(\d+)}}/g)].map(m=>Number(m[1])),count=Math.max(0,...indices);
  if(values.length!==count||values.some(v=>typeof v!=='string'||!v.trim()||v.length>500))throw Error('Completa todas las variables (máximo 500 caracteres por dato)');
  const extra=mediaComponents(t,b.image);
- const contact=await C.getContact(phone),marketing=t.category==='MARKETING';
- if(!contact||contact.opt_out_at||!(marketing?contact.metadata?.marketing_opt_in===true:(contact.opt_in===true||contact.metadata?.service_notifications_opt_in===true)))throw Error(marketing?'El cliente debe autorizar promociones escribiendo PROMOCIONES por WhatsApp.':'El cliente no tiene autorización de avisos registrada.');
+ const individual=context.manual===true&&!context.campaignId&&!!actor?.user_id,marketing=t.category==='MARKETING';
+ const readContact=()=>C.getContact(phone,true).catch(()=>{throw Error('No se pudo comprobar el estado del contacto. Reintenta antes de enviar.');});
+ let contact=await readContact();
+ const checkOther=individual&&!contact?.opt_out_at&&(C.channel()==='meta-us'||C.withChannel('meta-us',()=>!!C.waCfg().phoneId));
+ const other=checkOther?await C.withChannel(C.channel()==='meta-us'?'meta':'meta-us',readContact):null;
+ if(contact?.opt_out_at||other?.opt_out_at)throw Error('Este contacto solicitó BAJA. No se enviará la plantilla.');
+ if(!individual&&(!contact||!(marketing?contact.metadata?.marketing_opt_in===true:(contact.opt_in===true||contact.metadata?.service_notifications_opt_in===true))))throw Error(marketing?'El contacto no tiene autorización de promociones registrada.':'El cliente no tiene autorización de avisos registrada.');
+ if(individual&&!contact)contact=await C.upsertContact(phone,{name:'Cliente',opt_in:false,needs_human:true,metadata:{workspace:{status:'open',created_by:actor.user_id,origin:'manual_template'}}});
+ if(contact?.opt_out_at)throw Error('Este contacto solicitó BAJA. No se enviará la plantilla.');
  const key=crypto.createHash('sha256').update('manual|'+b.client_id).digest('hex'),cfg=C.mainCfg();
- try{await C.sb(cfg,'whatsapp_notification_outbox',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({event_key:key,phone_e164:phone,template_name:t.name,entity_type:context.campaignId?'marketing_campaign':marketing?'marketing':'manual_template',entity_id:context.campaignId||b.client_id,status:'pending'})});}
+ try{await C.sb(cfg,'whatsapp_notification_outbox',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({event_key:key,phone_e164:phone,template_name:t.name,entity_type:context.campaignId?'marketing_campaign':individual?'manual_template':marketing?'marketing':'manual_template',entity_id:context.campaignId||b.client_id,status:'pending'})});}
  catch(e){if(/duplicate key|23505|409/.test(e.message))return{status:'duplicate'};throw Error('No se pudo reservar el envío. Comprueba la migración de avisos.');}
  const endpoint='whatsapp_notification_outbox?event_key=eq.'+key;
  let sent;try{sent=await C.sendTemplate(phone,t.name,t.language,values,extra);if(!sent?.messages?.[0]?.id)throw Error('missing_message_id');}
  catch{await C.sb(cfg,endpoint,{method:'PATCH',body:JSON.stringify({status:'failed',last_error:'Entrega sin confirmar; revisar Meta antes de reenviar',updated_at:new Date().toISOString()})}).catch(()=>{});return{status:'unconfirmed'};}
  const mid=sent.messages[0].id,preview=t.body.replace(/{{(\d+)}}/g,(_,i)=>values[Number(i)-1]);
  await C.sb(cfg,endpoint,{method:'PATCH',body:JSON.stringify({status:'sent',provider_message_id:mid,updated_at:new Date().toISOString()})}).catch(()=>{});
- await C.logMessage({wa_message_id:mid,phone_e164:phone,direction:'outbound',message_type:'template',template_name:t.name,status:'sent',source:marketing?'staff_marketing':'staff_template',body_preview:preview,payload:{actor:actor?.user_id||null,client_id:b.client_id}});
+ await C.logMessage({wa_message_id:mid,phone_e164:phone,direction:'outbound',message_type:'template',template_name:t.name,status:'sent',source:marketing?'staff_marketing':'staff_template',body_preview:preview,payload:{actor:actor?.user_id||null,client_id:b.client_id,mode:individual?'individual':'automation',authorization_recorded:marketing?contact?.metadata?.marketing_opt_in===true:(contact?.opt_in===true||contact?.metadata?.service_notifications_opt_in===true)}});
  return{status:'sent',message_id:mid};
 }
 module.exports={uploadSample,list,send,catalog,createTemplate,templatePayload,definition,fingerprint,publicImage,mediaComponents};
