@@ -69,11 +69,14 @@ async function send(b,actor,context={}){
  if(values.length!==count||values.some(v=>typeof v!=='string'||!v.trim()||v.length>500))throw Error('Completa todas las variables (máximo 500 caracteres por dato)');
  const extra=mediaComponents(t,b.image);
  const individual=context.manual===true&&!context.campaignId&&!!actor?.user_id,marketing=t.category==='MARKETING';
- let contact=await C.getContact(phone);
- const other=individual&&!contact?.opt_out_at?await C.withChannel(C.channel()==='meta-us'?'meta':'meta-us',()=>C.getContact(phone)):null;
+ const readContact=()=>C.getContact(phone,true).catch(()=>{throw Error('No se pudo comprobar el estado del contacto. Reintenta antes de enviar.');});
+ let contact=await readContact();
+ const checkOther=individual&&!contact?.opt_out_at&&(C.channel()==='meta-us'||C.withChannel('meta-us',()=>!!C.waCfg().phoneId));
+ const other=checkOther?await C.withChannel(C.channel()==='meta-us'?'meta':'meta-us',readContact):null;
  if(contact?.opt_out_at||other?.opt_out_at)throw Error('Este contacto solicitó BAJA. No se enviará la plantilla.');
  if(!individual&&(!contact||!(marketing?contact.metadata?.marketing_opt_in===true:(contact.opt_in===true||contact.metadata?.service_notifications_opt_in===true))))throw Error(marketing?'El contacto no tiene autorización de promociones registrada.':'El cliente no tiene autorización de avisos registrada.');
  if(individual&&!contact)contact=await C.upsertContact(phone,{name:'Cliente',opt_in:false,needs_human:true,metadata:{workspace:{status:'open',created_by:actor.user_id,origin:'manual_template'}}});
+ if(contact?.opt_out_at)throw Error('Este contacto solicitó BAJA. No se enviará la plantilla.');
  const key=crypto.createHash('sha256').update('manual|'+b.client_id).digest('hex'),cfg=C.mainCfg();
  try{await C.sb(cfg,'whatsapp_notification_outbox',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({event_key:key,phone_e164:phone,template_name:t.name,entity_type:context.campaignId?'marketing_campaign':individual?'manual_template':marketing?'marketing':'manual_template',entity_id:context.campaignId||b.client_id,status:'pending'})});}
  catch(e){if(/duplicate key|23505|409/.test(e.message))return{status:'duplicate'};throw Error('No se pudo reservar el envío. Comprueba la migración de avisos.');}
