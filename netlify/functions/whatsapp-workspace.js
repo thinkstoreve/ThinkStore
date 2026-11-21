@@ -52,8 +52,8 @@ const handle=async event=>{
   }
   if(['library_upsert','library_delete'].includes(b.action)){
    const t=b.template||{},id=C.clean(t.id,80);if(!/^[a-f0-9-]{36}$/i.test(id))return out(400,{ok:false,error:'ID de plantilla inválido.'});
-   const title=C.clean(t.title,100),text=C.clean(t.text,3500);if(b.action==='library_upsert'&&(!title||!text))return out(400,{ok:false,error:'Completa título y mensaje.'});
-   await C.sb(C.mainCfg(),'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({wa_message_id:'workspace-template:'+id,phone_e164:'workspace:meta',direction:'internal',message_type:'template',status:b.action==='library_delete'?'deleted':'saved',source:'workspace_template',payload:{id,title,text,author:user.user_id},updated_at:new Date().toISOString()})});return out(200,{ok:true,template:{id,title,text}});
+   const title=C.clean(t.title,100),text=C.clean(t.text,3500);let button=null,footer='';try{button=Preview.button(t.button);footer=Preview.footer(t.footer);if(button)Preview.interactive(text,button,footer);}catch(e){return out(400,{ok:false,error:e.message});}if(b.action==='library_upsert'&&(!title||!text))return out(400,{ok:false,error:'Completa título y mensaje.'});
+   await C.sb(C.mainCfg(),'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({wa_message_id:'workspace-template:'+id,phone_e164:'workspace:meta',direction:'internal',message_type:'template',status:b.action==='library_delete'?'deleted':'saved',source:'workspace_template',payload:{id,title,text,button,footer,author:user.user_id},updated_at:new Date().toISOString()})});return out(200,{ok:true,template:{id,title,text,button,footer}});
   }
   if(b.action==='library_generate'){
    const topic=C.clean(b.topic,1200);if(!topic)return out(400,{ok:false,error:'Indica el tema de la plantilla.'});
@@ -73,11 +73,11 @@ const handle=async event=>{
    if(b.action==='notes'||b.action==='draft'){
     const rows=await C.sb(C.mainCfg(),'whatsapp_message_log?wa_message_id=eq.'+encodeURIComponent(key)+'&select=body_preview,updated_at,payload&limit=1');
     let button=null;if(isDraft)try{button=Preview.draftButton(rows?.[0]?.payload?.button);}catch{}
-    return out(200,{ok:true,text:rows?.[0]?.body_preview||'',updated_at:rows?.[0]?.updated_at||null,client_id:isDraft?rows?.[0]?.payload?.client_id||null:undefined,...(isDraft?{button}:{})});
+    return out(200,{ok:true,text:rows?.[0]?.body_preview||'',updated_at:rows?.[0]?.updated_at||null,client_id:isDraft?rows?.[0]?.payload?.client_id||null:undefined,...(isDraft?{button,footer:Preview.footer(rows?.[0]?.payload?.footer)}:{})});
    }
    const text=C.clean(b.text,isDraft?4000:6000);
-   let button=null;if(isDraft)try{button=Preview.draftButton(b.button);}catch(e){return out(400,{ok:false,error:e.message});}
-   await C.sb(C.mainCfg(),'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({wa_message_id:key,phone_e164:'workspace:'+b.channel+':'+phone,direction:'internal',message_type:isDraft?'draft':'note',status:'saved',source:'workspace_'+(isDraft?'draft':'note'),body_preview:text,payload:{author:user.user_id,...(isDraft?{button,client_id:/^[a-f\d-]{36}$/i.test(String(b.client_id||''))?b.client_id:null}:{})},updated_at:new Date().toISOString()})});
+   let button=null,footer='';if(isDraft)try{button=Preview.draftButton(b.button);footer=Preview.footer(b.footer);}catch(e){return out(400,{ok:false,error:e.message});}
+   await C.sb(C.mainCfg(),'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({wa_message_id:key,phone_e164:'workspace:'+b.channel+':'+phone,direction:'internal',message_type:isDraft?'draft':'note',status:'saved',source:'workspace_'+(isDraft?'draft':'note'),body_preview:text,payload:{author:user.user_id,...(isDraft?{button,footer,client_id:/^[a-f\d-]{36}$/i.test(String(b.client_id||''))?b.client_id:null}:{})},updated_at:new Date().toISOString()})});
    return out(200,{ok:true});
   }
   return out(400,{ok:false,error:'Acción no soportada'});

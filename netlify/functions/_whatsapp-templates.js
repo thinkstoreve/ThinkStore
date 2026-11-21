@@ -30,6 +30,7 @@ function templatePayload(b){
  const component={type:'BODY',text:body};if(count)component.example={body_text:[examples.map(v=>v.trim())]};
  const components=[];
  if(b.header?.format==='IMAGE'){if(typeof b.header.handle!=='string'||!/^\d+::/.test(b.header.handle)||b.header.handle.length>5000)throw Error('Sube una imagen de ejemplo antes de solicitar revisión');components.push({type:'HEADER',format:'IMAGE',example:{header_handle:[b.header.handle]}});}
+ if(b.header?.format==='TEXT'){const text=String(b.header.text||'').trim();if(!text||text.length>60||/[{}]/.test(text))throw Error('El encabezado admite hasta 60 caracteres sin variables');components.push({type:'HEADER',format:'TEXT',text});}
  components.push(component);
  if(b.footer){if(typeof b.footer!=='string'||b.footer.length>60||/[{}]/.test(b.footer))throw Error('El pie admite hasta 60 caracteres sin variables');components.push({type:'FOOTER',text:b.footer.trim()});}
  if(b.buttons!==undefined&&!Array.isArray(b.buttons))throw Error('Los botones deben ser una lista');
@@ -48,7 +49,7 @@ function templatePayload(b){
   components.push({type:'BUTTONS',buttons});
  }
 
- return{name,language:'es',category,components};
+ return{name,language:/^[a-z]{2}(?:_[A-Z]{2})?$/.test(b.language||'')?b.language:'es',category,components};
 }
 async function uploadSample(b){
  const match=String(b.data||'').match(/^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=]+)$/);if(!match)throw Error('Sube una imagen JPG o PNG');const bytes=Buffer.from(match[2],'base64');if(!bytes.length||bytes.length>4*1024*1024)throw Error('La imagen debe pesar hasta 4 MB');const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpeg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;if((match[1]==='image/png'&&!png)||(match[1]==='image/jpeg'&&!jpeg))throw Error('El contenido no corresponde a una imagen JPG o PNG');

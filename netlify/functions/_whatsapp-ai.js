@@ -3,7 +3,7 @@ const C=require('./_whatsapp-core');
 const SETTINGS='workspace-settings:meta';
 async function record(key){const rows=await C.sb(C.mainCfg(),'whatsapp_message_log?wa_message_id=eq.'+encodeURIComponent(key)+'&select=payload&limit=1');return rows?.[0]?.payload||{};}
 async function save(key,payload){await C.sb(C.mainCfg(),'whatsapp_message_log?on_conflict=wa_message_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates'},body:JSON.stringify({wa_message_id:key,phone_e164:'workspace:meta',direction:'internal',message_type:'configuration',status:'saved',source:'workspace_settings',payload,updated_at:new Date().toISOString()})});}
-async function settings(){const x=await record(SETTINGS);return {enabled:x.enabled===true,instructions:C.clean(x.instructions,1800),ready:!!process.env.OPENAI_API_KEY&&!!C.waCfg().appSecret};}
+async function settings(){const x=await record(SETTINGS);return {enabled:x.enabled===true,instructions:C.clean(x.instructions,1800),ready:!!process.env.OPENAI_API_KEY&&!!C.waCfg().appSecret,last_error:C.clean(x.last_error,500)};}
 function providerError(response,body={}){
  const raw=body.error||{},code=String(raw.code||''),type=String(raw.type||'');
  const billing={credit_balance_exhausted:'La cuenta de OpenAI no tiene créditos de API disponibles. Añade saldo en la facturación de la cuenta donde creaste la clave.',organization_spend_limit_exceeded:'La organización de OpenAI alcanzó su límite de gasto. Revisa sus límites de facturación.',project_spend_limit_exceeded:'El proyecto de OpenAI alcanzó su límite de gasto. Revisa el presupuesto del proyecto.',api_key_spend_limit_exceeded:'La clave de OpenAI alcanzó su límite de gasto. Revisa el presupuesto de esa clave.',organization_usage_limit_exceeded:'La cuenta alcanzó el límite de uso autorizado por OpenAI. Solicita una ampliación a OpenAI.'};
@@ -38,13 +38,13 @@ async function respond({phone,message,contact,text,human}){
  let attempted=false;
  try{
   const rows=await C.sb(C.mainCfg(),'whatsapp_message_log?phone_e164=eq.'+encodeURIComponent(phone)+'&direction=in.(inbound,outbound)&select=direction,body_preview&order=created_at.desc&limit=10');
-  const reply=await generate((rows||[]).reverse(),config.instructions);
+  const reply='Soy el asistente automático de ThinkStore. '+await generate((rows||[]).reverse(),config.instructions+' Responde con claridad, en un máximo de 80 palabras. Puedes ofrecer escribir ASESOR para hablar con el equipo.');
   const fresh=await C.getContact(phone);const latest=Date.parse(fresh?.last_inbound_at||'');
   if(!fresh||fresh.needs_human||fresh.opt_out_at||fresh.metadata?.care_assistant?.active||!Number.isFinite(latest)||Date.now()-latest>86400000||!(await settings()).enabled){await C.updateStatus(key,'cancelled');return true;}
   attempted=true;const sent=await C.sendText(phone,reply);const id=sent?.messages?.[0]?.id;if(!id)throw Error('Resultado de envío incierto');
   await C.logMessage({wa_message_id:id,phone_e164:phone,direction:'outbound',message_type:'text',source:'ai_assistant',status:'sent',body_preview:reply});
   await C.updateStatus(key,'accepted',{message_id:id});
- }catch(e){await C.updateStatus(key,attempted?'unconfirmed':'failed');await C.upsertContact(phone,{needs_human:true,last_intent:'ai_needs_team'});}
+ }catch(e){await C.updateStatus(key,attempted?'unconfirmed':'failed');await C.upsertContact(phone,{needs_human:true,last_intent:'ai_needs_team'});const current=await record(SETTINGS);await save(SETTINGS,{...current,last_error:e.reason?e.message:'El asistente necesita atención del equipo. Revisa la conversación.'});}
  return true;
 }
 module.exports={record,save,settings,generate,respond,providerError,SETTINGS};
