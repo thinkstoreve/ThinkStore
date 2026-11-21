@@ -30,4 +30,4 @@ Canal `meta-us`: **+1 555-780-5646**. El +58 conserva su configuración y su alm
 
 ## Validación
 
-88 pruebas específicas de WhatsApp aprobadas antes de publicación, incluyendo concurrencia sin mutar el entorno del proceso, credenciales y tablas aisladas, remitente esperado, autenticación y firma del webhook. La prueba de entrega real requiere completar los pasos de Meta y configuración privada.
+90 pruebas específicas de WhatsApp aprobadas antes de publicación, incluyendo concurrencia sin mutar el entorno del proceso, credenciales y tablas aisladas, remitente esperado, autenticación y firma del webhook. La prueba de entrega real requiere completar los pasos de Meta y configuración privada.
