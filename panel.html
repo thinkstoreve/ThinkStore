@@ -811,12 +811,23 @@ async function refreshRealData(opts={}){
   realState.loading=true; realState.error=''; refreshKpis();
   try{
     const headers=await adminApiHeaders({},{requireAuth:true});
-    const res=await fetch('/.netlify/functions/admin-data',{headers,cache:'no-store',signal:AbortSignal.timeout(25000)}); const data=await res.json().catch(()=>({}));
+    const lightweight=opts.live===true&&realState.directoryLoadedAt&&Date.now()-realState.directoryLoadedAt<15*60*1000;
+    const res=await fetch('/.netlify/functions/admin-data'+(lightweight?'?refresh=live':''),{headers,cache:'no-store',signal:AbortSignal.timeout(25000)}); const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.error||'No se pudieron cargar los datos reales');
-    realState.bajasCorreo=new Set((data.bajasCorreo||[]).map(normalizeEmail)); realState.clientes=(data.clientes||[]).map(mapClient); realState.pedidos=(data.pedidos||[]).map(mapOrder); realState.comprobantes=data.comprobantes||[]; realState.lastRefresh=data.refreshed_at||new Date().toISOString();
+    if(Array.isArray(data.bajasCorreo))realState.bajasCorreo=new Set(data.bajasCorreo.map(normalizeEmail));
+    if(Array.isArray(data.clientes)){realState.clientes=data.clientes.map(mapClient);realState.directoryLoadedAt=Date.now();}
+    realState.pedidos=(data.pedidos||[]).map(mapOrder); realState.comprobantes=data.comprobantes||[]; realState.lastRefresh=data.refreshed_at||new Date().toISOString();
     // Usuarios internos: nunca cargar aquí todos los perfiles públicos.
     if(!opts.silent) result('globalStatus',`Datos reales actualizados: ${realState.clientes.length} clientes · ${realState.pedidos.length} pedidos`);
   }catch(e){realState.error=e.message||String(e); if(!opts.silent) result('globalStatus','Error: '+realState.error)}finally{realState.loading=false;refreshKpis();if($('mCountRegistered'))campaignRecipientCounts()}
+}
+
+async function autoRefreshRealData(){
+  if(document.hidden||!isAdminRole()||realState.loading)return;
+  try{
+    await refreshRealData({silent:true,live:true});
+    if(!realState.error&&['dashboard','pedidos','pagos','clientes','crm','preordenes','logistica','guias','entregas'].includes(window.currentModule||''))await openModule(window.currentModule);
+  }catch(e){console.warn('ThinkStore refresh:',e)}
 }
 
 async function refreshClientRealData(opts={}){
@@ -3127,14 +3138,7 @@ async function boot(){
     }).catch(err=>console.warn('ThinkStore datos reales:',err));
 
     if(realRefreshTimer)clearInterval(realRefreshTimer);
-    realRefreshTimer=setInterval(async()=>{
-      try{
-        await refreshRealData({silent:true});
-        if(['dashboard','pedidos','pagos','clientes','crm','preordenes','logistica','guias','entregas'].includes(window.currentModule||'')){
-          await openModule(window.currentModule);
-        }
-      }catch(e){console.warn('ThinkStore refresh:',e)}
-    },30000);
+    realRefreshTimer=setInterval(autoRefreshRealData,30000);
   }else if(r==='cliente'){
     Promise.resolve(refreshClientRealData({silent:true})).then(()=>{
       tsSafeCall(()=>refreshKpis(),'client kpis');
