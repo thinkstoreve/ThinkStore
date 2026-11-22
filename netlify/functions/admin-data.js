@@ -18,6 +18,8 @@ exports.handler = async function(event) {
   }
 
   const clean = (v) => String(v ?? '').trim();
+  const restricted='Supabase restringió el servicio por cuota de transferencia. Los datos siguen guardados; administración debe restablecer el servicio.';
+  const unavailable=(res)=>res.status===402?{ok:false,unavailable:true,code:'SERVICE_RESTRICTED',error:restricted}:res.status===429||res.status>=500?{ok:false,unavailable:true,code:'SERVICE_UNAVAILABLE',error:'El servicio de datos no está disponible temporalmente. Conservamos los datos que ya estaban cargados.'}:null;
   async function authorizeAdmin() {
     const expectedSecret = clean(process.env.THINKSTORE_ADMIN_SECRET);
     const expectedCode = clean(process.env.THINKSTORE_ADMIN_CODE);
@@ -29,16 +31,19 @@ exports.handler = async function(event) {
     try {
       const userRes = await fetch(SUPABASE_URL.replace(/\/$/,'') + '/auth/v1/user', { headers:{ apikey:SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${token}` } });
       const u = await userRes.json().catch(()=>({}));
+      const userIssue=unavailable(userRes);if(userIssue)return userIssue;
       if (!userRes.ok || !u?.id) return { ok:false };
       const profileRes = await fetch(SUPABASE_URL.replace(/\/$/,'') + '/rest/v1/profiles?select=id,role,active&id=eq.' + encodeURIComponent(u.id) + '&limit=1', { headers:{ apikey:SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } });
       const arr = await profileRes.json().catch(()=>[]);
+      const profileIssue=unavailable(profileRes);if(profileIssue)return profileIssue;
       const profile = Array.isArray(arr) ? arr[0] : null;
       const r = clean(profile?.role).toLowerCase();
       if (!profileRes.ok || !profile || profile.active === false || !['admin','super_admin','superadmin','administrator','gerente'].includes(r)) return { ok:false };
       return { ok:true, mode:'supabase_jwt', user_id:u.id, role:r };
-    } catch (_) { return { ok:false }; }
+    } catch (_) { return {ok:false,unavailable:true,code:'SERVICE_UNAVAILABLE',error:'No se pudo comprobar la sesión con el servicio de datos. Reintenta más tarde.'}; }
   }
   const authz = await authorizeAdmin();
+  if(authz.unavailable)return {statusCode:503,headers:{...headers,'Retry-After':'60'},body:JSON.stringify({ok:false,error:authz.error,code:authz.code})};
   if (!authz.ok) return { statusCode:401, headers, body:JSON.stringify({ok:false,error:'Acceso administrador no autorizado'}) };
 
   const api = SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/';
@@ -51,6 +56,7 @@ exports.handler = async function(event) {
   async function get(path) {
     const res = await fetch(api + path, { headers: baseHeaders });
     const data = await res.json().catch(() => []);
+    const issue=unavailable(res);if(issue)throw Object.assign(new Error(issue.error),{status:503,code:issue.code});
     if (!res.ok) throw new Error(data.message || data.error || `Error leyendo ${path}`);
     return data;
   }
@@ -58,7 +64,7 @@ exports.handler = async function(event) {
   async function getOptional(paths, fallback=[]) {
     let lastError = null;
     for (const path of paths) {
-      try { return await get(path); } catch (e) { lastError = e; }
+      try { return await get(path); } catch (e) { if(e.status===503)throw e;lastError=e; }
     }
     console.warn('ThinkStore admin optional query failed:', lastError && lastError.message);
     return fallback;
@@ -69,10 +75,11 @@ exports.handler = async function(event) {
 
 
   try {
-    // Clientes se lee SIEMPRE de forma independiente para que el dashboard nunca quede en 1 por fallo de pedidos.
-    const clientes = await get('clientes?select=*&order=created_at.desc');
+    // Live refreshes update orders/payments; keep the already loaded directory in the client.
+    const includeDirectory=event.queryStringParameters?.refresh!=='live';
+    const clientes=includeDirectory?await get('clientes?select=*&order=created_at.desc'):null;
     // Imported contacts are business records, without creating Auth accounts.
-    for(let offset=0;offset<20000;offset+=1000){
+    if(includeDirectory)for(let offset=0;offset<20000;offset+=1000){
       const page=await get('ts_customer_directory?select=*&source=neq.Registrado&order=id.asc&limit=1000&offset='+offset);
       clientes.push(...page);
       if(page.length<1000)break;
@@ -87,8 +94,8 @@ exports.handler = async function(event) {
       'orders?select=*&order=created_at.desc'
     ], []);
 
-    const bajasCorreo = [];
-    for (let offset = 0; ; offset += 1000) {
+    const bajasCorreo=includeDirectory?[]:null;
+    if(includeDirectory)for (let offset = 0; ; offset += 1000) {
       const page = await get('newsletter_subscribers?select=email&status=eq.unsubscribed&order=email.asc&limit=1000&offset=' + offset);
       bajasCorreo.push(...page.map(row => row.email));
       if (page.length < 1000) break;
@@ -103,9 +110,9 @@ exports.handler = async function(event) {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ ok: true, bajasCorreo, clientes, pedidos, comprobantes, refreshed_at: new Date().toISOString() })
+      body: JSON.stringify({ ok: true, ...(includeDirectory?{bajasCorreo,clientes}:{}), pedidos, comprobantes, refreshed_at: new Date().toISOString() })
     };
   } catch (error) {
-    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: error.message || 'Error interno' }) };
+    return { statusCode: error.status||500, headers:{...headers,...(error.status===503?{'Retry-After':'60'}:{})}, body: JSON.stringify({ ok: false, error: error.message || 'Error interno',...(error.code?{code:error.code}:{}) }) };
   }
 };
